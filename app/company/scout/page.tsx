@@ -1,39 +1,38 @@
 "use client"
 
-import { Checkbox } from "@/components/ui/checkbox"
-
 import { useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Briefcase, CalendarIcon, Clock, Filter, GraduationCap, MapPin, Search, Send, Tag, User, X } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
-// ダミーデータ
-const students = [
+// Sample student data
+const sampleStudents = [
   {
     id: 1,
     name: "山田 太郎",
     university: "東京大学",
     major: "情報工学",
-    academicYear: 3, // 学年 (1-4)
+    academicYear: 3,
     graduationYear: 2024,
     location: "東京",
-    desiredIndustries: ["IT", "コンサルティング"], // 志望業界
-    hasInternshipExperience: true, // インターン経験
+    desiredIndustries: ["IT", "コンサルティング"],
+    hasInternshipExperience: true,
     skills: ["JavaScript", "React", "Node.js"],
     interests: ["Web開発", "AI", "データ分析"],
     avatar: "/placeholder.svg?height=100&width=100",
@@ -92,70 +91,10 @@ const students = [
       },
     ],
   },
-  {
-    id: 4,
-    name: "高橋 実",
-    university: "名古屋大学",
-    major: "機械工学",
-    academicYear: 2,
-    graduationYear: 2025,
-    location: "愛知",
-    desiredIndustries: ["自動車", "製造"],
-    hasInternshipExperience: false,
-    skills: ["CAD", "MATLAB", "Python"],
-    interests: ["自動車工学", "製品設計", "シミュレーション"],
-    avatar: "/placeholder.svg?height=100&width=100",
-    about: "機械設計とシミュレーションに興味があります。自動車業界でエンジニアとして働きたいと考えています。",
-    experience: [],
-  },
-  {
-    id: 5,
-    name: "伊藤 美咲",
-    university: "早稲田大学",
-    major: "デザイン学",
-    academicYear: 4,
-    graduationYear: 2024,
-    location: "東京",
-    desiredIndustries: ["デザイン", "広告"],
-    hasInternshipExperience: true,
-    skills: ["UI/UX", "Figma", "Adobe XD"],
-    interests: ["プロダクトデザイン", "ユーザー体験", "ブランディング"],
-    avatar: "/placeholder.svg?height=100&width=100",
-    about: "ユーザー中心のデザインに情熱を持っています。使いやすく美しいインターフェースを作ることが好きです。",
-    experience: [
-      {
-        title: "UIデザイナーインターン",
-        company: "デザインスタジオ株式会社",
-        period: "2022年7月 - 2022年10月",
-      },
-    ],
-  },
-  {
-    id: 6,
-    name: "渡辺 健太",
-    university: "慶應義塾大学",
-    major: "経営学",
-    academicYear: 3,
-    graduationYear: 2024,
-    location: "東京",
-    desiredIndustries: ["コンサルティング", "金融"],
-    hasInternshipExperience: true,
-    skills: ["マーケティング", "データ分析", "Excel"],
-    interests: ["デジタルマーケティング", "ビジネス戦略", "スタートアップ"],
-    avatar: "/placeholder.svg?height=100&width=100",
-    about: "マーケティングとビジネス戦略に興味があります。データ駆動型の意思決定を重視しています。",
-    experience: [
-      {
-        title: "マーケティングインターン",
-        company: "デジタルマーケティング株式会社",
-        period: "2023年1月 - 2023年4月",
-      },
-    ],
-  },
 ]
 
-// スカウトテンプレート
-const scoutTemplates = [
+// Scout message templates
+const messageTemplates = [
   {
     id: 1,
     title: "一般的なスカウト",
@@ -174,55 +113,29 @@ const scoutTemplates = [
     content:
       "こんにちは、[学生名]さん。あなたのデザインスキルとポートフォリオに感銘を受けました。私たちは現在、ユーザー体験を重視した新しいプロダクトを開発中で、あなたのような才能あるデザイナーを探しています。",
   },
-  {
-    id: 4,
-    title: "インターン経験者向けスカウト",
-    content:
-      "こんにちは、[学生名]さん。あなたの[会社名]でのインターン経験に興味を持ちました。その経験を活かして、私たちの会社でさらにスキルを伸ばしませんか？ぜひカジュアル面談でお話ししましょう。",
-  },
-  {
-    id: 5,
-    title: "志望業界マッチ",
-    content:
-      "こんにちは、[学生名]さん。あなたの志望業界である[業界]に私たちの会社は属しています。業界をリードする当社で、あなたのキャリアをスタートさせてみませんか？",
-  },
 ]
 
 export default function ScoutPage() {
+  const { toast } = useToast()
+  const [students, setStudents] = useState(sampleStudents)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedMajor, setSelectedMajor] = useState("all")
   const [selectedYear, setSelectedYear] = useState("all")
   const [selectedLocation, setSelectedLocation] = useState("all")
-  const [selectedAcademicYear, setSelectedAcademicYear] = useState("all")
-  const [selectedIndustry, setSelectedIndustry] = useState("all")
-  const [hasInternshipFilter, setHasInternshipFilter] = useState(false)
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
+  const [hasInternshipFilter, setHasInternshipFilter] = useState(false)
+  const [sortOption, setSortOption] = useState("default")
+
+  // Modal states
   const [isScoutModalOpen, setIsScoutModalOpen] = useState(false)
-  const [selectedStudent, setSelectedStudent] = useState<(typeof students)[0] | null>(null)
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("")
-  const [scoutMessage, setScoutMessage] = useState<string>("")
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  const [profileStudent, setProfileStudent] = useState<(typeof students)[0] | null>(null)
+  const [selectedStudent, setSelectedStudent] = useState<(typeof sampleStudents)[0] | null>(null)
+  const [profileStudent, setProfileStudent] = useState<(typeof sampleStudents)[0] | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState("")
+  const [scoutMessage, setScoutMessage] = useState("")
   const [isSending, setIsSending] = useState(false)
-  const [selectedTemplateType, setSelectedTemplateType] = useState<string | null>(null)
-  const [students, setStudents] = useState<(typeof students)[]>([...students])
-  const currentCompanyId = 1 // 仮の企業ID
 
-  const { toast } = useToast()
-
-  // スキルの追加
-  const addSkill = (skill: string) => {
-    if (!selectedSkills.includes(skill)) {
-      setSelectedSkills([...selectedSkills, skill])
-    }
-  }
-
-  // スキルの削除
-  const removeSkill = (skill: string) => {
-    setSelectedSkills(selectedSkills.filter((s) => s !== skill))
-  }
-
-  // フィルタリングを適用
+  // Filter students based on criteria
   const filteredStudents = students.filter((student) => {
     const matchesSearch =
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -231,28 +144,15 @@ export default function ScoutPage() {
     const matchesMajor = selectedMajor === "all" || student.major.includes(selectedMajor)
     const matchesYear = selectedYear === "all" || student.graduationYear.toString() === selectedYear
     const matchesLocation = selectedLocation === "all" || student.location === selectedLocation
-    const matchesAcademicYear =
-      selectedAcademicYear === "all" || student.academicYear.toString() === selectedAcademicYear
-    const matchesIndustry = selectedIndustry === "all" || student.desiredIndustries.includes(selectedIndustry)
     const matchesInternship = !hasInternshipFilter || student.hasInternshipExperience
     const matchesSkills =
       selectedSkills.length === 0 ||
       selectedSkills.every((skill) => student.skills.some((s) => s.toLowerCase().includes(skill.toLowerCase())))
-    return (
-      matchesSearch &&
-      matchesMajor &&
-      matchesYear &&
-      matchesLocation &&
-      matchesSkills &&
-      matchesAcademicYear &&
-      matchesIndustry &&
-      matchesInternship
-    )
+
+    return matchesSearch && matchesMajor && matchesYear && matchesLocation && matchesInternship && matchesSkills
   })
 
-  const [sortOption, setSortOption] = useState("default")
-
-  // Sort the students based on the selected option
+  // Sort students based on selected option
   const sortedStudents = [...filteredStudents].sort((a, b) => {
     switch (sortOption) {
       case "nameAsc":
@@ -272,82 +172,61 @@ export default function ScoutPage() {
     }
   })
 
-  // スカウトモーダルを開く
-  const openScoutModal = (student: (typeof students)[0]) => {
+  // Add skill to filter
+  const addSkill = (skill: string) => {
+    if (!selectedSkills.includes(skill)) {
+      setSelectedSkills([...selectedSkills, skill])
+    }
+  }
+
+  // Remove skill from filter
+  const removeSkill = (skill: string) => {
+    setSelectedSkills(selectedSkills.filter((s) => s !== skill))
+  }
+
+  // Open scout modal
+  const openScoutModal = (student: (typeof sampleStudents)[0]) => {
     setSelectedStudent(student)
     setSelectedTemplate("")
     setScoutMessage("")
     setIsScoutModalOpen(true)
   }
 
-  // テンプレートを選択
-  const selectTemplate = (templateId: number) => {
-    const template = scoutTemplates.find((t) => t.id === templateId)
+  // Open profile modal
+  const openProfileModal = (student: (typeof sampleStudents)[0]) => {
+    setProfileStudent(student)
+    setIsProfileModalOpen(true)
+  }
+
+  // Select message template
+  const selectTemplate = (templateId: string) => {
+    const template = messageTemplates.find((t) => t.id.toString() === templateId)
     if (template && selectedStudent) {
       let message = template.content
       message = message.replace("[学生名]", selectedStudent.name)
       message = message.replace("[スキル]", selectedStudent.skills.join(", "))
-
-      // 追加の置換処理
-      if (selectedStudent.experience && selectedStudent.experience.length > 0) {
-        message = message.replace("[会社名]", selectedStudent.experience[0].company)
-      }
-
-      if (selectedStudent.desiredIndustries && selectedStudent.desiredIndustries.length > 0) {
-        message = message.replace("[業界]", selectedStudent.desiredIndustries[0])
-      }
-
       setScoutMessage(message)
-      setSelectedTemplate(templateId.toString())
+      setSelectedTemplate(templateId)
     }
   }
 
-  // スカウトを送信
+  // Send scout message
   const sendScout = async () => {
-    // ここで実際のスカウト送信処理を行う
+    if (!selectedStudent) return
+
     try {
       setIsSending(true)
 
-      // スカウトデータの構築
-      const scoutData = {
-        company_id: currentCompanyId, // 現在ログイン中の企業ID
-        student_id: selectedStudent?.id,
-        template_id: selectedTemplate ? Number.parseInt(selectedTemplate) : null,
-        message: scoutMessage,
-        status: "sent", // 送信済みステータス
-        template_type: selectedTemplateType || "general",
-      }
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // APIエンドポイントにPOSTリクエストを送信
-      const response = await fetch("/api/scouts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(scoutData),
-      })
-
-      if (!response.ok) {
-        throw new Error("スカウト送信に失敗しました")
-      }
-
-      // 成功時の処理
       toast({
         title: "スカウトを送信しました",
-        description: `${selectedStudent?.name}さんにスカウトを送信しました。`,
+        description: `${selectedStudent.name}さんにスカウトを送信しました。`,
       })
 
       setIsScoutModalOpen(false)
-
-      // 学生リストを更新（スカウト済みフラグを更新）
-      const updatedStudents = students.map((student) =>
-        student.id === selectedStudent?.id
-          ? { ...student, isScoutSent: true, lastScoutDate: new Date().toISOString() }
-          : student,
-      )
-      setStudents(updatedStudents)
     } catch (error) {
-      console.error("スカウト送信エラー:", error)
       toast({
         title: "エラーが発生しました",
         description: "スカウトの送信に失敗しました。もう一度お試しください。",
@@ -358,10 +237,14 @@ export default function ScoutPage() {
     }
   }
 
-  // Add this function to handle profile button clicks
-  const openProfileModal = (student: (typeof students)[0]) => {
-    setProfileStudent(student)
-    setIsProfileModalOpen(true)
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchTerm("")
+    setSelectedMajor("all")
+    setSelectedYear("all")
+    setSelectedLocation("all")
+    setHasInternshipFilter(false)
+    setSelectedSkills([])
   }
 
   return (
@@ -373,6 +256,7 @@ export default function ScoutPage() {
         </div>
       </div>
 
+      {/* Filter tabs */}
       <div className="mb-6 overflow-x-auto">
         <div className="inline-flex bg-gray-100 p-1 rounded-lg">
           <button
@@ -419,7 +303,7 @@ export default function ScoutPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* フィルターパネル */}
+        {/* Filter panel */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-sm p-6 sticky top-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center">
@@ -438,9 +322,6 @@ export default function ScoutPage() {
                     <SelectItem value="情報工学">情報工学</SelectItem>
                     <SelectItem value="コンピュータサイエンス">コンピュータサイエンス</SelectItem>
                     <SelectItem value="電子工学">電子工学</SelectItem>
-                    <SelectItem value="機械工学">機械工学</SelectItem>
-                    <SelectItem value="デザイン学">デザイン学</SelectItem>
-                    <SelectItem value="経営学">経営学</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -455,7 +336,6 @@ export default function ScoutPage() {
                     <SelectItem value="all">すべての卒業年度</SelectItem>
                     <SelectItem value="2024">2024年</SelectItem>
                     <SelectItem value="2025">2025年</SelectItem>
-                    <SelectItem value="2026">2026年</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -470,46 +350,6 @@ export default function ScoutPage() {
                     <SelectItem value="all">すべての地域</SelectItem>
                     <SelectItem value="東京">東京</SelectItem>
                     <SelectItem value="大阪">大阪</SelectItem>
-                    <SelectItem value="愛知">愛知</SelectItem>
-                    <SelectItem value="福岡">福岡</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">学年</label>
-                <Select value={selectedAcademicYear} onValueChange={setSelectedAcademicYear}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="学年を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべての学年</SelectItem>
-                    <SelectItem value="1">1年生</SelectItem>
-                    <SelectItem value="2">2年生</SelectItem>
-                    <SelectItem value="3">3年生</SelectItem>
-                    <SelectItem value="4">4年生</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">志望業界</label>
-                <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="業界を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべての業界</SelectItem>
-                    <SelectItem value="IT">IT</SelectItem>
-                    <SelectItem value="コンサルティング">コンサルティング</SelectItem>
-                    <SelectItem value="金融">金融</SelectItem>
-                    <SelectItem value="製造">製造</SelectItem>
-                    <SelectItem value="自動車">自動車</SelectItem>
-                    <SelectItem value="デザイン">デザイン</SelectItem>
-                    <SelectItem value="広告">広告</SelectItem>
-                    <SelectItem value="研究開発">研究開発</SelectItem>
-                    <SelectItem value="IoT">IoT</SelectItem>
-                    <SelectItem value="AI">AI</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -568,27 +408,14 @@ export default function ScoutPage() {
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setSearchTerm("")
-                  setSelectedMajor("all")
-                  setSelectedYear("all")
-                  setSelectedLocation("all")
-                  setSelectedAcademicYear("all")
-                  setSelectedIndustry("all")
-                  setHasInternshipFilter(false)
-                  setSelectedSkills([])
-                }}
-              >
+              <Button variant="outline" className="w-full" onClick={resetFilters}>
                 フィルターをリセット
               </Button>
             </div>
           </div>
         </div>
 
-        {/* 学生一覧 */}
+        {/* Student list */}
         <div className="lg:col-span-3">
           <div className="mb-6 flex flex-col md:flex-row gap-4">
             <div className="relative flex-grow">
@@ -664,12 +491,10 @@ export default function ScoutPage() {
                     </div>
                   </div>
 
-                  {/* 自己紹介テキスト - 2行で省略 */}
                   <div className="mb-4">
                     <p className="text-gray-600 text-sm line-clamp-2 italic">"{student.about}"</p>
                   </div>
 
-                  {/* 興味・関心セクション */}
                   <div className="mb-4">
                     <p className="text-xs text-gray-500 mb-1">興味・関心:</p>
                     <div className="flex flex-wrap gap-1">
@@ -717,19 +542,14 @@ export default function ScoutPage() {
                     <Button variant="outline" size="sm" onClick={() => openProfileModal(student)}>
                       <User className="h-4 w-4 mr-2" /> プロフィール
                     </Button>
-
-                    {/* スカウト送信ボタン - 常に表示 */}
                     <Button className="bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => openScoutModal(student)}>
                       <Send className="h-4 w-4 mr-2" /> スカウト送信
                     </Button>
                   </div>
 
-                  {/* スカウト状況 */}
                   <div className="text-xs text-gray-400 mt-3 flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
-                    {Math.random() > 0.5
-                      ? `前回スカウト済: 2025/04/${Math.floor(Math.random() * 30) + 1}`
-                      : "未スカウト"}
+                    未スカウト
                   </div>
                 </CardContent>
               </Card>
@@ -742,19 +562,7 @@ export default function ScoutPage() {
                 </div>
                 <h3 className="text-lg font-medium mb-2">学生が見つかりません</h3>
                 <p className="text-gray-500 mb-4">検索条件に一致する学生はいません。条件を変更してお試しください。</p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchTerm("")
-                    setSelectedMajor("all")
-                    setSelectedYear("all")
-                    setSelectedLocation("all")
-                    setSelectedAcademicYear("all")
-                    setSelectedIndustry("all")
-                    setHasInternshipFilter(false)
-                    setSelectedSkills([])
-                  }}
-                >
+                <Button variant="outline" onClick={resetFilters}>
                   フィルターをリセット
                 </Button>
               </div>
@@ -763,7 +571,7 @@ export default function ScoutPage() {
         </div>
       </div>
 
-      {/* スカウト送信モーダル */}
+      {/* Scout modal */}
       <Dialog open={isScoutModalOpen} onOpenChange={setIsScoutModalOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -774,12 +582,12 @@ export default function ScoutPage() {
           <div className="py-4">
             <div className="mb-4">
               <label className="text-sm font-medium mb-2 block">テンプレートを選択</label>
-              <Select value={selectedTemplate} onValueChange={(value) => selectTemplate(Number.parseInt(value))}>
+              <Select value={selectedTemplate} onValueChange={selectTemplate}>
                 <SelectTrigger>
                   <SelectValue placeholder="テンプレートを選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  {scoutTemplates.map((template) => (
+                  {messageTemplates.map((template) => (
                     <SelectItem key={template.id} value={template.id.toString()}>
                       {template.title}
                     </SelectItem>
@@ -826,7 +634,7 @@ export default function ScoutPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 学生プロフィールモーダル */}
+      {/* Profile modal */}
       <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
@@ -853,7 +661,8 @@ export default function ScoutPage() {
                   <div className="flex items-center text-gray-600 mb-2">
                     <GraduationCap className="h-4 w-4 mr-2" />
                     <span>
-                      {profileStudent.university} · {profileStudent.major} · {profileStudent.academicYear}年生
+                      {profileStudent.university} · {profileStudent.major} · {profileStudent.academicYear}年生 ・
+                      {profileStudent.major}・{profileStudent.academicYear}年生
                     </span>
                   </div>
                   <div className="flex items-center text-gray-600 mb-4">
