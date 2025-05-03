@@ -69,7 +69,7 @@ export default function SignupPage() {
     }
 
     try {
-      // 1. まずユーザーを登録し、サインインする
+      // 1. まずユーザーを登録する（メール確認は後で）
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -86,15 +86,16 @@ export default function SignupPage() {
         throw new Error("ユーザー登録に失敗しました")
       }
 
-      // 2. サインインしてからプロフィールを作成する
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      })
+      // 2. 少し待機してユーザーがデータベースに確実に反映されるようにする
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      if (signInError) throw signInError
+      // 3. サーバーサイドでプロフィールを作成する代わりに、
+      // 登録完了ページにリダイレクトして、そこでプロフィール作成を促す
+      router.push(`/registration-complete?userId=${authData.user.id}&email=${encodeURIComponent(formData.email)}`)
 
-      // 3. プロフィールデータを挿入
+      // 注: 以下のコードは使用しません。代わりに登録完了ページでプロフィール作成を行います
+      /*
+      // プロフィールデータを挿入
       const { error: profileError } = await supabase.from("student_profiles").insert({
         user_id: authData.user.id,
         full_name: formData.full_name,
@@ -110,8 +111,9 @@ export default function SignupPage() {
         throw new Error("プロフィールの作成に失敗しました: " + profileError.message)
       }
 
-      // 4. 成功したらリダイレクト
+      // 成功したらリダイレクト
       router.push("/student-dashboard")
+      */
     } catch (error: any) {
       console.error("Registration error:", error)
       setError(error.message || "登録中に問題が発生しました。もう一度お試しください。")

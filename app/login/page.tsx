@@ -1,316 +1,174 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import Link from "next/link"
+import { useEffect, useState } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
-import { Mail, Lock, User, Building2, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
+import type { Database } from "@/lib/supabase/types"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useAuth } from "@/lib/auth-context"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 
-export default function LoginPage() {
+export default function StudentDashboard() {
   const router = useRouter()
-  const { isLoggedIn, userType, login } = useAuth()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [activeTab, setActiveTab] = useState<"student" | "company">("student")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const supabase = createClientComponentClient<Database>()
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
 
-  // すでにログインしている場合はリダイレクト
   useEffect(() => {
-    if (isLoggedIn) {
-      if (userType === "student") {
-        router.push("/student-dashboard")
-      } else if (userType === "company") {
-        router.push("/company-dashboard")
-      }
-    }
-  }, [isLoggedIn, userType, router])
+    const checkUser = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsLoading(true)
-
-    try {
-      const success = await login(email, password, activeTab)
-      if (!success) {
-        setError("メールアドレスまたはパスワードが正しくありません。")
+      if (error || !user) {
+        router.push("/login")
+        return
       }
-    } catch (err) {
-      setError("ログイン中にエラーが発生しました。もう一度お試しください。")
-      console.error(err)
-    } finally {
-      setIsLoading(false)
+
+      setUser(user)
+
+      // プロフィール情報を取得
+      const { data: profileData, error: profileError } = await supabase
+        .from("student_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single()
+
+      if (profileError && profileError.code !== "PGRST116") {
+        console.error("Profile fetch error:", profileError)
+      }
+
+      if (profileData) {
+        setProfile(profileData)
+      } else {
+        // プロフィールが存在しない場合は作成
+        const { error: insertError } = await supabase.from("student_profiles").insert({
+          user_id: user.id,
+          full_name: user.user_metadata.full_name || "",
+        })
+
+        if (insertError) {
+          console.error("Profile creation error:", insertError)
+        } else {
+          // 作成したプロフィールを取得
+          const { data: newProfile } = await supabase
+            .from("student_profiles")
+            .select("*")
+            .eq("user_id", user.id)
+            .single()
+
+          setProfile(newProfile)
+        }
+      }
+
+      setLoading(false)
     }
+
+    checkUser()
+  }, [router, supabase])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push("/login")
   }
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-50 py-12">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-md rounded-xl border bg-white p-8 shadow-lg">
-          <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold text-gray-900">アカウントにログイン</h1>
-            <p className="mt-2 text-sm text-gray-600">就活をスタートして、あなたのキャリアを切り拓こう</p>
-          </div>
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">学生ダッシュボード</h1>
+        <Button variant="outline" onClick={handleSignOut}>
+          ログアウト
+        </Button>
+      </div>
 
-          <Tabs
-            defaultValue="student"
-            className="w-full"
-            onValueChange={(value) => setActiveTab(value as "student" | "company")}
-          >
-            <TabsList className="grid w-full grid-cols-2 rounded-lg bg-gray-100 p-1">
-              <TabsTrigger
-                value="student"
-                className="flex items-center gap-1.5 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <User size={16} />
-                <span>学生としてログイン</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="company"
-                className="flex items-center gap-1.5 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                <Building2 size={16} />
-                <span>企業としてログイン</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="student" className="mt-6">
-              <p className="mb-4 text-sm text-gray-600">
-                学生アカウントでダッシュボードにアクセスし、スカウトを受け取りましょう
-              </p>
-              <form onSubmit={handleLogin} className="space-y-4">
-                {error && (
-                  <Alert variant="destructive" className="flex items-center gap-2 border-red-200 bg-red-50">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="student-email" className="text-sm font-medium">
-                    メールアドレス
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                    <Input
-                      id="student-email"
-                      type="email"
-                      placeholder="example@mail.com"
-                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="student-password" className="text-sm font-medium">
-                      パスワード
-                    </Label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-xs font-medium text-red-600 hover:text-red-800 hover:underline"
-                    >
-                      パスワードをお忘れですか？
-                    </Link>
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                    <Input
-                      id="student-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={togglePasswordVisibility}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full bg-red-600 py-6 text-base font-medium hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ログイン中...
-                    </>
-                  ) : (
-                    "ログイン"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="company" className="mt-6">
-              <p className="mb-4 text-sm text-gray-600">企業アカウントで採用管理ダッシュボードにアクセスしましょう</p>
-              <form onSubmit={handleLogin} className="space-y-4">
-                {error && (
-                  <Alert variant="destructive" className="flex items-center gap-2 border-red-200 bg-red-50">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="company-email" className="text-sm font-medium">
-                    メールアドレス
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                    <Input
-                      id="company-email"
-                      type="email"
-                      placeholder="company@example.com"
-                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="company-password" className="text-sm font-medium">
-                      パスワード
-                    </Label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-xs font-medium text-red-600 hover:text-red-800 hover:underline"
-                    >
-                      パスワードをお忘れですか？
-                    </Link>
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                    <Input
-                      id="company-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={togglePasswordVisibility}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full bg-red-600 py-6 text-base font-medium hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ログイン中...
-                    </>
-                  ) : (
-                    "ログイン"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-gray-500">または</span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="flex items-center justify-center gap-2 border-gray-300 bg-white py-5 hover:bg-gray-50"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24">
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    fill="#EA4335"
-                  />
-                  <path d="M1 1h22v22H1z" fill="none" />
-                </svg>
-                <span>Google</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="flex items-center justify-center gap-2 border-gray-300 bg-white py-5 hover:bg-gray-50"
-              >
-                <svg className="h-5 w-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9.19795 21.5H13.198V13.4901H16.8021L17.198 9.50977H13.198V7.5C13.198 6.94772 13.6457 6.5 14.198 6.5H17.198V2.5H14.198C11.4365 2.5 9.19795 4.73858 9.19795 7.5V9.50977H7.19795L6.80206 13.4901H9.19795V21.5Z" />
-                </svg>
-                <span>Facebook</span>
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-600">
-              アカウントをお持ちでない方は
-              <Link href="/signup" className="ml-1 font-medium text-red-600 hover:text-red-800 hover:underline">
-                新規登録
-              </Link>
-            </p>
-          </div>
-
-          <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <h3 className="mb-2 font-medium text-gray-700">テスト用アカウント</h3>
-            <div className="space-y-2 text-sm text-gray-600">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>プロフィール</CardTitle>
+            <CardDescription>あなたの基本情報</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
               <p>
-                <strong>学生:</strong> student1@example.com / password123
+                <span className="font-medium">名前:</span> {profile?.full_name || "未設定"}
               </p>
               <p>
-                <strong>企業:</strong> company1@example.com / password123
+                <span className="font-medium">大学:</span> {profile?.university || "未設定"}
               </p>
+              <p>
+                <span className="font-medium">学部:</span> {profile?.faculty || "未設定"}
+              </p>
+              <p>
+                <span className="font-medium">学科:</span> {profile?.department || "未設定"}
+              </p>
+              <p>
+                <span className="font-medium">卒業予定年:</span> {profile?.graduation_year || "未設定"}
+              </p>
+              <Button className="mt-4 w-full" variant="outline" onClick={() => router.push("/student/profile")}>
+                プロフィールを編集
+              </Button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>スキル</CardTitle>
+            <CardDescription>あなたのスキルセット</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {profile?.skills && profile.skills.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {profile.skills.map((skill: string) => (
+                  <span key={skill} className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">スキルが登録されていません</p>
+            )}
+            <Button className="mt-4 w-full" variant="outline" onClick={() => router.push("/student/profile")}>
+              スキルを編集
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>応募状況</CardTitle>
+            <CardDescription>あなたの就職活動の進捗</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-500">まだ応募した求人はありません</p>
+            <Button className="mt-4 w-full" variant="outline" onClick={() => router.push("/jobs")}>
+              求人を探す
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>スカウト</CardTitle>
+            <CardDescription>企業からのオファー</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-500">まだスカウトはありません</p>
+            <Button className="mt-4 w-full" variant="outline" onClick={() => router.push("/student/scouts")}>
+              スカウトを確認
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
