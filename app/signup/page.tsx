@@ -69,8 +69,8 @@ export default function SignupPage() {
     }
 
     try {
-      // Register user with Supabase
-      const { data, error: authError } = await supabase.auth.signUp({
+      // 1. まずユーザーを登録し、サインインする
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -80,31 +80,38 @@ export default function SignupPage() {
         },
       })
 
-      if (authError) {
-        throw authError
+      if (authError) throw authError
+
+      if (!authData.user) {
+        throw new Error("ユーザー登録に失敗しました")
       }
 
-      if (data.user) {
-        // Insert additional user data into profiles table
-        const { error: profileError } = await supabase.from("student_profiles").insert([
-          {
-            user_id: data.user.id,
-            full_name: formData.full_name,
-            university: formData.university || null,
-            faculty: formData.faculty || null,
-            department: formData.department || null,
-            graduation_year: formData.graduation_year ? Number.parseInt(formData.graduation_year) : null,
-            skills: formData.skills.length > 0 ? formData.skills : null,
-          },
-        ])
+      // 2. サインインしてからプロフィールを作成する
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      })
 
-        if (profileError) {
-          throw profileError
-        }
+      if (signInError) throw signInError
 
-        // Redirect to student dashboard or confirmation page
-        router.push("/login?registered=true")
+      // 3. プロフィールデータを挿入
+      const { error: profileError } = await supabase.from("student_profiles").insert({
+        user_id: authData.user.id,
+        full_name: formData.full_name,
+        university: formData.university || null,
+        faculty: formData.faculty || null,
+        department: formData.department || null,
+        graduation_year: formData.graduation_year ? Number.parseInt(formData.graduation_year) : null,
+        skills: formData.skills.length > 0 ? formData.skills : null,
+      })
+
+      if (profileError) {
+        console.error("Profile error:", profileError)
+        throw new Error("プロフィールの作成に失敗しました: " + profileError.message)
       }
+
+      // 4. 成功したらリダイレクト
+      router.push("/student-dashboard")
     } catch (error: any) {
       console.error("Registration error:", error)
       setError(error.message || "登録中に問題が発生しました。もう一度お試しください。")
