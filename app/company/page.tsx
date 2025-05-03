@@ -93,13 +93,14 @@ export default function CompanyDashboard() {
   }
 
   // 日付をフォーマットする関数
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string): string => {
     const date = new Date(dateString)
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
   }
+  
 
   // ステータスに応じたバッジの色を返す関数
-  const getStatusBadgeVariant = (status) => {
+  const getStatusBadgeVariant = (status: string): string => {
     switch (status) {
       case "新規":
         return "bg-blue-100 text-blue-800 hover:bg-blue-100"
@@ -119,6 +120,7 @@ export default function CompanyDashboard() {
         return "bg-gray-100 text-gray-800 hover:bg-gray-100"
     }
   }
+  
 
   // 求人が存在するかどうか
   const hasJobs = activeJobs.length > 0
