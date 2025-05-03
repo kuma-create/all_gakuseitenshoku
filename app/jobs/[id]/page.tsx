@@ -132,7 +132,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         setJob(jobData)
         setCompany(jobData.company)
         setJobTags(tags)
-        setHasApplied(applicationData && applicationData.length > 0)
+        setHasApplied(applicationData !== null && applicationData.length > 0)
         setRelatedJobs(relatedJobsData || [])
 
         // Check if job is in saved jobs
@@ -366,14 +366,15 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                       {(job.requirements || "")
                         .split("\n")
                         .filter(Boolean)
-                        .map((req, index) => (
+                        .map((req: string, index: number) => (
                           <li key={index} className="flex items-start gap-2">
                             <div className="mt-1 text-red-600">
                               <Check size={16} />
                             </div>
                             <span>{req}</span>
                           </li>
-                        ))}
+                        ))
+                        }
                     </ul>
                   </div>
 
@@ -384,14 +385,15 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                         {job.preferred_skills
                           .split("\n")
                           .filter(Boolean)
-                          .map((skill, index) => (
+                          .map((skill: string, index: number) => (
                             <li key={index} className="flex items-start gap-2">
                               <div className="mt-1 text-green-600">
                                 <Plus size={16} />
                               </div>
                               <span>{skill}</span>
                             </li>
-                          ))}
+                          ))
+                          }
                       </ul>
                     </div>
                   )}
@@ -428,14 +430,15 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                       {(job.benefits || "各種社会保険完備\n交通費支給\n在宅勤務手当\n書籍購入補助")
                         .split("\n")
                         .filter(Boolean)
-                        .map((benefit, index) => (
+                        .map((benefit: string, index: number) => (
                           <div key={index} className="flex items-center gap-2">
                             <div className="text-green-600">
                               <Check size={16} />
                             </div>
                             <span className="text-gray-700">{benefit}</span>
                           </div>
-                        ))}
+                        ))
+                        }
                     </div>
                   </div>
                 </div>

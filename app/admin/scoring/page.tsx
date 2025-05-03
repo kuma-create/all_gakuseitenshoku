@@ -50,8 +50,8 @@ export default function ScoringPage() {
 
   const handleOpenScoring = (submission: (typeof mockSubmissions)[0]) => {
     setSelectedSubmission(submission)
-    setScore(submission.status === "scored" ? submission.score.toString() : "")
-    setFeedback(submission.status === "scored" ? submission.feedback || "" : "")
+    setScore(submission.status === "scored" ? submission.score?.toString() ?? "" : "")
+    setFeedback(submission.status === "scored" ? submission.feedback ?? "" : "")
     setIsDialogOpen(true)
   }
 
