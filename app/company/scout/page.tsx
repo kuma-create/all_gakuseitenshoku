@@ -12,9 +12,9 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -572,6 +572,7 @@ export default function ScoutPage() {
                 variant="outline"
                 className="w-full"
                 onClick={() => {
+                  setSearchTerm("")
                   setSelectedMajor("all")
                   setSelectedYear("all")
                   setSelectedLocation("all")
