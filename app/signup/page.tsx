@@ -3,32 +3,33 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { ArrowLeft, AtSign, Eye, EyeOff, Lock, User, CheckCircle } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/lib/supabase/types"
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function SignupPage() {
   const router = useRouter()
   const supabase = createClientComponentClient<Database>()
 
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState(1)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
+  // Form data state
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    confirmPassword: "",
     full_name: "",
     university: "",
     faculty: "",
@@ -37,77 +38,39 @@ export default function SignupPage() {
     skills: [] as string[],
   })
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleCheckboxChange = (value: string, checked: boolean) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value } = e.target
     setFormData((prev) => ({
       ...prev,
-      skills: checked ? [...prev.skills, value] : prev.skills.filter((skill) => skill !== value),
+      [id]: value,
     }))
   }
 
-  const validateStep1 = () => {
-    if (!formData.email || !formData.password || !formData.confirmPassword) {
-      setError("すべての項目を入力してください")
-      return false
-    }
-
-    if (!formData.email.includes("@")) {
-      setError("有効なメールアドレスを入力してください")
-      return false
-    }
-
-    if (formData.password.length < 6) {
-      setError("パスワードは6文字以上である必要があります")
-      return false
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("パスワードが一致しません")
-      return false
-    }
-
-    setError(null)
-    return true
+  const handleCheckboxChange = (skill: string, checked: boolean) => {
+    setFormData((prev) => {
+      if (checked) {
+        return { ...prev, skills: [...prev.skills, skill] }
+      } else {
+        return { ...prev, skills: prev.skills.filter((s) => s !== skill) }
+      }
+    })
   }
 
-  const validateStep2 = () => {
-    if (!formData.full_name) {
-      setError("名前を入力してください")
-      return false
-    }
-
-    setError(null)
-    return true
-  }
-
-  const nextStep = () => {
-    if (step === 1 && validateStep1()) {
-      setStep(2)
-    } else if (step === 2 && validateStep2()) {
-      setStep(3)
-    }
-  }
-
-  const prevStep = () => {
-    setStep(step - 1)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setIsLoading(true)
     setError(null)
+
+    if (step < 3) {
+      // Move to next step
+      setStep(step + 1)
+      setIsLoading(false)
+      return
+    }
 
     try {
-      // Supabaseでユーザー登録
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Register user with Supabase
+      const { data, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -117,177 +80,38 @@ export default function SignupPage() {
         },
       })
 
-      if (authError) throw authError
+      if (authError) {
+        throw authError
+      }
 
-      if (authData.user) {
-        // student_profilesテーブルにデータを挿入
-        const { error: profileError } = await supabase.from("student_profiles").insert({
-          user_id: authData.user.id,
-          full_name: formData.full_name,
-          university: formData.university || null,
-          faculty: formData.faculty || null,
-          department: formData.department || null,
-          graduation_year: formData.graduation_year ? Number.parseInt(formData.graduation_year) : null,
-          skills: formData.skills.length > 0 ? formData.skills : null,
-        })
+      if (data.user) {
+        // Insert additional user data into profiles table
+        const { error: profileError } = await supabase.from("student_profiles").insert([
+          {
+            user_id: data.user.id,
+            full_name: formData.full_name,
+            university: formData.university || null,
+            faculty: formData.faculty || null,
+            department: formData.department || null,
+            graduation_year: formData.graduation_year ? Number.parseInt(formData.graduation_year) : null,
+            skills: formData.skills.length > 0 ? formData.skills : null,
+          },
+        ])
 
-        if (profileError) throw profileError
+        if (profileError) {
+          throw profileError
+        }
 
-        setSuccess("登録が完了しました！メールを確認してアカウントを有効化してください。")
-        setTimeout(() => {
-          router.push("/login")
-        }, 3000)
+        // Redirect to student dashboard or confirmation page
+        router.push("/login?registered=true")
       }
     } catch (error: any) {
       console.error("Registration error:", error)
-      setError(error.message || "登録中にエラーが発生しました。もう一度お試しください。")
+      setError(error.message || "登録中に問題が発生しました。もう一度お試しください。")
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
-
-  const renderStep1 = () => (
-    <>
-      <CardHeader>
-        <CardTitle className="text-2xl">アカウント作成</CardTitle>
-        <CardDescription>学生アカウントを作成して、就職活動を始めましょう</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">メールアドレス</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            placeholder="your.email@example.com"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">パスワード</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">パスワード（確認）</Label>
-          <Input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
-          />
-        </div>
-      </CardContent>
-    </>
-  )
-
-  const renderStep2 = () => (
-    <>
-      <CardHeader>
-        <CardTitle className="text-2xl">基本情報</CardTitle>
-        <CardDescription>あなたの基本情報を入力してください</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="full_name">氏名</Label>
-          <Input
-            id="full_name"
-            name="full_name"
-            placeholder="山田 太郎"
-            value={formData.full_name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="university">大学名</Label>
-          <Input
-            id="university"
-            name="university"
-            placeholder="○○大学"
-            value={formData.university}
-            onChange={handleChange}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="faculty">学部</Label>
-          <Input id="faculty" name="faculty" placeholder="○○学部" value={formData.faculty} onChange={handleChange} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="department">学科</Label>
-          <Input
-            id="department"
-            name="department"
-            placeholder="○○学科"
-            value={formData.department}
-            onChange={handleChange}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="graduation_year">卒業予定年</Label>
-          <Select
-            value={formData.graduation_year}
-            onValueChange={(value) => handleSelectChange("graduation_year", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="卒業予定年を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="2025">2025年</SelectItem>
-              <SelectItem value="2026">2026年</SelectItem>
-              <SelectItem value="2027">2027年</SelectItem>
-              <SelectItem value="2028">2028年</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardContent>
-    </>
-  )
-
-  const renderStep3 = () => (
-    <>
-      <CardHeader>
-        <CardTitle className="text-2xl">スキル情報</CardTitle>
-        <CardDescription>あなたのスキルを教えてください</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>スキル（複数選択可）</Label>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            {[
-              { id: "programming", label: "プログラミング" },
-              { id: "design", label: "デザイン" },
-              { id: "marketing", label: "マーケティング" },
-              { id: "business", label: "ビジネス" },
-              { id: "communication", label: "コミュニケーション" },
-              { id: "english", label: "英語" },
-              { id: "presentation", label: "プレゼンテーション" },
-              { id: "leadership", label: "リーダーシップ" },
-            ].map((item) => (
-              <div className="flex items-center space-x-2" key={item.id}>
-                <Checkbox
-                  id={item.id}
-                  checked={formData.skills.includes(item.id)}
-                  onCheckedChange={(checked) => handleCheckboxChange(item.id, checked as boolean)}
-                />
-                <Label htmlFor={item.id}>{item.label}</Label>
-              </div>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </>
-  )
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -302,60 +126,295 @@ export default function SignupPage() {
           </Link>
         </div>
 
-        <Card className="w-full max-w-md mx-auto">
-          <form onSubmit={handleSubmit}>
-            {step === 1 && renderStep1()}
-            {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
+        <div className="grid md:grid-cols-5 gap-8 items-start">
+          {/* Left column - Form */}
+          <div className="md:col-span-3">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-red-500 to-red-600 text-white">
+                <CardTitle className="text-2xl">新規アカウント登録</CardTitle>
+                <CardDescription className="text-red-100">学生転職で理想のキャリアを見つけましょう</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {step === 1 && (
+                  <form onSubmit={handleSignup} className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="email">メールアドレス</Label>
+                        <div className="relative">
+                          <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="example@university.ac.jp"
+                            className="pl-10"
+                            required
+                            value={formData.email}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          ※大学のメールアドレスを使用すると、在学証明が不要になります
+                        </p>
+                      </div>
 
-            {error && (
-              <div className="px-6 pb-4">
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
+                      <div className="grid gap-2">
+                        <Label htmlFor="password">パスワード</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <Input
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="8文字以上の英数字"
+                            className="pl-10 pr-10"
+                            required
+                            minLength={8}
+                            value={formData.password}
+                            onChange={handleInputChange}
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <p>パスワードは以下の条件を満たす必要があります：</p>
+                          <ul className="space-y-1">
+                            <li className="flex items-center gap-1">
+                              <CheckCircle size={12} className="text-green-500" />
+                              <span>8文字以上</span>
+                            </li>
+                            <li className="flex items-center gap-1">
+                              <CheckCircle size={12} className="text-green-500" />
+                              <span>英字と数字を含む</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="terms" required />
+                      <Label htmlFor="terms" className="text-sm">
+                        <span>利用規約</span>と<span>プライバシーポリシー</span>に同意します
+                      </Label>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={isLoading}>
+                      {isLoading ? (
+                        <>
+                          <span className="animate-spin mr-2">◌</span>
+                          処理中...
+                        </>
+                      ) : (
+                        "次へ進む"
+                      )}
+                    </Button>
+                  </form>
+                )}
+
+                {step === 2 && (
+                  <form onSubmit={handleSignup} className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="full_name">氏名</Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <Input
+                            id="full_name"
+                            placeholder="山田 太郎"
+                            className="pl-10"
+                            required
+                            value={formData.full_name}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="university">大学名</Label>
+                        <Input
+                          id="university"
+                          placeholder="〇〇大学"
+                          required
+                          value={formData.university}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="faculty">学部</Label>
+                        <Input
+                          id="faculty"
+                          placeholder="〇〇学部"
+                          value={formData.faculty}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="department">学科</Label>
+                        <Input
+                          id="department"
+                          placeholder="〇〇学科"
+                          value={formData.department}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="graduation_year">卒業予定年</Label>
+                        <select
+                          id="graduation_year"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          required
+                          value={formData.graduation_year}
+                          onChange={handleInputChange}
+                        >
+                          <option value="">選択してください</option>
+                          <option value="2026">2026年</option>
+                          <option value="2027">2027年</option>
+                          <option value="2028">2028年</option>
+                          <option value="2029">2029年</option>
+                          <option value="2030">2030年</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={isLoading}>
+                      {isLoading ? (
+                        <>
+                          <span className="animate-spin mr-2">◌</span>
+                          処理中...
+                        </>
+                      ) : (
+                        "次へ進む"
+                      )}
+                    </Button>
+                  </form>
+                )}
+
+                {step === 3 && (
+                  <form onSubmit={handleSignup} className="space-y-6">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-bold">スキル情報</h3>
+                      <p className="text-gray-600">あなたのスキルを教えてください</p>
+
+                      <div className="pt-2">
+                        <h4 className="font-medium mb-2">スキル（複数選択可）</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { id: "programming", label: "プログラミング" },
+                            { id: "design", label: "デザイン" },
+                            { id: "marketing", label: "マーケティング" },
+                            { id: "business", label: "ビジネス" },
+                            { id: "communication", label: "コミュニケーション" },
+                            { id: "english", label: "英語" },
+                            { id: "presentation", label: "プレゼンテーション" },
+                            { id: "leadership", label: "リーダーシップ" },
+                          ].map((skill) => (
+                            <div key={skill.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={skill.id}
+                                checked={formData.skills.includes(skill.id)}
+                                onCheckedChange={(checked) => handleCheckboxChange(skill.id, checked === true)}
+                              />
+                              <Label htmlFor={skill.id}>{skill.label}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {error && (
+                      <Alert variant="destructive" className="mt-4">
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="flex justify-between">
+                      <Button type="button" variant="outline" onClick={() => setStep(2)} disabled={isLoading}>
+                        戻る
+                      </Button>
+                      <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={isLoading}>
+                        {isLoading ? (
+                          <>
+                            <span className="animate-spin mr-2">◌</span>
+                            処理中...
+                          </>
+                        ) : (
+                          "登録する"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </CardContent>
+              <CardFooter className="flex flex-col items-center border-t px-6 py-4 text-center">
+                <p className="text-sm text-gray-600">
+                  すでにアカウントをお持ちの方は
+                  <Link href="/login" className="ml-1 font-medium text-red-600 hover:underline">
+                    ログイン
+                  </Link>
+                </p>
+              </CardFooter>
+            </Card>
+          </div>
+
+          {/* Right column - Benefits */}
+          <div className="md:col-span-2">
+            <div className="sticky top-4 space-y-6">
+              <div className="rounded-xl bg-white p-6 shadow-lg border border-gray-100">
+                <h3 className="mb-4 text-lg font-bold text-gray-900">登録するメリット</h3>
+                <ul className="space-y-4">
+                  <li className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                      <CheckCircle size={14} />
+                    </div>
+                    <div>
+                      <p className="font-medium">企業からのスカウト</p>
+                      <p className="text-sm text-gray-600">あなたのプロフィールを見た企業から直接オファーが届きます</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                      <CheckCircle size={14} />
+                    </div>
+                    <div>
+                      <p className="font-medium">職務経歴書の自動作成</p>
+                      <p className="text-sm text-gray-600">
+                        経験やスキルを入力するだけで、魅力的な職務経歴書が完成します
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                      <CheckCircle size={14} />
+                    </div>
+                    <div>
+                      <p className="font-medium">就活グランプリへの参加</p>
+                      <p className="text-sm text-gray-600">
+                        ビジネススキルを可視化し、企業からの注目度をアップできます
+                      </p>
+                    </div>
+                  </li>
+                </ul>
               </div>
-            )}
 
-            {success && (
-              <div className="px-6 pb-4">
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-700">{success}</AlertDescription>
-                </Alert>
+              <div className="rounded-xl overflow-hidden shadow-lg">
+                <Image
+                  src="/student-dashboard-preview.png"
+                  alt="学生ダッシュボードのプレビュー"
+                  width={400}
+                  height={300}
+                  className="w-full h-auto"
+                />
               </div>
-            )}
-
-            <CardFooter className="flex justify-between">
-              {step > 1 ? (
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  戻る
-                </Button>
-              ) : (
-                <Button type="button" variant="outline" onClick={() => router.push("/")}>
-                  キャンセル
-                </Button>
-              )}
-
-              {step < 3 ? (
-                <Button type="button" onClick={nextStep}>
-                  次へ
-                </Button>
-              ) : (
-                <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      登録中...
-                    </>
-                  ) : (
-                    "登録する"
-                  )}
-                </Button>
-              )}
-            </CardFooter>
-          </form>
-        </Card>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
