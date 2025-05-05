@@ -425,28 +425,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     clearError()
     try {
-      // Supabaseからログアウト
       await supabase.auth.signOut()
-
+  
       setIsLoggedIn(false)
       setUserType(null)
       setUser(null)
       setSession(null)
       setUserProfile(null)
-
+  
       try {
         localStorage.removeItem("auth")
-      } catch (error) {
-        console.error("Failed to remove auth state:", error)
+      } catch (e) {
+        console.error("Failed to remove auth state:", e)
       }
-
-      router.push("/")
+  
+      /* ここを replace で /login へ */
+      router.replace("/login")
     } catch (error: any) {
       console.error("Logout error:", error)
       setError(`ログアウトに失敗しました: ${error.message || "不明なエラー"}`)
     }
   }
-
   return (
     <AuthContext.Provider
       value={{

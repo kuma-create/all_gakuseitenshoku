@@ -1,51 +1,50 @@
 "use client"
 
-import {
-  Briefcase,
-  Building,
-  Calendar,
-  ChevronRight,
-  Filter,
-  Heart,
-  Info,
-  MapPin,
-  RefreshCw,
-  Search,
-  SortAsc,
-  Star,
-  Zap,
-  Loader2,
-} from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
 import { useState, useEffect } from "react"
+import Link   from "next/link"
+import Image  from "next/image"
+import {
+  Briefcase, Building, Calendar, ChevronRight, Filter, Heart, Info, MapPin,
+  RefreshCw, Search, SortAsc, Star, Zap, Loader2,
+} from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Button }   from "@/components/ui/button"
+import { Card }     from "@/components/ui/card"
+import { Input }    from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
+import { Badge }    from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
+import { Label }    from "@/components/ui/label"
+import { Slider }   from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+
 import { supabase, type Job, type JobTag } from "@/lib/supabase"
+import { useAuthGuard } from "@/lib/use-auth-guard"   /* ★ 追加 */
 
 type JobWithTags = Job & {
   tags: string[]
-  company: {
-    name: string
-    logo_url: string
-    cover_image_url: string
-  }
+  company: { name: string; logo_url: string; cover_image_url: string }
   is_new: boolean
   is_featured: boolean
 }
 
 export default function JobsPage() {
+  /* ← 学生専用ページにしたいのでガードを呼ぶ */
+  const ready = useAuthGuard("student")
+
+  /* ロード前は Skeleton */
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="mr-2 h-6 w-6 animate-spin text-red-500" />
+        <span>認証を確認中...</span>
+      </div>
+    )
+  }
+
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedIndustry, setSelectedIndustry] = useState("all")
   const [selectedJobType, setSelectedJobType] = useState("all")
@@ -510,31 +509,38 @@ export default function JobsPage() {
                 <span>並び替え</span>
               </Button>
 
-              <Select value={selectedIndustry} onValueChange={setSelectedIndustry} className="hidden sm:inline-flex">
-                <SelectTrigger className="w-[180px] border-2">
-                  <SelectValue placeholder="業界で絞り込み" />
-                </SelectTrigger>
-                <SelectContent>
-                  {industries.map((industry) => (
-                    <SelectItem key={industry.value} value={industry.value}>
-                      {industry.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="hidden sm:inline-flex">
+                <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+                  <SelectTrigger className="w-[180px] border-2">
+                    <SelectValue placeholder="業界で絞り込み" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {industries.map((industry) => (
+                      <SelectItem key={industry.value} value={industry.value}>
+                        {industry.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={selectedJobType} onValueChange={setSelectedJobType} className="hidden md:inline-flex">
-                <SelectTrigger className="w-[180px] border-2">
-                  <SelectValue placeholder="職種で絞り込み" />
-                </SelectTrigger>
-                <SelectContent>
-                  {jobTypes.map((jobType) => (
-                    <SelectItem key={jobType.value} value={jobType.value}>
-                      {jobType.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* ── 職種セレクト（md 以上で表示）── */}
+              <div className="hidden md:inline-flex">
+                <Select value={selectedJobType} onValueChange={setSelectedJobType}>
+                  <SelectTrigger className="w-[180px] border-2">
+                    <SelectValue placeholder="職種で絞り込み" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {jobTypes.map((jobType) => (
+                      <SelectItem key={jobType.value} value={jobType.value}>
+                        {jobType.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
             </div>
           </div>
         </div>
