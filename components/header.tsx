@@ -6,14 +6,37 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useEffect, useState } from "react"
+import type { Session } from "@supabase/supabase-js"
 
 export function Header() {
   const pathname = usePathname()
   const { isLoggedIn, userType, user, logout } = useAuth()
+  const supabase = createClientComponentClient()
+  const [session, setSession] = useState<Session | null>(null)
 
-  // 学生用のリンク
+  // Supabaseのセッション状態を監視
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession()
+      setSession(data.session)
+    }
+  
+    getSession()
+  
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })    
+  
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase])
+  
+
   const studentLinks = [
-    { href: "/", label: "マイページ", icon: User },
+    { href: "/student-dashboard", label: "マイページ", icon: User },
     { href: "/resume", label: "職務経歴書", icon: FileText },
     { href: "/jobs", label: "求人一覧", icon: Search },
     { href: "/offers", label: "オファー一覧", icon: Mail },
@@ -22,7 +45,6 @@ export function Header() {
     { href: "/features", label: "特集", icon: Star },
   ]
 
-  // 企業用のリンク
   const companyLinks = [
     { href: "/company-dashboard", label: "ダッシュボード", icon: User },
     { href: "/company/jobs", label: "求人管理", icon: FileText },
@@ -32,7 +54,6 @@ export function Header() {
     { href: "/grandprix", label: "就活グランプリ", icon: Trophy },
   ]
 
-  // ランディングページ用のリンク
   const landingLinks = [
     { href: "/#features", label: "特徴" },
     { href: "/#how-it-works", label: "利用の流れ" },
@@ -41,11 +62,9 @@ export function Header() {
     { href: "/#faq", label: "よくある質問" },
   ]
 
-  // パスがルートパスかどうかを確認（ランディングページかどうか）
   const isLandingPage = pathname === "/"
-
-  // 現在のユーザータイプに基づいてリンクを選択
   const links = userType === "company" ? companyLinks : studentLinks
+  const isLoggedInWithSupabase = !!session
 
   return (
     <header className="sticky top-0 z-50 border-b bg-white/80 shadow-sm backdrop-blur-md">
@@ -61,9 +80,8 @@ export function Header() {
 
         <nav className="hidden md:block">
           <ul className="flex items-center gap-6">
-            {isLoggedIn
-              ? // ログイン済みの場合はダッシュボード用のナビゲーションを表示
-                links.map((link) => {
+            {(isLoggedIn || isLoggedInWithSupabase)
+              ? links.map((link) => {
                   const isActive = pathname === link.href
                   const Icon = link.icon
                   return (
@@ -80,8 +98,7 @@ export function Header() {
                     </li>
                   )
                 })
-              : // 未ログインの場合はランディングページ用のナビゲーションを表示
-                landingLinks.map((link) => (
+              : landingLinks.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
@@ -95,8 +112,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-4">
-          {isLoggedIn ? (
-            // ログイン済みの場合
+          {(isLoggedIn || isLoggedInWithSupabase) ? (
             <>
               <button className="relative" aria-label="通知">
                 <Bell className="h-5 w-5 text-gray-600" />
@@ -105,7 +121,9 @@ export function Header() {
                 </span>
               </button>
               <div className="flex items-center gap-2">
-                <div className="hidden text-sm font-medium text-gray-700 md:block">{user?.name}</div>
+                <div className="hidden text-sm font-medium text-gray-700 md:block">
+                  {user?.name || session?.user?.user_metadata?.full_name || "ユーザー"}
+                </div>
                 <div className="relative h-8 w-8 overflow-hidden rounded-full">
                   <Image
                     src="/placeholder.svg?height=32&width=32"
@@ -116,12 +134,21 @@ export function Header() {
                   />
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={logout} className="text-gray-600">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  if (isLoggedInWithSupabase) {
+                    await supabase.auth.signOut()
+                  }
+                  logout()
+                }}
+                className="text-gray-600"
+              >
                 ログアウト
               </Button>
             </>
           ) : (
-            // 未ログインの場合
             <>
               <Link href="/login">
                 <Button variant="ghost" size="sm" className="text-gray-600">
