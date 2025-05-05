@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { grandprix-leaderboard } from "@/components/grandprix-leaderboard"
+import { GrandPrixLeaderboard } from "@/components/grandprix-leaderboard"
 
 // Mock data for current challenge
 const currentChallenge = {
@@ -221,7 +221,7 @@ export default function MonthlyChallengePage() {
       </section>
 
       {/* Leaderboard Section */}
-      <grandprix-leaderboard />
+      <GrandPrixLeaderboard />
 
       {/* 過去のお題セクション */}
       <section className="py-12 md:py-16">
