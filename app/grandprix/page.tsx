@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { GrandprixBanner } from "@/components/grandprix-banner"
-import { GrandPrixLeaderboard } from "@/components/GrandPrixLeaderboard"   // ← 修正ここ
+import { GrandPrixLeaderboard } from "@/components/grandprix-leaderboard"  // ← 修正ここ
 import { Button } from "@/components/ui/button"
 import { Trophy, Users, Gift } from "lucide-react"
 import Link from "next/link"
@@ -76,9 +76,8 @@ export default function GrandPrixPage() {
       </div>
 
       <div id="leaderboard" className="mt-12">
-        <h2 className="mb-6 text-2xl font-bold text-gray-900">リーダーボード</h2>
-        <GrandPrixLeaderboard />
-      </div>
+      <h2 className="mb-6 text-2xl font-bold text-gray-900">リーダーボード</h2>
+      <GrandPrixLeaderboard />
 
       <div id="monthly-challenge" className="mt-12">
         <h2 className="mb-6 text-2xl font-bold text-gray-900">今月のチャレンジ</h2>
@@ -89,5 +88,5 @@ export default function GrandPrixPage() {
         </div>
       </div>
     </div>
-  )
-}
+  </div>
+  )}
