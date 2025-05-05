@@ -133,7 +133,7 @@ export const GrandPrixLeaderboard = () => {
       /* 3) rank・badge を付与して上位 10 件に絞る */
       const ranked: LeaderboardEntry[] = data
         .map((row, idx) => {
-          const profile = row.student_profiles?.[0]   // ← ここ
+          const profile = row.student_profiles  // ← ここ
 
           return {
             student_id: row.student_id,
