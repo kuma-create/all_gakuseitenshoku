@@ -23,28 +23,19 @@ import type { Session } from "@supabase/supabase-js"
 export function Header() {
   const pathname = usePathname()
   const { isLoggedIn, userType, user, logout } = useAuth()
-
-  /* ── Supabase セッション ─────────────────────────────── */
   const supabase = createClientComponentClient()
   const [session, setSession] = useState<Session | null>(null)
 
+  /* --- Supabase セッション監視 --- */
   useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getSession()
-      setSession(data.session)
-    }
-    init()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_e, ses) => setSession(ses),
+    )
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  /* ── リンク定義 ─────────────────────────────────────── */
+  /* --- リンク定義 --- */
   const studentLinks = [
     { href: "/student-dashboard", label: "マイページ", icon: User },
     { href: "/resume", label: "職務経歴書", icon: FileText },
@@ -72,15 +63,14 @@ export function Header() {
     { href: "/#faq", label: "よくある質問" },
   ] as const
 
+  const links = userType === "company" ? companyLinks : studentLinks
   const isLoggedInWithSupabase = !!session
-  const showAuthLinks = isLoggedIn || isLoggedInWithSupabase
-  const navLinks = userType === "company" ? companyLinks : studentLinks
 
-  /* ── JSX ───────────────────────────────────────────── */
+  /* -------------------------------------------------------------------- */
   return (
     <header className="sticky top-0 z-50 border-b bg-white/80 shadow-sm backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
+        {/* ロゴ */}
         <Link href="/" className="flex items-center gap-2">
           <div className="relative h-8 w-8 overflow-hidden rounded bg-red-600">
             <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-white">
@@ -90,58 +80,52 @@ export function Header() {
           <span className="text-xl font-bold text-red-600">学生転職</span>
         </Link>
 
-        {/* Navigation */}
+        {/* ナビ */}
         <nav className="hidden md:block">
           <ul className="flex items-center gap-6">
-            {showAuthLinks
-              ? navLinks.map(({ href, label, icon: Icon }) => {
-                  const isActive = pathname === href
-                  return (
-                    <li key={href}>
-                      <Link
-                        href={href}
-                        className={`flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-red-600 ${
-                          isActive ? "text-red-600" : "text-gray-600"
-                        }`}
-                      >
-                        <Icon size={18} />
-                        {label}
-                      </Link>
-                    </li>
-                  )
-                })
-              : landingLinks.map(({ href, label }) => (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      className="text-sm font-medium text-gray-600 transition-colors hover:text-red-600"
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
+            {(isLoggedIn || isLoggedInWithSupabase
+              ? links
+              : landingLinks
+            ).map((l) => {
+              const isActive = pathname === l.href
+              const Icon = (l as any).icon
+              return (
+                <li key={l.href}>
+                  <Link
+                    href={l.href}
+                    className={cn(
+                      "flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-red-600",
+                      isActive ? "text-red-600" : "text-gray-600",
+                    )}
+                  >
+                    {Icon && <Icon size={18} />}
+                    {l.label}
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         </nav>
 
-        {/* Right side */}
+        {/* 右側 */}
         <div className="flex items-center gap-4">
-          {showAuthLinks ? (
+          {(isLoggedIn || isLoggedInWithSupabase) ? (
             <>
-              {/* 通知アイコン */}
-              <button className="relative" aria-label="通知">
+              {/* 通知 */}
+              <button aria-label="通知" className="relative">
                 <Bell className="h-5 w-5 text-gray-600" />
                 <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
                   2
                 </span>
               </button>
 
-              {/* プロフィール */}
+              {/* ユーザーアイコン */}
               <div className="flex items-center gap-2">
-                <div className="hidden text-sm font-medium text-gray-700 md:block">
+                <span className="hidden text-sm font-medium text-gray-700 md:block">
                   {user?.name ||
                     session?.user?.user_metadata?.full_name ||
                     "ユーザー"}
-                </div>
+                </span>
                 <div className="relative h-8 w-8 overflow-hidden rounded-full">
                   <Image
                     src="/placeholder.svg?height=32&width=32"
@@ -158,9 +142,7 @@ export function Header() {
                 variant="ghost"
                 size="sm"
                 onClick={async () => {
-                  if (isLoggedInWithSupabase) {
-                    await supabase.auth.signOut()
-                  }
+                  if (isLoggedInWithSupabase) await supabase.auth.signOut()
                   logout()
                 }}
                 className="text-gray-600"
@@ -171,16 +153,16 @@ export function Header() {
           ) : (
             <>
               {/* ログイン */}
-              <Button variant="ghost" size="sm" className="text-gray-600" asChild>
-                <Link href="/auth/signin">
+              <Button asChild variant="ghost" size="sm" className="text-gray-600">
+                <Link href="/login">
                   <LogIn className="mr-2 h-4 w-4" />
                   ログイン
                 </Link>
               </Button>
 
-              {/* 新規登録 */}
-              <Button className="bg-red-600 hover:bg-red-700" asChild>
-                <Link href="/auth/signup">無料ではじめる</Link>
+              {/* サインアップ */}
+              <Button asChild className="bg-red-600 hover:bg-red-700">
+                <Link href="/signup">無料ではじめる</Link>
               </Button>
             </>
           )}
@@ -188,4 +170,9 @@ export function Header() {
       </div>
     </header>
   )
+}
+
+/* ちょっとしたユーティリティ */
+function cn(...cls: (string | boolean | undefined)[]) {
+  return cls.filter(Boolean).join(" ")
 }
