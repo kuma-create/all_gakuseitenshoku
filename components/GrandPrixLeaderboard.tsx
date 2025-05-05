@@ -7,14 +7,59 @@ import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
-// Mock data for leaderboard
-const leaderboardData = {
+/* -------------------------------------------------------------------------- */
+/*                                    型定義                                   */
+/* -------------------------------------------------------------------------- */
+type BadgeType = "gold" | "silver" | "bronze" | null
+
+interface LeaderboardEntry {
+  id: number
+  rank: number
+  name: string
+  university: string
+  score: number
+  badge: BadgeType
+  isCurrentUser: boolean
+}
+
+interface UserRank {
+  rank: number
+  score: number
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               モックデータ定義                               */
+/* -------------------------------------------------------------------------- */
+const leaderboardData: Record<string, LeaderboardEntry[]> = {
   "2025-05": [
     { id: 1, rank: 1, name: "佐藤 健太", university: "東京大学", score: 98, badge: "gold", isCurrentUser: false },
     { id: 2, rank: 2, name: "田中 美咲", university: "慶應義塾大学", score: 95, badge: "silver", isCurrentUser: false },
@@ -53,41 +98,40 @@ const leaderboardData = {
   ],
 }
 
-// Current user data if not in top 10
-const currentUserRank = {
+const currentUserRank: Record<string, UserRank | null> = {
   "2025-05": { rank: 23, score: 78 },
-  "2025-04": null, // User is in top 10 for April
+  "2025-04": null,
   "2025-03": { rank: 15, score: 85 },
 }
 
-// Month options for the dropdown
 const monthOptions = [
   { value: "2025-05", label: "2025年5月" },
   { value: "2025-04", label: "2025年4月" },
   { value: "2025-03", label: "2025年3月" },
-]
+] as const
 
-export function GrandPrixLeaderboard() {
-  const [selectedMonth, setSelectedMonth] = useState("2025-05")
+type MonthKey = typeof monthOptions[number]["value"]
+
+/* -------------------------------------------------------------------------- */
+/*                            GrandPrixLeaderboard                             */
+/* -------------------------------------------------------------------------- */
+export const GrandPrixLeaderboard = () => {
+  const [selectedMonth, setSelectedMonth] = useState<MonthKey>("2025-05")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
 
   const handleMonthChange = (value: string) => {
-    setSelectedMonth(value)
+    setSelectedMonth(value as MonthKey)
   }
 
-  const getBadgeIcon = (badge: string | null) => {
-    if (badge === "gold") {
-      return <Medal className="h-5 w-5 text-yellow-500" />
-    } else if (badge === "silver") {
-      return <Medal className="h-5 w-5 text-gray-400" />
-    } else if (badge === "bronze") {
-      return <Medal className="h-5 w-5 text-amber-700" />
-    }
+  const getBadgeIcon = (badge: BadgeType) => {
+    if (badge === "gold") return <Medal className="h-5 w-5 text-yellow-500" />
+    if (badge === "silver") return <Medal className="h-5 w-5 text-gray-400" />
+    if (badge === "bronze") return <Medal className="h-5 w-5 text-amber-700" />
     return null
   }
 
-  const getBadgeTooltip = (badge: string | null) => {
+  const getBadgeTooltip = (badge: BadgeType) => {
     if (badge === "gold") return "1位 - トップスコア獲得者"
     if (badge === "silver") return "2位 - 優秀回答者"
     if (badge === "bronze") return "3位 - 優秀回答者"
@@ -95,20 +139,25 @@ export function GrandPrixLeaderboard() {
   }
 
   const viewAnswer = (id: number) => {
-    // In a real app, this would fetch the answer from the backend
     setSelectedAnswer(
       `これは${id}番の回答です。実際のアプリケーションでは、このユーザーの実際の回答が表示されます。チームでの成果を出した経験について、私は大学のプロジェクトで5人チームのリーダーを務めました。メンバーそれぞれの強みを活かすために、定期的な進捗確認ミーティングを設け、問題点を早期に発見・解決することで、最終的にプロジェクトを成功させることができました。特に、意見の対立があった際には、各メンバーの視点を尊重しながら、プロジェクトのゴールを明確にすることで合意形成を図りました。`,
     )
     setIsDialogOpen(true)
   }
 
+  /* ------------------------------- JSX ------------------------------- */
   return (
     <section className="py-12 md:py-16">
       <div className="container px-4 md:px-6">
+        {/* Header */}
         <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">ランキング</h2>
-            <p className="mt-1 text-muted-foreground">今月の上位スコアを獲得した学生たち</p>
+            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+              ランキング
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              今月の上位スコアを獲得した学生たち
+            </p>
           </div>
           <div className="w-full md:w-auto">
             <Select value={selectedMonth} onValueChange={handleMonthChange}>
@@ -126,7 +175,7 @@ export function GrandPrixLeaderboard() {
           </div>
         </div>
 
-        {/* Desktop view - Table */}
+        {/* --------------------------- Desktop table --------------------------- */}
         <div className="hidden md:block">
           <div className="rounded-lg border shadow-sm">
             <Table>
@@ -136,14 +185,17 @@ export function GrandPrixLeaderboard() {
                   <TableHead>氏名</TableHead>
                   <TableHead>大学</TableHead>
                   <TableHead className="text-right">スコア</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
+                  <TableHead className="w-[100px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {leaderboardData[selectedMonth as keyof typeof leaderboardData].map((entry) => (
+                {leaderboardData[selectedMonth].map((entry) => (
                   <TableRow
                     key={entry.id}
-                    className={cn(entry.isCurrentUser && "bg-blue-50", entry.rank <= 3 && "bg-amber-50/50")}
+                    className={cn(
+                      entry.isCurrentUser && "bg-blue-50",
+                      entry.rank <= 3 && "bg-amber-50/50",
+                    )}
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
@@ -186,10 +238,16 @@ export function GrandPrixLeaderboard() {
                       </div>
                     </TableCell>
                     <TableCell>{entry.university}</TableCell>
-                    <TableCell className="text-right font-medium">{entry.score}/100</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {entry.score}/100
+                    </TableCell>
                     <TableCell>
                       {entry.isCurrentUser && (
-                        <Button variant="outline" size="sm" onClick={() => viewAnswer(entry.id)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => viewAnswer(entry.id)}
+                        >
                           回答を見る
                         </Button>
                       )}
@@ -200,19 +258,23 @@ export function GrandPrixLeaderboard() {
             </Table>
           </div>
 
-          {/* Show current user's rank if not in top 10 */}
-          {currentUserRank[selectedMonth as keyof typeof currentUserRank] && (
+          {/* current user rank (desktop) */}
+          {currentUserRank[selectedMonth] && (
             <div className="mt-4 rounded-lg border bg-blue-50 p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <User className="h-5 w-5 text-blue-500" />
                   <span className="font-medium">
                     あなたの順位：
-                    {currentUserRank[selectedMonth as keyof typeof currentUserRank]?.rank}位（
-                    {currentUserRank[selectedMonth as keyof typeof currentUserRank]?.score}点）
+                    {currentUserRank[selectedMonth]!.rank}位（
+                    {currentUserRank[selectedMonth]!.score}点）
                   </span>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => viewAnswer(0)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => viewAnswer(0)}
+                >
                   回答を見る
                 </Button>
               </div>
@@ -220,9 +282,9 @@ export function GrandPrixLeaderboard() {
           )}
         </div>
 
-        {/* Mobile view - Cards */}
+        {/* --------------------------- Mobile cards --------------------------- */}
         <div className="space-y-4 md:hidden">
-          {leaderboardData[selectedMonth as keyof typeof leaderboardData].map((entry) => (
+          {leaderboardData[selectedMonth].map((entry) => (
             <Card
               key={entry.id}
               className={cn(
@@ -230,28 +292,25 @@ export function GrandPrixLeaderboard() {
                 entry.rank <= 3 && "border-amber-200 bg-amber-50/50",
               )}
             >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted font-medium">
-                      {entry.rank}
-                    </span>
-                    {entry.badge && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>{getBadgeIcon(entry.badge)}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{getBadgeTooltip(entry.badge)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    {entry.rank === 1 && <span className="text-lg">🏆</span>}
-                  </div>
-                  <div className="text-right font-medium">{entry.score}/100</div>
+              <CardHeader className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted font-medium">
+                    {entry.rank}
+                  </span>
+                  {entry.badge && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>{getBadgeIcon(entry.badge)}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{getBadgeTooltip(entry.badge)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                 </div>
+                <div className="text-right font-medium">{entry.score}/100</div>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col space-y-1">
@@ -263,19 +322,15 @@ export function GrandPrixLeaderboard() {
                       </Badge>
                     )}
                   </div>
-                  <div className="text-sm text-muted-foreground">{entry.university}</div>
-                  {entry.isCurrentUser && (
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => viewAnswer(entry.id)}>
-                      回答を見る
-                    </Button>
-                  )}
+                  <div className="text-sm text-muted-foreground">
+                    {entry.university}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
 
-          {/* Show current user's rank if not in top 10 (mobile) */}
-          {currentUserRank[selectedMonth as keyof typeof currentUserRank] && (
+          {currentUserRank[selectedMonth] && (
             <Card className="border-blue-200 bg-blue-50">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">あなたの順位</CardTitle>
@@ -285,20 +340,17 @@ export function GrandPrixLeaderboard() {
                   <div className="flex items-center gap-2">
                     <User className="h-5 w-5 text-blue-500" />
                     <span className="font-medium">
-                      {currentUserRank[selectedMonth as keyof typeof currentUserRank]?.rank}位（
-                      {currentUserRank[selectedMonth as keyof typeof currentUserRank]?.score}点）
+                      {currentUserRank[selectedMonth]!.rank}位（
+                      {currentUserRank[selectedMonth]!.score}点）
                     </span>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => viewAnswer(0)}>
-                  回答を見る
-                </Button>
               </CardContent>
             </Card>
           )}
         </div>
 
-        {/* Answer dialog */}
+        {/* --------------------------- Answer dialog --------------------------- */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -313,16 +365,7 @@ export function GrandPrixLeaderboard() {
                   <Trophy className="h-5 w-5 text-amber-500" />
                   <span className="font-medium">スコア: 82/100</span>
                 </div>
-                <Badge variant="outline" className="bg-green-100">
-                  採点済
-                </Badge>
-              </div>
-              <div className="rounded-md border p-3">
-                <p className="text-sm font-medium">フィードバック:</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  チームでの成果について具体的に書かれており、リーダーとしての役割も明確です。
-                  もう少し具体的な成果や数字を入れるとさらに良くなります。
-                </p>
+                <Badge variant="outline">採点済</Badge>
               </div>
             </div>
           </DialogContent>

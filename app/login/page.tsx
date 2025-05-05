@@ -1,236 +1,344 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import Image from "next/image"
-import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
+import { Mail, Lock, User, Building2, AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, CheckCircle, ChevronRight, MessageSquare, Search, Trophy } from "lucide-react"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "@/lib/auth-context"
 
-export default function LandingPage() {
+export default function LoginPage() {
   const router = useRouter()
-  const { isLoggedIn, userType } = useAuth()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isAuthChecked, setIsAuthChecked] = useState(false)
+  const { isLoggedIn, userType, login } = useAuth()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [activeTab, setActiveTab] = useState<"student" | "company">("student")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // 認証状態の確認とリダイレクト処理
+  // すでにログインしている場合はリダイレクト
   useEffect(() => {
-    // 認証状態が確定したらフラグを立てる
-    if (isLoggedIn !== undefined) {
-      console.log("Auth state determined:", { isLoggedIn, userType })
-      setIsAuthChecked(true)
-      setIsLoading(false)
-
-      // 認証済みの場合のみリダイレクト
-      if (isLoggedIn === true) {
-        console.log("User is logged in, redirecting to dashboard")
-        if (userType === "student") {
-          router.push("/student-dashboard")
-        } else if (userType === "company") {
-          router.push("/company-dashboard")
-        }
+    if (isLoggedIn) {
+      if (userType === "student") {
+        router.push("/student-dashboard")
+      } else if (userType === "company") {
+        router.push("/company-dashboard")
       }
     }
   }, [isLoggedIn, userType, router])
 
-  // ローディング表示
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-red-600 border-t-transparent"></div>
-          <p>読み込み中...</p>
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const success = await login(email, password, activeTab)
+      if (!success) {
+        setError("メールアドレスまたはパスワードが正しくありません。")
+      }
+    } catch (err) {
+      setError("ログイン中にエラーが発生しました。もう一度お試しください。")
+      console.error(err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
+  return (
+    <div className="flex min-h-[calc(100vh-4rem)] bg-gradient-to-b from-red-50 to-white">
+      <div className="hidden w-1/2 items-center justify-center bg-red-600 lg:flex">
+        <div className="max-w-md px-8 text-white">
+          <h2 className="mb-6 text-3xl font-bold">就活をもっとシンプルに</h2>
+          <p className="mb-6 text-lg leading-relaxed text-red-100">
+            学生転職は、あなたのキャリアをサポートする就活プラットフォームです。企業からのスカウト、グランプリイベント、充実した就活サポートであなたの可能性を広げましょう。
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg bg-red-700/50 p-4">
+              <h3 className="mb-2 font-semibold">3,500+</h3>
+              <p className="text-sm text-red-200">月間スカウト数</p>
+            </div>
+            <div className="rounded-lg bg-red-700/50 p-4">
+              <h3 className="mb-2 font-semibold">85%</h3>
+              <p className="text-sm text-red-200">内定率</p>
+            </div>
+            <div className="rounded-lg bg-red-700/50 p-4">
+              <h3 className="mb-2 font-semibold">1,200+</h3>
+              <p className="text-sm text-red-200">登録企業</p>
+            </div>
+            <div className="rounded-lg bg-red-700/50 p-4">
+              <h3 className="mb-2 font-semibold">25,000+</h3>
+              <p className="text-sm text-red-200">学生ユーザー</p>
+            </div>
+          </div>
         </div>
       </div>
-    )
-  }
 
-  // 認証済みの場合は何も表示しない（リダイレクト中）
-  if (isLoggedIn === true) {
-    return null
-  }
+      <div className="flex w-full items-center justify-center px-4 py-12 lg:w-1/2">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900">アカウントにログイン</h1>
+            <p className="mt-2 text-sm text-gray-600">就活をスタートして、あなたのキャリアを切り拓こう</p>
+          </div>
 
-  // 未認証またはチェック済みの場合はランディングページを表示
-  return (
-    <div className="flex min-h-screen flex-col">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white py-16 md:py-24 lg:py-32">
-        <div className="absolute inset-0 z-0 opacity-5">
-          <Image src="/abstract-geometric-flow.png" alt="Background pattern" fill className="object-cover" priority />
-        </div>
-        <div className="container relative z-10 px-4 md:px-6">
-          <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 lg:items-center">
-            <div className="flex flex-col justify-center space-y-8">
-              <div>
-                <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">逆求人型就活サービス</Badge>
-                <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-                  職務経歴書で<span className="text-red-600">スカウト</span>される、新しい就活のカタチ
-                </h1>
-                <p className="mt-6 text-lg text-gray-600 md:text-xl">
-                  OfferBoxのような逆求人型で、あなたらしいキャリアを切り拓こう。
-                  企業からスカウトが届く、新しい就活プラットフォーム。
-                </p>
-              </div>
+          <Tabs
+            defaultValue="student"
+            className="w-full"
+            onValueChange={(value) => setActiveTab(value as "student" | "company")}
+          >
+            <TabsList className="grid w-full grid-cols-2 rounded-lg bg-gray-100 p-1">
+              <TabsTrigger
+                value="student"
+                className="flex items-center gap-1.5 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                <User size={16} />
+                <span>学生としてログイン</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="company"
+                className="flex items-center gap-1.5 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                <Building2 size={16} />
+                <span>企業としてログイン</span>
+              </TabsTrigger>
+            </TabsList>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-red-600 px-8 hover:bg-red-700" asChild>
-                  <Link href="/signup">
-                    はじめてみる
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
+            <TabsContent value="student" className="mt-6">
+              <p className="mb-4 text-sm text-gray-600">
+                学生アカウントでダッシュボードにアクセスし、スカウトを受け取りましょう
+              </p>
+              <form onSubmit={handleLogin} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive" className="flex items-center gap-2 border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="student-email" className="text-sm font-medium">
+                    メールアドレス
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    <Input
+                      id="student-email"
+                      type="email"
+                      placeholder="example@mail.com"
+                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="student-password" className="text-sm font-medium">
+                      パスワード
+                    </Label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-medium text-red-600 hover:text-red-800 hover:underline"
+                    >
+                      パスワードをお忘れですか？
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    <Input
+                      id="student-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-red-600 py-6 text-base font-medium hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ログイン中...
+                    </>
+                  ) : (
+                    "ログイン"
+                  )}
                 </Button>
-                <Button size="lg" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" asChild>
-                  <Link href="/signup?type=company">
-                    企業の方はこちら
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Link>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="company" className="mt-6">
+              <p className="mb-4 text-sm text-gray-600">企業アカウントで採用管理ダッシュボードにアクセスしましょう</p>
+              <form onSubmit={handleLogin} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive" className="flex items-center gap-2 border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="company-email" className="text-sm font-medium">
+                    メールアドレス
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    <Input
+                      id="company-email"
+                      type="email"
+                      placeholder="company@example.com"
+                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="company-password" className="text-sm font-medium">
+                      パスワード
+                    </Label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-medium text-red-600 hover:text-red-800 hover:underline"
+                    >
+                      パスワードをお忘れですか？
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    <Input
+                      id="company-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-red-600 py-6 text-base font-medium hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ログイン中...
+                    </>
+                  ) : (
+                    "ログイン"
+                  )}
                 </Button>
-              </div>
+              </form>
+            </TabsContent>
+          </Tabs>
 
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>登録は1分で完了</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>完全無料</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>いつでも退会可能</span>
-                </div>
-              </div>
-            </div>
-
+          <div className="mt-6">
             <div className="relative">
-              <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-red-500 to-red-600 opacity-30 blur-xl"></div>
-              <div className="relative overflow-hidden rounded-xl bg-white shadow-2xl">
-                <Image
-                  src="/placeholder.svg?key=c0m2h"
-                  alt="学生転職ダッシュボード"
-                  width={600}
-                  height={400}
-                  className="w-full h-auto"
-                />
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-white px-2 text-gray-500">または</span>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Stats Section */}
-      <section className="border-y bg-gray-50 py-10">
-        <div className="container px-4 md:px-6">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">1,200+</p>
-              <p className="text-sm text-gray-600 md:text-base">登録企業</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">25,000+</p>
-              <p className="text-sm text-gray-600 md:text-base">学生ユーザー</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">85%</p>
-              <p className="text-sm text-gray-600 md:text-base">内定率</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">3,500+</p>
-              <p className="text-sm text-gray-600 md:text-base">月間スカウト数</p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                className="flex items-center justify-center gap-2 border-gray-300 bg-white py-5 hover:bg-gray-50"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                  <path d="M1 1h22v22H1z" fill="none" />
+                </svg>
+                <span>Google</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="flex items-center justify-center gap-2 border-gray-300 bg-white py-5 hover:bg-gray-50"
+              >
+                <svg className="h-5 w-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9.19795 21.5H13.198V13.4901H16.8021L17.198 9.50977H13.198V7.5C13.198 6.94772 13.6457 6.5 14.198 6.5H17.198V2.5H14.198C11.4365 2.5 9.19795 4.73858 9.19795 7.5V9.50977H7.19795L6.80206 13.4901H9.19795V21.5Z" />
+                </svg>
+                <span>Facebook</span>
+              </Button>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 md:py-28">
-        <div className="container px-4 md:px-6">
-          <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">機能・メリット</Badge>
-            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              あなたの就活を<span className="text-red-600">もっと効率的に</span>
-            </h2>
-            <p className="mt-4 text-gray-600">
-              学生転職は、従来の就活の常識を覆す新しいプラットフォーム。
-              あなたの強みを最大限に活かし、理想の企業とマッチングします。
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-600">
+              アカウントをお持ちでない方は
+              <Link href="/signup" className="ml-1 font-medium text-red-600 hover:text-red-800 hover:underline">
+                新規登録
+              </Link>
             </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            <Card className="relative overflow-hidden border-0 bg-white shadow-lg transition-all duration-200 hover:shadow-xl">
-              <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
-              <CardHeader className="pb-2">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                  <Search className="h-6 w-6" />
-                </div>
-                <CardTitle className="text-xl">スカウト型で効率的なマッチング</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  あなたのプロフィールを見た企業から直接オファーが届きます。
-                  自分に興味を持った企業とだけ話を進められるので、効率的に就活ができます。
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Link href="#" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
-                  詳しく見る
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Link>
-              </CardFooter>
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 bg-white shadow-lg transition-all duration-200 hover:shadow-xl">
-              <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
-              <CardHeader className="pb-2">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                  <MessageSquare className="h-6 w-6" />
-                </div>
-                <CardTitle className="text-xl">職務経歴書で自分らしさをPR</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  あなたの経験やスキルを職務経歴書として整理。
-                  自己分析をサポートし、企業に自分の強みを効果的にアピールできます。
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Link href="#" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
-                  詳しく見る
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Link>
-              </CardFooter>
-            </Card>
-
-            <Card className="relative overflow-hidden border-0 bg-white shadow-lg transition-all duration-200 hover:shadow-xl">
-              <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
-              <CardHeader className="pb-2">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                  <Trophy className="h-6 w-6" />
-                </div>
-                <CardTitle className="text-xl">就活グランプリでチャンス拡大</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  ビジネススキルを可視化するオンラインコンテスト。
-                  自分の強みと弱みを客観的に把握でき、企業からの注目度もアップします。
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Link href="#" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
-                  詳しく見る
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Link>
-              </CardFooter>
-            </Card>
+          <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-2 font-medium text-gray-700">テスト用アカウント</h3>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>
+                <strong>学生:</strong> student1@example.com / password123
+              </p>
+              <p>
+                <strong>企業:</strong> company1@example.com / password123
+              </p>
+            </div>
           </div>
         </div>
-      </section>
-
-      {/* 残りのセクションは省略 */}
+      </div>
     </div>
   )
 }
