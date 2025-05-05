@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import type { Session } from "@supabase/auth-helpers-nextjs"
 
 // ダミーユーザーデータ（開発環境用）
@@ -69,7 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile>(null)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClientComponentClient()
   const [isInitialized, setIsInitialized] = useState(false)
 
   // エラーをクリア

@@ -16,14 +16,13 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
 import type { Session } from "@supabase/supabase-js"
 
 export function Header() {
   const pathname = usePathname()
   const { isLoggedIn, userType, user, logout } = useAuth()
-  const supabase = createClientComponentClient()
   const [session, setSession] = useState<Session | null>(null)
 
   /* --- Supabase セッション監視 --- */

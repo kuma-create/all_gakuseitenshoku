@@ -7,7 +7,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { ArrowLeft, AtSign, Eye, EyeOff, Lock, User, CheckCircle } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function SignupPage() {
   const router = useRouter()
-  const supabase = createClientComponentClient<Database>()
 
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)

@@ -5,7 +5,7 @@ import { Medal, Trophy, User } from "lucide-react"
 import { motion } from "framer-motion"
 import dayjs from "dayjs"
 
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 import { cn } from "@/lib/utils"
@@ -71,7 +71,6 @@ type MonthKey = (typeof monthOptions)[number]["value"]
 /*                             GrandPrixLeaderboard                            */
 /* -------------------------------------------------------------------------- */
 export const GrandPrixLeaderboard = () => {
-  const supabase = createClientComponentClient<Database>()
 
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>(
     monthOptions[0].value,
@@ -133,20 +132,25 @@ export const GrandPrixLeaderboard = () => {
 
       /* 3) rank・badge を付与して上位 10 件に絞る */
       const ranked: LeaderboardEntry[] = data
-      .map((row, idx) => ({
-        student_id: row.student_id,
-        full_name: row.student_profiles?.full_name ?? "匿名",
-        university: row.student_profiles?.university ?? "",
-        score: row.score ?? 0,
-        rank: idx + 1,
-        badge:
-          idx === 0 ? "gold" :
-          idx === 1 ? "silver" :
-          idx === 2 ? "bronze" :
-          null as BadgeType,
-        isCurrentUser: row.student_id === currentUserId,
-      }))
-      .slice(0, 10)
+        .map((row, idx) => {
+          const profile = row.student_profiles?.[0]   // ← ここ
+
+          return {
+            student_id: row.student_id,
+            full_name : profile?.full_name   ?? "匿名",
+            university: profile?.university ?? "",
+            score     : row.score ?? 0,
+            rank      : idx + 1,
+            badge     :
+              idx === 0 ? "gold"  :
+              idx === 1 ? "silver":
+              idx === 2 ? "bronze":
+              null as BadgeType,
+            isCurrentUser: row.student_id === currentUserId,
+          }
+        })
+        .slice(0, 10)
+
 
       setEntries(ranked)
       setLoading(false)

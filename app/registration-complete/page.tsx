@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { CheckCircle, Loader2 } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 export default function RegistrationCompletePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClientComponentClient<Database>()
 
   const userId = searchParams.get("userId")
   const email = searchParams.get("email")
