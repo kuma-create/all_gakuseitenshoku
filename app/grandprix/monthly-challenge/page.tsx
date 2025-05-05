@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { GrandPrixLeaderboard } from "@/components/GrandPrixLeaderboard"
+import { GrandPrixLeaderboard } from "@/components/grandPrixLeaderboard"
 
 // Mock data for current challenge
 const currentChallenge = {
