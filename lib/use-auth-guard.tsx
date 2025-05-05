@@ -22,13 +22,16 @@ export function useAuthGuard(role: Role = "any") {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    if (isLoggedIn === null) return // まだ判定中
+     // ① まだ判定中なら待つ
+    if (isLoggedIn === null) return
+
+    // ② ログイン済みでも userType が未取得(null)なら待つ
+    if (isLoggedIn && role !== "any" && userType === null) return
 
     /* ───── 未ログイン ───── */
     if (!isLoggedIn) {
-      // クエリに戻り先を付与（例: /login?next=/resume）
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`)
-      return
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`)
+        return
     }
 
     /* ───── ロール不一致 ───── */
