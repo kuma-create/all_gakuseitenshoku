@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth-context"
+import { supabase } from "@/lib/supabase/client"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -34,23 +35,25 @@ export default function LoginPage() {
     }
   }, [isLoggedIn, userType, router])
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsLoading(true)
-    console.log("LOGIN CLICK")  // ←★ まずはこれだけで OK
-
-    try {
-      const success = await login(email, password, activeTab)
-      if (!success) {
-        setError("メールアドレスまたはパスワードが正しくありません。")
-      }
-    } catch (err) {
-      setError("ログイン中にエラーが発生しました。もう一度お試しください。")
-      console.error(err)
-    } finally {
-      setIsLoading(false)
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()                    // フォーム送信を止める
+    console.log("LOGIN CLICK")            // ← ここは残しておくとデバッグしやすい
+  
+    /* --- ① Supabase Auth を呼ぶ --- */
+    const { error } = await supabase.auth.signInWithPassword({
+      email,          // ← useState で持っている入力値
+      password,
+    })
+  
+    /* --- ② エラーハンドリング --- */
+    if (error) {
+      console.error("Login error:", error)          // Console で詳細を確認
+      setError("メールアドレスまたはパスワードが正しくありません。")
+      return
     }
+  
+    /* --- ③ 成功したらリダイレクト --- */
+    router.replace("/student-dashboard")
   }
 
   const togglePasswordVisibility = () => {
