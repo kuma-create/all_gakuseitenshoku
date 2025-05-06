@@ -126,7 +126,7 @@ function LoginForm({
 /* ───────────── main page ───────────── */
 export default function LoginPage() {
   const router = useRouter()
-  const { isLoggedIn, userType } = useAuth()
+  const { ready, isLoggedIn, user } = useAuth()
 
   const [tab,        setTab]        = useState<"student"|"company">("student")
   const [email,      setEmail]      = useState("")
@@ -137,9 +137,11 @@ export default function LoginPage() {
 
   /* ─── 既ログインなら redirect ─── */
   useEffect(() => {
-    if (!isLoggedIn) return
-    router.replace(userType === "company" ? "/company-dashboard" : "/student-dashboard")
-  }, [isLoggedIn, userType, router])
+    if (!ready || !isLoggedIn || !user) return       // まだ判定中 or 未ログイン
+    router.replace(
+      user.role === "company" ? "/company-dashboard" : "/student-dashboard",
+    )
+  }, [ready, isLoggedIn, user, router])
 
   /* ─── login handler ─── */
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
