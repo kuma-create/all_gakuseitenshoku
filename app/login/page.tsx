@@ -38,6 +38,7 @@ export default function LoginPage() {
     e.preventDefault()
     setError(null)
     setIsLoading(true)
+    console.log("LOGIN CLICK")  // ←★ まずはこれだけで OK
 
     try {
       const success = await login(email, password, activeTab)
