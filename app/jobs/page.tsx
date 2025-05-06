@@ -8,11 +8,12 @@ import {
   Loader2, MapPin, RefreshCw, Search, SortAsc, Star, Zap,
 } from "lucide-react"
 
-
+import { useCallback } from "react"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 import { useAuthGuard } from "@/lib/use-auth-guard"
-import type { Job, JobTag, JobWithTags,CompanyPreview } from "@/lib/supabase/models"
+import type {JobRow, JobWithTags, CompanyPreview,
+} from "@/lib/supabase/models"
 
 import { Button }   from "@/components/ui/button"
 import { Card }     from "@/components/ui/card"
@@ -34,11 +35,12 @@ import {
 } from "@/components/ui/sheet"
 
 /* -------------------------------------------------------------------------- */
-/*                                  Component                                 */
+/*                            外側：Auth 判定用                                */
 /* -------------------------------------------------------------------------- */
 export default function JobsPage() {
-  /* 認証：学生以外は /login にリダイレクト */
   const ready = useAuthGuard("student")
+
+  /* 判定が終わるまではローディングだけを表示（Hooks の数は変えない） */
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -48,245 +50,265 @@ export default function JobsPage() {
     )
   }
 
-  /* ------------------------------ state -------------------------------- */
+  /* 判定 OK なら本体を描画 */
+  return <JobsPageInner />
+}
+/* -------------------------------------------------------------------------- */
+/* ① プルダウン用のマスターデータ                                              */
+/* -------------------------------------------------------------------------- */
+const industries = [
+  { value: "it",      label: "IT / ソフトウェア" },
+  { value: "finance", label: "金融" },
+  { value: "retail",  label: "小売" },
+  { value: "other",   label: "その他" },
+] as const
+
+const jobTypes = [
+  { value: "fulltime", label: "正社員" },
+  { value: "parttime", label: "アルバイト" },
+  { value: "intern",   label: "インターン" },
+] as const
+
+/* -------------------------------------------------------------------------- */
+/* ② フィルター UI をまとめたコンポーネント                                    */
+/* -------------------------------------------------------------------------- */
+type FilterContentProps = {
+  selectedIndustry: string
+  setSelectedIndustry: (v: string) => void
+  selectedJobType: string
+  setSelectedJobType: (v: string) => void
+  selectedLocation: string
+  setSelectedLocation: (v: string) => void
+  salaryRange: [number, number]
+  setSalaryRange: (r: [number, number]) => void
+}
+
+function FilterContent(props: FilterContentProps) {
+  const {
+    selectedIndustry, setSelectedIndustry,
+    selectedJobType,  setSelectedJobType,
+    selectedLocation, setSelectedLocation,
+    salaryRange,      setSalaryRange,
+  } = props
+
+  return (
+    <div className="space-y-6 px-4 py-6">
+      {/* 業界セレクト (md~) */}
+      <div className="hidden sm:inline-flex w-full">
+        <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="業界" />
+          </SelectTrigger>
+          <SelectContent>
+            {industries.map(i => (
+              <SelectItem key={i.value} value={i.value}>
+                {i.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 職種セレクト (md~) */}
+      <div className="hidden md:inline-flex w-full">
+        <Select value={selectedJobType} onValueChange={setSelectedJobType}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="雇用形態" />
+          </SelectTrigger>
+          <SelectContent>
+            {jobTypes.map(j => (
+              <SelectItem key={j.value} value={j.value}>
+                {j.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* エリア入力 */}
+      <Input
+        placeholder="勤務地（例: 東京）"
+        value={selectedLocation}
+        onChange={e => setSelectedLocation(e.target.value)}
+      />
+
+      {/* 給与レンジ */}
+      <div>
+        <Label className="mb-2 block">給与レンジ (万円)</Label>
+        <Slider
+          value={salaryRange}
+          min={0}
+          max={2000}
+          step={50}
+          onValueChange={val => setSalaryRange(val as [number, number])}
+        />
+        <div className="text-sm text-muted-foreground mt-1">
+          {salaryRange[0]} 万 ~ {salaryRange[1]} 万
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/*                         内側：実際の求人一覧ページ                           */
+/* -------------------------------------------------------------------------- */
+function JobsPageInner() {
+  /* ------------------------------ state ------------------------------ */
   const [searchQuery,      setSearchQuery]      = useState("")
-  const [selectedIndustry, setSelectedIndustry] = useState("all")
-  const [selectedJobType,  setSelectedJobType]  = useState("all")
+  const [selectedIndustry, setSelectedIndustry] = useState("all")       /* ▼ 追加 */
+  const [selectedJobType,  setSelectedJobType]  = useState("all")       /* ▼ 追加 */
   const [selectedLocation, setSelectedLocation] = useState("all")
   const [salaryRange,      setSalaryRange]      = useState<[number, number]>([300, 1_000])
 
-  const [savedJobs, setSavedJobs] = useState<string[]>([])
-  const [viewMode,    setViewMode]    = useState<"grid" | "list">("grid")
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [savedJobs, setSavedJobs]   = useState<string[]>([])
+  const [viewMode,  setViewMode]    = useState<"grid" | "list">("grid")
+  const [isFilterOpen, setIsFilterOpen] = useState(false)               /* ▼ 追加 */
 
   const [jobs,      setJobs]      = useState<JobWithTags[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState<string | null>(null)
 
-  /* ------------------------- Supabase 取得 ------------------------- */
-/* ------------------------- Supabase 取得 ------------------------- */
-useEffect(() => {
-  const fetchJobs = async () => {
-    setIsLoading(true)
-    try {
-      /* ─── jobs + 会社情報 ─── */
-      type JobRow     = Database["public"]["Tables"]["jobs"]["Row"]
-      type JobJoined  = JobRow & { company: CompanyPreview | null }
-
-      const { data, error: jobsErr } = await supabase
-        .from("jobs")
-        .select(`
-          *,
-          company:companies (
-            name,
-            logo_url,
-            cover_image_url
-          )
-        `)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-
-      if (jobsErr) throw jobsErr
-      const jobsData = data as JobJoined[]
-
-      /* ─── job_tags ─── */
-      type TagRow = Database["public"]["Tables"]["job_tags"]["Row"]
-
-      const jobIds = jobsData?.map(j => j.id) ?? []
-      
-      const { data: tagRaw, error: tagsErr } = await supabase
-        .from("job_tags")
-        .select("*")                 // ← ジェネリクスを外して "*" だけに
-        .in("job_id", jobIds)
-      
-      if (tagsErr) throw tagsErr
-      const tags = tagRaw as TagRow[] 
-
-      /* ─── job_id → tags[] ─── */
-      const tagsByJob: Record<string, string[]> = {}
-      tags?.forEach(t => {
-        (tagsByJob[t.job_id] ??= []).push(t.tag)
-      })
-
-      /* ─── JobWithTags を構築 ─── */
-      const now = Date.now()
-      const merged: JobWithTags[] = (jobsData ?? []).map(j => {
-        const company = j.company ?? null
-
-        return {
-          ...j,
-          salary_min   : (j as any).salary_min ?? null,
-          salary_max   : (j as any).salary_max ?? null,
-          company,
-          tags         : tagsByJob[j.id] ?? [],
-          is_new       : now - new Date(j.created_at ?? "").getTime() < 7 * 24 * 60 * 60 * 1_000,
-          is_featured  : Math.random() > 0.7,
-          is_recommended: (j as any).is_recommended ?? false,      // ← 列があれば
-        }
-      })
-
-      setJobs(merged)
-    } catch (e) {
-      console.error(e)
-      setError("求人情報の取得に失敗しました。")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  fetchJobs()
-}, [])
-
-
-  /* ------------------------- 保存した求人 ------------------------- */
-  useEffect(() => {
-    const saved = localStorage.getItem("savedJobs")
-    if (saved) setSavedJobs(JSON.parse(saved))
+  const toggleSaveJob = useCallback((id: string) => {
+    setSavedJobs(prev =>
+      prev.includes(id) ? prev.filter(j => j !== id) : [...prev, id]
+    )
   }, [])
 
-  const toggleSaveJob = (id: string) => {
-    setSavedJobs(prev => {
-      const next = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-      localStorage.setItem("savedJobs", JSON.stringify(next))
-      return next
-    })
-  }
-  
+  const recommendedJobs = useMemo<JobWithTags[]>(() => {
+    return jobs.filter(j => j.is_recommended)
+  }, [jobs])
 
-  /* ------------------------------ フィルタ ------------------------------ */
-  const filteredJobs = jobs.filter(j => {
-    const q = searchQuery.toLowerCase()
-
-    const matchesQuery =
-    q === "" ||
-    j.title?.toLowerCase().includes(q) ||
-    // ここ ↓ company が無い場合は空文字にして includes()
-    (j.company?.name ?? "").toLowerCase().includes(q) ||
-    (j.description ?? "").toLowerCase().includes(q)
-
-    const matchesLocation =
-      selectedLocation === "all" ||
-      j.location?.toLowerCase().includes(selectedLocation)
-
-    const matchesSalary =
-      (j.salary_min ?? 0) <= salaryRange[1] &&
-      (j.salary_max ?? 0) >= salaryRange[0]
-
-    // 業界 / 職種 フィルタは必要に応じて追加実装
-    return matchesQuery && matchesLocation && matchesSalary
-  })
-  const recommendedJobs = jobs.filter(j => j.is_recommended)
-  /* ------------------ 人気タグを集計 ------------------ */
-  const popularTags = useMemo(() => {
+  const popularTags = useMemo<string[]>(() => {
     const freq: Record<string, number> = {}
     jobs.forEach(j => j.tags.forEach(t => {
       freq[t] = (freq[t] ?? 0) + 1
     }))
+  
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])   // 出現数で降順
+      .slice(0, 10)                  // 上位 10 件だけ
+      .map(([tag]) => tag)
+  }, [jobs])
 
-  // 登場回数でソート → 上位 10 件だけ取り出し
-  return Object.entries(freq)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([tag]) => tag)
-}, [jobs])
-
-
-  /* --------------------------- マスターリスト --------------------------- */
-  const industries = [
-    { value: "all", label: "すべての業界" },
-    { value: "it", label: "IT・通信" },
-    { value: "finance", label: "金融・保険" },
-    { value: "consulting", label: "コンサルティング" },
-    { value: "manufacturing", label: "メーカー" },
-    { value: "trading", label: "商社" },
-    { value: "media", label: "広告・メディア" },
-  ] as const
-
-  const jobTypes = [
-    { value: "all", label: "すべての職種" },
-    { value: "engineer", label: "エンジニア" },
-    { value: "consultant", label: "コンサルタント" },
-    { value: "designer", label: "デザイナー" },
-    { value: "marketing", label: "マーケティング" },
-    { value: "sales", label: "営業" },
-    { value: "datascientist", label: "データサイエンティスト" },
-  ] as const
-
-  const locations = [
-    { value: "all",     label: "すべての勤務地" },
-    { value: "tokyo",   label: "東京都" },
-    { value: "osaka",   label: "大阪府" },
-    { value: "nagoya",  label: "愛知県" },
-    { value: "fukuoka", label: "福岡県" },
-    { value: "remote",  label: "リモート可" },
-  ] as const
-
-  /* -------------------------- UI ヘルパ -------------------------- */
-  const tagColor = (tag: string) => ({
-    React:  "bg-blue-100  text-blue-800",
-    Python: "bg-orange-100 text-orange-800",
-    AWS:    "bg-orange-100 text-orange-800",
-  } as Record<string, string>)[tag] ?? "bg-gray-100 text-gray-800"
-
-  const resetFilters = () => {
-    setSelectedIndustry("all")
-    setSelectedJobType("all")
-    setSelectedLocation("all")
-    setSalaryRange([300, 1_000])
-    setSearchQuery("")
+  function tagColor(tag: string) {
+    switch (tag) {
+      case "急募":
+        return "bg-red-500 text-white"
+      case "リモート":
+        return "bg-blue-500 text-white"
+      case "インターン":
+        return "bg-green-500 text-white"
+      default:
+        return "bg-gray-300 text-gray-900"
+    }
   }
 
-  /* ------------------ Filter フォーム共通部品 ------------------ */
-  const FilterContent = () => (
-    <div className="grid gap-4 py-4">
-      {/* 業界 */}
-      <div className="grid gap-2">
-        <Label htmlFor="ind">業界</Label>
-        <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-          <SelectTrigger id="ind"><SelectValue placeholder="業界" /></SelectTrigger>
-          <SelectContent>
-            {industries.map(i => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+  /* --------------------------- Supabase 取得 --------------------------- */
+  useEffect(() => {
+    let ignore = false
 
-      {/* 職種 */}
-      <div className="grid gap-2">
-        <Label htmlFor="jobType">職種</Label>
-        <Select value={selectedJobType} onValueChange={setSelectedJobType}>
-          <SelectTrigger id="jobType"><SelectValue placeholder="職種" /></SelectTrigger>
-          <SelectContent>
-            {jobTypes.map(j => <SelectItem key={j.value} value={j.value}>{j.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+    async function fetchJobs() {
+      setIsLoading(true)
+      setError(null)
 
-      {/* 勤務地 */}
-      <div className="grid gap-2">
-        <Label htmlFor="loc">勤務地</Label>
-        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-          <SelectTrigger id="loc"><SelectValue placeholder="勤務地" /></SelectTrigger>
-          <SelectContent>
-            {locations.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+      try {
+        /* ─── jobs ─── */
+        const { data: jobsDataRaw, error: jobsErr } = await supabase
+          .from("jobs")
+          .select("*, company:profiles(id,name,logo_url)")
+          .order("created_at", { ascending: false })
 
-      {/* 年収 */}
-      <div className="grid gap-2">
-        <div className="flex justify-between">
-          <Label>年収範囲</Label>
-          <span className="text-sm text-gray-500">{salaryRange[0]}万〜{salaryRange[1]}万</span>
-        </div>
-        <Slider
-          min={300} max={1_000} step={50}
-          value={salaryRange}
-          onValueChange={(v: number[]) => setSalaryRange([v[0], v[1]] as [number, number])}
-          className="py-4"
-        />
+        if (jobsErr) throw jobsErr
+        const jobsData = jobsDataRaw as (JobRow & { company: CompanyPreview })[]
+
+        /* ─── job_tags ─── */
+        const jobIds = jobsData?.map(j => j.id) ?? []
+        const { data: tagRaw, error: tagsErr } = await supabase
+          .from("job_tags")
+          .select("*")
+          .in("job_id", jobIds)
+
+        if (tagsErr) throw tagsErr
+        type TagRow = Database["public"]["Tables"]["job_tags"]["Row"]
+        const tags = tagRaw as TagRow[]
+
+        /* ─── job_id → tags[] ─── */
+        const tagsByJob: Record<string, string[]> = {}
+        tags?.forEach(t => { (tagsByJob[t.job_id] ??= []).push(t.tag) })
+
+        /* ─── JobWithTags を構築 ─── */
+        const merged: JobWithTags[] = (jobsData ?? []).map(j => ({
+          ...j,
+          salary_min : (j as any).salary_min ?? null,
+          salary_max : (j as any).salary_max ?? null,
+          company    : j.company ?? null,
+          tags       : tagsByJob[j.id] ?? [],
+          is_new:
+            !!j.created_at && // null じゃなければ計算、null なら false
+            Date.now() - new Date(j.created_at).getTime() < 1000 * 60 * 60 * 24 * 7,
+          is_hot     : !!(j as any).is_hot,
+          is_recommended: !!(j as any).is_recommended,
+          /** 🔴 追加ポイント */
+          is_featured: !!(j as any).is_featured,
+        }))
+
+        if (!ignore) setJobs(merged)
+      } catch (err: any) {
+        console.error(err)
+        if (!ignore) setError(err.message)
+      } finally {
+        if (!ignore) setIsLoading(false)
+      }
+    }
+
+    fetchJobs()
+    return () => { ignore = true }
+  }, [])
+
+  /* --------------------------- フィルタリング --------------------------- */
+  const filteredJobs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+
+    return jobs.filter(j => {
+      const matchesQuery =
+        q === "" ||
+        j.title?.toLowerCase().includes(q) ||
+        (j.company?.name ?? "").toLowerCase().includes(q) ||
+        (j.description ?? "").toLowerCase().includes(q)
+
+      const matchesLocation =
+        selectedLocation === "all" ||
+        (j.location ?? "").toLowerCase().includes(selectedLocation)
+
+      const matchesSalary =
+        (j.salary_min ?? 0) <= salaryRange[1] &&
+        (j.salary_max ?? 0) >= salaryRange[0]
+
+      return matchesQuery && matchesLocation && matchesSalary
+    })
+  }, [jobs, searchQuery, selectedLocation, salaryRange])
+
+  /* --------------------------- UI --------------------------- */
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 mr-2 animate-spin" />
+        <span>求人情報を読み込んでいます...</span>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-600">
+        <Info className="h-6 w-6 mr-2" />
+        <span>{error}</span>
+      </div>
+    )
+  }
+
+
 
   /* ------------------- Loading / Error 表示 ------------------- */
   if (isLoading) {
@@ -358,7 +380,17 @@ useEffect(() => {
                     <SheetDescription>条件を指定して求人を絞り込みましょう</SheetDescription>
                   </SheetHeader>
 
-                  <FilterContent />
+                  <FilterContent
+                    selectedIndustry={selectedIndustry}
+                    setSelectedIndustry={setSelectedIndustry}
+                    selectedJobType={selectedJobType}
+                    setSelectedJobType={setSelectedJobType}
+                    selectedLocation={selectedLocation}
+                    setSelectedLocation={setSelectedLocation}
+                    salaryRange={salaryRange}
+                    setSalaryRange={setSalaryRange}
+                  />
+
 
                   <div className="mt-6 flex justify-end gap-2">
                     <Button variant="outline" onClick={() => {
@@ -395,7 +427,17 @@ useEffect(() => {
                     <DialogTitle>詳細検索</DialogTitle>
                   </DialogHeader>
 
-                  <FilterContent />
+                  <FilterContent
+                    selectedIndustry={selectedIndustry}
+                    setSelectedIndustry={setSelectedIndustry}
+                    selectedJobType={selectedJobType}
+                    setSelectedJobType={setSelectedJobType}
+                    selectedLocation={selectedLocation}
+                    setSelectedLocation={setSelectedLocation}
+                    salaryRange={salaryRange}
+                    setSalaryRange={setSalaryRange}
+                  />
+
 
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => {
@@ -853,7 +895,17 @@ useEffect(() => {
                   <h3 className="text-lg font-bold text-white">求人検索</h3>
                 </div>
                 <div className="p-4">
-                  <FilterContent />
+                <FilterContent
+                  selectedIndustry={selectedIndustry}
+                  setSelectedIndustry={setSelectedIndustry}
+                  selectedJobType={selectedJobType}
+                  setSelectedJobType={setSelectedJobType}
+                  selectedLocation={selectedLocation}
+                  setSelectedLocation={setSelectedLocation}
+                  salaryRange={salaryRange}
+                  setSalaryRange={setSalaryRange}
+                />
+
                   <Button className="mt-4 w-full bg-red-600 hover:bg-red-700">検索する</Button>
                 </div>
               </Card>

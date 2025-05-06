@@ -1,39 +1,34 @@
-// lib/supabase/models.ts
-import type { Database } from "@/lib/supabase/types"
+/* ─── lib/supabase/models.ts ───────────────────────────────────────── */
 
-/* ---------- Supabase の行型 ---------- */
-type JobRow = Database["public"]["Tables"]["jobs"]["Row"]
-type TagRow = Database["public"]["Tables"]["job_tags"]["Row"]
+import type { Database } from "./types"
 
-/* ---------- アプリ用の拡張型 ---------- */
-/* ---------- アプリ用の拡張型 ---------- */
-export type Job = JobRow & {
-  salary_min?: number | null
-  salary_max?: number | null
+/* 汎用ユーティリティ */
+export type Nullable<T> = T | null
 
-  /** DB から取得する列 */
-  cover_image_url?: string | null
-  is_recommended : boolean | null          // ★ 追加
-
-  /** 会社サブクエリ結果 */
-  company?: {
-    name?: string | null
-    logo_url?: string | null
-    cover_image_url?: string | null
-  } | null
+/* プロファイル型（1 回だけ定義） */
+export interface CompanyPreview {
+  id: string
+  name: string
+  logo_url: Nullable<string>
+  cover_image_url?: Nullable<string>   // ← ★ 追加済みフィールドはここ
 }
 
-export type JobWithTags = Job & {
-  tags          : string[]
-  is_new        : boolean
-  is_featured   : boolean
-  employment_type?: string | null
-}
+/* jobs テーブルの行 */
+export type JobRow =
+  Database["public"]["Tables"]["jobs"]["Row"] & {
+    company?: CompanyPreview | null
+  }
 
-export type JobTag      = TagRow
-export type CompanyPreview = {
-  name: string | null
-  logo_url: string | null
-  cover_image_url: string | null
-}
+/* フロント用：JobRow + メタ情報 */
+export interface JobWithTags extends JobRow {
+  /** Supabase には無い、フロント専用フィールド */
+  tags: string[]
+  is_new: boolean
+  is_hot: boolean
+  is_recommended: boolean
+  is_featured: boolean
+  employment_type?: string | null  // ← テーブルに無いのでここで追加
 
+  /* ✅ salary_min / salary_max は **JobRow に既にある** ため
+        ここで再宣言しない！！ */
+}

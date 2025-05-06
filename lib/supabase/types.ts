@@ -384,13 +384,15 @@ export type Database = {
         Row: {
           company_id: string | null
           cover_image_url: string | null
-          created_at: string | null
+          created_at: string
           description: string | null
           id: string
           is_recommended: boolean
           location: string | null
           published: boolean | null
           requirements: string | null
+          salary_max: number | null
+          salary_min: number | null
           salary_range: string | null
           title: string
           work_type: string | null
@@ -398,13 +400,15 @@ export type Database = {
         Insert: {
           company_id?: string | null
           cover_image_url?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           id?: string
           is_recommended?: boolean
           location?: string | null
           published?: boolean | null
           requirements?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
           salary_range?: string | null
           title: string
           work_type?: string | null
@@ -412,13 +416,15 @@ export type Database = {
         Update: {
           company_id?: string | null
           cover_image_url?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           id?: string
           is_recommended?: boolean
           location?: string | null
           published?: boolean | null
           requirements?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
           salary_range?: string | null
           title?: string
           work_type?: string | null
