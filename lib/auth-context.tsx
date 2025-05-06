@@ -204,58 +204,61 @@
      ---------------------------------------------------------------- */
 /* lib/auth-context.tsx — login 関数を丸ごと置き換え */
 
-/* lib/auth-context.tsx — login() をまるごと置き換え */
-const login = async (
-  email: string,
-  password: string,
-  roleInput: UserRole           // "student" | "company"
-): Promise<boolean> => {
-  clearError()
-  try {
-    /* 1. 認証 */
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error || !data.session) throw error ?? new Error("login failed")
+/* lib/auth-context.tsx — login(const logout) をまるごと置き換え */
 
-    const uid = data.user.id
+  const login = async (
+    email: string,
+    password: string,
+    roleInput: UserRole,          // "student" | "company"
+  ): Promise<boolean> => {
+    clearError()
 
-    /* 2. upsert（失敗しても続行） */
-    await supabase
-      .from("user_roles")
-      .upsert([{ user_id: uid, role: roleInput }], { onConflict: "user_id" })
-      .catch(console.warn)
+    try {
+      /* 1. 認証 ------------------------------------------------- */
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error || !data.session) throw error ?? new Error("login failed")
 
-    /* 3. role を取得（無ければ null） */
-    const { data: roleRow, error: roleErr } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", uid)
-      .maybeSingle()
+      const uid = data.user.id
 
-    if (roleErr) console.warn("role SELECT error:", roleErr)
+      /* 2. user_roles を upsert（失敗しても継続） ------------- */
+      const { error: upsertErr } = await supabase
+        .from("user_roles")
+        .upsert([{ user_id: uid, role: roleInput }], { onConflict: "user_id" })
 
-    const roleFinal = (roleRow?.role ?? roleInput) as UserRole
+      if (upsertErr) console.warn("upsert error:", upsertErr)
 
-    /* 4. Context 更新 */
-    setSession(data.session)
-    setIsLoggedIn(true)
-    setUser({
-      id   : uid,
-      email: data.user.email ?? "",
-      name : data.user.user_metadata?.full_name ?? "ユーザー",
-      role : roleFinal,
-    })
+      /* 3. role を取得（取れなければ roleInput を使う） ------ */
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid)
+        .maybeSingle()
 
-    /* 5. ダッシュボードへ */
-    router.replace(
-      roleFinal === "company" ? "/company-dashboard" : "/student-dashboard",
-    )
-    return true
-  } catch (e: any) {
-    console.error("Login error:", e)
-    setError(e.message ?? "ログインに失敗しました")
-    return false
+      const roleFinal = (roleRow?.role ?? roleInput) as UserRole
+
+      /* 4. Context state を更新 ------------------------------- */
+      setSession(data.session)
+      setIsLoggedIn(true)
+      setUser({
+        id   : uid,
+        email: data.user.email ?? "",
+        name : data.user.user_metadata?.full_name ?? "ユーザー",
+        role : roleFinal,
+      })
+
+      /* 5. ダッシュボードへ遷移 ------------------------------- */
+      router.replace(
+        roleFinal === "company" ? "/company-dashboard" : "/student-dashboard",
+      )
+
+      return true
+    } catch (e: any) {
+      console.error("Login error:", e)
+      setError(e.message ?? "ログインに失敗しました")
+      return false
+    }
   }
-}
+
 
 
 
