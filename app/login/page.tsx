@@ -126,7 +126,7 @@ function LoginForm({
 /* ───────────── main page ───────────── */
 export default function LoginPage() {
   const router = useRouter()
-  const { ready, isLoggedIn, user } = useAuth()
+  const { ready, isLoggedIn, user, login } = useAuth()
 
   const [tab,        setTab]        = useState<"student"|"company">("student")
   const [email,      setEmail]      = useState("")
@@ -144,19 +144,24 @@ export default function LoginPage() {
   }, [ready, isLoggedIn, user, router])
 
   /* ─── login handler ─── */
+
+  /* ---------- 修正後の handleLogin ---------- */
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setLoading(true); setError(null)
+    setLoading(true)
+    setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError("メールまたはパスワードが正しくありません。")
+    /* tab は "student" | "company" の state */
+    const ok = await login(email, password, tab)   // ← context.login を呼ぶ
+
+    if (!ok) {                 // エラー時は context が setError 済みで false を返す
       setLoading(false)
       return
     }
-    toast.success("ログインしました！", { icon: <PartyPopper size={18} /> })
-    router.replace(tab === "company" ? "/company-dashboard" : "/student-dashboard")
+    /* 成功時は AuthContext 内で router.replace(...) まで実行されるので
+      ここでは何もせずローディングだけ止めておけば OK */
   }
+
 
   /* ───────────── JSX ───────────── */
   return (
