@@ -2,7 +2,7 @@
    lib/auth-context.tsx
    ─────────────────────────────────────────────── */
    "use client"
-
+   console.log("👉 login() called")
 
    import {
      createContext,
@@ -79,6 +79,7 @@
      const [isLoggedIn,  setIsLoggedIn]  = useState(false)
      const [session,     setSession]     = useState<Session | null>(null)
      const [user,        setUser]        = useState<User>(null)
+     console.log("👉 setUser about to run")
      const [profile,     setProfile]     = useState<UserProfile>(null)
      const [error,       setError]       = useState<string | null>(null)
    
@@ -115,6 +116,7 @@
          name: sess.user.user_metadata?.full_name ?? sess.user.email?.split("@")[0] ?? "ユーザー",
          role,
        })
+       console.log("✅ setUser done")
    
        /* ----- profile 取得 ----- */
        const table = role === "company" ? "company_profiles" : "student_profiles"
