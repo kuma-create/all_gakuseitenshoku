@@ -1,210 +1,207 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, FormEvent } from "react"
 import Link          from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  Mail, Lock, User, Building2, AlertCircle,
-  Eye, EyeOff, Loader2,
+  Mail, Lock, User, Building2, Eye, EyeOff,
+  Loader2, AlertCircle, PartyPopper,
 } from "lucide-react"
+import { motion }   from "framer-motion"
+import { toast }    from "sonner"
 
-import { Button }  from "@/components/ui/button"
-import { Input }   from "@/components/ui/input"
-import { Label }   from "@/components/ui/label"
+import { Button }   from "@/components/ui/button"
+import { Input }    from "@/components/ui/input"
+import { Label }    from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription }                 from "@/components/ui/alert"
-
-import { supabase } from "@/lib/supabase/client"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth }  from "@/lib/auth-context"
+import { supabase } from "@/lib/supabase/client"
 
 export default function LoginPage() {
-  /* ------------------------ hooks / state ------------------------ */
+  /* -------------------- hooks / state -------------------- */
   const router = useRouter()
-  const { isLoggedIn, userType } = useAuth()   // ← setAuthState を削除
+  const { isLoggedIn, userType } = useAuth()
 
   const [email,        setEmail]        = useState("")
   const [password,     setPassword]     = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [activeTab,    setActiveTab]    = useState<"student" | "company">("student")
-  const [isLoading,    setIsLoading]    = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [tab,          setTab]          = useState<"student" | "company">("student")
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
 
-  /* ------------------------ 既ログインならリダイレクト ------------------------ */
+  /* -------- 既ログインならダッシュボードへ -------- */
   useEffect(() => {
     if (!isLoggedIn) return
-    router.replace(
-      userType === "company" ? "/company-dashboard" : "/student-dashboard",
-    )
+    router.replace(userType === "company" ? "/company-dashboard"
+                                          : "/student-dashboard")
   }, [isLoggedIn, userType, router])
 
-  /* ------------------------ login handler ------------------------ */
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  /* -------------------- login -------------------- */
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setErrorMessage(null)
-    setIsLoading(true)
-    console.log("LOGIN CLICK")
+    setLoading(true)
+    setError(null)
 
-    /* ---- Supabase Auth ---- */
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error || !data.session) {
-      console.error("Login error:", error)
-      setErrorMessage("メールアドレスまたはパスワードが正しくありません。")
-      setIsLoading(false)
+    if (error) {
+      setError("メールまたはパスワードが正しくありません。")
+      setLoading(false)
       return
     }
 
-    /* ---- 認証成功：ダッシュボードへ遷移 ---- */
-    router.replace(
-      activeTab === "company" ? "/company-dashboard" : "/student-dashboard",
-    )
+    toast.success("ログインしました！", { icon: <PartyPopper size={18} /> })
+    router.replace(tab === "company" ? "/company-dashboard" : "/student-dashboard")
   }
 
-  /* ------------------------ UI helpers ------------------------ */
-  const togglePasswordVisibility = () => setShowPassword(prev => !prev)
-
-  /* ------------------------ JSX ------------------------ */
-  return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-gradient-to-b from-red-50 to-white">
-      {/* 左側のビジュアルは元コードをそのまま残しています */}
-      {/* ...（省略）... */}
-
-      <div className="flex w-full items-center justify-center px-4 py-12 lg:w-1/2">
-        <div className="w-full max-w-md space-y-8">
-          {/* ---- タイトル ---- */}
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900">アカウントにログイン</h1>
-            <p className="mt-2 text-sm text-gray-600">
-              就活をスタートして、あなたのキャリアを切り拓こう
-            </p>
-          </div>
-
-          {/* ---------------- Tabs (student / company) ---------------- */}
-          <Tabs defaultValue="student" className="w-full"
-                onValueChange={v => setActiveTab(v as "student" | "company")}>
-            <TabsList className="grid w-full grid-cols-2 rounded-lg bg-gray-100 p-1">
-              <TabsTrigger value="student" className="flex items-center gap-1.5 rounded-md
-                         data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <User size={16} /><span>学生としてログイン</span>
-              </TabsTrigger>
-              <TabsTrigger value="company" className="flex items-center gap-1.5 rounded-md
-                         data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Building2 size={16} /><span>企業としてログイン</span>
-              </TabsTrigger>
-            </TabsList>
-
-            {/* ------------------------ Student Tab ------------------------ */}
-            <TabsContent value="student" className="mt-6">
-              <p className="mb-4 text-sm text-gray-600">
-                学生アカウントでダッシュボードにアクセスし、スカウトを受け取りましょう
-              </p>
-              <LoginForm
-                email={email}
-                password={password}
-                showPassword={showPassword}
-                isLoading={isLoading}
-                errorMessage={errorMessage}
-                onEmailChange={setEmail}
-                onPasswordChange={setPassword}
-                onToggleShowPassword={togglePasswordVisibility}
-                onSubmit={handleLogin}
-              />
-            </TabsContent>
-
-            {/* ------------------------ Company Tab ------------------------ */}
-            <TabsContent value="company" className="mt-6">
-              <p className="mb-4 text-sm text-gray-600">
-                企業アカウントで採用管理ダッシュボードにアクセスしましょう
-              </p>
-              <LoginForm
-                email={email}
-                password={password}
-                showPassword={showPassword}
-                isLoading={isLoading}
-                errorMessage={errorMessage}
-                onEmailChange={setEmail}
-                onPasswordChange={setPassword}
-                onToggleShowPassword={togglePasswordVisibility}
-                onSubmit={handleLogin}
-              />
-            </TabsContent>
-          </Tabs>
-
-          {/* ---- 以下、SNS ログインやテストアカウントの UI は元コードを残して OK ---- */}
-        </div>
-      </div>
+  /* -------------------- UI helpers -------------------- */
+  const IconInput = ({
+    id, type, placeholder, value, onChange, icon,
+  }: {
+    id: string
+    type: string
+    placeholder: string
+    value: string
+    onChange: (v: string) => void
+    icon: React.ReactNode
+  }) => (
+    <div className="relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+        {icon}
+      </span>
+      <Input
+        id={id}
+        type={type}
+        placeholder={placeholder}
+        className="pl-10 focus-visible:ring-red-500 dark:bg-zinc-900"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        required
+      />
     </div>
   )
-}
 
-/* ------------- 共通フォーム部品 ------------- */
-type LoginFormProps = {
-  email: string
-  password: string
-  showPassword: boolean
-  isLoading: boolean
-  errorMessage: string | null
-  onEmailChange: (v: string) => void
-  onPasswordChange: (v: string) => void
-  onToggleShowPassword: () => void
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
-}
-
-function LoginForm(props: LoginFormProps) {
-  const {
-    email, password, showPassword, isLoading, errorMessage,
-    onEmailChange, onPasswordChange, onToggleShowPassword, onSubmit,
-  } = props
-
+  /* -------------------- main JSX -------------------- */
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {errorMessage && (
-        <Alert variant="destructive"
-               className="flex items-center gap-2 border-red-200 bg-red-50">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      )}
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-red-100 via-white to-white dark:from-zinc-900 dark:via-zinc-900/60">
+      {/* ----- 背景のぼかし円 ----- */}
+      <motion.div
+        className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-red-500/30 blur-3xl"
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 1 }}
+      />
+      <motion.div
+        className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-pink-300/20 blur-3xl"
+        initial={{ scale: 0 }}
+        animate={{ scale: 1.2 }}
+        transition={{ duration: 1.2 }}
+      />
 
-      {/* email */}
-      <div className="space-y-2">
-        <Label htmlFor="login-email" className="text-sm font-medium">メールアドレス</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-          <Input id="login-email" type="email" placeholder="example@mail.com"
-                 className="pl-10 transition-all focus-visible:ring-2 focus-visible:ring-red-500"
-                 value={email} onChange={e => onEmailChange(e.target.value)} required />
+      {/* ----- ガラスカード ----- */}
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 130, damping: 18 }}
+        className="relative z-10 m-4 w-full max-w-md rounded-3xl bg-white/70 p-8 shadow-xl backdrop-blur-sm dark:bg-zinc-800/70"
+      >
+        {/* ----- タイトル ----- */}
+        <div className="text-center">
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+            ログイン
+          </h1>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            あなたのキャリアを切り拓こう
+          </p>
         </div>
-      </div>
 
-      {/* password */}
-      <div className="space-y-2">
-        <Label htmlFor="login-password" className="text-sm font-medium">パスワード</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-          <Input id="login-password" type={showPassword ? "text" : "password"}
-                 placeholder="••••••••" className="pl-10 transition-all
-                 focus-visible:ring-2 focus-visible:ring-red-500"
-                 value={password} onChange={e => onPasswordChange(e.target.value)} required />
-          <button type="button" onClick={onToggleShowPassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}>
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
+        {/* ----- タブ（学生 / 企業） ----- */}
+        <Tabs
+          defaultValue="student"
+          className="mt-6"
+          onValueChange={v => setTab(v as "student" | "company")}
+        >
+          <TabsList className="grid grid-cols-2 rounded-xl bg-gray-100 p-1 dark:bg-zinc-700">
+            <TabsTrigger value="student" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">
+              <User size={16} className="mr-1" /> 学生
+            </TabsTrigger>
+            <TabsTrigger value="company" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">
+              <Building2 size={16} className="mr-1" /> 企業
+            </TabsTrigger>
+          </TabsList>
+
+          {["student", "company"].map(role => (
+            <TabsContent key={role} value={role as "student" | "company"} className="mt-6">
+              <form onSubmit={handleLogin} className="space-y-5">
+                {error && (
+                  <Alert variant="destructive" className="border-red-200 bg-red-50 dark:border-red-400/40 dark:bg-red-950/40">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm">メールアドレス</Label>
+                  <IconInput
+                    id="email"
+                    type="email"
+                    placeholder="your@mail.com"
+                    value={email}
+                    onChange={setEmail}
+                    icon={<Mail size={18} />}
+                  />
+                </div>
+
+                {/* password */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-sm">パスワード</Label>
+                    <Link href="/forgot-password" className="text-xs text-red-600 hover:underline">
+                      パスワードをお忘れ？
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <IconInput
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={setPassword}
+                      icon={<Lock size={18} />}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-red-600 py-6 text-base font-semibold tracking-wide hover:bg-red-700"
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  ログイン
+                </Button>
+              </form>
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        {/* ----- フッター ----- */}
+        <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400">
+          アカウントをお持ちでない方は
+          <Link href="/signup" className="ml-1 font-medium text-red-600 hover:underline">
+            新規登録
+          </Link>
         </div>
-      </div>
-
-      {/* submit */}
-      <Button type="submit"
-              className="w-full bg-red-600 py-6 text-base font-medium hover:bg-red-700
-                         focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-              disabled={isLoading}>
-        {isLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />ログイン中...</>)
-                   : "ログイン"}
-      </Button>
-    </form>
+      </motion.div>
+    </div>
   )
 }
