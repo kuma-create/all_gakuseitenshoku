@@ -125,7 +125,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
             location,
             salary_min,
             salary_max,
-            company:company_id (
+            company:companies (
               name,
               logo_url
             )
