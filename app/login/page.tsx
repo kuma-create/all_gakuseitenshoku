@@ -5,10 +5,9 @@ import Link          from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Mail, Lock, User, Building2, Eye, EyeOff,
-  Loader2, AlertCircle, PartyPopper,
+  Loader2, AlertCircle,
 } from "lucide-react"
 import { motion } from "framer-motion"
-import { toast }  from "sonner"
 
 import { Button }   from "@/components/ui/button"
 import { Input }    from "@/components/ui/input"
@@ -16,36 +15,29 @@ import { Label }    from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription }     from "@/components/ui/alert"
 import { useAuth }  from "@/lib/auth-context"
-import { supabase } from "@/lib/supabase/client"
 
-/* ───────────── reusable input with icon ───────────── */
-const IconInput = ({
-  id, type, placeholder, value, onChange, icon,
-}: {
-  id: string
-  type: string
-  placeholder: string
-  value: string
-  onChange: (v: string) => void
-  icon: React.ReactNode
+/* --------------------- IconInput --------------------- */
+const IconInput = (props: {
+  id: string; type: string; placeholder: string
+  value: string; onChange: (v: string) => void; icon: React.ReactNode
 }) => (
   <div className="relative">
     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-      {icon}
+      {props.icon}
     </span>
     <Input
-      id={id}
-      type={type}
-      placeholder={placeholder}
+      id={props.id}
+      type={props.type}
+      placeholder={props.placeholder}
       className="pl-10 focus-visible:ring-red-500 dark:bg-zinc-900"
-      value={value}
-      onChange={e => onChange(e.target.value)}
+      value={props.value}
+      onChange={e => props.onChange(e.target.value)}
       required
     />
   </div>
 )
 
-/* ───────────── form component (student / company 共通) ───────────── */
+/* --------------------- LoginForm --------------------- */
 type LoginFormProps = {
   role: "student" | "company"
   email: string
@@ -58,11 +50,10 @@ type LoginFormProps = {
   togglePW: () => void
   onSubmit: (e: FormEvent<HTMLFormElement>) => void
 }
-function LoginForm({
+const LoginForm = ({
   role, email, password, showPW, loading, error,
   setEmail, setPassword, togglePW, onSubmit,
-}: LoginFormProps) {
-  /* id 衝突防止 */
+}: LoginFormProps) => {
   const idPref = role === "student" ? "stu" : "com"
 
   return (
@@ -75,7 +66,6 @@ function LoginForm({
         </Alert>
       )}
 
-      {/* email */}
       <div className="space-y-2">
         <Label htmlFor={`${idPref}-email`} className="text-sm">メールアドレス</Label>
         <IconInput
@@ -88,7 +78,6 @@ function LoginForm({
         />
       </div>
 
-      {/* password */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor={`${idPref}-pw`} className="text-sm">パスワード</Label>
@@ -123,52 +112,37 @@ function LoginForm({
   )
 }
 
-/* ───────────── main page ───────────── */
+/* --------------------- Page --------------------- */
 export default function LoginPage() {
   const router = useRouter()
-  const { ready, isLoggedIn, user, login } = useAuth()
+  const { ready, isLoggedIn, user, login, error: ctxError } = useAuth()
 
   const [tab,        setTab]        = useState<"student"|"company">("student")
   const [email,      setEmail]      = useState("")
   const [password,   setPassword]   = useState("")
   const [showPW,     setShowPW]     = useState(false)
   const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState<string|null>(null)
 
-  /* ─── 既ログインなら redirect ─── */
+  /* 既ログインなら redirect */
   useEffect(() => {
-    if (!ready || !isLoggedIn || !user) return       // まだ判定中 or 未ログイン
-    router.replace(
-      user.role === "company" ? "/company-dashboard" : "/student-dashboard",
-    )
+    if (!ready || !isLoggedIn || !user) return
+    router.replace(user.role === "company" ? "/company-dashboard" : "/student-dashboard")
   }, [ready, isLoggedIn, user, router])
 
-  /* ─── login handler ─── */
-
-  /* ---------- 修正後の handleLogin ---------- */
+  /* login handler */
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
-    setError(null)
-
-    /* tab は "student" | "company" の state */
-    const ok = await login(email, password, tab)   // ← context.login を呼ぶ
-
-    if (!ok) {                 // エラー時は context が setError 済みで false を返す
-      setLoading(false)
-      return
-    }
-    /* 成功時は AuthContext 内で router.replace(...) まで実行されるので
-      ここでは何もせずローディングだけ止めておけば OK */
+    const ok = await login(email, password, tab)
+    if (!ok) setLoading(false)     // 失敗時のみローディング解除
   }
 
-
-  /* ───────────── JSX ───────────── */
+  /* JSX */
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden
                     bg-gradient-to-br from-red-100 via-white to-white dark:from-zinc-900
                     dark:via-zinc-900/60">
-      {/* ぼかし背景 */}
+      {/* 背景ぼかし */}
       <motion.div className="absolute -left-32 -top-32 h-96 w-96 rounded-full
                              bg-red-500/30 blur-3xl"
                   initial={{ scale:0 }} animate={{ scale:1 }} transition={{ duration:1 }} />
@@ -176,14 +150,13 @@ export default function LoginPage() {
                              bg-pink-300/20 blur-3xl"
                   initial={{ scale:0 }} animate={{ scale:1.2 }} transition={{ duration:1.2 }} />
 
-      {/* ガラスカード */}
+      {/* カード */}
       <motion.div
         initial={{ y:40, opacity:0 }} animate={{ y:0, opacity:1 }}
         transition={{ type:"spring", stiffness:130, damping:18 }}
         className="relative z-10 m-4 w-full max-w-md rounded-3xl bg-white/70 p-8
                    shadow-xl backdrop-blur-sm dark:bg-zinc-800/70"
       >
-        {/* タイトル */}
         <div className="text-center">
           <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
             ログイン
@@ -193,7 +166,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* タブヘッダ（フォームは条件分岐で 1 個だけ描画） */}
+        {/* タブヘッダ */}
         <Tabs defaultValue="student" className="mt-6"
               onValueChange={v => setTab(v as "student" | "company")}>
           <TabsList className="grid grid-cols-2 rounded-xl bg-gray-100 p-1 dark:bg-zinc-700">
@@ -210,36 +183,20 @@ export default function LoginPage() {
           </TabsList>
         </Tabs>
 
-        {/* ここだけ条件分岐で描画 ▶ フォーカスが外れない */}
-        {tab === "student" ? (
-          <LoginForm
-            role="student"
-            email={email}
-            password={password}
-            showPW={showPW}
-            loading={loading}
-            error={error}
-            setEmail={setEmail}
-            setPassword={setPassword}
-            togglePW={() => setShowPW(p => !p)}
-            onSubmit={handleLogin}
-          />
-        ) : (
-          <LoginForm
-            role="company"
-            email={email}
-            password={password}
-            showPW={showPW}
-            loading={loading}
-            error={error}
-            setEmail={setEmail}
-            setPassword={setPassword}
-            togglePW={() => setShowPW(p => !p)}
-            onSubmit={handleLogin}
-          />
-        )}
+        {/* 条件分岐でフォーム描画 */}
+        <LoginForm
+          role={tab}
+          email={email}
+          password={password}
+          showPW={showPW}
+          loading={loading}
+          error={ctxError}
+          setEmail={setEmail}
+          setPassword={setPassword}
+          togglePW={() => setShowPW(p => !p)}
+          onSubmit={handleLogin}
+        />
 
-        {/* フッター */}
         <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400">
           アカウントをお持ちでない方は
           <Link href="/signup" className="ml-1 font-medium text-red-600 hover:underline">
