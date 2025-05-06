@@ -159,18 +159,16 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
   const handleApply = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("サインインが必要です")
-      // In a real app, this would include the user's ID
-      const { error } = await supabase.from("applications").insert([
-        {
-          job_id: Number(params.id),
-          student_id: user.id,
-          status: "pending",
-          created_at: new Date().toISOString(),
-        },
-      ])
-
+ // ① ログインユーザーを取得
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error("サインインが必要です")
+    
+        // ② student_id を含めて INSERT
+        const { error } = await supabase.from("applications").insert({
+          job_id: params.id,          // uuid のまま
+          student_id: user.id,        // ここが必須
+          status: "applied",          // テーブルの default と合わせる
+        })
       if (error) throw error
 
       setHasApplied(true)
