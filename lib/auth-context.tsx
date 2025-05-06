@@ -204,29 +204,57 @@
      ---------------------------------------------------------------- */
 /* lib/auth-context.tsx — login 関数を丸ごと置き換え */
 
-const login = async (email: string, password: string, role: UserRole) => {
+/* lib/auth-context.tsx — login() をまるごと置き換え */
+const login = async (
+  email: string,
+  password: string,
+  roleInput: UserRole,           // "student" | "company"
+): Promise<boolean> => {
   clearError()
   try {
+    /* 1. 認証 */
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error || !data.session) throw error ?? new Error("login failed")
 
-    /* user_roles を upsert */
-    await supabase.from("user_roles").upsert(
-      [{ user_id: data.user.id, role: role ?? "student" }],
-      { onConflict: "user_id" },
+    const uid = data.user.id
+
+    /* 2. user_roles を upsert（insert or update）*/
+    await supabase
+      .from("user_roles")
+      .upsert([{ user_id: uid, role: roleInput }], { onConflict: "user_id" })
+
+    /* 3. role を取得（RLS で SELECT できる前提）*/
+    const { data: roleRow, error: roleErr } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", uid)
+      .single()
+
+    if (roleErr) throw roleErr         // ← ここでエラーなら Policies を要確認
+
+    /* 4. Context state を更新 */
+    setSession(data.session)
+    setIsLoggedIn(true)
+
+    setUser({
+      id   : uid,
+      email: data.user.email ?? "",
+      name : data.user.user_metadata?.full_name ?? "ユーザー",
+      role : roleRow.role as UserRole,  // ← ここで role を確定
+    })
+
+    /* 5. ダッシュボードへ */
+    router.replace(
+      roleRow.role === "company" ? "/company-dashboard" : "/student-dashboard",
     )
-
-    /* ★ ここで applySession を直接呼ぶ ★ */
-    await applySession(data.session)            // ← New!
-
-    /* ダッシュボードへ遷移 */
-    router.replace(role === "company" ? "/company-dashboard" : "/student-dashboard")
     return true
   } catch (e: any) {
+    console.error("Login error:", e)
     setError(e.message ?? "ログインに失敗しました")
     return false
   }
 }
+
 
    
      /* ----------------------------------------------------------------
