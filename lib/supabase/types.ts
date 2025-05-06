@@ -383,9 +383,11 @@ export type Database = {
       jobs: {
         Row: {
           company_id: string | null
+          cover_image_url: string | null
           created_at: string | null
           description: string | null
           id: string
+          is_recommended: boolean
           location: string | null
           published: boolean | null
           requirements: string | null
@@ -395,9 +397,11 @@ export type Database = {
         }
         Insert: {
           company_id?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          is_recommended?: boolean
           location?: string | null
           published?: boolean | null
           requirements?: string | null
@@ -407,9 +411,11 @@ export type Database = {
         }
         Update: {
           company_id?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          is_recommended?: boolean
           location?: string | null
           published?: boolean | null
           requirements?: string | null
