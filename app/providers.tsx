@@ -1,16 +1,18 @@
+/* app/providers.tsx */
 "use client"
 
-import type React from "react"
+import type { ReactNode } from "react"
+import { AuthProvider }   from "@/lib/auth-context"
+import { Toaster }        from "@/components/ui/sonner"
 
-import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/lib/auth-context"
+/* ほかに ThemeProvider など追加したい場合はここにネスト */
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-        {children}
-      </ThemeProvider>
+      {children}
+      <Toaster richColors position="top-center" />
     </AuthProvider>
   )
 }
+

@@ -250,6 +250,12 @@
        logout,
        clearError,
      }
+     if (typeof window !== "undefined") {
+      // @ts-ignore
+      window.__dbg = { session, user }
+      console.log("🟢 session:", session)
+      console.log("🟢 user   :", user)
+    }
    
      return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
    }
