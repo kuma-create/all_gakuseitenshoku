@@ -230,6 +230,9 @@ const login = async (
       .eq("user_id", uid)
       .single()
 
+    console.log("🔴 roleErr", roleErr)
+    console.log("🔴 roleRow", roleRow)
+
     if (roleErr) throw roleErr         // ← ここでエラーなら Policies を要確認
 
     /* 4. Context state を更新 */
@@ -290,6 +293,7 @@ const login = async (
       window.__dbg = { session, user }
       console.log("🟢 session:", session)
       console.log("🟢 user   :", user)
+      
     }
    
      return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
