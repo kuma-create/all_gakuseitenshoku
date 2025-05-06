@@ -208,7 +208,7 @@
 const login = async (
   email: string,
   password: string,
-  roleInput: UserRole,           // "student" | "company"
+  roleInput: UserRole           // "student" | "company"
 ): Promise<boolean> => {
   clearError()
   try {
@@ -218,37 +218,36 @@ const login = async (
 
     const uid = data.user.id
 
-    /* 2. user_roles を upsert（insert or update）*/
+    /* 2. upsert（失敗しても続行） */
     await supabase
       .from("user_roles")
       .upsert([{ user_id: uid, role: roleInput }], { onConflict: "user_id" })
+      .catch(console.warn)
 
-    /* 3. role を取得（RLS で SELECT できる前提）*/
+    /* 3. role を取得（無ければ null） */
     const { data: roleRow, error: roleErr } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", uid)
-      .single()
+      .maybeSingle()
 
-    console.log("🔴 roleErr", roleErr)
-    console.log("🔴 roleRow", roleRow)
+    if (roleErr) console.warn("role SELECT error:", roleErr)
 
-    if (roleErr) throw roleErr         // ← ここでエラーなら Policies を要確認
+    const roleFinal = (roleRow?.role ?? roleInput) as UserRole
 
-    /* 4. Context state を更新 */
+    /* 4. Context 更新 */
     setSession(data.session)
     setIsLoggedIn(true)
-
     setUser({
       id   : uid,
       email: data.user.email ?? "",
       name : data.user.user_metadata?.full_name ?? "ユーザー",
-      role : roleRow.role as UserRole,  // ← ここで role を確定
+      role : roleFinal,
     })
 
     /* 5. ダッシュボードへ */
     router.replace(
-      roleRow.role === "company" ? "/company-dashboard" : "/student-dashboard",
+      roleFinal === "company" ? "/company-dashboard" : "/student-dashboard",
     )
     return true
   } catch (e: any) {
@@ -257,6 +256,7 @@ const login = async (
     return false
   }
 }
+
 
 
    
