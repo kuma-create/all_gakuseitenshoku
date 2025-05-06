@@ -40,7 +40,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { supabase } from "@/lib/supabase"
+
+// ファイル冒頭の imports の下あたり
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+const supabase = createClientComponentClient()   // 既に client があれば不要
+
 
 export default function JobDetailPage({ params }: { params: { id: string } }) {
   const [isInterested, setIsInterested] = useState(false)
@@ -64,7 +68,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           .from("jobs")
           .select(`
             *,
-            company:company_id (
+            company:companies (
               id,
               name,
               description,
@@ -108,6 +112,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           .from("applications")
           .select("id")
           .eq("job_id", params.id)
+          .eq("student_id", (await supabase.auth.getUser()).data.user?.id ?? "")
           .limit(1)
 
         // Fetch related jobs (same company or similar tags)
@@ -154,10 +159,13 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
   const handleApply = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("サインインが必要です")
       // In a real app, this would include the user's ID
       const { error } = await supabase.from("applications").insert([
         {
           job_id: Number(params.id),
+          student_id: user.id,
           status: "pending",
           created_at: new Date().toISOString(),
         },
