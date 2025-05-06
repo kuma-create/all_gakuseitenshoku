@@ -216,7 +216,7 @@ function JobsPageInner() {
         /* ─── jobs ─── */
         const { data: jobsDataRaw, error: jobsErr } = await supabase
           .from("jobs")
-          .select("*, company:profiles(id,name,logo_url)")
+          .select("*, company:companies(name,logo_url)")
           .order("created_at", { ascending: false })
 
         if (jobsErr) throw jobsErr
