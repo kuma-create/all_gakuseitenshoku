@@ -66,21 +66,10 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         // Fetch job with company information
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
-          .select(`
-            *,
-            company:companies (
-              id,
-              name,
-              description,
-              logo_url,
-              cover_image_url,
-              industry,
-              founded_year,
-              employee_count,
-              location,
-              website_url
-            )
-          `)
+          .select(`*,company:companies(
+            id,name,description,logo_url,cover_image_url,
+            industry,founded_year,employee_count,location,website_url
+            )`)
           .eq("id", params.id)
           .single()
 
@@ -119,15 +108,8 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         const { data: relatedJobsData } = await supabase
           .from("jobs")
           .select(`
-            id,
-            title,
-            company_id,
-            location,
-            salary_min,
-            salary_max,
-            company:companies (
-              name,
-              logo_url
+            id,title,company_id,location,salary_min,salary_max,
+            company:companies(name,logo_url)
             )
           `)
           .eq("company_id", jobData.company_id)
