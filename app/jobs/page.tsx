@@ -64,76 +64,79 @@ export default function JobsPage() {
   const [error,     setError]     = useState<string | null>(null)
 
   /* ------------------------- Supabase 取得 ------------------------- */
-  useEffect(() => {
-    ;(async () => {
-      setIsLoading(true)
-      try {
-        /* jobs + 会社情報 */
-        const { data: jobsData, error: jobsErr } = await supabase
-          .from("jobs")
-          .select(
-            `*,                      
-            company:companies (      
-              name,
-              logo_url,
-              cover_image_url
-            )`
+/* ------------------------- Supabase 取得 ------------------------- */
+useEffect(() => {
+  const fetchJobs = async () => {
+    setIsLoading(true)
+    try {
+      /* ─── jobs + 会社情報 ─── */
+      type JobRow     = Database["public"]["Tables"]["jobs"]["Row"]
+      type JobJoined  = JobRow & { company: CompanyPreview | null }
+
+      const { data, error: jobsErr } = await supabase
+        .from("jobs")
+        .select(`
+          *,
+          company:companies (
+            name,
+            logo_url,
+            cover_image_url
           )
-          .eq("status", "active")
-          .order("created_at", { ascending: false })
+        `)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
 
-        if (jobsErr) throw jobsErr
+      if (jobsErr) throw jobsErr
+      const jobsData = data as JobJoined[]
 
-        /* タグ */
-        const jobIds           = jobsData?.map(j => j.id) ?? []
-        const { data: tags, error: tagsErr } = await supabase
-          .from("job_tags")
-          .select("*")
-          .in("job_id", jobIds)
+      /* ─── job_tags ─── */
+      type TagRow = Database["public"]["Tables"]["job_tags"]["Row"]
 
-        if (tagsErr) throw tagsErr
+      const jobIds = jobsData?.map(j => j.id) ?? []
+      
+      const { data: tagRaw, error: tagsErr } = await supabase
+        .from("job_tags")
+        .select("*")                 // ← ジェネリクスを外して "*" だけに
+        .in("job_id", jobIds)
+      
+      if (tagsErr) throw tagsErr
+      const tags = tagRaw as TagRow[] 
 
-        /* job_id → tags[] に変換 */
-        const tagsByJob: Record<string, string[]> = {}
-        tags?.forEach(t => { (tagsByJob[t.job_id] ??= []).push(t.tag) })
+      /* ─── job_id → tags[] ─── */
+      const tagsByJob: Record<string, string[]> = {}
+      tags?.forEach(t => {
+        (tagsByJob[t.job_id] ??= []).push(t.tag)
+      })
 
-        /* JobWithTags 配列作成 */
-        const now = Date.now()
+      /* ─── JobWithTags を構築 ─── */
+      const now = Date.now()
+      const merged: JobWithTags[] = (jobsData ?? []).map(j => {
+        const company = j.company ?? null
 
-        const isCompanyPreview = (v: any): v is CompanyPreview =>
-          v && typeof v === "object" && "name" in v
-        
-        const merged: JobWithTags[] =
-          (jobsData ?? []).map((j): JobWithTags => {
-            /* ---------- 会社情報 ---------- */
-            const company = isCompanyPreview((j as any).company) ? (j as any).company : null
-        
-            /* ---------- 返り値 ---------- */
-            return {
-              // jobs.* の列
-              ...j,
-        
-              // まだ DB に無い欄は ? でキャスト
-              salary_min: (j as any).salary_min ?? null,
-              salary_max: (j as any).salary_max ?? null,
-        
-              company,                              // ← ここで整形済み
-              tags       : tagsByJob[j.id] ?? [],
-              is_new     : now - new Date(j.created_at ?? "").getTime()
-                           < 7 * 24 * 60 * 60 * 1_000,
-              is_featured: Math.random() > 0.7,
-            }
-          })
-        
-        setJobs(merged)
-      } catch (e) {
-        console.error(e)
-        setError("求人情報の取得に失敗しました。")
-      } finally {
-        setIsLoading(false)
-      }
-    })()
-  }, [])
+        return {
+          ...j,
+          salary_min   : (j as any).salary_min ?? null,
+          salary_max   : (j as any).salary_max ?? null,
+          company,
+          tags         : tagsByJob[j.id] ?? [],
+          is_new       : now - new Date(j.created_at ?? "").getTime() < 7 * 24 * 60 * 60 * 1_000,
+          is_featured  : Math.random() > 0.7,
+          is_recommended: (j as any).is_recommended ?? false,      // ← 列があれば
+        }
+      })
+
+      setJobs(merged)
+    } catch (e) {
+      console.error(e)
+      setError("求人情報の取得に失敗しました。")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  fetchJobs()
+}, [])
+
 
   /* ------------------------- 保存した求人 ------------------------- */
   useEffect(() => {
