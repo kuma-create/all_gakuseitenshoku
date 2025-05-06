@@ -202,25 +202,32 @@
      /* ----------------------------------------------------------------
         login
      ---------------------------------------------------------------- */
-     const login = async (email: string, password: string, role: UserRole) => {
-       clearError()
-       try {
-         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-         if (error || !data.session) throw error ?? new Error("login failed")
-   
-         /* user_roles upsert（無ければ作成） */
-         await supabase.from("user_roles").upsert(
-           [{ user_id: data.user.id, role: (role ?? "student") as "student" | "company" }],
-           { onConflict: "user_id" },
-         )
-   
-         router.replace(role === "company" ? "/company-dashboard" : "/student-dashboard")
-         return true
-       } catch (e: any) {
-         setError(e.message ?? "ログインに失敗しました")
-         return false
-       }
-     }
+/* lib/auth-context.tsx — login 関数を丸ごと置き換え */
+
+const login = async (email: string, password: string, role: UserRole) => {
+  clearError()
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error || !data.session) throw error ?? new Error("login failed")
+
+    /* user_roles を upsert */
+    await supabase.from("user_roles").upsert(
+      [{ user_id: data.user.id, role: role ?? "student" }],
+      { onConflict: "user_id" },
+    )
+
+    /* ★ ここで applySession を直接呼ぶ ★ */
+    await applySession(data.session)            // ← New!
+
+    /* ダッシュボードへ遷移 */
+    router.replace(role === "company" ? "/company-dashboard" : "/student-dashboard")
+    return true
+  } catch (e: any) {
+    setError(e.message ?? "ログインに失敗しました")
+    return false
+  }
+}
+
    
      /* ----------------------------------------------------------------
         logout
