@@ -4,41 +4,40 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "./auth-context"
 
-type Role = "student" | "company" | "any" | undefined
+/** ページが許可するロール  
+ *  - "student"  学生だけ  
+ *  - "company"  企業だけ  
+ *  - "any"      認証さえされていれば誰でも
+ */
+type Role = "student" | "company" | "any"
 
-export function useAuthGuard(role: Role = "any") {
+export function useAuthGuard(allow: Role = "any") {
   const router   = useRouter()
   const pathname = usePathname()
-  const { isLoggedIn, userType } = useAuth()
-  const [ready, setReady] = useState(false)
+  const { ready, isLoggedIn, user } = useAuth()   // ← user.role を参照
+  const [permitted, setPermitted] = useState(false)
 
   useEffect(() => {
-    /* まだ Supabase から返答が来ていない */
-    if (isLoggedIn === null) return
+    /* ① AuthContext が初期化されるまで待つ */
+    if (!ready) return
 
-    /* ログイン済みだが userType 未取得 → 最大 2 秒だけ待つ */
-    if (isLoggedIn && role !== "any" && userType === null) {
-      const timer = setTimeout(() => setReady(true), 2000) // ← 2 秒で強制許可
-      return () => clearTimeout(timer)
-    }
-
-    /* ── 未ログイン ── */
+    /* ② 未ログイン → /login にリダイレクト */
     if (!isLoggedIn) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`)
       return
     }
 
-    /* ── ロール不一致 ── */
-    if (role !== "any" && userType !== role) {
-      if (userType === "student")   router.replace("/student-dashboard")
-      else if (userType === "company") router.replace("/company-dashboard")
-      else router.replace("/")
+    /* ③ ロール不一致 → それぞれのダッシュボードに戻す */
+    if (allow !== "any" && user?.role !== allow) {
+      router.replace(
+        user?.role === "company" ? "/company-dashboard" : "/student-dashboard",
+      )
       return
     }
 
-    /* ── OK ── */
-    setReady(true)
-  }, [isLoggedIn, userType, role, router, pathname])
+    /* ④ 条件を満たした */
+    setPermitted(true)
+  }, [ready, isLoggedIn, user?.role, allow, router, pathname])
 
-  return ready
+  return permitted
 }
