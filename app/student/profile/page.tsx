@@ -1,21 +1,36 @@
 "use client"
 
 import { useState } from "react"
+import {
+  PlusCircle,
+  Trash2,
+  Save,
+  X,
+  Edit,
+  School,
+  Briefcase,
+  Code,
+  User,
+  Trophy,
+  Award,
+  Target,
+  CalendarIcon,
+  ExternalLink,
+} from "lucide-react"
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { PlusCircle, Trash2, Save, X, Edit, School, Briefcase, Code, User, Trophy, Award, Target } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CalendarIcon, ExternalLink } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AchievementBadge } from "@/components/achievement-badge"
-import { getUserBadges, getEarnedBadges } from "@/lib/badge-data"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MultiSelect } from "@/components/multi-select"
+import { AchievementBadge } from "@/components/achievement-badge"
+import { getUserBadges, getEarnedBadges } from "@/lib/badge-data"
 
 // モックデータ
 const initialProfile = {
@@ -160,7 +175,6 @@ const availableIndustries = [
   { id: 4, name: "メーカー" },
   { id: 5, name: "商社" },
 ]
-
 const availableLocations = [
   { id: 1, name: "東京" },
   { id: 2, name: "大阪" },
@@ -168,7 +182,6 @@ const availableLocations = [
   { id: 4, name: "福岡" },
   { id: 5, name: "札幌" },
 ]
-
 const availablePositions = [
   { id: 1, name: "フロントエンドエンジニア" },
   { id: 2, name: "バックエンドエンジニア" },
@@ -194,7 +207,6 @@ const getSkillLevelColor = (level: number) => {
       return "text-gray-500"
   }
 }
-
 const getWorkStyleLabel = (workStyle: string) => {
   switch (workStyle) {
     case "full_remote":
@@ -209,7 +221,6 @@ const getWorkStyleLabel = (workStyle: string) => {
       return "未設定"
   }
 }
-
 const getSalaryRangeLabel = (salaryRange: string) => {
   switch (salaryRange) {
     case "300-400":
@@ -232,9 +243,8 @@ const getSalaryRangeLabel = (salaryRange: string) => {
 export default function StudentProfilePage() {
   const [profile, setProfile] = useState(initialProfile)
   const [isEditing, setIsEditing] = useState(false)
-  const [newSkill, setNewSkill] = useState("")
   const [editedProfile, setEditedProfile] = useState(initialProfile)
-  const [selectedAnswer, setSelectedAnswer] = useState<(typeof grandPrixHistory)[0] | null>(null)
+  const [selectedAnswer, setSelectedAnswer] = useState<typeof grandPrixHistory[0] | null>(null)
   const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false)
   const [badgeTab, setBadgeTab] = useState<"all" | "earned">("earned")
   const [newSkillName, setNewSkillName] = useState("")
@@ -244,76 +254,69 @@ export default function StudentProfilePage() {
   const allBadges = getUserBadges()
   const earnedBadges = getEarnedBadges()
 
-  // 平均スコアの計算
-  const scoredSubmissions = grandPrixHistory.filter((item) => item.status === "採点済" && item.score !== null)
+  // 平均スコア
+  const scoredSubmissions = grandPrixHistory.filter((i) => i.status === "採点済" && i.score != null)
   const averageScore =
     scoredSubmissions.length > 0
       ? Math.round(scoredSubmissions.reduce((acc, curr) => acc + (curr.score || 0), 0) / scoredSubmissions.length)
       : null
 
-  // 編集モードの切り替え
+  // 編集モード切替
   const toggleEditMode = () => {
     if (isEditing) {
-      // 編集をキャンセル
       setEditedProfile(profile)
-    } else {
-      // 編集モードに入る
-      setEditedProfile({ ...profile })
     }
-    setIsEditing(!isEditing)
+    setIsEditing((prev) => !prev)
   }
-
-  // 変更を保存
+  // 保存
   const saveChanges = () => {
     setProfile(editedProfile)
     setIsEditing(false)
   }
-
-  // 基本情報の更新
-  const updateBasicInfo = (field: string, value: string | number) => {
-    setEditedProfile({
-      ...editedProfile,
+  // 基本情報更新
+  const updateBasicInfo = (field: keyof typeof initialProfile.basicInfo, value: string | number) => {
+    setEditedProfile((prev) => ({
+      ...prev,
       basicInfo: {
-        ...editedProfile.basicInfo,
+        ...prev.basicInfo,
         [field]: value,
       },
-    })
+    }))
   }
-
-  // スキルの追加
-  const addSkill = () => {
-    if (newSkill.trim() && !editedProfile.skills.includes(newSkill.trim())) {
-      setEditedProfile({
-        ...editedProfile,
-        skills: [...editedProfile.skills, newSkill.trim()],
-      })
-      setNewSkill("")
+  // studentSkills 追加/削除
+  const addSkillItem = () => {
+    if (newSkillName.trim()) {
+      const newId = Math.max(0, ...editedProfile.studentSkills.map((s) => s.id)) + 1
+      setEditedProfile((prev) => ({
+        ...prev,
+        studentSkills: [
+          ...prev.studentSkills,
+          { id: newId, skill_name: newSkillName.trim(), level: newSkillLevel },
+        ],
+      }))
+      setNewSkillName("")
+      setNewSkillLevel(1)
     }
   }
-
-  // スキルの削除
-  const removeSkill = (skillToRemove: string) => {
-    setEditedProfile({
-      ...editedProfile,
-      skills: editedProfile.skills.filter((skill) => skill !== skillToRemove),
-    })
+  const removeSkillItem = (id: number) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      studentSkills: prev.studentSkills.filter((s) => s.id !== id),
+    }))
   }
-
-  // 経歴の更新
-  const updateExperience = (id: number, field: string, value: string) => {
-    setEditedProfile({
-      ...editedProfile,
-      experiences: editedProfile.experiences.map((exp) => (exp.id === id ? { ...exp, [field]: value } : exp)),
-    })
+  // experiences
+  const updateExperience = (id: number, field: keyof typeof initialProfile.experiences[0], value: string) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      experiences: prev.experiences.map((e) => (e.id === id ? { ...e, [field]: value } : e)),
+    }))
   }
-
-  // 経歴の追加
   const addExperience = () => {
-    const newId = Math.max(0, ...editedProfile.experiences.map((exp) => exp.id)) + 1
-    setEditedProfile({
-      ...editedProfile,
+    const newId = Math.max(0, ...editedProfile.experiences.map((e) => e.id)) + 1
+    setEditedProfile((prev) => ({
+      ...prev,
       experiences: [
-        ...editedProfile.experiences,
+        ...prev.experiences,
         {
           id: newId,
           company_name: "",
@@ -324,130 +327,97 @@ export default function StudentProfilePage() {
           achievements: "",
         },
       ],
-    })
+    }))
   }
-
-  // 経歴の削除
   const removeExperience = (id: number) => {
-    setEditedProfile({
-      ...editedProfile,
-      experiences: editedProfile.experiences.filter((exp) => exp.id !== id),
-    })
+    setEditedProfile((prev) => ({
+      ...prev,
+      experiences: prev.experiences.filter((e) => e.id !== id),
+    }))
   }
-
-  // 学歴の更新
-  const updateEducation = (id: number, field: string, value: string) => {
-    setEditedProfile({
-      ...editedProfile,
-      education: editedProfile.education.map((edu) => (edu.id === id ? { ...edu, [field]: value } : edu)),
-    })
+  // certifications
+  const updateCertification = (
+    id: number,
+    field: keyof typeof initialProfile.certifications[0],
+    value: string
+  ) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      certifications: prev.certifications.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
+    }))
   }
-
-  // 学歴の追加
-  const addEducation = () => {
-    const newId = Math.max(0, ...editedProfile.education.map((edu) => edu.id)) + 1
-    setEditedProfile({
-      ...editedProfile,
-      education: [
-        ...editedProfile.education,
-        {
-          id: newId,
-          school: "",
-          period: "",
-          description: "",
-        },
-      ],
-    })
-  }
-
-  // 学歴の削除
-  const removeEducation = (id: number) => {
-    setEditedProfile({
-      ...editedProfile,
-      education: editedProfile.education.filter((edu) => edu.id !== id),
-    })
-  }
-
-  // スキル関連の関数
-  const addSkillItem = () => {
-    if (newSkillName.trim()) {
-      const newId = Math.max(0, ...editedProfile.studentSkills.map((skill) => skill.id)) + 1
-      setEditedProfile({
-        ...editedProfile,
-        studentSkills: [
-          ...editedProfile.studentSkills,
-          { id: newId, skill_name: newSkillName.trim(), level: newSkillLevel },
-        ],
-      })
-      setNewSkillName("")
-      setNewSkillLevel(1)
-    }
-  }
-
-  const removeSkillItem = (id: number) => {
-    setEditedProfile({
-      ...editedProfile,
-      studentSkills: editedProfile.studentSkills.filter((skill) => skill.id !== id),
-    })
-  }
-
-  // 資格関連の関数
   const addCertification = () => {
-    const newId = Math.max(0, ...editedProfile.certifications.map((cert) => cert.id)) + 1
-    setEditedProfile({
-      ...editedProfile,
+    const newId = Math.max(0, ...editedProfile.certifications.map((c) => c.id)) + 1
+    setEditedProfile((prev) => ({
+      ...prev,
       certifications: [
-        ...editedProfile.certifications,
+        ...prev.certifications,
         {
           id: newId,
           certification_name: "",
           issuer: "",
-          issued_at: new Date().toISOString().slice(0, 10), // 今日の日付を初期値として設定
+          issued_at: new Date().toISOString().slice(0, 10),
           certification_id: "",
         },
       ],
-    })
+    }))
   }
-
   const removeCertification = (id: number) => {
-    setEditedProfile({
-      ...editedProfile,
-      certifications: editedProfile.certifications.filter((cert) => cert.id !== id),
-    })
+    setEditedProfile((prev) => ({
+      ...prev,
+      certifications: prev.certifications.filter((c) => c.id !== id),
+    }))
   }
-
-  const updateCertification = (id: number, field: string, value: string) => {
-    setEditedProfile({
-      ...editedProfile,
-      certifications: editedProfile.certifications.map((cert) => (cert.id === id ? { ...cert, [field]: value } : cert)),
-    })
+  // education
+  const updateEducation = (id: number, field: keyof typeof initialProfile.education[0], value: string) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      education: prev.education.map((e) => (e.id === id ? { ...e, [field]: value } : e)),
+    }))
   }
-
-  // 希望条件関連の関数
-  const setDesiredIndustries = (selected: { id: number; name: string }[]) => {
-    setEditedProfile({ ...editedProfile, desiredIndustries: selected })
+  const addEducation = () => {
+    const newId = Math.max(0, ...editedProfile.education.map((e) => e.id)) + 1
+    setEditedProfile((prev) => ({
+      ...prev,
+      education: [...prev.education, { id: newId, school: "", period: "", description: "" }],
+    }))
   }
-
-  const setDesiredLocations = (selected: { id: number; name: string }[]) => {
-    setEditedProfile({ ...editedProfile, desiredLocations: selected })
+  const removeEducation = (id: number) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      education: prev.education.filter((e) => e.id !== id),
+    }))
   }
-
-  const setDesiredPositions = (selected: { id: number; name: string }[]) => {
-    setEditedProfile({ ...editedProfile, desiredPositions: selected })
+  // desired multi-selects
+  const handleIndustriesChange = (opts: { id: string; name: string }[]) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      desiredIndustries: opts.map((o) => ({ id: Number(o.id), name: o.name })),
+    }))
   }
-
-  const updateJobPreferences = (field: string, value: string) => {
-    setEditedProfile({
-      ...editedProfile,
-      jobPreferences: {
-        ...editedProfile.jobPreferences,
-        [field]: value,
-      },
-    })
+  const handleLocationsChange = (opts: { id: string; name: string }[]) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      desiredLocations: opts.map((o) => ({ id: Number(o.id), name: o.name })),
+    }))
+  }
+  const handlePositionsChange = (opts: { id: string; name: string }[]) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      desiredPositions: opts.map((o) => ({ id: Number(o.id), name: o.name })),
+    }))
+  }
+  // jobPreferences
+  const updateJobPreferences = (field: keyof typeof initialProfile.jobPreferences, value: string) => {
+    setEditedProfile((prev) => ({
+      ...prev,
+      jobPreferences: { ...prev.jobPreferences, [field]: value },
+    }))
   }
 
   return (
     <div className="container mx-auto py-6 space-y-6 max-w-4xl">
+      {/* ヘッダー */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">マイプロフィール</h1>
         {isEditing ? (
@@ -466,7 +436,7 @@ export default function StudentProfilePage() {
         )}
       </div>
 
-      {/* 保有バッジセクション */}
+      {/* 保有バッジ */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -474,14 +444,14 @@ export default function StudentProfilePage() {
               <Award className="mr-2 h-5 w-5 text-muted-foreground" />
               <CardTitle>保有バッジ</CardTitle>
             </div>
-            <Badge variant="outline" className="ml-2">
+            <Badge variant="outline">
               {earnedBadges.length}/{allBadges.length}個獲得
             </Badge>
           </div>
           <CardDescription>グランプリでの実績に応じて獲得したバッジです</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="earned" onValueChange={(value) => setBadgeTab(value as "all" | "earned")}>
+          <Tabs defaultValue="earned" onValueChange={(v) => setBadgeTab(v as "all" | "earned")}>
             <TabsList className="mb-4">
               <TabsTrigger value="earned">獲得済み ({earnedBadges.length})</TabsTrigger>
               <TabsTrigger value="all">全てのバッジ ({allBadges.length})</TabsTrigger>
@@ -490,16 +460,7 @@ export default function StudentProfilePage() {
               {earnedBadges.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                   {earnedBadges.map((badge) => (
-                    <AchievementBadge
-                      key={badge.id}
-                      id={badge.id}
-                      name={badge.name}
-                      description={badge.description}
-                      icon={badge.icon}
-                      earned={badge.earned}
-                      earnedDate={badge.earnedDate}
-                      variant={badge.variant}
-                    />
+                    <AchievementBadge key={badge.id} {...badge} />
                   ))}
                 </div>
               ) : (
@@ -516,18 +477,7 @@ export default function StudentProfilePage() {
             <TabsContent value="all">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {allBadges.map((badge) => (
-                  <AchievementBadge
-                    key={badge.id}
-                    id={badge.id}
-                    name={badge.name}
-                    description={badge.description}
-                    icon={badge.icon}
-                    earned={badge.earned}
-                    earnedDate={badge.earnedDate}
-                    progress={badge.progress}
-                    maxProgress={badge.maxProgress}
-                    variant={badge.variant}
-                  />
+                  <AchievementBadge key={badge.id} {...badge} />
                 ))}
               </div>
             </TabsContent>
@@ -576,7 +526,7 @@ export default function StudentProfilePage() {
                   id="year"
                   type="number"
                   value={editedProfile.basicInfo.year}
-                  onChange={(e) => updateBasicInfo("year", Number.parseInt(e.target.value) || 1)}
+                  onChange={(e) => updateBasicInfo("year", Number(e.target.value) || 1)}
                 />
               </div>
               <div className="space-y-2">
@@ -585,7 +535,7 @@ export default function StudentProfilePage() {
                   id="graduationYear"
                   type="number"
                   value={editedProfile.basicInfo.graduationYear}
-                  onChange={(e) => updateBasicInfo("graduationYear", Number.parseInt(e.target.value) || 2024)}
+                  onChange={(e) => updateBasicInfo("graduationYear", Number(e.target.value) || 2024)}
                 />
               </div>
             </div>
@@ -628,13 +578,13 @@ export default function StudentProfilePage() {
           {isEditing ? (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {editedProfile.studentSkills.map((skillItem) => (
-                  <Badge key={skillItem.id} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                    {skillItem.skill_name}
-                    {skillItem.level && <span className="ml-1 text-xs">Lv.{skillItem.level}</span>}
+                {editedProfile.studentSkills.map((skill) => (
+                  <Badge key={skill.id} variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                    {skill.skill_name}
+                    {skill.level && <span className="ml-1 text-xs">Lv.{skill.level}</span>}
                     <button
                       type="button"
-                      onClick={() => removeSkillItem(skillItem.id)}
+                      onClick={() => removeSkillItem(skill.id)}
                       className="ml-1 text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-3 w-3" />
@@ -650,8 +600,8 @@ export default function StudentProfilePage() {
                   className="col-span-2"
                 />
                 <Select
-                  value={newSkillLevel.toString()}
-                  onValueChange={(value) => setNewSkillLevel(Number.parseInt(value))}
+                  value={String(newSkillLevel)}
+                  onValueChange={(v) => setNewSkillLevel(Number(v))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="レベル" />
@@ -665,17 +615,19 @@ export default function StudentProfilePage() {
                   </SelectContent>
                 </Select>
                 <Button type="button" onClick={addSkillItem} size="sm" className="md:col-span-3">
-                  追加
+                  <PlusCircle className="mr-2 h-4 w-4" /> 追加
                 </Button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {profile.studentSkills.map((skillItem) => (
-                <Badge key={skillItem.id} variant="secondary" className="flex items-center gap-1">
-                  {skillItem.skill_name}
-                  {skillItem.level && (
-                    <span className={`ml-1 text-xs ${getSkillLevelColor(skillItem.level)}`}>Lv.{skillItem.level}</span>
+              {profile.studentSkills.map((skill) => (
+                <Badge key={skill.id} variant="secondary" className="flex items-center gap-1">
+                  {skill.skill_name}
+                  {skill.level && (
+                    <span className={`ml-1 text-xs ${getSkillLevelColor(skill.level)}`}>
+                      Lv.{skill.level}
+                    </span>
                   )}
                 </Badge>
               ))}
@@ -755,7 +707,10 @@ export default function StudentProfilePage() {
                       <p className="text-sm text-muted-foreground">{cert.issuer}</p>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {new Date(cert.issued_at).toLocaleDateString("ja-JP", { year: "numeric", month: "long" })}
+                      {new Date(cert.issued_at).toLocaleDateString("ja-JP", {
+                        year: "numeric",
+                        month: "long",
+                      })}
                     </div>
                   </div>
                 ))
@@ -881,27 +836,27 @@ export default function StudentProfilePage() {
               <div className="space-y-2">
                 <Label>希望業界</Label>
                 <MultiSelect
-                  options={availableIndustries}
-                  selected={editedProfile.desiredIndustries}
-                  onChange={setDesiredIndustries}
+                  options={availableIndustries.map(({ id, name }) => ({ id: String(id), name }))}
+                  selected={editedProfile.desiredIndustries.map(({ id, name }) => ({ id: String(id), name }))}
+                  onChange={handleIndustriesChange}
                   placeholder="業界を選択"
                 />
               </div>
               <div className="space-y-2">
                 <Label>希望勤務地</Label>
                 <MultiSelect
-                  options={availableLocations}
-                  selected={editedProfile.desiredLocations}
-                  onChange={setDesiredLocations}
+                  options={availableLocations.map(({ id, name }) => ({ id: String(id), name }))}
+                  selected={editedProfile.desiredLocations.map(({ id, name }) => ({ id: String(id), name }))}
+                  onChange={handleLocationsChange}
                   placeholder="勤務地を選択"
                 />
               </div>
               <div className="space-y-2">
                 <Label>希望職種</Label>
                 <MultiSelect
-                  options={availablePositions}
-                  selected={editedProfile.desiredPositions}
-                  onChange={setDesiredPositions}
+                  options={availablePositions.map(({ id, name }) => ({ id: String(id), name }))}
+                  selected={editedProfile.desiredPositions.map(({ id, name }) => ({ id: String(id), name }))}
+                  onChange={handlePositionsChange}
                   placeholder="職種を選択"
                 />
               </div>
@@ -909,7 +864,7 @@ export default function StudentProfilePage() {
                 <Label htmlFor="work-style">希望勤務形態</Label>
                 <Select
                   value={editedProfile.jobPreferences.work_style}
-                  onValueChange={(value) => updateJobPreferences("work_style", value)}
+                  onValueChange={(v) => updateJobPreferences("work_style", v)}
                 >
                   <SelectTrigger id="work-style">
                     <SelectValue placeholder="勤務形態を選択" />
@@ -926,7 +881,7 @@ export default function StudentProfilePage() {
                 <Label htmlFor="salary-range">希望年収</Label>
                 <Select
                   value={editedProfile.jobPreferences.salary_range}
-                  onValueChange={(value) => updateJobPreferences("salary_range", value)}
+                  onValueChange={(v) => updateJobPreferences("salary_range", v)}
                 >
                   <SelectTrigger id="salary-range">
                     <SelectValue placeholder="希望年収を選択" />
@@ -957,9 +912,9 @@ export default function StudentProfilePage() {
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">希望業界</h4>
                 <div className="flex flex-wrap gap-2">
-                  {profile.desiredIndustries.map((industry) => (
-                    <Badge key={industry.id} variant="outline">
-                      {industry.name}
+                  {profile.desiredIndustries.map((i) => (
+                    <Badge key={i.id} variant="outline">
+                      {i.name}
                     </Badge>
                   ))}
                   {profile.desiredIndustries.length === 0 && <p className="text-sm text-muted-foreground">未設定</p>}
@@ -968,9 +923,9 @@ export default function StudentProfilePage() {
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">希望勤務地</h4>
                 <div className="flex flex-wrap gap-2">
-                  {profile.desiredLocations.map((location) => (
-                    <Badge key={location.id} variant="outline">
-                      {location.name}
+                  {profile.desiredLocations.map((l) => (
+                    <Badge key={l.id} variant="outline">
+                      {l.name}
                     </Badge>
                   ))}
                   {profile.desiredLocations.length === 0 && <p className="text-sm text-muted-foreground">未設定</p>}
@@ -979,9 +934,9 @@ export default function StudentProfilePage() {
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">希望職種</h4>
                 <div className="flex flex-wrap gap-2">
-                  {profile.desiredPositions.map((position) => (
-                    <Badge key={position.id} variant="outline">
-                      {position.name}
+                  {profile.desiredPositions.map((p) => (
+                    <Badge key={p.id} variant="outline">
+                      {p.name}
                     </Badge>
                   ))}
                   {profile.desiredPositions.length === 0 && <p className="text-sm text-muted-foreground">未設定</p>}
@@ -1015,18 +970,16 @@ export default function StudentProfilePage() {
         </CardHeader>
         <CardContent>
           {isEditing ? (
-            <div className="space-y-2">
-              <Textarea
-                value={editedProfile.selfPR}
-                onChange={(e) => setEditedProfile({ ...editedProfile, selfPR: e.target.value })}
-                rows={8}
-              />
-            </div>
+            <Textarea
+              value={editedProfile.selfPR}
+              onChange={(e) => setEditedProfile({ ...editedProfile, selfPR: e.target.value })}
+              rows={8}
+            />
           ) : (
             <blockquote className="border-l-4 border-muted pl-4 italic">
-              {profile.selfPR.split("\n\n").map((paragraph, index) => (
-                <p key={index} className="my-2">
-                  {paragraph}
+              {profile.selfPR.split("\n\n").map((p, i) => (
+                <p key={i} className="my-2">
+                  {p}
                 </p>
               ))}
             </blockquote>
@@ -1109,17 +1062,13 @@ export default function StudentProfilePage() {
               <CardTitle>就活グランプリの履歴</CardTitle>
             </div>
             {averageScore !== null && (
-              <Badge variant="outline" className="ml-2">
-                平均スコア: {averageScore}/100
-              </Badge>
+              <Badge variant="outline">平均スコア: {averageScore}/100</Badge>
             )}
           </div>
           <CardDescription>これまでに提出したお題とスコアを確認できます</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="hidden md:block">
-            {" "}
-            {/* デスクトップ表示 */}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1143,15 +1092,19 @@ export default function StudentProfilePage() {
                     <TableCell>
                       <Badge
                         variant={
-                          item.status === "採点済" ? "success" : item.status === "提出済" ? "default" : "secondary"
+                          item.status === "採点済"
+                            ? "success"
+                            : item.status === "提出済"
+                            ? "default"
+                            : "secondary"
                         }
                       >
                         {item.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{item.score ? `${item.score}/100` : "-"}</TableCell>
+                    <TableCell>{item.score != null ? `${item.score}/100` : "-"}</TableCell>
                     <TableCell>
-                      {item.status !== "未提出" && (
+                      {item.status !== "未提出" ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1162,8 +1115,7 @@ export default function StudentProfilePage() {
                         >
                           回答を表示
                         </Button>
-                      )}
-                      {item.status === "未提出" && (
+                      ) : (
                         <Button variant="ghost" size="sm" asChild>
                           <a href="/grandprix">
                             挑戦する <ExternalLink className="ml-1 h-3 w-3" />
@@ -1178,17 +1130,26 @@ export default function StudentProfilePage() {
           </div>
 
           <div className="md:hidden space-y-4">
-            {" "}
-            {/* モバイル表示 */}
             {grandPrixHistory.map((item) => (
-              <div key={item.id} className={`p-4 border rounded-lg ${item.status === "未提出" ? "bg-muted/50" : ""}`}>
+              <div
+                key={item.id}
+                className={`p-4 border rounded-lg ${
+                  item.status === "未提出" ? "bg-muted/50" : ""
+                }`}
+              >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center">
                     <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">{item.month}</span>
                   </div>
                   <Badge
-                    variant={item.status === "採点済" ? "success" : item.status === "提出済" ? "default" : "secondary"}
+                    variant={
+                      item.status === "採点済"
+                        ? "success"
+                        : item.status === "提出済"
+                        ? "default"
+                        : "secondary"
+                    }
                   >
                     {item.status}
                   </Badge>
@@ -1196,7 +1157,7 @@ export default function StudentProfilePage() {
                 <p className="mb-2 line-clamp-2">{item.title}</p>
                 <div className="flex justify-between items-center mt-3">
                   <div>
-                    {item.score ? (
+                    {item.score != null ? (
                       <span className="font-medium">スコア: {item.score}/100</span>
                     ) : (
                       <span className="text-muted-foreground">未採点</span>
@@ -1240,8 +1201,8 @@ export default function StudentProfilePage() {
                   selectedAnswer?.status === "採点済"
                     ? "success"
                     : selectedAnswer?.status === "提出済"
-                      ? "default"
-                      : "secondary"
+                    ? "default"
+                    : "secondary"
                 }
                 className="ml-3"
               >
@@ -1262,13 +1223,15 @@ export default function StudentProfilePage() {
               <>
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium">スコア:</h4>
-                  <div className="text-xl font-bold">{selectedAnswer?.score}/100</div>
+                  <div className="text-xl font-bold">{selectedAnswer.score}/100</div>
                 </div>
 
-                {selectedAnswer?.feedback && (
+                {selectedAnswer.feedback && (
                   <div>
                     <h4 className="text-sm font-medium mb-2">フィードバック:</h4>
-                    <div className="bg-muted/30 p-4 rounded-md text-sm">{selectedAnswer.feedback}</div>
+                    <div className="bg-muted/30 p-4 rounded-md text-sm">
+                      {selectedAnswer.feedback}
+                    </div>
                   </div>
                 )}
               </>

@@ -1,4 +1,6 @@
-import type { LightbulbIcon as LucideProps } from "lucide-react"
+// trophy.tsx
+import * as React from "react"
+import type { LucideProps } from "lucide-react"
 
 export const Trophy = (props: LucideProps) => (
   <svg
@@ -21,3 +23,5 @@ export const Trophy = (props: LucideProps) => (
     <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
   </svg>
 )
+
+Trophy.displayName = "Trophy"

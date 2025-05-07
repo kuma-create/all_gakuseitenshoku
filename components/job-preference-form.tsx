@@ -1,24 +1,22 @@
 "use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { MultiSelect } from "@/components/multi-select"
+import { MultiSelect, type Option as MultiSelectOption } from "@/components/multi-select"
 
-type Option = {
-  value: string
-  label: string
-}
+export type Option = MultiSelectOption
 
 type JobPreferenceFormProps = {
   industries: Option[]
   locations: Option[]
   positions: Option[]
-  selectedIndustries: string[]
-  selectedLocations: string[]
-  selectedPositions: string[]
-  onIndustriesChange: (values: string[]) => void
-  onLocationsChange: (values: string[]) => void
-  onPositionsChange: (values: string[]) => void
+  selectedIndustries: Option[]
+  selectedLocations: Option[]
+  selectedPositions: Option[]
+  onIndustriesChange: (selected: Option[]) => void
+  onLocationsChange: (selected: Option[]) => void
+  onPositionsChange: (selected: Option[]) => void
   onSubmit: () => void
   isLoading?: boolean
 }
@@ -52,7 +50,6 @@ export function JobPreferenceForm({
           <div className="space-y-2">
             <Label htmlFor="industries">希望業界</Label>
             <MultiSelect
-              id="industries"
               options={industries}
               selected={selectedIndustries}
               onChange={onIndustriesChange}
@@ -63,7 +60,6 @@ export function JobPreferenceForm({
           <div className="space-y-2">
             <Label htmlFor="locations">希望勤務地</Label>
             <MultiSelect
-              id="locations"
               options={locations}
               selected={selectedLocations}
               onChange={onLocationsChange}
@@ -74,7 +70,6 @@ export function JobPreferenceForm({
           <div className="space-y-2">
             <Label htmlFor="positions">希望職種</Label>
             <MultiSelect
-              id="positions"
               options={positions}
               selected={selectedPositions}
               onChange={onPositionsChange}

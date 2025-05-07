@@ -1,92 +1,134 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase/client"
+import type { Database } from "@/lib/supabase/types"
 import { ScoutNotification } from "@/components/scout-notification"
 
-// 仮のスカウトデータ
-const mockScouts = [
-  {
-    id: "1",
-    companyName: "テクノロジー株式会社",
-    position: "ソフトウェアエンジニア（新卒）",
-    message:
-      "当社のエンジニアチームに興味を持っていただけませんか？あなたのスキルセットと経験が、私たちの現在のプロジェクトに非常に適していると考えています。詳細についてお話しできれば幸いです。",
-    createdAt: "2023-05-15T09:30:00Z",
-    status: "pending",
-    companyLogo: "/abstract-tech-logo.png",
-  },
-  {
-    id: "2",
-    companyName: "グローバルコンサルティング",
-    position: "ビジネスアナリスト（インターン）",
-    message:
-      "あなたの分析スキルと問題解決能力に感銘を受けました。当社のサマーインターンシッププログラムについて詳しく知りたいと思いませんか？",
-    createdAt: "2023-05-10T14:20:00Z",
-    status: "accepted",
-    companyLogo: "/consulting-firm-logo.png",
-  },
-  {
-    id: "3",
-    companyName: "フィンテックスタートアップ",
-    position: "プロダクトマネージャー（新卒）",
-    message:
-      "あなたのプロフィールを拝見し、当社の製品チームに最適な人材だと感じました。革新的な金融ソリューションの開発に興味はありませんか？",
-    createdAt: "2023-05-05T11:45:00Z",
-    status: "declined",
-    companyLogo: "/finance-company-logo.png",
-  },
-] as const
+// --- Supabase からの生データ型 --- 
+type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"]
+type ScoutWithRelations = ScoutRow & {
+  company_profiles: { company_name: string; logo_url: string } | null
+  jobs:               { position:     string                 } | null
+}
+
+// --- UI コンポーネントが期待する型 ---
+export type UIScout = {
+  id:          string
+  companyName: string
+  position:    string
+  message:     string
+  createdAt:   string
+  status:      "pending" | "accepted" | "declined"
+  companyLogo: string
+}
 
 export default function ScoutsPage() {
-  const [scouts, setScouts] = React.useState(mockScouts)
-  const [loading, setLoading] = React.useState(false)
+  // ← ここで必ず宣言すること！
+  const [scouts, setScouts] = useState<UIScout[]>([])
+  const [loading, setLoading] = useState<boolean>(false)
 
-  const handleAccept = async (id: string) => {
+  /** Supabase から取ってきて UIScout[] にマッピング */
+  const fetchScouts = async () => {
     setLoading(true)
-    // 実際の実装ではAPIリクエストを行う
-    try {
-      // await acceptScout(id);
-      setScouts(scouts.map((scout) => (scout.id === id ? { ...scout, status: "accepted" as const } : scout)))
-    } catch (error) {
-      console.error("Error accepting scout:", error)
-    } finally {
+    const { data, error } = await supabase
+      .from("scouts")
+      .select(`
+        *,
+        company_profiles:company_profiles(company_name, logo_url),
+        jobs:jobs(position)
+      `)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Failed to fetch scouts:", error)
+      setScouts([])
       setLoading(false)
+      return
     }
+    if (!data) {
+      setScouts([])
+      setLoading(false)
+      return
+    }
+
+    // Supabase の any[] → 自前の型にキャスト
+    const rows = data as ScoutWithRelations[]
+    const uiScouts: UIScout[] = rows.map((row) => ({
+      id:          row.id,
+      companyName: row.company_profiles?.company_name ?? "Unknown Company",
+      position:    row.jobs?.position         ?? "Unknown Position",
+      message:     row.message,
+      createdAt:   row.created_at  ?? "",
+      status:      (row.status as UIScout["status"]) ?? "pending",
+      companyLogo: row.company_profiles?.logo_url ?? "/placeholder.svg",
+    }))
+    setScouts(uiScouts)
+    setLoading(false)
   }
 
+  useEffect(() => {
+    fetchScouts()
+  }, [])
+
+  /** スカウトを承認して DB と state を両方更新 */
+  const handleAccept = async (id: string) => {
+    setLoading(true)
+    const { error } = await supabase
+      .from("scouts")
+      .update({ status: "accepted" })
+      .eq("id", id)
+    if (error) {
+      console.error("Error accepting scout:", error)
+    } else {
+      setScouts((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...s, status: "accepted" } : s
+        )
+      )
+    }
+    setLoading(false)
+  }
+
+  /** スカウトを辞退して DB と state を両方更新 */
   const handleDecline = async (id: string) => {
     setLoading(true)
-    // 実際の実装ではAPIリクエストを行う
-    try {
-      // await declineScout(id);
-      setScouts(scouts.map((scout) => (scout.id === id ? { ...scout, status: "declined" as const } : scout)))
-    } catch (error) {
+    const { error } = await supabase
+      .from("scouts")
+      .update({ status: "declined" })
+      .eq("id", id)
+    if (error) {
       console.error("Error declining scout:", error)
-    } finally {
-      setLoading(false)
+    } else {
+      setScouts((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...s, status: "declined" } : s
+        )
+      )
     }
+    setLoading(false)
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">スカウト一覧</h1>
+    <div className="container mx-auto py-8 space-y-6">
+      <h1 className="text-3xl font-bold">スカウト一覧</h1>
 
-      <div className="space-y-6">
-        {scouts.length > 0 ? (
-          scouts.map((scout) => (
-            <ScoutNotification
-              key={scout.id}
-              scout={scout}
-              onAccept={handleAccept}
-              onDecline={handleDecline}
-              isLoading={loading}
-            />
-          ))
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">現在、スカウトはありません。</p>
-          </div>
-        )}
+      {loading && <p>読み込み中...</p>}
+
+      {scouts.length === 0 && !loading && (
+        <p className="text-center text-muted-foreground">現在、スカウトはありません。</p>
+      )}
+
+      <div className="space-y-4">
+        {scouts.map((scout) => (
+          <ScoutNotification
+            key={scout.id}
+            scout={scout}
+            onAccept={handleAccept}
+            onDecline={handleDecline}
+            isLoading={loading}
+          />
+        ))}
       </div>
     </div>
   )
