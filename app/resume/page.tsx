@@ -1,16 +1,8 @@
-// @ts-nocheck
-// Generated with explicit types at top
-import React from "react";
+// app/resume/page.tsx
 
-type GenderOption = "male" | "female" | "other";
-type EducationStatus = "enrolled" | "graduated" | "expected";
-type SectionKey = "basic" | "education" | "work" | "skills" | "pr" | "conditions";
+"use client"; // ─────────── 必ずファイル先頭１行目
 
-/** BasicInfo, EducationInfo, etc... (Add detailed interfaces here) */
-
-"use client"
-
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react";
 import {
   PlusCircle,
   Trash2,
@@ -29,26 +21,102 @@ import {
   Code,
   Star,
   Heart,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Separator } from "@/components/ui/separator"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+
+
+// ─── 型定義 ──────────────────────────────────────────────────────
+
+// 職歴アイテムの型
+interface WorkExperience {
+  id: number;
+  isOpen: boolean;
+  company: string;
+  position: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  description: string;
+  technologies: string;
+  achievements: string;
+}
+
+// 性別の選択肢
+type GenderOption = "male" | "female" | "other";
+// 学歴ステータス
+type EducationStatus = "enrolled" | "graduated" | "expected";
+// 各セクションキー
+type SectionKey = "basic" | "education" | "work" | "skills" | "pr" | "conditions";
+// 任意のフィールド群
+type Fields = Record<string, string | string[] | number | null | undefined>;
+
+// フォーム全体のデータ構造
+interface FormData {
+  basic: {
+    lastName: string;
+    firstName: string;
+    lastNameKana: string;
+    firstNameKana: string;
+    birthdate: string;
+    gender: GenderOption;
+    email: string;
+    phone: string;
+    address: string;
+  };
+  education: {
+    university: string;
+    faculty: string;
+    admissionDate: string;
+    graduationDate: string;
+    status: EducationStatus;
+    researchTheme: string;
+  };
+  skills: {
+    certifications: string;
+    skills: string;
+    languages: string;
+    frameworks: string;
+    tools: string;
+  };
+  pr: {
+    title: string;
+    content: string;
+    strengths: string[];
+    motivation: string;
+  };
+  conditions: {
+    industries: string[];
+    jobTypes: string[];
+    locations: string[];
+    workStyle: string;
+    salary: string;
+    workPreferences: string[];
+    remarks: string;
+  };
+}
+// ────────────────────────────────────────────────────────────────
+
 
 export default function ResumePage() {
-  const [workExperiences, setWorkExperiences] = useState([
+  // ─── State 定義 ────────────────────────────────────────────────
+
+  const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([
     {
       id: 1,
       isOpen: true,
@@ -61,22 +129,22 @@ export default function ResumePage() {
       technologies: "",
       achievements: "",
     },
-  ])
-  const [saving, setSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
-  const [activeTab, setActiveTab] = useState("basic")
-  const [completionPercentage, setCompletionPercentage] = useState(0)
-  const [sectionCompletion, setSectionCompletion] = useState({
+  ]);
+
+  const [saving, setSaving] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<SectionKey>("basic");
+  const [completionPercentage, setCompletionPercentage] = useState<number>(0);
+  const [sectionCompletion, setSectionCompletion] = useState<Record<SectionKey, number>>({
     basic: 0,
     education: 0,
     work: 0,
     skills: 0,
     pr: 0,
     conditions: 0,
-  })
+  });
 
-  // Mock data for form fields
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     basic: {
       lastName: "",
       firstName: "",
@@ -118,36 +186,54 @@ export default function ResumePage() {
       workPreferences: [],
       remarks: "",
     },
-  })
+  });
 
-  // Calculate completion percentage
+  // ─── 完了率を計算 ────────────────────────────────────────────────
+
   useEffect(() => {
-    // Simple calculation for demo purposes
-    const calculateSectionCompletion = (section, fields) => {
-      const totalFields = Object.keys(fields).length
-      const filledFields = Object.values(fields).filter(
-        (value) => value !== "" && (Array.isArray(value) ? value.some((v) => v !== "") : true),
-      ).length
-      return Math.round((filledFields / totalFields) * 100)
-    }
+    const calculateSectionCompletion = (section: SectionKey, fields: Fields): number => {
+      const totalFields = Object.keys(fields).length;
+      const filledFields = Object.values(fields).filter((value) => {
+        if (value === "" || value == null) return false;
+        return Array.isArray(value)
+          ? value.some((v) => v != null && v !== "")
+          : true;
+      }).length;
+      return Math.round((filledFields / totalFields) * 100);
+    };
 
-    const basic = calculateSectionCompletion("basic", formData.basic)
-    const education = calculateSectionCompletion("education", formData.education)
-    const work = workExperiences.length > 0 ? 50 : 0 // Simplified for demo
-    const skills = calculateSectionCompletion("skills", formData.skills)
-    const pr = calculateSectionCompletion("pr", formData.pr)
-    const conditions = calculateSectionCompletion("conditions", formData.conditions)
+    const basic = calculateSectionCompletion("basic", formData.basic);
+    const education = calculateSectionCompletion("education", formData.education);
+    const work = workExperiences.length > 0 ? 50 : 0; // デモ簡易計算
+    const skills = calculateSectionCompletion("skills", formData.skills);
+    const pr = calculateSectionCompletion("pr", formData.pr);
+    const conditions = calculateSectionCompletion("conditions", formData.conditions);
 
-    const newSectionCompletion = { basic, education, work, skills, pr, conditions }
-    setSectionCompletion(newSectionCompletion)
+    const newSectionCompletion: Record<SectionKey, number> = {
+      basic,
+      education,
+      work,
+      skills,
+      pr,
+      conditions,
+    };
+    setSectionCompletion(newSectionCompletion);
 
-    // Calculate overall completion
-    const overall = Math.round((basic + education + work + skills + pr + conditions) / 6)
-    setCompletionPercentage(overall)
-  }, [formData, workExperiences])
+    const overall = Math.round(
+      (basic + education + work + skills + pr + conditions) / 6
+    );
+    setCompletionPercentage(overall);
+  }, [formData, workExperiences]);
 
-  const addWorkExperience = () => {
-    const newId = workExperiences.length > 0 ? Math.max(...workExperiences.map((exp) => exp.id)) + 1 : 1
+
+  // ─── ハンドラ関数 ────────────────────────────────────────────────
+
+  // 職歴を追加
+  const addWorkExperience = (): void => {
+    const newId =
+      workExperiences.length > 0
+        ? Math.max(...workExperiences.map((exp) => exp.id)) + 1
+        : 1;
     setWorkExperiences([
       ...workExperiences,
       {
@@ -162,58 +248,81 @@ export default function ResumePage() {
         technologies: "",
         achievements: "",
       },
-    ])
-  }
+    ]);
+  };
 
-  const removeWorkExperience = (id) => {
-    setWorkExperiences(workExperiences.filter((exp) => exp.id !== id))
-  }
+  // 職歴を削除
+  const removeWorkExperience = (id: number): void => {
+    setWorkExperiences(workExperiences.filter((exp) => exp.id !== id));
+  };
 
-  const toggleCollapsible = (id) => {
-    setWorkExperiences(workExperiences.map((exp) => (exp.id === id ? { ...exp, isOpen: !exp.isOpen } : exp)))
-  }
+  // 折りたたみの開閉
+  const toggleCollapsible = (id: number): void => {
+    setWorkExperiences(
+      workExperiences.map((exp) =>
+        exp.id === id ? { ...exp, isOpen: !exp.isOpen } : exp
+      )
+    );
+  };
 
-  const handleWorkExperienceChange = (id, field, value) => {
-    setWorkExperiences(workExperiences.map((exp) => (exp.id === id ? { ...exp, [field]: value } : exp)))
-  }
+  // 職歴フィールドを更新
+  const handleWorkExperienceChange = (
+    id: number,
+    field: keyof WorkExperience,
+    value: string | boolean
+  ): void => {
+    setWorkExperiences(
+      workExperiences.map((exp) =>
+        exp.id === id ? { ...exp, [field]: value } : exp
+      )
+    );
+  };
 
-  const handleInputChange = (section, field, value) => {
+  // 任意のフォームセクションを更新
+  const handleInputChange = <K extends keyof FormData, F extends keyof FormData[K]>(
+    section: K,
+    field: F,
+    value: FormData[K][F]
+  ): void => {
     setFormData({
       ...formData,
       [section]: {
         ...formData[section],
         [field]: value,
       },
-    })
-  }
+    });
+  };
 
-  const handleStrengthChange = (index, value) => {
-    const newStrengths = [...formData.pr.strengths]
-    newStrengths[index] = value
-    handleInputChange("pr", "strengths", newStrengths)
-  }
+  // 自己PRの強み配列更新
+  const handleStrengthChange = (index: number, value: string): void => {
+    const newStrengths = [...formData.pr.strengths];
+    newStrengths[index] = value;
+    handleInputChange("pr", "strengths", newStrengths);
+  };
 
-  const handleSave = () => {
-    setSaving(true)
-    // 保存処理をシミュレート
+  // 保存ボタン
+  const handleSave = (): void => {
+    setSaving(true);
     setTimeout(() => {
-      setSaving(false)
-      setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 3000)
-    }, 1000)
-  }
+      setSaving(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }, 1000);
+  };
 
-  const getCompletionColor = (percentage) => {
-    if (percentage < 30) return "bg-red-500"
-    if (percentage < 70) return "bg-yellow-500"
-    return "bg-green-500"
-  }
+  // 完了率バーの色を返す
+  const getCompletionColor = (percentage: number): string => {
+    if (percentage < 30) return "bg-red-500";
+    if (percentage < 70) return "bg-yellow-500";
+    return "bg-green-500";
+  };
 
-  const getSectionStatusIcon = (percentage) => {
-    if (percentage === 100) return <Check size={16} className="text-green-500" />
-    if (percentage > 0) return <Clock size={16} className="text-yellow-500" />
-    return <AlertCircle size={16} className="text-red-500" />
-  }
+  // セクションステータスアイコン
+  const getSectionStatusIcon = (percentage: number) => {
+    if (percentage === 100) return <Check size={16} className="text-green-500" />;
+    if (percentage > 0) return <Clock size={16} className="text-yellow-500" />;
+    return <AlertCircle size={16} className="text-red-500" />;
+  };
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8">
@@ -497,7 +606,11 @@ export default function ResumePage() {
       </Card>
 
       {/* タブナビゲーション */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value: string) => setActiveTab(value as SectionKey)}
+        className="w-full"
+      >
         <TabsList className="mb-4 grid w-full grid-cols-5 sm:mb-6">
           <TabsTrigger value="basic" className="flex items-center gap-1 text-xs sm:gap-2 sm:text-sm">
             <User size={12} className="sm:h-4 sm:w-4" />
@@ -604,7 +717,9 @@ export default function ResumePage() {
                   defaultValue="male"
                   className="flex space-x-4"
                   value={formData.basic.gender}
-                  onValueChange={(value) => handleInputChange("basic", "gender", value)}
+                  onValueChange={(value: string) =>
+                    handleInputChange("basic", "gender", value as GenderOption)
+                  }
                 >
                   <div className="flex items-center space-x-1 sm:space-x-2">
                     <RadioGroupItem value="male" id="male" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -734,7 +849,9 @@ export default function ResumePage() {
                 </Label>
                 <Select
                   value={formData.education.status}
-                  onValueChange={(value) => handleInputChange("education", "status", value)}
+                  onValueChange={(value: string) =>
+                    handleInputChange("education", "status", value as EducationStatus)
+                  }
                 >
                   <SelectTrigger className="h-8 text-xs sm:h-10 sm:text-sm">
                     <SelectValue placeholder="選択してください" />

@@ -16,7 +16,7 @@ import type { JobRow, CompanyPreview, TagRow,JobWithTags, } from "@/lib/supabase
 type JobWithCompany = JobRow & { company?: CompanyPreview | null }
 
 async function fetchJobs(): Promise<JobWithCompany[]> {
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const { data, error } = await supabase
     .from("jobs")
@@ -32,7 +32,7 @@ async function fetchJobs(): Promise<JobWithCompany[]> {
   return (data as unknown) as JobWithCompany[]
 }
 
-import { createClient } from "@/lib/supabase/server"
+import { createServerSupabase } from "@/lib/supabase/server"
 import { Button }   from "@/components/ui/button"
 import { Card }     from "@/components/ui/card"
 import { Input }    from "@/components/ui/input"
@@ -240,7 +240,7 @@ function JobsPageInner() {
         type JobWithCompany = JobRow & { company: CompanyPreview }
         
         async function fetchJobs() {
-          const supabase = await createClient()
+          const supabase = await createServerSupabase()
         
           const { data: jobsDataRaw, error: jobsErr } = await supabase
             .from("jobs")

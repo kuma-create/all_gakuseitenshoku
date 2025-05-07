@@ -1,10 +1,13 @@
 // lib/supabase/client.ts
-import { createBrowserClient } from "@supabase/ssr"
-import type { Database } from "./types"
 
-const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./types";
 
-export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
-/* 既存の createClient() が必要なら↓も残す */
-export const createClient = () => supabase
+/**
+ * ブラウザ上で使うためのシングルトン Supabase クライアント。
+ * クッキー認証は不要なので @supabase/supabase-js の createClient を直呼び。
+ */
+export const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);

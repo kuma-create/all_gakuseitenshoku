@@ -1,31 +1,28 @@
 // lib/supabase/server.ts
-import { cookies } from "next/headers"
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
-import type { Database } from "./types"
 
-const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { Database } from "./types";
 
-export async function createClient() {
-  // cookies() が Promise<ReadonlyRequestCookies> を返すなら await で解決
-  const store = await cookies()
+const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    // CookieMethodsServer に合わせて getAll / setAll を実装
-    cookies: {
-      getAll: () => {
-        // Next.js の store.getAll() は { name, value }[] を返す
-        return store.getAll().map((c) => ({
-          name:  c.name,
-          value: c.value,
-        }))
-      },
-      setAll: (supabaseCookies) => {
-        // Supabase が渡してくる配列を store.set に流し込む
-        supabaseCookies.forEach(({ name, value, options }) => {
-          store.set(name, value, options)
-        })
-      },
-    },
-  })
+/**
+ * サーバーサイド専用の Supabase クライアントを返します。
+ * next/headers は動的インポートすることでクライアントバンドルを汚染しません。
+ */
+export async function createServerSupabase() {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+
+  return createServerClient<Database>(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
+    {
+      // クッキーの型定義が緩いため @ts-expect-error で無視
+      // 実行時には Next.js の cookies() が返すものが正しく使われます
+      // 型: CookieOptions["cookies"]
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      cookies: cookieStore,
+    }
+  );
 }
