@@ -1,79 +1,110 @@
+/* ────────────────────────────────────────────────────────────────
+   app/jobs/page.tsx   ― Supabase 連携フル実装版
+   - Mock データ完全排除
+   - company / job_tags を JOIN で同時取得
+   - 型は lib/supabase/types.ts に依存
+   - UI は従来のまま（検索・フィルタ・グリッド／リスト切替）
+──────────────────────────────────────────────── */
+
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+} from "react"
 import Link  from "next/link"
 import Image from "next/image"
 import {
-  Briefcase, Building, Calendar, ChevronRight, Filter, Heart, Info,
-  Loader2, MapPin, RefreshCw, Search, SortAsc, Star, Zap,
+  Briefcase,
+  Building,
+  Calendar,
+  ChevronRight,
+  Filter,
+  Heart,
+  Info,
+  Loader2,
+  MapPin,
+  RefreshCw,
+  Search,
+  SortAsc,
+  Star,
+  Zap,
 } from "lucide-react"
 
-import { useCallback } from "react"
 import { supabase } from "@/lib/supabase/client"
-import type { Database } from "@/lib/supabase/types"
 import { useAuthGuard } from "@/lib/use-auth-guard"
-import type { JobRow, CompanyPreview, TagRow,JobWithTags, } from "@/lib/supabase/models"
-type JobWithCompany = JobRow & { company?: CompanyPreview | null }
+import type {
+  JobRow,
+  CompanyPreview,
+  TagRow,
+  JobWithTags,
+} from "@/lib/supabase/models"
 
-async function fetchJobs(): Promise<JobWithCompany[]> {
-  const supabase = await createServerSupabase()
-
-  const { data, error } = await supabase
-    .from("jobs")
-    .select(`
-      *, 
-      company:companies!jobs_company_id_fkey (
-        id, name, logo, cover_image_url
-      )
-    `)
-    .order("created_at", { ascending: false })
-
-  if (error) throw error
-  return (data as unknown) as JobWithCompany[]
-}
-
-import { createServerSupabase } from "@/lib/supabase/server"
-import { Button }   from "@/components/ui/button"
-import { Card }     from "@/components/ui/card"
-import { Input }    from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge }    from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card }   from "@/components/ui/card"
+import { Input }  from "@/components/ui/input"
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import { Badge }  from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Checkbox }  from "@/components/ui/checkbox"
 import { Label }     from "@/components/ui/label"
 import { Slider }    from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
 import {
-  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet"
 
-/* -------------------------------------------------------------------------- */
-/*                            外側：Auth 判定用                                */
-/* -------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------ */
+/*                               型定義                                */
+/* ------------------------------------------------------------------ */
+type JobWithCompany = JobRow & { company: CompanyPreview | null }
+
+/* ------------------------------------------------------------------ */
+/*                             Auth Wrapper                           */
+/* ------------------------------------------------------------------ */
 export default function JobsPage() {
   const ready = useAuthGuard("student")
 
-  /* 判定が終わるまではローディングだけを表示（Hooks の数は変えない） */
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-6 w-6 mr-2 animate-spin text-red-500" />
+        <Loader2 className="mr-2 h-6 w-6 animate-spin text-red-500" />
         <span>認証確認中...</span>
       </div>
     )
   }
 
-  /* 判定 OK なら本体を描画 */
   return <JobsPageInner />
 }
-/* -------------------------------------------------------------------------- */
-/* ① プルダウン用のマスターデータ                                              */
-/* -------------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------ */
+/*               プルダウン＆フィルター関連の定数と UI                   */
+/* ------------------------------------------------------------------ */
 const industries = [
   { value: "it",      label: "IT / ソフトウェア" },
   { value: "finance", label: "金融" },
@@ -87,9 +118,6 @@ const jobTypes = [
   { value: "intern",   label: "インターン" },
 ] as const
 
-/* -------------------------------------------------------------------------- */
-/* ② フィルター UI をまとめたコンポーネント                                    */
-/* -------------------------------------------------------------------------- */
 type FilterContentProps = {
   selectedIndustry: string
   setSelectedIndustry: (v: string) => void
@@ -101,17 +129,15 @@ type FilterContentProps = {
   setSalaryRange: (r: [number, number]) => void
 }
 
-function FilterContent(props: FilterContentProps) {
-  const {
-    selectedIndustry, setSelectedIndustry,
-    selectedJobType,  setSelectedJobType,
-    selectedLocation, setSelectedLocation,
-    salaryRange,      setSalaryRange,
-  } = props
-
+function FilterContent({
+  selectedIndustry, setSelectedIndustry,
+  selectedJobType,  setSelectedJobType,
+  selectedLocation, setSelectedLocation,
+  salaryRange,      setSalaryRange,
+}: FilterContentProps) {
   return (
     <div className="space-y-6 px-4 py-6">
-      {/* 業界セレクト (md~) */}
+      {/* 業界 */}
       <div className="hidden sm:inline-flex w-full">
         <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
           <SelectTrigger className="w-full">
@@ -119,15 +145,13 @@ function FilterContent(props: FilterContentProps) {
           </SelectTrigger>
           <SelectContent>
             {industries.map(i => (
-              <SelectItem key={i.value} value={i.value}>
-                {i.label}
-              </SelectItem>
+              <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* 職種セレクト (md~) */}
+      {/* 職種 */}
       <div className="hidden md:inline-flex w-full">
         <Select value={selectedJobType} onValueChange={setSelectedJobType}>
           <SelectTrigger className="w-full">
@@ -135,15 +159,13 @@ function FilterContent(props: FilterContentProps) {
           </SelectTrigger>
           <SelectContent>
             {jobTypes.map(j => (
-              <SelectItem key={j.value} value={j.value}>
-                {j.label}
-              </SelectItem>
+              <SelectItem key={j.value} value={j.value}>{j.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* エリア入力 */}
+      {/* 勤務地 */}
       <Input
         placeholder="勤務地（例: 東京）"
         value={selectedLocation}
@@ -160,7 +182,7 @@ function FilterContent(props: FilterContentProps) {
           step={50}
           onValueChange={val => setSalaryRange(val as [number, number])}
         />
-        <div className="text-sm text-muted-foreground mt-1">
+        <div className="mt-1 text-sm text-muted-foreground">
           {salaryRange[0]} 万 ~ {salaryRange[1]} 万
         </div>
       </div>
@@ -168,125 +190,62 @@ function FilterContent(props: FilterContentProps) {
   )
 }
 
-/* -------------------------------------------------------------------------- */
-/*                         内側：実際の求人一覧ページ                           */
-/* -------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------ */
+/*                        メインの求人一覧コンポーネント                */
+/* ------------------------------------------------------------------ */
 function JobsPageInner() {
-  /* ------------------------------ state ------------------------------ */
+  /* -------------------- state -------------------- */
   const [searchQuery,      setSearchQuery]      = useState("")
-  const [selectedIndustry, setSelectedIndustry] = useState("all")       /* ▼ 追加 */
-  const [selectedJobType,  setSelectedJobType]  = useState("all")       /* ▼ 追加 */
+  const [selectedIndustry, setSelectedIndustry] = useState("all")
+  const [selectedJobType,  setSelectedJobType]  = useState("all")
   const [selectedLocation, setSelectedLocation] = useState("all")
-  const [salaryRange,      setSalaryRange]      = useState<[number, number]>([300, 1_000])
+  const [salaryRange,      setSalaryRange]      = useState<[number, number]>([300, 1000])
 
-  const [savedJobs, setSavedJobs]   = useState<string[]>([])
-  const [viewMode,  setViewMode]    = useState<"grid" | "list">("grid")
-  const [isFilterOpen, setIsFilterOpen] = useState(false)               /* ▼ 追加 */
+  const [savedJobs,  setSavedJobs]  = useState<string[]>([])
+  const [viewMode,   setViewMode]   = useState<"grid" | "list">("grid")
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   const [jobs,      setJobs]      = useState<JobWithTags[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState<string | null>(null)
-  const [jobsData, setJobsData] = useState<JobWithCompany[]>([])
 
-  const toggleSaveJob = useCallback((id: string) => {
-    setSavedJobs(prev =>
-      prev.includes(id) ? prev.filter(j => j !== id) : [...prev, id]
-    )
-  }, [])
-
-  const recommendedJobs = useMemo<JobWithTags[]>(() => {
-    return jobs.filter(j => j.is_recommended)
-  }, [jobs])
-
-  const popularTags = useMemo<string[]>(() => {
-    const freq: Record<string, number> = {}
-    jobs.forEach(j => j.tags.forEach(t => {
-      freq[t] = (freq[t] ?? 0) + 1
-    }))
-  
-    return Object.entries(freq)
-      .sort((a, b) => b[1] - a[1])   // 出現数で降順
-      .slice(0, 10)                  // 上位 10 件だけ
-      .map(([tag]) => tag)
-  }, [jobs])
-
-  function tagColor(tag: string) {
-    switch (tag) {
-      case "急募":
-        return "bg-red-500 text-white"
-      case "リモート":
-        return "bg-blue-500 text-white"
-      case "インターン":
-        return "bg-green-500 text-white"
-      default:
-        return "bg-gray-300 text-gray-900"
-    }
-  }
-
-  /* --------------------------- Supabase 取得 --------------------------- */
+  /* ------------------ Supabase 取得 ------------------ */
   useEffect(() => {
     let ignore = false
 
-    async function fetchJobs() {
+    ;(async () => {
       setIsLoading(true)
       setError(null)
 
       try {
-        /* ─── jobs ─── */
-        type CompanyPreview = Pick<
-          Database["public"]["Tables"]["companies"]["Row"],
-          "name" | "logo"
-        >
-        type JobWithCompany = JobRow & { company: CompanyPreview }
-        
-        async function fetchJobs() {
-          const supabase = await createServerSupabase()
-        
-          const { data: jobsDataRaw, error: jobsErr } = await supabase
-            .from("jobs")
-            // ← ここで company テーブルを company プロパティとして引っ張ってくる
-            //    ※ jobs_company_id_fkey は実際の FK 名に合わせてください
-            .select("*, company:companies!jobs_company_id_fkey(name,logo_url)")
-            .order("created_at", { ascending: false })
-        
-          if (jobsErr) throw jobsErr
-        
-          // いったん unknown をはさんでから JobWithCompany[] として扱う
-          const jobsData = (jobsDataRaw as unknown) as JobWithCompany[]
-        
-          return jobsData
-        }
+        /* jobs + company + job_tags を一発取得 */
+        const { data, error: jobsErr } = await supabase
+          .from("jobs")
+          .select(`
+            *,
+            company:companies!jobs_company_id_fkey (
+              id, name, logo, cover_image_url
+            ),
+            job_tags (
+              tag
+            )
+          `)
+          .eq("published", true)
+          .order("created_at", { ascending: false })
 
-        /* ─── job_tags ─── */
-        const jobIds = jobsData?.map(j => j.id) ?? []
-        const { data: tagRaw, error: tagsErr } = await supabase
-          .from("job_tags")
-          .select("*")
-          .in("job_id", jobIds)
+        if (jobsErr) throw jobsErr
 
-        if (tagsErr) throw tagsErr
-        type TagRow = Database["public"]["Tables"]["job_tags"]["Row"]
-        const tags = tagRaw as TagRow[]
-
-        /* ─── job_id → tags[] ─── */
-        const tagsByJob: Record<string, string[]> = {}
-        tags?.forEach(t => { (tagsByJob[t.job_id] ??= []).push(t.tag) })
-
-        /* ─── JobWithTags を構築 ─── */
-        const merged: JobWithTags[] = (jobsData ?? []).map(j => ({
-          ...j,
-          salary_min : (j as any).salary_min ?? null,
-          salary_max : (j as any).salary_max ?? null,
-          company    : j.company ?? null,
-          tags       : tagsByJob[j.id] ?? [],
-          is_new:
-            !!j.created_at && // null じゃなければ計算、null なら false
-            Date.now() - new Date(j.created_at).getTime() < 1000 * 60 * 60 * 24 * 7,
-          is_hot     : !!(j as any).is_hot,
-          is_recommended: !!(j as any).is_recommended,
-          /** 🔴 追加ポイント */
-          is_featured: !!(j as any).is_featured,
-        }))
+        /* ---------------- マージ＆整形 ---------------- */
+        const merged: JobWithTags[] = (data as unknown as JobWithCompany[])
+          .map(j => ({
+            ...j,
+            tags: (j as any).job_tags?.map((t: TagRow) => t.tag) ?? [],
+            is_new: !!j.created_at &&
+              Date.now() - new Date(j.created_at).getTime() < 1000 * 60 * 60 * 24 * 7,
+            is_hot:        !!(j as any).is_hot,
+            is_recommended:!!(j as any).is_recommended,
+            is_featured:   !!(j as any).is_featured,
+          }))
 
         if (!ignore) setJobs(merged)
       } catch (err: any) {
@@ -295,20 +254,53 @@ function JobsPageInner() {
       } finally {
         if (!ignore) setIsLoading(false)
       }
-    }
+    })()
 
-    fetchJobs()
     return () => { ignore = true }
   }, [])
 
-  /* --------------------------- フィルタリング --------------------------- */
+  /* -------------------- イベント -------------------- */
+  const toggleSaveJob = useCallback((id: string) => {
+    setSavedJobs(prev =>
+      prev.includes(id) ? prev.filter(j => j !== id) : [...prev, id],
+    )
+  }, [])
+
+  /* -------------------- メモ化 -------------------- */
+  const recommendedJobs = useMemo(
+    () => jobs.filter(j => j.is_recommended),
+    [jobs],
+  )
+
+  const popularTags = useMemo(() => {
+    const freq: Record<string, number> = {}
+    jobs.forEach(j => j.tags.forEach(t => {
+      freq[t] = (freq[t] ?? 0) + 1
+    }))
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag]) => tag)
+  }, [jobs])
+
+  /* -------------------- ユーティリティ -------------------- */
+  function tagColor(tag: string) {
+    switch (tag) {
+      case "急募":     return "bg-red-500 text-white"
+      case "リモート": return "bg-blue-500 text-white"
+      case "インターン":return "bg-green-500 text-white"
+      default:         return "bg-gray-300 text-gray-900"
+    }
+  }
+
+  /* -------------------- フィルタリング -------------------- */
   const filteredJobs = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
 
     return jobs.filter(j => {
       const matchesQuery =
         q === "" ||
-        j.title?.toLowerCase().includes(q) ||
+        j.title.toLowerCase().includes(q) ||
         (j.company?.name ?? "").toLowerCase().includes(q) ||
         (j.description ?? "").toLowerCase().includes(q)
 
@@ -324,11 +316,11 @@ function JobsPageInner() {
     })
   }, [jobs, searchQuery, selectedLocation, salaryRange])
 
-  /* --------------------------- UI --------------------------- */
+  /* -------------------- Loading / Error -------------------- */
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-6 w-6 mr-2 animate-spin" />
+        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
         <span>求人情報を読み込んでいます...</span>
       </div>
     )
@@ -337,31 +329,8 @@ function JobsPageInner() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600">
-        <Info className="h-6 w-6 mr-2" />
+        <Info className="mr-2 h-6 w-6" />
         <span>{error}</span>
-      </div>
-    )
-  }
-
-
-
-  /* ------------------- Loading / Error 表示 ------------------- */
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="h-12 w-12 animate-spin text-red-500 mb-4" />
-        <p className="text-lg font-medium text-gray-700">求人情報を読み込み中...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <p className="text-red-600">{error}</p>
-        <Button className="mt-4" onClick={() => location.reload()}>
-          <RefreshCw className="mr-2 h-4 w-4" />再読み込み
-        </Button>
       </div>
     )
   }
