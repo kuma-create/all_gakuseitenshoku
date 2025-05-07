@@ -11,6 +11,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  * next/headers は動的インポートすることでクライアントバンドルを汚染しません。
  */
 export async function createServerSupabase() {
+  // 動的インポートで next/headers を読み込む
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
@@ -18,11 +19,15 @@ export async function createServerSupabase() {
     SUPABASE_URL,
     SUPABASE_ANON_KEY,
     {
-      // クッキーの型定義が緩いため @ts-expect-error で無視
-      // 実行時には Next.js の cookies() が返すものが正しく使われます
-      // 型: CookieOptions["cookies"]
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      cookies: cookieStore,
+      // 型が緩いため ignore（実行時には Next.js の cookies() が返すものが使われます）
+      // @ts-expect-error
+      cookies: cookieStore as CookieOptions["cookies"],
     }
   );
 }
+
+// ─── ここでエイリアスを作成 ───────────────────────────────────────
+/**
+ * 通常の呼び出し名 `createClient` としても使えるようにするエイリアス
+ */
+export const createClient = createServerSupabase;

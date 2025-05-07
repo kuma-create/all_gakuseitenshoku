@@ -89,7 +89,6 @@ import { format, subDays } from "date-fns"
 import { toast } from "@/components/ui/use-toast"
 import { Calendar } from "@/components/ui/calendar"
 import type { DateRange as DayPickerRange } from "react-day-picker"
-const [dateRange, setDateRange] = useState<DayPickerRange | undefined>(undefined)
 
 
 
