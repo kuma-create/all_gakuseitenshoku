@@ -217,6 +217,39 @@ export type Database = {
         }
         Relationships: []
       }
+      experiences: {
+        Row: {
+          achievements: string | null
+          company_name: string | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          role: string | null
+          start_date: string | null
+          user_id: string | null
+        }
+        Insert: {
+          achievements?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          role?: string | null
+          start_date?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          achievements?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          role?: string | null
+          start_date?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       grandprix_challenges: {
         Row: {
           created_at: string | null
