@@ -1,36 +1,29 @@
-/* ─────────────────────────────────────────
+/* ────────────────────────────────────────────────
    app/student/profile/page.tsx
-   - 基本情報 / 自己PR / 希望条件 をタブ切替
+   - 基本情報 / 自己PR / 希望条件の 3 タブ
+   - 「基本情報」タブ内で 学歴・スキル を Collapsible 分割
    - 上部にプロフィール完成度 ProgressBar
-──────────────────────────────────────────*/
+──────────────────────────────────────────────── */
 "use client"
 
 import { useState } from "react"
 import {
-  User,
-  FileText,
-  Target,
-  Edit,
-  Save,
-  X,
-  CheckCircle2,
-  AlertCircle,
+  User, FileText, Target, Edit, Save, X,
+  CheckCircle2, AlertCircle, GraduationCap, Code,
+  ChevronUp,
 } from "lucide-react"
 
 import { useAuthGuard } from "@/lib/use-auth-guard"
 
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardHeader, CardTitle,
 } from "@/components/ui/card"
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
+  Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs"
+import {
+  Collapsible, CollapsibleTrigger, CollapsibleContent,
+} from "@/components/ui/collapsible"
 import { Button }   from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge }    from "@/components/ui/badge"
@@ -41,26 +34,26 @@ import { Label }    from "@/components/ui/label"
 import { useStudentProfile } from "@/lib/hooks/use-student-profile"
 
 export default function StudentProfilePage() {
-  /* 1) 権限制御（未ログインならガード内でリダイレクト） */
+  /* 1) 認証ガード */
   const ready = useAuthGuard("student")
 
-  /* 2) プロフィール用共通フック */
+  /* 2) プロフィール共通フック */
   const {
-    data:     profile,
+    data: profile,
     loading,
     error,
     saving,
-    editing,          // ← __editing フラグを hook 内で boolean へマッピング
+    editing,             // true / false
     completionRate,
-    updateLocal,      // (patch) => void
-    save,             // () => Promise<void>
-    resetLocal,       // () => void  ← キャンセル
+    updateLocal,
+    save,
+    resetLocal,
   } = useStudentProfile()
 
-  /* 3) UI 用タブ state */
+  /* 3) 表示タブ */
   const [tab, setTab] = useState<"basic" | "pr" | "pref">("basic")
 
-  /* ---------- 画面状態 ---------- */
+  /* ---------- 状態別リターン ---------- */
   if (!ready || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -79,7 +72,7 @@ export default function StudentProfilePage() {
   /* ---------- 本体 ---------- */
   return (
     <main className="container mx-auto max-w-4xl space-y-6 px-4 py-6">
-      {/* ───── ヘッダー ───── */}
+      {/* ─── ヘッダー ─────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold">マイプロフィール</h1>
 
@@ -100,7 +93,7 @@ export default function StudentProfilePage() {
         )}
       </div>
 
-      {/* ───── 完成度バー ───── */}
+      {/* ─── 完成度バー ─────────────────────────────── */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
@@ -124,11 +117,7 @@ export default function StudentProfilePage() {
                     done ? "text-green-600" : ""
                   }`}
                 >
-                  {done ? (
-                    <CheckCircle2 size={12} />
-                  ) : (
-                    <AlertCircle size={12} />
-                  )}
+                  {done ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
                   {label}
                 </span>
               )
@@ -137,7 +126,7 @@ export default function StudentProfilePage() {
         </CardContent>
       </Card>
 
-      {/* ───── タブ ───── */}
+      {/* ─── タブ ───────────────────────────────────── */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="basic">
@@ -151,28 +140,63 @@ export default function StudentProfilePage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* === 基本情報 === */}
-        <TabsContent value="basic">
-          <Card>
-            <CardHeader>
-              <CardTitle>基本情報</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { id: "full_name",   label: "氏名",      type: "text"   },
-                { id: "university",  label: "大学名",    type: "text"   },
-                { id: "faculty",     label: "学部",      type: "text"   },
-                { id: "graduation_year", label: "卒業予定年", type: "number" },
-              ].map(({ id, label, type }) => {
-                const value = (profile as any)[id] ?? ""
-                return (
+        {/* === 基本情報タブ ===================================== */}
+        <TabsContent value="basic" className="space-y-4">
+          {/* ---------- Collapsible #1 基本情報 ---------- */}
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="flex cursor-pointer items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                <User className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base font-medium">基本情報</CardTitle>
+                <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground transition-transform data-[state=closed]:rotate-180" />
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-4">
+                {[
+                  { id: "full_name",       label: "氏名",      type: "text" },
+                  { id: "phone",           label: "電話番号",  type: "text" },
+                  { id: "address",         label: "住所",      type: "text" },
+                ].map(({ id, label, type }) => (
                   <div key={id} className="space-y-1">
                     <Label htmlFor={id}>{label}</Label>
                     <Input
                       id={id}
                       type={type}
                       disabled={!editing}
-                      value={value}
+                      value={(profile as any)[id] ?? ""}
+                      onChange={(e) => updateLocal({ [id]: e.target.value })}
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* ---------- Collapsible #2 学歴 ---------- */}
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="mt-4 flex cursor-pointer items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                <GraduationCap className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base font-medium">学歴</CardTitle>
+                <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground transition-transform data-[state=closed]:rotate-180" />
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-4">
+                {[
+                  { id: "university",   label: "大学名",       type: "text" },
+                  { id: "faculty",      label: "学部",         type: "text" },
+                  { id: "admission_month",  label: "入学年月(YYYY-MM)", type: "month" },
+                  { id: "graduation_year",  label: "卒業予定年",        type: "number" },
+                ].map(({ id, label, type }) => (
+                  <div key={id} className="space-y-1">
+                    <Label htmlFor={id}>{label}</Label>
+                    <Input
+                      id={id}
+                      type={type}
+                      disabled={!editing}
+                      value={(profile as any)[id] ?? ""}
                       onChange={(e) =>
                         updateLocal({
                           [id]:
@@ -183,13 +207,44 @@ export default function StudentProfilePage() {
                       }
                     />
                   </div>
-                )
-              })}
-            </CardContent>
-          </Card>
+                ))}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* ---------- Collapsible #3 スキル ---------- */}
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="mt-4 flex cursor-pointer items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                <Code className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base font-medium">スキル</CardTitle>
+                <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground transition-transform data-[state=closed]:rotate-180" />
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-4">
+                {[
+                  { id: "qualification_text", label: "資格",      rows: 3 },
+                  { id: "skill_text",         label: "スキル",    rows: 3 },
+                  { id: "language_skill",     label: "語学力",    rows: 2 },
+                ].map(({ id, label, rows }) => (
+                  <div key={id} className="space-y-1">
+                    <Label htmlFor={id}>{label}</Label>
+                    <Textarea
+                      id={id}
+                      rows={rows}
+                      disabled={!editing}
+                      value={(profile as any)[id] ?? ""}
+                      onChange={(e) => updateLocal({ [id]: e.target.value })}
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </TabsContent>
 
-        {/* === 自己PR === */}
+        {/* === 自己PRタブ ======================================= */}
         <TabsContent value="pr">
           <Card>
             <CardHeader>
@@ -206,7 +261,7 @@ export default function StudentProfilePage() {
           </Card>
         </TabsContent>
 
-        {/* === 希望条件 === */}
+        {/* === 希望条件タブ ===================================== */}
         <TabsContent value="pref">
           <Card>
             <CardHeader>
@@ -235,9 +290,7 @@ export default function StudentProfilePage() {
                   rows={4}
                   disabled={!editing}
                   value={profile.preference_note ?? ""}
-                  onChange={(e) =>
-                    updateLocal({ preference_note: e.target.value })
-                  }
+                  onChange={(e) => updateLocal({ preference_note: e.target.value })}
                 />
               </div>
             </CardContent>
