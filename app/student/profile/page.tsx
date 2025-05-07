@@ -1,7 +1,8 @@
 /* ──────────────────────────────────────────────────────────
-   app/student/profile/page.tsx  – 2025-05-07 Fix
-   - fetch: user_id で取得／無ければ空 profile を保持
-   - save: supabase.upsert() で行が無ければ自動 INSERT
+   app/student/profile/page.tsx   (2025-05-07 Rev-2)
+   ・user_id で 1行取得／無ければ空 profile を準備
+   ・保存時は upsert(…, { onConflict: "user_id" })
+     - id が空文字のときは payload から除外し INSERT させる
 ───────────────────────────────────────────────────────── */
 "use client"
 
@@ -20,10 +21,10 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 
-/* ---------- 型 ---------- */
+/* ─── 型 ─── */
 type StudentProfile = Database["public"]["Tables"]["student_profiles"]["Row"]
 
-/* ---------- 空オブジェクト ---------- */
+/* ─── 空行オブジェクト ─── */
 const emptyProfile: StudentProfile = {
   id: "",
   user_id: "",
@@ -64,29 +65,30 @@ const emptyProfile: StudentProfile = {
   pr_text: "",
   /* 希望 */
   desired_industries: null,
-  desired_positions:  null,
-  desired_locations:  null,
-  work_style:         null,
-  employment_type:    null,
-  salary_range:       null,
+  desired_positions: null,
+  desired_locations: null,
+  work_style: null,
+  employment_type: null,
+  salary_range: null,
   work_style_options: null,
-  preference_note:    "",
+  preference_note: "",
   /* その他 */
   profile_image: null,
-  created_at:   null,
+  created_at: null,
 }
 
 export default function StudentProfilePage() {
+  /* 認証ガード（未ログインならリダイレクト） */
   const ready = useAuthGuard("student")
 
+  /* state */
   const [loading, setLoading]   = useState(true)
   const [error,   setError]     = useState<string | null>(null)
-
   const [profile,       setProfile]       = useState<StudentProfile>(emptyProfile)
   const [editedProfile, setEditedProfile] = useState<StudentProfile>(emptyProfile)
   const [isEditing,     setIsEditing]     = useState(false)
 
-  /* ---------------- Fetch ---------------- */
+  /* ───────────────────── Fetch ───────────────────── */
   useEffect(() => {
     if (!ready) return
 
@@ -95,15 +97,18 @@ export default function StudentProfilePage() {
       setError(null)
 
       try {
+        /* uid 取得 */
         const { data: { user }, error: authErr } = await supabase.auth.getUser()
         if (authErr || !user) throw new Error("認証情報が取得できません")
 
+        /* 1行取得 (maybeSingle → data=null 許容) */
         const { data, error } = await supabase
           .from("student_profiles")
           .select("*")
           .eq("user_id", user.id)
-          .maybeSingle()                // ← 行が無い場合は data=null
+          .maybeSingle()
 
+        /* レコードが無い場合は空オブジェクトを用意 */
         const prof: StudentProfile = (data as StudentProfile) ?? {
           ...emptyProfile,
           user_id: user.id,
@@ -120,34 +125,39 @@ export default function StudentProfilePage() {
     })()
   }, [ready])
 
-  /* --------------- ハンドラ --------------- */
-  const toggleEditMode = () => {
-    if (isEditing) setEditedProfile(profile)
-    setIsEditing(prev => !prev)
-  }
-
+  /* ──────────────────── 保存 ──────────────────── */
   const saveChanges = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      /* uid 取得 */
+      /* uid 再取得（セッション切れ対策） */
       const { data: { user }, error: authErr } = await supabase.auth.getUser()
       if (authErr || !user) throw new Error("ユーザーが未ログインです")
 
-      /* payload: undefined を除いて送信 */
+      /* payload 準備 */
+      const raw: Partial<StudentProfile> = { ...editedProfile, user_id: user.id }
+
+      /* id が空文字なら除外 → INSERT 時に default uuid が入る */
+      if (!raw.id) delete raw.id
+
+      /* undefined プロパティは送らない */
       const updatePayload = Object.fromEntries(
-        Object.entries(editedProfile).filter(([, v]) => v !== undefined)
+        Object.entries(raw).filter(([, v]) => v !== undefined)
       )
 
-      /* ★ upsert: user_id で衝突解決 → 1 行作成 / 更新 */
+      /* upsert 実行 */
       const { data, error } = await supabase
         .from("student_profiles")
-        .upsert({ ...updatePayload, user_id: user.id }, { onConflict: "user_id" })
+        .upsert(updatePayload, { onConflict: "user_id" })
         .select()
         .single()
 
+      console.log("payload", updatePayload)    // ★ デバッグ用
+      console.log("returned", data, error)     // ★ デバッグ用
+
       if (error) throw error
+
       setProfile(data as StudentProfile)
       setEditedProfile(data as StudentProfile)
       setIsEditing(false)
@@ -158,7 +168,13 @@ export default function StudentProfilePage() {
     }
   }
 
-  /* --------------- UI --------------- */
+  /* 編集トグル */
+  const toggleEditMode = () => {
+    if (isEditing) setEditedProfile(profile)
+    setIsEditing(prev => !prev)
+  }
+
+  /* ──────────────────── UI ──────────────────── */
   if (!ready || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -175,7 +191,6 @@ export default function StudentProfilePage() {
     )
   }
 
-  /* --------------- 画面 --------------- */
   return (
     <div className="container mx-auto max-w-3xl space-y-6 py-6">
       {/* ヘッダー */}
@@ -197,7 +212,7 @@ export default function StudentProfilePage() {
         )}
       </div>
 
-      {/* 基本情報カード */}
+      {/* 基本情報 */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center">
@@ -276,7 +291,7 @@ export default function StudentProfilePage() {
         </CardContent>
       </Card>
 
-      {/* 自己PRカード */}
+      {/* 自己PR */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle>自己PR</CardTitle>
