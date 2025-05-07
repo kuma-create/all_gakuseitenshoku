@@ -95,6 +95,13 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_chat_rooms_companies"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
         ]
       }
       companies: {
@@ -649,52 +656,139 @@ export type Database = {
       }
       student_profiles: {
         Row: {
+          address: string | null
+          admission_month: string | null
           birth_date: string | null
           created_at: string | null
           department: string | null
+          desired_industries: string[] | null
+          desired_locations: string[] | null
+          desired_positions: string[] | null
+          dev_tools: string | null
           email: string | null
+          employment_type: string | null
+          enrollment_status: string | null
           faculty: string | null
+          first_name: string | null
+          first_name_kana: string | null
+          framework_lib: string | null
           full_name: string | null
           gender: string | null
+          graduation_month: string | null
           graduation_year: number | null
           id: string
+          language_skill: string | null
+          last_name: string | null
+          last_name_kana: string | null
+          motive: string | null
+          phone: string | null
+          pr_body: string | null
           pr_text: string | null
+          pr_title: string | null
+          preference_note: string | null
           profile_image: string | null
+          qualification_text: string | null
+          research_theme: string | null
+          salary_range: string | null
+          skill_text: string | null
           skills: string[] | null
+          strength1: string | null
+          strength2: string | null
+          strength3: string | null
           university: string | null
           user_id: string | null
+          work_style: string | null
+          work_style_options: string[] | null
         }
         Insert: {
+          address?: string | null
+          admission_month?: string | null
           birth_date?: string | null
           created_at?: string | null
           department?: string | null
+          desired_industries?: string[] | null
+          desired_locations?: string[] | null
+          desired_positions?: string[] | null
+          dev_tools?: string | null
           email?: string | null
+          employment_type?: string | null
+          enrollment_status?: string | null
           faculty?: string | null
+          first_name?: string | null
+          first_name_kana?: string | null
+          framework_lib?: string | null
           full_name?: string | null
           gender?: string | null
+          graduation_month?: string | null
           graduation_year?: number | null
           id?: string
+          language_skill?: string | null
+          last_name?: string | null
+          last_name_kana?: string | null
+          motive?: string | null
+          phone?: string | null
+          pr_body?: string | null
           pr_text?: string | null
+          pr_title?: string | null
+          preference_note?: string | null
           profile_image?: string | null
+          qualification_text?: string | null
+          research_theme?: string | null
+          salary_range?: string | null
+          skill_text?: string | null
           skills?: string[] | null
+          strength1?: string | null
+          strength2?: string | null
+          strength3?: string | null
           university?: string | null
           user_id?: string | null
+          work_style?: string | null
+          work_style_options?: string[] | null
         }
         Update: {
+          address?: string | null
+          admission_month?: string | null
           birth_date?: string | null
           created_at?: string | null
           department?: string | null
+          desired_industries?: string[] | null
+          desired_locations?: string[] | null
+          desired_positions?: string[] | null
+          dev_tools?: string | null
           email?: string | null
+          employment_type?: string | null
+          enrollment_status?: string | null
           faculty?: string | null
+          first_name?: string | null
+          first_name_kana?: string | null
+          framework_lib?: string | null
           full_name?: string | null
           gender?: string | null
+          graduation_month?: string | null
           graduation_year?: number | null
           id?: string
+          language_skill?: string | null
+          last_name?: string | null
+          last_name_kana?: string | null
+          motive?: string | null
+          phone?: string | null
+          pr_body?: string | null
           pr_text?: string | null
+          pr_title?: string | null
+          preference_note?: string | null
           profile_image?: string | null
+          qualification_text?: string | null
+          research_theme?: string | null
+          salary_range?: string | null
+          skill_text?: string | null
           skills?: string[] | null
+          strength1?: string | null
+          strength2?: string | null
+          strength3?: string | null
           university?: string | null
           user_id?: string | null
+          work_style?: string | null
+          work_style_options?: string[] | null
         }
         Relationships: []
       }

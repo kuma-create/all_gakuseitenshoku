@@ -24,22 +24,66 @@
    type StudentProfile = Database["public"]["Tables"]["student_profiles"]["Row"]
    
    /* ---------- プレースホルダ（初期値用） ---------- */
-   const emptyProfile: StudentProfile = {
-     id: "",
-     user_id: "",
-     full_name: "",
-     university: "",
-     faculty: "",
-     department: null,
-     graduation_year: null,
-     birth_date: null,
-     gender: null,
-     profile_image: null,
-     skills: null,
-     pr_text: "",
-     created_at: null,
-     email: null,
-   }
+// 空プロフィール（DB 行型 StudentProfile と完全一致させる）
+const emptyProfile: StudentProfile = {
+  /* ─────────── 必須キー ─────────── */
+  id: "",
+  user_id: "",
+
+  /* ─────────── 基本情報 ─────────── */
+  full_name: "",
+  last_name: "",
+  first_name: "",
+  last_name_kana: "",
+  first_name_kana: "",
+  birth_date: null,
+  gender: null,
+  phone: "",
+  email: null,          // ← auth の email だけ使う場合は null で OK
+  address: "",
+
+  /* ─────────── 学歴・研究 ─────────── */
+  university: "",
+  faculty: "",
+  department: null,
+  admission_month: null,
+  graduation_month: null,
+  graduation_year: null,
+  enrollment_status: null,
+  research_theme: "",
+
+  /* ─────────── スキル・資格 ─────────── */
+  qualification_text: "",
+  skill_text: "",
+  language_skill: "",
+  framework_lib: "",
+  dev_tools: "",
+  skills: null,         // JSON or text[] を使う場合は [] 初期化でも可
+
+  /* ─────────── 自己 PR ─────────── */
+  pr_title: "",
+  pr_body: "",
+  strength1: "",
+  strength2: "",
+  strength3: "",
+  motive: "",
+  pr_text: "",          // 旧フィールド残す場合
+
+  /* ─────────── 希望条件 ─────────── */
+  desired_industries:  null,
+  desired_positions:   null,
+  desired_locations:   null,
+  work_style:          null,      // full_remote / hybrid / office
+  employment_type:     null,      // fulltime / contract / parttime / intern
+  salary_range:        null,      // <300 / 300-400 …
+  work_style_options:  null,      // text[] 例: {flex, remote} など
+  preference_note:     "",
+
+  /* ─────────── その他 ─────────── */
+  profile_image: null,
+  created_at:   null,
+}
+
    
    export default function StudentProfilePage() {
      /* 認証判定（未ログインならリダイレクト） */
