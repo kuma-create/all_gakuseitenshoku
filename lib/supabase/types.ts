@@ -99,31 +99,49 @@ export type Database = {
       }
       companies: {
         Row: {
+          cover_image_url: string | null
           created_at: string | null
           description: string | null
+          employee_count: number | null
+          founded_year: number | null
           id: string
+          industry: string | null
+          location: string | null
           logo: string | null
           name: string
           user_id: string | null
           website: string | null
+          website_url: string | null
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          employee_count?: number | null
+          founded_year?: number | null
           id?: string
+          industry?: string | null
+          location?: string | null
           logo?: string | null
           name: string
           user_id?: string | null
           website?: string | null
+          website_url?: string | null
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          employee_count?: number | null
+          founded_year?: number | null
           id?: string
+          industry?: string | null
+          location?: string | null
           logo?: string | null
           name?: string
           user_id?: string | null
           website?: string | null
+          website_url?: string | null
         }
         Relationships: [
           {
@@ -431,7 +449,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "jobs_company_id_fkey"
+            foreignKeyName: "jobs_company_fk"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -509,6 +527,70 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      offers: {
+        Row: {
+          application_id: string | null
+          benefits: Json | null
+          company_id: string | null
+          created_at: string | null
+          expiration_date: string | null
+          id: string
+          salary: number | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["offer_status"] | null
+          student_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          application_id?: string | null
+          benefits?: Json | null
+          company_id?: string | null
+          created_at?: string | null
+          expiration_date?: string | null
+          id?: string
+          salary?: number | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["offer_status"] | null
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          benefits?: Json | null
+          company_id?: string | null
+          created_at?: string | null
+          expiration_date?: string | null
+          id?: string
+          salary?: number | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["offer_status"] | null
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scouts: {
         Row: {
@@ -669,7 +751,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      offer_status: "pending" | "accepted" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -784,6 +866,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      offer_status: ["pending", "accepted", "rejected"],
+    },
   },
 } as const
