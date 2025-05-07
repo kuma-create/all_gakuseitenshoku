@@ -3,21 +3,42 @@
 import { useState } from "react"
 import { Mail, Save, Send, Bell, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 
+/** 通知設定のキー */
+type NotificationKey = "application" | "message" | "interview"
+
+/** ステートで管理する通知設定オブジェクトの型 */
+interface NotificationSettings {
+  application: boolean
+  message: boolean
+  interview: boolean
+}
+
 export default function EmailNotificationSettings() {
   const [email, setEmail] = useState("recruit@example.co.jp")
   const [isEditing, setIsEditing] = useState(false)
-  const [notifications, setNotifications] = useState({
-    application: true,
-    message: false,
-    interview: true,
-  })
+
+  // NotificationSettings 型を指定
+  const [notifications, setNotifications] =
+    useState<NotificationSettings>({
+      application: true,
+      message: false,
+      interview: true,
+    })
+
   const [showSuccess, setShowSuccess] = useState(false)
   const [showTestSuccess, setShowTestSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -43,25 +64,30 @@ export default function EmailNotificationSettings() {
     }, 1500)
   }
 
-  const toggleNotification = (key) => {
-    setNotifications({
-      ...notifications,
-      [key]: !notifications[key],
-    })
+  /** 通知キーをトグルする */
+  const toggleNotification = (key: NotificationKey) => {
+    setNotifications((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }))
   }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">メール通知設定</h1>
-        <p className="text-muted-foreground">重要なイベントについてメールで通知を受け取る設定ができます</p>
+        <p className="text-muted-foreground">
+          重要なイベントについてメールで通知を受け取る設定ができます
+        </p>
       </div>
 
       {showSuccess && (
         <Alert className="bg-green-50 text-green-800 border-green-200">
           <Mail className="h-4 w-4" />
           <AlertTitle>設定を保存しました</AlertTitle>
-          <AlertDescription>メール通知設定が正常に更新されました。</AlertDescription>
+          <AlertDescription>
+            メール通知設定が正常に更新されました。
+          </AlertDescription>
         </Alert>
       )}
 
@@ -69,16 +95,21 @@ export default function EmailNotificationSettings() {
         <Alert className="bg-blue-50 text-blue-800 border-blue-200">
           <Send className="h-4 w-4" />
           <AlertTitle>テストメールを送信しました</AlertTitle>
-          <AlertDescription>{email} 宛にテストメールを送信しました。受信トレイを確認してください。</AlertDescription>
+          <AlertDescription>
+            {email} 宛にテストメールを送信しました。受信トレイを確認してください。
+          </AlertDescription>
         </Alert>
       )}
 
+      {/* 通知メールアドレス設定 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" /> 通知メールアドレス
           </CardTitle>
-          <CardDescription>通知を受け取るメールアドレスを設定します</CardDescription>
+          <CardDescription>
+            通知を受け取るメールアドレスを設定します
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -93,7 +124,10 @@ export default function EmailNotificationSettings() {
                   disabled={!isEditing}
                   className="flex-1"
                 />
-                <Button variant={isEditing ? "default" : "outline"} onClick={() => setIsEditing(!isEditing)}>
+                <Button
+                  variant={isEditing ? "default" : "outline"}
+                  onClick={() => setIsEditing(!isEditing)}
+                >
                   {isEditing ? "完了" : "変更"}
                 </Button>
               </div>
@@ -102,29 +136,42 @@ export default function EmailNotificationSettings() {
         </CardContent>
       </Card>
 
+      {/* イベント別通知設定 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" /> 通知設定
           </CardTitle>
-          <CardDescription>どのイベントでメール通知を受け取るか設定します</CardDescription>
+          <CardDescription>
+            どのイベントでメール通知を受け取るか設定します
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="text-base">応募があったとき</Label>
-                <p className="text-sm text-muted-foreground">新しい応募者がいた場合にメール通知を受け取ります</p>
+                <p className="text-sm text-muted-foreground">
+                  新しい応募者がいた場合にメール通知を受け取ります
+                </p>
               </div>
-              <Switch checked={notifications.application} onCheckedChange={() => toggleNotification("application")} />
+              <Switch
+                checked={notifications.application}
+                onCheckedChange={() => toggleNotification("application")}
+              />
             </div>
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="text-base">チャットメッセージが届いたとき</Label>
-                <p className="text-sm text-muted-foreground">応募者からのメッセージがあった場合に通知を受け取ります</p>
+                <p className="text-sm text-muted-foreground">
+                  応募者からのメッセージがあった場合に通知を受け取ります
+                </p>
               </div>
-              <Switch checked={notifications.message} onCheckedChange={() => toggleNotification("message")} />
+              <Switch
+                checked={notifications.message}
+                onCheckedChange={() => toggleNotification("message")}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -134,7 +181,10 @@ export default function EmailNotificationSettings() {
                   予定されている面談の前日にリマインドメールを受け取ります
                 </p>
               </div>
-              <Switch checked={notifications.interview} onCheckedChange={() => toggleNotification("interview")} />
+              <Switch
+                checked={notifications.interview}
+                onCheckedChange={() => toggleNotification("interview")}
+              />
             </div>
           </div>
         </CardContent>
@@ -168,6 +218,7 @@ export default function EmailNotificationSettings() {
         </CardFooter>
       </Card>
 
+      {/* メール通知について */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -1,34 +1,31 @@
 /* ─── lib/supabase/models.ts ───────────────────────────────────────── */
-
 import type { Database } from "./types"
 
 /* 汎用ユーティリティ */
 export type Nullable<T> = T | null
 
-/* プロファイル型（1 回だけ定義） */
+/* CompanyPreview を DB のカラム名に合わせる */
 export interface CompanyPreview {
   id: string
   name: string
-  logo_url: Nullable<string>
-  cover_image_url?: Nullable<string>   // ← ★ 追加済みフィールドはここ
+  logo: Nullable<string>               // ← logo_url → logo に
+  cover_image_url?: Nullable<string>   // ← そのまま
 }
 
-/* jobs テーブルの行 */
-export type JobRow =
-  Database["public"]["Tables"]["jobs"]["Row"] & {
-    company?: CompanyPreview | null
-  }
+/* jobs テーブルのオリジナル行 */
+export type JobRow = Database["public"]["Tables"]["jobs"]["Row"]
 
 /* フロント用：JobRow + メタ情報 */
 export interface JobWithTags extends JobRow {
-  /** Supabase には無い、フロント専用フィールド */
+  company?: CompanyPreview | null
   tags: string[]
   is_new: boolean
   is_hot: boolean
   is_recommended: boolean
   is_featured: boolean
-  employment_type?: string | null  // ← テーブルに無いのでここで追加
-
-  /* ✅ salary_min / salary_max は **JobRow に既にある** ため
-        ここで再宣言しない！！ */
+  employment_type?: string | null
+  // salary_min / salary_max は元の Row にすでに含まれている想定
 }
+
+/* job_tags テーブルの行 */
+export type TagRow = Database["public"]["Tables"]["job_tags"]["Row"]

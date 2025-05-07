@@ -16,7 +16,6 @@ import {
   CheckCircle,
   XCircle,
   Download,
-  Calendar,
   UserPlus,
   PlusIcon as BuildingPlus,
   RefreshCcw,
@@ -25,48 +24,79 @@ import {
   LineChart,
   TrendingUp,
   TrendingDown,
+  Calendar as CalendarIcon,
+  UserCog,
+  UserX,
 } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
+
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { format, subDays } from "date-fns"
-import { CalendarIcon } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Label } from "@/components/ui/label"
-import { toast } from "@/components/ui/use-toast"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { UserCog, UserX } from "lucide-react"
-import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Switch } from "@/components/ui/switch"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  Label,
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui"
+import { format, subDays } from "date-fns"
+import { toast } from "@/components/ui/use-toast"
+import { Calendar } from "@/components/ui/calendar"
+import type { DateRange as DayPickerRange } from "react-day-picker"
+const [dateRange, setDateRange] = useState<DayPickerRange | undefined>(undefined)
+
+
+
+/* ---------------------------
+   型ユーティリティ
+--------------------------- */
+
 
 // Mock data
 const mockStudents = [
@@ -368,147 +398,113 @@ const mockAdminUsers = [
 ]
 
 export default function AdminDashboard() {
+  /* ----- 基本ステート ----- */
   const [activeTab, setActiveTab] = useState("overview")
-  const [studentPage, setStudentPage] = useState(1)
-  const [companyPage, setCompanyPage] = useState(1)
-  const [jobPage, setJobPage] = useState(1)
-  const [requestPage, setRequestPage] = useState(1)
-  const [showFreezeDialog, setShowFreezeDialog] = useState(false)
+  const [studentPage, setStudentPage]   = useState(1)
+  const [companyPage, setCompanyPage]   = useState(1)
+  const [jobPage, setJobPage]           = useState(1)
+  const [requestPage, setRequestPage]   = useState(1)
+
+  /* ----- ダイアログ用 ----- */
+  const [showFreezeDialog,  setShowFreezeDialog]  = useState(false)
   const [showSuspendDialog, setShowSuspendDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
+  const [showDeleteDialog,  setShowDeleteDialog]  = useState(false)
+  const [selectedItemId,    setSelectedItemId]    = useState<number | null>(null)
 
-  const [activityPage, setActivityPage] = useState(1)
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined,
-  })
-  const [roleFilter, setRoleFilter] = useState("all")
-  const [actionFilter, setActionFilter] = useState("all")
-  const [searchQuery, setSearchQuery] = useState("")
+  /* ----- Activity Log ----- */
+  const [activityPage,  setActivityPage]  = useState(1)
+  const [dateRange, setDateRange] = useState<DayPickerRange | undefined>(undefined)
+  const [roleFilter,    setRoleFilter]    = useState("all")
+  const [actionFilter,  setActionFilter]  = useState("all")
+  const [searchQuery,   setSearchQuery]   = useState("")
 
-  const [slackNewApplication, setSlackNewApplication] = useState(true)
-  const [slackNewScout, setSlackNewScout] = useState(true)
-  const [slackWebhookUrl, setSlackWebhookUrl] = useState(
-    "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
-  )
-  const [emailDailySummary, setEmailDailySummary] = useState(true)
-  const [emailWeeklyReport, setEmailWeeklyReport] = useState(true)
-  const [adminEmail, setAdminEmail] = useState("admin@example.com")
-  const [preferredTime, setPreferredTime] = useState("08:00")
-  const [initialSettings, setInitialSettings] = useState({
-    slackNewApplication: true,
-    slackNewScout: true,
-    slackWebhookUrl: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
-    emailDailySummary: true,
-    emailWeeklyReport: true,
-    adminEmail: "admin@example.com",
-    preferredTime: "08:00",
-  })
-  const [isCopied, setIsCopied] = useState(false)
+ /* ----- Settings ----- */
+ const [slackNewApplication, setSlackNewApplication] = useState(true)
+ const [slackNewScout,       setSlackNewScout]       = useState(true)
+ const [slackWebhookUrl,     setSlackWebhookUrl]     = useState(
+   "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+ )
+ const [emailDailySummary, setEmailDailySummary] = useState(true)
+ const [emailWeeklyReport, setEmailWeeklyReport] = useState(true)
+ const [adminEmail,        setAdminEmail]        = useState("admin@example.com")
+ const [preferredTime,     setPreferredTime]     = useState("08:00")
 
-  // Analytics state
-  const [analyticsDateRange, setAnalyticsDateRange] = useState<{ from: Date; to: Date }>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  })
-  const [analyticsCategory, setAnalyticsCategory] = useState("all")
-  const [analyticsGroupBy, setAnalyticsGroupBy] = useState("month")
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false)
+ const [initialSettings, setInitialSettings] = useState({
+   slackNewApplication: true,
+   slackNewScout: true,
+   slackWebhookUrl,
+   emailDailySummary: true,
+   emailWeeklyReport: true,
+   adminEmail,
+   preferredTime,
+ })
+ const [isCopied, setIsCopied] = useState(false)
+ // JSX より上の行で
+const isWebhookUrlValid = () => slackWebhookUrl.startsWith("https://hooks.slack.com/")
 
-  const [adminSearchQuery, setAdminSearchQuery] = useState("")
-  const [adminRoleFilter, setAdminRoleFilter] = useState("all")
-  const [showOnlyActive, setShowOnlyActive] = useState(false)
-  const [showAddAdminModal, setShowAddAdminModal] = useState(false)
-  const [showEditPermissionsModal, setShowEditPermissionsModal] = useState(false)
-  const [showRemoveAdminDialog, setShowRemoveAdminDialog] = useState(false)
-  const [selectedAdmin, setSelectedAdmin] = useState<any>(null)
 
-  // New admin form state
-  const [newAdminName, setNewAdminName] = useState("")
-  const [newAdminEmail, setNewAdminEmail] = useState("")
-  const [newAdminRole, setNewAdminRole] = useState("サポート管理者")
-  const [newAdminPermissions, setNewAdminPermissions] = useState<string[]>(["学生管理", "企業管理"])
+ /* ----- Analytics ----- */
+ const [analyticsDateRange, setAnalyticsDateRange] = useState<DayPickerRange>({
+   from: subDays(new Date(), 30),
+   to:   new Date(),
+ })
+ const [analyticsCategory, setAnalyticsCategory] = useState("all")
+ const [analyticsGroupBy,  setAnalyticsGroupBy]  = useState("month")
+ const [isFilterCollapsed, setIsFilterCollapsed] = useState(false)
 
-  // Edit permissions state
-  const [editPermissions, setEditPermissions] = useState<string[]>([])
+ /* ----- Admin 管理 ----- */
+ const [adminSearchQuery, setAdminSearchQuery]   = useState("")
+ const [adminRoleFilter,  setAdminRoleFilter]    = useState("all")
+ const [showOnlyActive,   setShowOnlyActive]     = useState(false)
+ const [showAddAdminModal,      setShowAddAdminModal]      = useState(false)
+ const [showEditPermissionsModal,setShowEditPermissionsModal] = useState(false)
+ const [showRemoveAdminDialog,  setShowRemoveAdminDialog]  = useState(false)
+ const [selectedAdmin,   setSelectedAdmin]        = useState<any>(null)
 
-  const router = useRouter()
+ /* new / edit admin */
+ const [newAdminName,        setNewAdminName]        = useState("")
+ const [newAdminEmail,       setNewAdminEmail]       = useState("")
+ const [newAdminRole,        setNewAdminRole]        = useState("サポート管理者")
+ const [newAdminPermissions, setNewAdminPermissions] = useState<string[]>(["学生管理", "企業管理"])
+ const [editPermissions,     setEditPermissions]     = useState<string[]>([])
 
-  const handleFreeze = (id: number) => {
-    setSelectedItemId(id)
-    setShowFreezeDialog(true)
-  }
+ const router = useRouter()
 
-  const handleSuspend = (id: number) => {
-    setSelectedItemId(id)
-    setShowSuspendDialog(true)
-  }
+ const handleFreeze  = (id: number) => { setSelectedItemId(id); setShowFreezeDialog(true) }
+ const handleSuspend = (id: number) => { setSelectedItemId(id); setShowSuspendDialog(true) }
+ const handleDelete  = (id: number) => { setSelectedItemId(id); setShowDeleteDialog(true) }
 
-  const handleDelete = (id: number) => {
-    setSelectedItemId(id)
-    setShowDeleteDialog(true)
-  }
+ const confirmFreeze  = () => { console.log(`Freeze: ${selectedItemId}`); setShowFreezeDialog(false) }
+ const confirmSuspend = () => { console.log(`Suspend: ${selectedItemId}`); setShowSuspendDialog(false) }
+ const confirmDelete  = () => { console.log(`Delete: ${selectedItemId}`); setShowDeleteDialog(false) }
 
-  const confirmFreeze = () => {
-    // Mock implementation - would connect to backend in real app
-    console.log(`Freezing student with ID: ${selectedItemId}`)
-    setShowFreezeDialog(false)
-    // Update UI to reflect the change
-  }
+ const copyToClipboard = () => {
+   navigator.clipboard.writeText(slackWebhookUrl)
+   setIsCopied(true)
+   setTimeout(() => setIsCopied(false), 2_000)
+ }
 
-  const confirmSuspend = () => {
-    // Mock implementation - would connect to backend in real app
-    console.log(`Suspending company with ID: ${selectedItemId}`)
-    setShowSuspendDialog(false)
-    // Update UI to reflect the change
-  }
+ const hasSettingsChanged = () =>
+   slackNewApplication !== initialSettings.slackNewApplication ||
+   slackNewScout       !== initialSettings.slackNewScout       ||
+   slackWebhookUrl     !== initialSettings.slackWebhookUrl     ||
+   emailDailySummary   !== initialSettings.emailDailySummary   ||
+   emailWeeklyReport   !== initialSettings.emailWeeklyReport   ||
+   adminEmail          !== initialSettings.adminEmail          ||
+   preferredTime       !== initialSettings.preferredTime
 
-  const confirmDelete = () => {
-    // Mock implementation - would connect to backend in real app
-    console.log(`Deleting job with ID: ${selectedItemId}`)
-    setShowDeleteDialog(false)
-    // Update UI to reflect the change
-  }
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(slackWebhookUrl)
-    setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 2000)
-  }
-
-  const isWebhookUrlValid = () => {
-    return slackWebhookUrl.startsWith("https://hooks.slack.com/")
-  }
-
-  const hasSettingsChanged = () => {
-    return (
-      slackNewApplication !== initialSettings.slackNewApplication ||
-      slackNewScout !== initialSettings.slackNewScout ||
-      slackWebhookUrl !== initialSettings.slackWebhookUrl ||
-      emailDailySummary !== initialSettings.emailDailySummary ||
-      emailWeeklyReport !== initialSettings.emailWeeklyReport ||
-      adminEmail !== initialSettings.adminEmail ||
-      preferredTime !== initialSettings.preferredTime
-    )
-  }
-
-  const saveSettings = () => {
-    // Mock implementation - would connect to backend in real app
-    setInitialSettings({
-      slackNewApplication,
-      slackNewScout,
-      slackWebhookUrl,
-      emailDailySummary,
-      emailWeeklyReport,
-      adminEmail,
-      preferredTime,
-    })
-    toast({
-      title: "通知設定を保存しました",
-      description: "設定が正常に更新されました。",
-    })
-  }
+ const saveSettings = () => {
+   setInitialSettings({
+     slackNewApplication,
+     slackNewScout,
+     slackWebhookUrl,
+     emailDailySummary,
+     emailWeeklyReport,
+     adminEmail,
+     preferredTime,
+   })
+   toast({ title: "通知設定を保存しました", description: "設定が正常に更新されました。" })
+ }
 
   const filteredLogs = mockActivityLogs.filter((log) => {
     // Apply role filter
@@ -1192,31 +1188,28 @@ export default function AdminDashboard() {
                       <Label htmlFor="date">日付範囲</Label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className={
-                              "w-[280px] justify-start text-left font-normal" +
-                              (!dateRange.from ? " text-muted-foreground" : "")
-                            }
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange.from ? (
-                              format(dateRange.from, "yyyy/MM/dd") +
-                              " - " +
-                              format(dateRange.to || dateRange.from, "yyyy/MM/dd")
-                            ) : (
-                              <span>日付を選択</span>
-                            )}
-                          </Button>
+                        <Button
+                          variant="outline"
+                          className={`w-[280px] justify-start text-left font-normal ${!dateRange?.from ? "text-muted-foreground" : ""}`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            // from があるならフォーマットして表示
+                            format(dateRange.from, "yyyy/MM/dd") +
+                            " - " +
+                            format(dateRange.to ?? dateRange.from, "yyyy/MM/dd")
+                          ) : (
+                            // from がない (undefined) 場合
+                            <span>日付を選択</span>
+                          )}
+                        </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="center" side="bottom">
-                          <Calendar
-                            mode="range"
-                            defaultMonth={dateRange?.from}
-                            selected={dateRange}
-                            onSelect={setDateRange}
-                            numberOfMonths={2}
-                          />
+                        <Calendar
+                          mode="range"
+                          selected={dateRange}             // undefined を渡しても OK
+                          onSelect={(range) => setDateRange(range)}  // range は DayPickerRange | undefined
+                        />
                         </PopoverContent>
                       </Popover>
                     </div>
@@ -1341,13 +1334,12 @@ export default function AdminDashboard() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="center" side="bottom">
                           <div className="grid w-full max-w-sm gap-2">
-                            <Calendar
-                              mode="range"
-                              defaultMonth={analyticsDateRange?.from}
-                              selected={analyticsDateRange}
-                              onSelect={setAnalyticsDateRange}
-                              numberOfMonths={2}
-                            />
+                          <Calendar
+                            mode="range"
+                            selected={dateRange}                             // ← undefined も OK にした
+                            onSelect={(range) => setDateRange(range)}        // ← そのまま setState を渡す
+                            numberOfMonths={2}
+                          />
                             <div className="flex justify-around space-x-2">
                               <Button variant="outline" size="sm" onClick={() => setDateRangePreset(7)}>
                                 7日間
@@ -1509,7 +1501,9 @@ export default function AdminDashboard() {
                   <Switch
                     id="slack-new-application"
                     checked={slackNewApplication}
-                    onCheckedChange={(checked) => setSlackNewApplication(checked)}
+                    onCheckedChange={(v: boolean | "indeterminate") =>
+                      setSlackNewApplication(v === true)
+                    }
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -1517,7 +1511,9 @@ export default function AdminDashboard() {
                   <Switch
                     id="slack-new-scout"
                     checked={slackNewScout}
-                    onCheckedChange={(checked) => setSlackNewScout(checked)}
+                    onCheckedChange={(v: boolean | "indeterminate") =>
+                      setSlackNewApplication(v === true)
+                    }
                   />
                 </div>
                 <div>
@@ -1543,7 +1539,9 @@ export default function AdminDashboard() {
                   <Switch
                     id="email-daily-summary"
                     checked={emailDailySummary}
-                    onCheckedChange={(checked) => setEmailDailySummary(checked)}
+                    onCheckedChange={(v: boolean | "indeterminate") =>
+                      setSlackNewApplication(v === true)
+                    }
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -1551,7 +1549,9 @@ export default function AdminDashboard() {
                   <Switch
                     id="email-weekly-report"
                     checked={emailWeeklyReport}
-                    onCheckedChange={(checked) => setEmailWeeklyReport(checked)}
+                    onCheckedChange={(v: boolean | "indeterminate") =>
+                      setSlackNewApplication(v === true)
+                    }
                   />
                 </div>
                 <div>
@@ -1615,7 +1615,9 @@ export default function AdminDashboard() {
               <Checkbox
                 id="show-only-active"
                 checked={showOnlyActive}
-                onCheckedChange={(checked) => setShowOnlyActive(checked)}
+                onCheckedChange={(v: boolean | "indeterminate") =>
+                  setShowOnlyActive(v === true)
+                }
               />
               <Label htmlFor="show-only-active" className="ml-2">
                 アクティブな管理者のみ表示

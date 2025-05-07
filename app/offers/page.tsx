@@ -1,3 +1,5 @@
+"use client"
+
 import { Calendar, Filter, MessageSquare, Search } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -8,8 +10,19 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 
-// Mock data for offers
-const mockOffers = [
+/** 1件のオファーを表す型 */
+interface Offer {
+  id: number
+  company: string
+  logo: string
+  position: string
+  message: string
+  date: string
+  isUnread: boolean
+}
+
+/** モックデータ */
+const mockOffers: Offer[] = [
   {
     id: 1,
     company: "株式会社テクノロジー",
@@ -63,14 +76,8 @@ const mockOffers = [
 ]
 
 export default function OffersPage() {
-  // Filter offers by read status
   const unreadOffers = mockOffers.filter((offer) => offer.isUnread)
   const readOffers = mockOffers.filter((offer) => !offer.isUnread)
-
-  // Function to truncate message to 100 characters
-  const truncateMessage = (message: string, maxLength = 100) => {
-    return message.length > maxLength ? `${message.substring(0, maxLength)}...` : message
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -78,7 +85,9 @@ export default function OffersPage() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl font-bold sm:text-2xl">オファー一覧</h1>
-          <p className="text-sm text-gray-500">企業からのスカウトを確認・管理できます</p>
+          <p className="text-sm text-gray-500">
+            企業からのスカウトを確認・管理できます
+          </p>
         </div>
 
         {/* Controls */}
@@ -153,8 +162,12 @@ export default function OffersPage() {
   )
 }
 
-// Offer Card Component
-function OfferCard({ offer }) {
+// OfferCard の props 型
+interface OfferCardProps {
+  offer: Offer
+}
+
+function OfferCard({ offer }: OfferCardProps) {
   return (
     <Card
       className={`overflow-hidden transition-all hover:shadow-md ${
@@ -167,14 +180,16 @@ function OfferCard({ offer }) {
           <div className="relative h-12 w-12 overflow-hidden rounded-md border border-gray-200 md:h-16 md:w-16">
             <Image
               src={offer.logo || "/placeholder.svg"}
-              alt={`${offer.company}のロゴ`}
+              alt={`${offer.company} のロゴ`}
               width={64}
               height={64}
               className="h-full w-full object-cover"
             />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 md:mt-2 md:text-lg">{offer.company}</h3>
+            <h3 className="font-bold text-gray-900 md:mt-2 md:text-lg">
+              {offer.company}
+            </h3>
             <Badge variant="outline" className="mt-1 bg-gray-50">
               {offer.position}
             </Badge>
@@ -185,10 +200,16 @@ function OfferCard({ offer }) {
         <div className="flex-1 p-4">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {offer.isUnread && <Badge className="bg-blue-500 text-xs font-medium">新着</Badge>}
+              {offer.isUnread && (
+                <Badge className="bg-blue-500 text-xs font-medium">新着</Badge>
+              )}
               <Badge
                 variant={offer.isUnread ? "outline" : "secondary"}
-                className={offer.isUnread ? "border-blue-200 bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-700"}
+                className={
+                  offer.isUnread
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "bg-gray-100 text-gray-700"
+                }
               >
                 {offer.isUnread ? "未読" : "既読"}
               </Badge>
@@ -199,12 +220,12 @@ function OfferCard({ offer }) {
             </div>
           </div>
 
-          {/* Message */}
           <p className="mb-4 text-sm text-gray-600">
-            {offer.message.length > 100 ? `${offer.message.substring(0, 100)}...` : offer.message}
+            {offer.message.length > 100
+              ? `${offer.message.substring(0, 100)}...`
+              : offer.message}
           </p>
 
-          {/* CTA Buttons */}
           <div className="flex flex-wrap gap-2 sm:flex-nowrap">
             <Link href={`/offers/${offer.id}`} className="w-full sm:w-auto">
               <Button variant="outline" className="w-full">
@@ -224,15 +245,21 @@ function OfferCard({ offer }) {
   )
 }
 
-// Empty State Component
-function EmptyState({ message = "まだスカウトは届いていません" }) {
+// EmptyState の props 型
+interface EmptyStateProps {
+  message?: string
+}
+
+function EmptyState({ message = "まだスカウトは届いていません" }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white p-8 py-12 text-center">
       <div className="mb-4 rounded-full bg-gray-100 p-3">
         <MessageSquare size={24} className="text-gray-400" />
       </div>
       <h3 className="mb-2 text-lg font-medium text-gray-700">{message}</h3>
-      <p className="mb-6 text-sm text-gray-500">プロフィールを充実させてスカウトを受けよう</p>
+      <p className="mb-6 text-sm text-gray-500">
+        プロフィールを充実させてスカウトを受けよう
+      </p>
       <Link href="/student/profile">
         <Button>プロフィールを編集する</Button>
       </Link>

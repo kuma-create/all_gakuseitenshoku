@@ -1,242 +1,189 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useTransition, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { ModernChatUI } from "@/components/chat/modern-chat-ui"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { createClient } from "@/lib/supabase/client"
+import type { Database } from "@/lib/supabase/types"
+import type { Message } from "@/types/message"
 
-// Mock data for the chat
-const mockChats = {
-  "1": {
-    id: "1",
-    company: {
-      id: 1,
-      name: "株式会社テクノロジー",
-      avatar: "/abstract-geometric-logo.png",
-      status: "オンライン",
-    },
-    position: "フロントエンドエンジニア",
-    chatType: "scout", // scout or self_apply
-    messages: [
-      {
-        id: 1,
-        sender: "company",
-        content:
-          "山田さん、こんにちは。弊社のフロントエンドエンジニアのポジションに興味を持っていただきありがとうございます。",
-        timestamp: "2023-05-10T10:30:00",
-        status: "read",
-      },
-      {
-        id: 2,
-        sender: "student",
-        content:
-          "こんにちは。はい、御社のフロントエンド開発に非常に興味があります。特にReactを使った開発経験を活かせればと思っています。",
-        timestamp: "2023-05-10T10:35:00",
-        status: "read",
-      },
-      {
-        id: 3,
-        sender: "company",
-        content:
-          "素晴らしいです！実は現在、Reactを使った新しいプロジェクトを開始する予定があります。山田さんのスキルセットはまさに私たちが探している人材です。",
-        timestamp: "2023-05-10T10:40:00",
-        status: "read",
-      },
-      {
-        id: 4,
-        sender: "student",
-        content: "それは興味深いです。そのプロジェクトについて、もう少し詳しく教えていただけますか？",
-        timestamp: "2023-05-10T10:45:00",
-        status: "read",
-      },
-      {
-        id: 5,
-        sender: "company",
-        content:
-          "もちろんです。このプロジェクトは、当社の主要製品のUIを完全にリニューアルするものです。最新のReactとTypeScriptを使用し、パフォーマンスとユーザー体験を大幅に向上させることが目標です。",
-        timestamp: "2023-05-10T10:50:00",
-        status: "read",
-      },
-      {
-        id: 6,
-        sender: "company",
-        content:
-          "また、このプロジェクトでは、コンポーネントライブラリの構築も行う予定です。これにより、将来の開発効率が大幅に向上すると考えています。",
-        timestamp: "2023-05-10T10:51:00",
-        status: "read",
-      },
-      {
-        id: 7,
-        sender: "student",
-        content:
-          "それは非常に興味深いプロジェクトですね。私はインターンシップでコンポーネントライブラリの開発に携わった経験があります。ぜひ貢献したいと思います。",
-        timestamp: "2023-05-10T11:00:00",
-        status: "read",
-      },
-      {
-        id: 8,
-        sender: "company",
-        content:
-          "素晴らしいです！ぜひ一度、オフィスに来ていただいて、チームと顔を合わせながら詳細をお話しできればと思います。来週の水曜日か金曜日の午後はご都合いかがでしょうか？",
-        timestamp: "2023-05-10T11:05:00",
-        status: "read",
-      },
-      {
-        id: 9,
-        sender: "student",
-        content: "ありがとうございます。金曜日の午後であれば都合がつきます。何時頃がよろしいでしょうか？",
-        timestamp: "2023-05-10T11:10:00",
-        status: "read",
-      },
-      {
-        id: 10,
-        sender: "company",
-        content: "金曜日の14時はいかがでしょうか？",
-        timestamp: "2023-05-10T11:15:00",
-        status: "delivered",
-      },
-    ],
-  },
-  "2": {
-    id: "2",
-    company: {
-      id: 2,
-      name: "株式会社デザイン",
-      avatar: "/abstract-design-company.png",
-      status: "オフライン",
-    },
-    position: "UIデザイナー",
-    chatType: "self_apply", // scout or self_apply
-    messages: [
-      {
-        id: 1,
-        sender: "student",
-        content: "御社のUIデザイナーポジションに応募させていただきました山田と申します。",
-        timestamp: "2023-05-15T09:30:00",
-        status: "read",
-      },
-      {
-        id: 2,
-        sender: "company",
-        content:
-          "山田様、ご応募ありがとうございます。ポートフォリオを拝見させていただきました。素晴らしい作品ばかりですね。",
-        timestamp: "2023-05-15T11:20:00",
-        status: "read",
-      },
-    ],
-  },
+// ─────────────────────────────────────────
+// 型定義
+// ─────────────────────────────────────────
+type ChatRoomRow = Database["public"]["Tables"]["chat_rooms"]["Row"]
+type CompanyRow  = Database["public"]["Tables"]["companies"]["Row"]
+type MessageRow  = Database["public"]["Tables"]["messages"]["Row"]
+
+interface ChatData {
+  room: ChatRoomRow
+  company: CompanyRow
+  messages: Message[]
 }
 
-interface Message {
-  id: number
-  sender: "company" | "student"
-  content: string
-  timestamp: string
-  status: "sent" | "delivered" | "read"
-  attachment?: {
-    type: string
-    url: string
-    name: string
-  }
-}
-
+// ─────────────────────────────────────────
+// ページコンポーネント
+// ─────────────────────────────────────────
 export default function StudentChatPage() {
-  const params = useParams()
-  const router = useRouter()
-  const chatId = params.id as string
-  const [chat, setChat] = useState<(typeof mockChats)[keyof typeof mockChats] | null>(null)
+  const params  = useParams()
+  const router  = useRouter()
+  const chatId  = params.id as string
+  const [chat, setChat] = useState<ChatData | null>(null) // ← ChatData に Message[] が含まれるので OK
+  const [, startTransition] = useTransition()
 
+  // 1. 初期ロード
   useEffect(() => {
-    // In a real app, fetch chat data from API
-    const chatData = mockChats[chatId as keyof typeof mockChats] || null
-    setChat(chatData)
-  }, [chatId])
+    const supabase = createClient()
 
-  const handleSendMessage = async (message: string, attachments?: File[]) => {
-    try {
-      // TODO: Supabase連携処理をここに追加
-      console.log("送信:", message, attachments)
+    const loadChat = async () => {
+      const supabase = createClient()
 
-      // Simulate API delay for demo purposes
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser()
+      if (userErr || !user) {
+        console.error("認証ユーザーが取れません", userErr)
+        return
+      }
 
-      // Add the new message to the chat
-      if (chat) {
-        const newMsg: Message = {
-          id: (chat.messages.length > 0 ? Math.max(...chat.messages.map((m) => m.id)) : 0) + 1,
-          sender: "student",
-          content: message.trim(),
-          timestamp: new Date().toISOString(),
-          status: "sent",
-        }
+      /* chat room + company 取得 */
+      const { data: room, error: roomErr } = await supabase
+        .from("chat_rooms")
+        .select("*, companies(*)")
+        .eq("id", chatId)
+        .maybeSingle<ChatRoomRow & { companies: CompanyRow }>()
 
-        // If there's an attachment, add it to the message
-        if (attachments && attachments.length > 0) {
-          const file = attachments[0]
-          newMsg.attachment = {
-            type: file.type,
-            url: URL.createObjectURL(file),
-            name: file.name,
-          }
-        }
+      if (roomErr || !room) {
+        console.error(roomErr)
+        router.push("/chat")
+        return
+      }
 
-        setChat({
-          ...chat,
-          messages: [...chat.messages, newMsg],
-        })
+      /* messages 取得 */
+      const { data: msgs, error: msgErr } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("chat_room_id", chatId)
+        .order("created_at", { ascending: true })
+        .returns<MessageRow[]>()
 
-        // Simulate message being delivered after a delay
-        setTimeout(() => {
-          setChat((prevChat) => {
-            if (!prevChat) return null
-            return {
-              ...prevChat,
-              messages: prevChat.messages.map((msg) => (msg.id === newMsg.id ? { ...msg, status: "delivered" } : msg)),
-            }
+      if (msgErr) {
+        console.error(msgErr)
+        return
+      }
+
+  
+
+      const mapped: Message[] = msgs.map((m) => ({
+        id:        Number(m.id),
+        sender:    m.sender_id === user.id ? "student" : "company", // ← user.id が使える
+        content:   m.content,
+        timestamp: m.created_at ?? "",
+        status:    m.is_read ? "read" : "delivered",
+        attachment: m.attachment_url
+          ? { type: "file", url: m.attachment_url, name: "添付" }
+          : undefined,
+      }))
+    
+      setChat({ room, company: room.companies, messages: mapped })
+    }
+    
+
+    loadChat()
+  }, [chatId, router])
+
+  // 2. メッセージ送信
+  const handleSendMessage = useCallback(
+    async (message: string, attachments?: File[]): Promise<void> => {
+      if (!chat) return
+
+      const supabase = createClient()
+
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser()
+      if (userErr || !user) {
+        console.error("ユーザー取得失敗", userErr)
+        return
+      }
+
+      /* 添付ファイル (任意) */
+      let attachmentInfo: Message["attachment"] | undefined
+      if (attachments?.length) {
+        const file = attachments[0]
+        const { data, error } = await supabase.storage
+          .from("attachments")
+          .upload(`${chatId}/${Date.now()}-${file.name}`, file, {
+            contentType: file.type,
           })
-        }, 1000)
-
-        // Simulate message being read after a longer delay (only if company is online)
-        if (chat.company.status === "オンライン") {
-          setTimeout(() => {
-            setChat((prevChat) => {
-              if (!prevChat) return null
-              return {
-                ...prevChat,
-                messages: prevChat.messages.map((msg) => (msg.id === newMsg.id ? { ...msg, status: "read" } : msg)),
-              }
-            })
-
-            // Simulate company response after reading
-            setTimeout(() => {
-              const responseMsg: Message = {
-                id: newMsg.id + 1,
-                sender: "company",
-                content: "ありがとうございます。確認いたしました。",
-                timestamp: new Date().toISOString(),
-                status: "read",
-              }
-
-              setChat((prevChat) => {
-                if (!prevChat) return null
-                return {
-                  ...prevChat,
-                  messages: [...prevChat.messages, responseMsg],
-                }
-              })
-            }, 5000)
-          }, 3000)
+        if (error) {
+          console.error(error)
+          return
+        }
+        attachmentInfo = {
+          type: file.type,
+          url:  supabase.storage.from("attachments").getPublicUrl(data.path).data.publicUrl,
+          name: file.name,
         }
       }
 
-      return true
-    } catch (error) {
-      console.error("メッセージの送信に失敗しました:", error)
-      throw error
-    }
-  }
+      /* DB へ INSERT */
+      const { data: inserted, error } = await supabase
+        .from("messages")
+        .insert({
+          chat_room_id: chatId,
+          sender_id: /* ← 現在ログインしている supabase.auth.user().id */ user.id,
+          content: message.trim(),
+          attachment_url: attachmentInfo?.url ?? null,
+          is_read: false,
+        })
+        .select()
+        .single<MessageRow>()
 
+      if (error || !inserted) {
+        console.error(error)
+        return
+      }
+
+      /* 楽観的更新 */
+      const newMsg: Message = {
+        id:        Number(inserted.id),
+        sender:    "student",
+        content:   inserted.content,
+        timestamp: inserted.created_at ?? "",
+        status:    "sent",
+        attachment: attachmentInfo,
+      }
+      
+      setChat((prev) =>
+        prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev,
+      )
+
+      /* 擬似 delivered */
+      startTransition(() => {
+        setTimeout(() => {
+          setChat((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  messages: prev.messages.map((m) =>
+                    m.id === newMsg.id ? { ...m, status: "delivered" } : m,
+                  ),
+                }
+              : prev,
+          )
+        }, 1000)
+      })
+    },
+    [chat, chatId],
+  )
+
+  // ──────────────────────────────
+  // UI
+  // ──────────────────────────────
   if (!chat) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -252,15 +199,18 @@ export default function StudentChatPage() {
       </div>
 
       <ModernChatUI
+        /* 受信・送信済みメッセージ */
         messages={chat.messages}
+        /* 今ログインしている側を指定 */
         currentUser="student"
+        /* 相手（企業）情報 */
         recipient={{
-          id: chat.company.id,
-          name: chat.company.name,
-          avatar: chat.company.avatar,
-          status: chat.company.status as "オンライン" | "オフライン" | "離席中",
-          company: chat.position,
+          id:      Number.parseInt(chat.company.id.replace(/[^0-9]/g, "").slice(0, 9)) || 0,
+          name:    chat.company.name,
+          avatar:  chat.company.logo ?? "", 
+          status:  "オフライン",  
         }}
+        /* メッセージ送信ハンドラ */
         onSendMessage={handleSendMessage}
         className="h-full"
       />

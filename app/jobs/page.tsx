@@ -12,9 +12,27 @@ import { useCallback } from "react"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 import { useAuthGuard } from "@/lib/use-auth-guard"
-import type {JobRow, JobWithTags, CompanyPreview,
-} from "@/lib/supabase/models"
+import type { JobRow, CompanyPreview, TagRow,JobWithTags, } from "@/lib/supabase/models"
+type JobWithCompany = JobRow & { company?: CompanyPreview | null }
 
+async function fetchJobs(): Promise<JobWithCompany[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(`
+      *, 
+      company:companies!jobs_company_id_fkey (
+        id, name, logo, cover_image_url
+      )
+    `)
+    .order("created_at", { ascending: false })
+
+  if (error) throw error
+  return (data as unknown) as JobWithCompany[]
+}
+
+import { createClient } from "@/lib/supabase/server"
 import { Button }   from "@/components/ui/button"
 import { Card }     from "@/components/ui/card"
 import { Input }    from "@/components/ui/input"
@@ -168,6 +186,7 @@ function JobsPageInner() {
   const [jobs,      setJobs]      = useState<JobWithTags[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error,     setError]     = useState<string | null>(null)
+  const [jobsData, setJobsData] = useState<JobWithCompany[]>([])
 
   const toggleSaveJob = useCallback((id: string) => {
     setSavedJobs(prev =>
@@ -214,13 +233,29 @@ function JobsPageInner() {
 
       try {
         /* ─── jobs ─── */
-        const { data: jobsDataRaw, error: jobsErr } = await supabase
-          .from("jobs")
-          .select("*, company:companies!jobs_company_fk(name,logo_url)")
-          .order("created_at", { ascending: false })
-
-        if (jobsErr) throw jobsErr
-        const jobsData = jobsDataRaw as (JobRow & { company: CompanyPreview })[]
+        type CompanyPreview = Pick<
+          Database["public"]["Tables"]["companies"]["Row"],
+          "name" | "logo"
+        >
+        type JobWithCompany = JobRow & { company: CompanyPreview }
+        
+        async function fetchJobs() {
+          const supabase = await createClient()
+        
+          const { data: jobsDataRaw, error: jobsErr } = await supabase
+            .from("jobs")
+            // ← ここで company テーブルを company プロパティとして引っ張ってくる
+            //    ※ jobs_company_id_fkey は実際の FK 名に合わせてください
+            .select("*, company:companies!jobs_company_id_fkey(name,logo_url)")
+            .order("created_at", { ascending: false })
+        
+          if (jobsErr) throw jobsErr
+        
+          // いったん unknown をはさんでから JobWithCompany[] として扱う
+          const jobsData = (jobsDataRaw as unknown) as JobWithCompany[]
+        
+          return jobsData
+        }
 
         /* ─── job_tags ─── */
         const jobIds = jobsData?.map(j => j.id) ?? []
@@ -605,7 +640,7 @@ function JobsPageInner() {
                             <div className="relative h-12 w-12 overflow-hidden rounded-full border-2 border-white bg-white shadow-md sm:h-16 sm:w-16 sm:border-4">
                             <Image
                               src={
-                                job.company?.logo_url
+                                job.company?.logo
                                   ?? "/placeholder.svg?height=80&width=80&query=company logo"
                               }
                               alt={`${job.company?.name ?? "企業"} のロゴ`}
@@ -756,7 +791,7 @@ function JobsPageInner() {
                             <div className="absolute bottom-2 left-2 flex items-center gap-2 md:bottom-auto md:left-auto md:right-4 md:top-4">
                               <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white bg-white shadow-md md:h-12 md:w-12">
                                 <Image
-                                  src={job.company?.logo_url || "/placeholder.svg?height=48&width=48&query=company logo"}
+                                  src={job.company?.logo || "/placeholder.svg?height=48&width=48&query=company logo"}
                                   alt={`${job.company?.name}のロゴ`}
                                   width={48}
                                   height={48}
@@ -917,7 +952,7 @@ function JobsPageInner() {
                     <div key={job.id} className="flex items-center gap-3 p-4">
                       <div className="relative h-10 w-10 overflow-hidden rounded-full">
                         <Image
-                          src={job.company?.logo_url ?? "/placeholder.svg"}
+                          src={job.company?.logo ?? "/placeholder.svg"}
                           alt={`${job.company?.name} のロゴ`}
                           width={40}
                           height={40}
