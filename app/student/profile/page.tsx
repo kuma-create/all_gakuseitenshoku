@@ -1,31 +1,45 @@
 /* ────────────────────────────────────────────────
-   app/student/profile/page.tsx
-   - 基本情報 / 自己PR / 希望条件 の 3 タブ
-   - 氏名4分割 / 進捗バッジ / スティッキー保存 など改良版
+   app/student/profile/page.tsx  – v2
+   - 既存 UI を維持しつつ zod で入力検証
 ─────────────────────────────────────────── */
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
-  GraduationCap, Code, ChevronUp, Info, Star,
-} from 'lucide-react'
+  GraduationCap, Code, ChevronUp, Info,
+} from "lucide-react"
+import { z } from "zod"
+import { toast } from "@/components/ui/use-toast"
 
-import { useAuthGuard }      from '@/lib/use-auth-guard'
-import { useStudentProfile } from '@/lib/hooks/use-student-profile'
+import { useAuthGuard }      from "@/lib/use-auth-guard"
+import { useStudentProfile } from "@/lib/hooks/use-student-profile"
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
-import { Button }   from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Badge }    from '@/components/ui/badge'
-import { Input }    from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label }    from '@/components/ui/label'
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
-import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import {
+  Card, CardContent, CardHeader, CardTitle, CardDescription,
+} from "@/components/ui/card"
+import {
+  Tabs, TabsList, TabsTrigger, TabsContent,
+} from "@/components/ui/tabs"
+import {
+  Collapsible, CollapsibleTrigger, CollapsibleContent,
+} from "@/components/ui/collapsible"
+import { Button }   from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { Badge }    from "@/components/ui/badge"
+import { Input }    from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label }    from "@/components/ui/label"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+
+/* ── zod Schema (必須 & 文字数チェック) ────────────────── */
+const schema = z.object({
+  last_name:  z.string().min(1, "姓は必須です"),
+  first_name: z.string().min(1, "名は必須です"),
+  university: z.string().min(1, "大学名は必須です"),
+  faculty:    z.string().min(1, "学部は必須です"),
+  pr_text:    z.string().max(800, "自己PRは800文字以内"),
+})
 
 /* reusable mini-components ------------------------------------------------ */
 type FieldInputProps = {
@@ -37,9 +51,10 @@ type FieldInputProps = {
   placeholder?: string
   onChange: (v: string) => void
   required?: boolean
+  error?: string
 }
 const FieldInput = ({
-  id, label, type = 'text', value, disabled, placeholder, onChange, required,
+  id, label, type = "text", value, disabled, placeholder, onChange, required, error,
 }: FieldInputProps) => (
   <div className="space-y-1">
     <Label htmlFor={id} className="text-xs sm:text-sm">
@@ -52,8 +67,9 @@ const FieldInput = ({
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-8 text-xs sm:h-10 sm:text-sm"
+      className={`h-8 text-xs sm:h-10 sm:text-sm ${error && "border-red-500"}`}
     />
+    {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
 )
 
@@ -66,9 +82,10 @@ type FieldTextareaProps = {
   max?: number
   placeholder?: string
   onChange: (v: string) => void
+  error?: string
 }
 const FieldTextarea = ({
-  id, label, value, rows = 4, disabled, max, placeholder, onChange,
+  id, label, value, rows = 4, disabled, max, placeholder, onChange, error,
 }: FieldTextareaProps) => (
   <div className="space-y-1">
     <div className="flex items-center justify-between">
@@ -87,15 +104,18 @@ const FieldTextarea = ({
       value={value}
       maxLength={max}
       onChange={(e) => onChange(e.target.value)}
-      className="text-xs sm:text-sm"
+      className={`text-xs sm:text-sm ${error && "border-red-500"}`}
     />
+    {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
 )
 /* ------------------------------------------------------------------------- */
 
+type FormValues = z.infer<typeof schema>
+
 export default function StudentProfilePage() {
   /* 1) auth guard --------------------------------------------------------- */
-  const ready = useAuthGuard('student')
+  const ready = useAuthGuard("student")
 
   /* 2) profile hook ------------------------------------------------------- */
   const {
@@ -110,12 +130,13 @@ export default function StudentProfilePage() {
   } = useStudentProfile()
 
   /* 3) UI state ----------------------------------------------------------- */
-  const [tab, setTab]       = useState<'basic' | 'pr' | 'pref'>('basic')
+  const [tab, setTab]       = useState<"basic" | "pr" | "pref">("basic")
+  const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({})
   const [savedToast, setSavedToast] = useState(false)
 
   /* 4) completion --------------------------------------------------------- */
   const isFilled = (v: unknown) =>
-    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ''
+    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
 
   const sectionDone = {
     basic: isFilled(profile.last_name) && isFilled(profile.first_name),
@@ -125,7 +146,7 @@ export default function StudentProfilePage() {
   const completionRate =
     Math.round((Number(sectionDone.basic) + Number(sectionDone.pr) + Number(sectionDone.pref)) / 3 * 100)
 
-  /* 5) effet: toast ------------------------------------------------------- */
+  /* toast timer */
   useEffect(() => {
     if (savedToast) {
       const t = setTimeout(() => setSavedToast(false), 2500)
@@ -133,41 +154,34 @@ export default function StudentProfilePage() {
     }
   }, [savedToast])
 
-  /* 6) helper UI ---------------------------------------------------------- */
+  /* helper UI */
   const getBarColor = (pct: number) =>
-    pct < 30 ? 'bg-red-500' : pct < 70 ? 'bg-yellow-500' : 'bg-green-500'
+    pct < 30 ? "bg-red-500" : pct < 70 ? "bg-yellow-500" : "bg-green-500"
 
   const Status = ({ pct }: { pct: number }) =>
     pct === 100
       ? <CheckCircle2 size={14} className="text-green-600" />
-      : <AlertCircle   size={14} className={pct ? 'text-yellow-600' : 'text-red-600'} />
-
-  /* ---------------------------------------------------------------------- */
-  if (!ready || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <span className="h-10 w-10 animate-spin rounded-full border-4 border-red-600 border-t-transparent" />
-      </div>
-    )
-  }
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>エラー</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
+      : <AlertCircle   size={14} className={pct ? "text-yellow-600" : "text-red-600"} />
 
   /* save ----------------------------------------------------------------- */
   const handleSave = async () => {
+    /* zod 検証 */
+    const parse = schema.safeParse(profile)
+    if (!parse.success) {
+      const fieldErr: typeof errors = {}
+      parse.error.errors.forEach(e => {
+        const k = e.path[0] as keyof FormValues
+        fieldErr[k] = e.message
+      })
+      setErrors(fieldErr)
+      toast({ title: "入力エラーがあります", variant: "destructive" })
+      return
+    }
+
+    setErrors({})
     await save()
     setSavedToast(true)
   }
-
   /* ================= RENDER ============================================ */
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8">

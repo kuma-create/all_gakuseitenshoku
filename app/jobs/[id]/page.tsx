@@ -1,52 +1,42 @@
+/* ───────────────────────────────────────────────
+   app/job/[id]/page.tsx
+   - 求人詳細ページ
+   - increment_job_view RPC を使い、1 ユーザー1日1カウント
+────────────────────────────────────────────── */
 "use client"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import {
-  ArrowLeft,
-  Briefcase,
-  Building,
-  Calendar,
-  Check,
-  CheckCircle,
-  Clock,
-  ExternalLink,
-  FileText,
-  ListFilter,
-  Loader2,
-  MapPin,
-  Plus,
-  Quote,
-  Send,
-  Share2,
-  Star,
-  Users,
-  AlertCircle,
+  ArrowLeft, Briefcase, Building, Calendar, Check, CheckCircle, Clock,
+  ExternalLink, FileText, ListFilter, Loader2, MapPin, Plus, Quote, Send,
+  Share2, Star, Users, AlertCircle, MessageSquare,
 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button }   from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Badge }    from "@/components/ui/badge"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { Label }    from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-// ファイル冒頭の imports の下あたり
+/* Supabase client (client component版) ------------------------------- */
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-const supabase = createClientComponentClient()   // 既に client があれば不要
+const supabase = createClientComponentClient()
 
+/* auth context から userType を取得 ------------------------------- */
+import { useAuth } from "@/lib/auth-context"    // ★ 追加
 
 export default function JobDetailPage({ params }: { params: { id: string } }) {
+  /* ---------------------------------------------------------------- */
+  const { userType } = useAuth()                       // ★ 追加
+
   const [isInterested, setIsInterested] = useState(false)
   const [showApplicationForm, setShowApplicationForm] = useState(false)
   const [hasApplied, setHasApplied] = useState(false)
@@ -57,46 +47,43 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
   const [company, setCompany] = useState<any>(null)
   const [relatedJobs, setRelatedJobs] = useState<any[]>([])
 
-  // Fetch job details from Supabase
+  /* ----------------------- 求人取得 & PV カウント ------------------- */
   useEffect(() => {
+    if (!params.id) return
+
     async function fetchJobDetails() {
       try {
         setIsLoading(true)
 
-        // Fetch job with company information
+        /* Job + company */
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
-          .select(`*,company:companies(
-            id,name,description,logo_url,cover_image_url,
-            industry,founded_year,employee_count,location,website_url
-            )`)
+          .select(`
+            *,
+            company:companies(
+              id,name,description,logo_url,cover_image_url,
+              industry,founded_year,employee_count,location,website_url
+            )
+          `)
           .eq("id", params.id)
           .single()
 
         if (jobError) throw jobError
         if (!jobData) throw new Error("求人が見つかりませんでした")
 
-        // Fetch tags for this job
+        /* Tags */
         const { data: tagsData, error: tagsError } = await supabase
           .from("job_tags")
           .select("tag")
           .eq("job_id", params.id)
 
         if (tagsError) throw tagsError
+        const tags = tagsData?.map(t => t.tag) ?? []
 
-        // Extract tags
-        const tags = tagsData?.map((item) => item.tag) || []
+        /* ---------- PV インクリメント ---------- */
+        await trackJobView(params.id, userType)         // ★ 追加
 
-        // Update view count
-        const { error: updateError } = await supabase
-          .from("jobs")
-          .update({ views: (jobData.views || 0) + 1 })
-          .eq("id", params.id)
-
-        if (updateError) console.error("Error updating view count:", updateError)
-
-        // Check if user has applied
-        // In a real app, this would check against the user's ID
+        /* 応募済み判定 */
         const { data: applicationData } = await supabase
           .from("applications")
           .select("id")
@@ -104,32 +91,29 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           .eq("student_id", (await supabase.auth.getUser()).data.user?.id ?? "")
           .limit(1)
 
-        // Fetch related jobs (same company or similar tags)
+        /* 関連求人 */
         const { data: relatedJobsData } = await supabase
           .from("jobs")
           .select(`
             id,title,company_id,location,salary_min,salary_max,
             company:companies(name,logo_url)
-            )
           `)
           .eq("company_id", jobData.company_id)
           .neq("id", params.id)
           .limit(3)
 
+        /* state 更新 */
         setJob(jobData)
         setCompany(jobData.company)
         setJobTags(tags)
         setHasApplied(applicationData !== null && applicationData.length > 0)
-        setRelatedJobs(relatedJobsData || [])
+        setRelatedJobs(relatedJobsData ?? [])
 
-        // Check if job is in saved jobs
-        const savedJobsFromStorage = localStorage.getItem("savedJobs")
-        if (savedJobsFromStorage) {
-          const savedJobs = JSON.parse(savedJobsFromStorage)
-          setIsInterested(savedJobs.includes(Number(params.id)))
-        }
+        /* 興味ありローカル保存 */
+        const savedJobs = JSON.parse(localStorage.getItem("savedJobs") || "[]")
+        setIsInterested(savedJobs.includes(Number(params.id)))
       } catch (err) {
-        console.error("Error fetching job details:", err)
+        console.error(err)
         setError(err instanceof Error ? err.message : "求人情報の取得に失敗しました")
       } finally {
         setIsLoading(false)
@@ -137,7 +121,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
     }
 
     fetchJobDetails()
-  }, [params.id])
+  }, [params.id, userType])
 
   const handleApply = async () => {
     try {
@@ -161,6 +145,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
     }
   }
 
+
   const toggleSaveJob = () => {
     const savedJobsFromStorage = localStorage.getItem("savedJobs")
     let savedJobs: number[] = savedJobsFromStorage ? JSON.parse(savedJobsFromStorage) : []
@@ -175,6 +160,20 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
     localStorage.setItem("savedJobs", JSON.stringify(savedJobs))
     setIsInterested(!isInterested)
+  }
+
+  /* ---------------- helper: PV 重複カウント除外 -------------------- */
+  async function trackJobView(jobId: string, role: string | null) {
+    /* 会社アカ or 未ログインはカウントしない */
+    if (role !== "student") return
+
+    /* fire & forget */
+    supabase
+    .rpc("increment_job_view", { _job_id: jobId })
+    .then(({ error }) => {
+      if (error) console.error(error)
+    })
+  
   }
 
   // Loading state

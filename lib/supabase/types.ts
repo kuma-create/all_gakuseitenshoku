@@ -46,6 +46,13 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_app_student"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       chat_rooms: {
@@ -448,11 +455,13 @@ export type Database = {
           is_recommended: boolean
           location: string | null
           published: boolean | null
+          published_until: string | null
           requirements: string | null
           salary_max: number | null
           salary_min: number | null
           salary_range: string | null
           title: string
+          views: number
           work_type: string | null
         }
         Insert: {
@@ -464,11 +473,13 @@ export type Database = {
           is_recommended?: boolean
           location?: string | null
           published?: boolean | null
+          published_until?: string | null
           requirements?: string | null
           salary_max?: number | null
           salary_min?: number | null
           salary_range?: string | null
           title: string
+          views?: number
           work_type?: string | null
         }
         Update: {
@@ -480,11 +491,13 @@ export type Database = {
           is_recommended?: boolean
           location?: string | null
           published?: boolean | null
+          published_until?: string | null
           requirements?: string | null
           salary_max?: number | null
           salary_min?: number | null
           salary_range?: string | null
           title?: string
+          views?: number
           work_type?: string | null
         }
         Relationships: [
@@ -729,6 +742,7 @@ export type Database = {
           strength2: string | null
           strength3: string | null
           university: string | null
+          updated_at: string
           user_id: string | null
           work_style: string | null
           work_style_options: string[] | null
@@ -774,6 +788,7 @@ export type Database = {
           strength2?: string | null
           strength3?: string | null
           university?: string | null
+          updated_at?: string
           user_id?: string | null
           work_style?: string | null
           work_style_options?: string[] | null
@@ -819,6 +834,7 @@ export type Database = {
           strength2?: string | null
           strength3?: string | null
           university?: string | null
+          updated_at?: string
           user_id?: string | null
           work_style?: string | null
           work_style_options?: string[] | null

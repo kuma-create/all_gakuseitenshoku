@@ -1,0 +1,28 @@
+name: Supabase Health
+
+on:
+  pull_request:              # PR を開いたら毎回
+    paths:                   # DB 関連に触れたときだけ走る
+      - "supabase/**"
+      - "scripts/supabase-health.ts"
+      - ".github/workflows/health.yml"
+  workflow_dispatch:         # 手動トリガー
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Supabase health-check
+        env:
+          SUPABASE_URL: ${{ secrets.https://cpinzmlynykyrxdvkshl.supabase.co}}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwaW56bWx5bnlreXJ4ZHZrc2hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NjI1MjI1MiwiZXhwIjoyMDYxODI4MjUyfQ.OHu3boXsjqeo7UFgI0o05N0oB9kplIbHHyT3zsfp3gg}}
+        run: pnpm dlx tsx scripts/supabase-health.ts   # ← 実行

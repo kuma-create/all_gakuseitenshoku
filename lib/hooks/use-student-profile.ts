@@ -1,5 +1,5 @@
-// lib/hooks/use-student-profile.ts
 /* ────────────────────────────────────────────────
+   lib/hooks/use-student-profile.ts
    “学生プロフィール” を取得／編集／保存する共通フック
 ──────────────────────────────────────────────── */
 "use client"
@@ -33,7 +33,7 @@ async function fetchMyProfile(): Promise<Row> {
   if (data) return data as Row
 
   const empty: Row = {
-    id: "",
+    id: crypto.randomUUID(),
     user_id: user.id,
 
     /* ---------- 基本 ---------- */
@@ -45,7 +45,7 @@ async function fetchMyProfile(): Promise<Row> {
     birth_date: null,
     gender: null,
     phone: "",
-    email: user.email ?? null,       // ← string | undefined → null 許容に変換
+    email: user.email ?? null,
     address: "",
 
     /* ---------- 学歴 ---------- */
@@ -87,7 +87,8 @@ async function fetchMyProfile(): Promise<Row> {
 
     /* ---------- その他 ---------- */
     profile_image: null,
-    created_at: null,
+    created_at: new Date().toISOString(),   // もとの型は string | null
+    updated_at: new Date().toISOString(),   // ★ 追加！
   }
 
   return empty
@@ -147,6 +148,7 @@ export function useStudentProfile() {
       setSaving(true)
       const merged: Row = { ...data, ...local } as Row
       delete (merged as any).__editing
+      merged.updated_at = new Date().toISOString()  // 更新日時を上書き
       await saveMyProfile(merged)
       setData(merged)
       setLocal(merged)
