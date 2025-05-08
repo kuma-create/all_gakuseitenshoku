@@ -9,6 +9,51 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string | null
+          description: string | null
+          id: string
+          ip_address: string
+          metadata: Json | null
+          role: string
+          target: string
+          timestamp: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          action: string
+          actor: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          ip_address: string
+          metadata?: Json | null
+          role: string
+          target: string
+          timestamp?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          ip_address?: string
+          metadata?: Json | null
+          role?: string
+          target?: string
+          timestamp?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       applications: {
         Row: {
           created_at: string | null
@@ -54,6 +99,80 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      challenge_submissions: {
+        Row: {
+          answer: string
+          challenge_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          score: number | null
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          challenge_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          score?: number | null
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          challenge_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          score?: number | null
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_submissions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          created_at: string
+          deadline: string
+          description: string
+          id: string
+          title: string
+          updated_at: string
+          word_limit: number
+        }
+        Insert: {
+          created_at?: string
+          deadline: string
+          description: string
+          id?: string
+          title: string
+          updated_at?: string
+          word_limit: number
+        }
+        Update: {
+          created_at?: string
+          deadline?: string
+          description?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          word_limit?: number
+        }
+        Relationships: []
       }
       chat_rooms: {
         Row: {
@@ -123,6 +242,7 @@ export type Database = {
           location: string | null
           logo: string | null
           name: string
+          status: string
           user_id: string | null
           website: string | null
           website_url: string | null
@@ -138,6 +258,7 @@ export type Database = {
           location?: string | null
           logo?: string | null
           name: string
+          status?: string
           user_id?: string | null
           website?: string | null
           website_url?: string | null
@@ -153,6 +274,7 @@ export type Database = {
           location?: string | null
           logo?: string | null
           name?: string
+          status?: string
           user_id?: string | null
           website?: string | null
           website_url?: string | null
@@ -373,36 +495,56 @@ export type Database = {
       }
       grandprix_submissions: {
         Row: {
-          answer: string | null
-          challenge_id: string | null
+          answer: string
+          challenge_id: string
+          created_at: string | null
           feedback: string | null
           id: string
           score: number | null
-          status: string | null
-          student_id: string | null
-          submitted_at: string | null
+          status: string
+          student_id: string
+          submitted_at: string
+          updated_at: string | null
         }
         Insert: {
-          answer?: string | null
-          challenge_id?: string | null
+          answer: string
+          challenge_id: string
+          created_at?: string | null
           feedback?: string | null
           id?: string
           score?: number | null
-          status?: string | null
-          student_id?: string | null
-          submitted_at?: string | null
+          status?: string
+          student_id: string
+          submitted_at?: string
+          updated_at?: string | null
         }
         Update: {
-          answer?: string | null
-          challenge_id?: string | null
+          answer?: string
+          challenge_id?: string
+          created_at?: string | null
           feedback?: string | null
           id?: string
           score?: number | null
-          status?: string | null
-          student_id?: string | null
-          submitted_at?: string | null
+          status?: string
+          student_id?: string
+          submitted_at?: string
+          updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_challenge"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "grandprix_challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_student"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "grandprix_submissions_challenge_id_fkey"
             columns: ["challenge_id"]
@@ -502,7 +644,21 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_jobs_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "jobs_company_fk"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -547,6 +703,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      monthly_challenges: {
+        Row: {
+          created_at: string
+          deadline: string
+          id: string
+          issue_date: string
+          title: string
+          updated_at: string
+          word_limit: number
+        }
+        Insert: {
+          created_at?: string
+          deadline: string
+          id?: string
+          issue_date: string
+          title: string
+          updated_at?: string
+          word_limit: number
+        }
+        Update: {
+          created_at?: string
+          deadline?: string
+          id?: string
+          issue_date?: string
+          title?: string
+          updated_at?: string
+          word_limit?: number
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -738,6 +924,7 @@ export type Database = {
           salary_range: string | null
           skill_text: string | null
           skills: string[] | null
+          status: string
           strength1: string | null
           strength2: string | null
           strength3: string | null
@@ -784,6 +971,7 @@ export type Database = {
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null
+          status?: string
           strength1?: string | null
           strength2?: string | null
           strength3?: string | null
@@ -830,6 +1018,7 @@ export type Database = {
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null
+          status?: string
           strength1?: string | null
           strength2?: string | null
           strength3?: string | null
@@ -840,6 +1029,60 @@ export type Database = {
           work_style_options?: string[] | null
         }
         Relationships: []
+      }
+      submissions: {
+        Row: {
+          answer: string
+          challenge_id: string
+          created_at: string
+          feedback: string | null
+          id: string
+          score: number | null
+          status: string
+          student_profile_id: string
+          submission_date: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          challenge_id: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          score?: number | null
+          status: string
+          student_profile_id: string
+          submission_date?: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          challenge_id?: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          score?: number | null
+          status?: string
+          student_profile_id?: string
+          submission_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submissions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -891,7 +1134,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_job_view: {
+        Args: { _job_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       offer_status: "pending" | "accepted" | "rejected"

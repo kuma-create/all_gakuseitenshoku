@@ -1,165 +1,181 @@
+// app/company/chat/page.tsx
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Search, MessageSquare, Clock, ChevronRight, Filter, SortDesc, X } from "lucide-react"
+import { supabase } from "@/lib/supabase/client"
+import type { Database } from "@/lib/supabase/types"
+
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@/components/ui/alert"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  Search,
+  MessageSquare,
+  Clock,
+  Filter,
+  SortDesc,
+  X,
+  ChevronRight,
+} from "lucide-react"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { motion, AnimatePresence } from "framer-motion"
 
-// Mock data for chats
-const mockChats = [
-  {
-    id: "1",
-    student: {
-      id: 1,
-      name: "山田 太郎",
-      university: "東京大学",
-      major: "情報工学",
-      graduationYear: 2024,
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "オンライン",
-    },
-    lastMessage: {
-      content: "金曜日の14時はいかがでしょうか？",
-      timestamp: "2023-05-10T11:15:00",
-      isRead: true,
-      sender: "company",
-    },
-    unreadCount: 0,
-    tags: ["面接候補", "インターン"],
-  },
-  {
-    id: "2",
-    student: {
-      id: 2,
-      name: "佐藤 花子",
-      university: "京都大学",
-      major: "経営学",
-      graduationYear: 2025,
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "オフライン",
-    },
-    lastMessage: {
-      content: "インターンシップの詳細について教えていただけますか？",
-      timestamp: "2023-05-09T15:30:00",
-      isRead: false,
-      sender: "student",
-    },
-    unreadCount: 2,
-    tags: ["質問対応中"],
-  },
-  {
-    id: "3",
-    student: {
-      id: 3,
-      name: "鈴木 一郎",
-      university: "大阪大学",
-      major: "電子工学",
-      graduationYear: 2024,
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "オフライン",
-    },
-    lastMessage: {
-      content: "履歴書を添付しました。ご確認いただければ幸いです。",
-      timestamp: "2023-05-08T09:45:00",
-      isRead: true,
-      sender: "student",
-    },
-    unreadCount: 0,
-    tags: ["書類選考中"],
-  },
-  {
-    id: "4",
-    student: {
-      id: 4,
-      name: "高橋 実",
-      university: "名古屋大学",
-      major: "機械工学",
-      graduationYear: 2025,
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "オンライン",
-    },
-    lastMessage: {
-      content: "面接の日程変更は可能でしょうか？",
-      timestamp: "2023-05-07T16:20:00",
-      isRead: false,
-      sender: "student",
-    },
-    unreadCount: 1,
-    tags: ["面接調整中"],
-  },
-  {
-    id: "5",
-    student: {
-      id: 5,
-      name: "伊藤 美咲",
-      university: "早稲田大学",
-      major: "デザイン学",
-      graduationYear: 2024,
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "オフライン",
-    },
-    lastMessage: {
-      content: "ポートフォリオのリンクをお送りします。",
-      timestamp: "2023-05-06T13:10:00",
-      isRead: true,
-      sender: "student",
-    },
-    unreadCount: 0,
-    tags: ["内定候補"],
-  },
-]
+// --- Supabase 返却データ型 ---
+type RawChatRow = {
+  id: string
+  student_profiles: {
+    id: string
+    full_name: string
+    university: string
+    major: string
+    graduation_year: number
+    avatar_url: string | null
+    status: "オンライン" | "オフライン"
+  }
+  messages: {
+    content: string
+    created_at: string
+    sender: "student" | "company"
+    is_read: boolean
+  }[]
+}
 
-// Available tags for filtering
-const availableTags = ["すべて", "面接候補", "インターン", "質問対応中", "書類選考中", "面接調整中", "内定候補"]
+// --- UI 用データ型 ---
+interface ChatItem {
+  id: string
+  student: {
+    id: string
+    name: string
+    university: string
+    major: string
+    graduationYear: number
+    avatar: string
+    status: "オンライン" | "オフライン"
+  }
+  lastMessage:
+    | {
+        content: string
+        timestamp: string
+        sender: "student" | "company"
+        isRead: boolean
+      }
+    | null
+  unreadCount: number
+  tags: string[]           // 今回はいったん空配列固定
+}
 
 export default function ChatListPage() {
   const router = useRouter()
+  const { toast } = useToast()
+
+  const [chats, setChats] = useState<ChatItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState<"all" | "unread">("all")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "unread">("newest")
   const [showFilters, setShowFilters] = useState(false)
   const [pinnedChats, setPinnedChats] = useState<string[]>([])
 
-  // Filter chats based on search term, active tab, and selected tags
-  const filteredChats = mockChats
-    .filter((chat) => {
-      const matchesSearch =
-        chat.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        chat.student.university.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        chat.lastMessage.content.toLowerCase().includes(searchTerm.toLowerCase())
+  // — データ取得 & 整形 —
+  const fetchChats = useCallback(async () => {
+    setLoading(true)
+    setError(null)
 
-      const matchesTab = activeTab === "all" || (activeTab === "unread" && chat.unreadCount > 0)
+    try {
+      const { data, error: sbError } = await supabase
+        .from("chat_rooms")
+        .select(`
+          id,
+          student_profiles (
+            id,
+            full_name,
+            university,
+            major,
+            graduation_year,
+            avatar_url,
+            status
+          ),
+          messages (
+            content,
+            created_at,
+            sender,
+            is_read
+          )
+        `) // ← 末尾のカンマを削除
 
-      const matchesTags = selectedTags.length === 0 || chat.tags.some((tag) => selectedTags.includes(tag))
+      if (sbError) throw sbError
 
-      return matchesSearch && matchesTab && matchesTags
-    })
-    .sort((a, b) => {
-      // First sort by pinned status
-      if (pinnedChats.includes(a.id) && !pinnedChats.includes(b.id)) return -1
-      if (!pinnedChats.includes(a.id) && pinnedChats.includes(b.id)) return 1
+      // TS のヒントに従い、一度 unknown に落としてから RawChatRow[] にキャスト
+      const raw = (data ?? []) as unknown as RawChatRow[]
 
-      // Then sort by the selected sort order
-      if (sortOrder === "unread") {
-        return b.unreadCount - a.unreadCount
-      } else if (sortOrder === "newest") {
-        return new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime()
-      } else {
-        return new Date(a.lastMessage.timestamp).getTime() - new Date(b.lastMessage.timestamp).getTime()
-      }
-    })
+      const items: ChatItem[] = raw.map((r) => {
+        // メッセージは日付順にソート
+        const msgs = Array.isArray(r.messages) ? [...r.messages] : []
+        msgs.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() -
+            new Date(b.created_at).getTime()
+        )
+        const last = msgs.length ? msgs[msgs.length - 1] : null
+        const unread = msgs.filter((m) => !m.is_read && m.sender === "student").length
 
-  // Format date for display
+        return {
+          id: r.id,
+          student: {
+            id: r.student_profiles.id,
+            name: r.student_profiles.full_name,
+            university: r.student_profiles.university,
+            major: r.student_profiles.major,
+            graduationYear: r.student_profiles.graduation_year,
+            avatar: r.student_profiles.avatar_url || "/placeholder.svg",
+            status: r.student_profiles.status,
+          },
+          lastMessage: last
+            ? {
+                content: last.content,
+                timestamp: last.created_at,
+                sender: last.sender,
+                isRead: last.is_read,
+              }
+            : null,
+          unreadCount: unread,
+          tags: [], // いったん機能オフ
+        }
+      })
+
+      setChats(items)
+    } catch (e: any) {
+      console.error(e)
+      setError(e.message)
+      toast({
+        title: "チャットの取得に失敗しました",
+        description: e.message,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    fetchChats()
+  }, [fetchChats])
+
+  // — 日付フォーマット —
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -177,28 +193,98 @@ export default function ChatListPage() {
     }
   }
 
-  // Navigate to individual chat
-  const navigateToChat = (chatId: string) => {
-    router.push(`/company/chat/${chatId}`)
-  }
+  // — フィルタ＆ソート —
+  const filtered = chats
+    .filter((chat) => {
+      const term = searchTerm.toLowerCase()
+      const matchSearch =
+        chat.student.name.toLowerCase().includes(term) ||
+        chat.student.university.toLowerCase().includes(term) ||
+        (chat.lastMessage?.content.toLowerCase().includes(term) ?? false)
 
-  // Toggle pin status for a chat
-  const togglePinChat = (chatId: string, e: React.MouseEvent) => {
+      const matchTab =
+        activeTab === "all" || (activeTab === "unread" && chat.unreadCount > 0)
+
+      const matchTags =
+        selectedTags.length === 0 ||
+        chat.tags.some((t) => selectedTags.includes(t))
+
+      return matchSearch && matchTab && matchTags
+    })
+    .sort((a, b) => {
+      // ピン優先
+      if (pinnedChats.includes(a.id) && !pinnedChats.includes(b.id)) return -1
+      if (!pinnedChats.includes(a.id) && pinnedChats.includes(b.id)) return 1
+      // 未読優先
+      if (sortOrder === "unread") {
+        return b.unreadCount - a.unreadCount
+      }
+      // 日付順
+      const ta = a.lastMessage?.timestamp ?? ""
+      const tb = b.lastMessage?.timestamp ?? ""
+      return sortOrder === "newest"
+        ? new Date(tb).getTime() - new Date(ta).getTime()
+        : new Date(ta).getTime() - new Date(tb).getTime()
+    })
+
+  // — 操作ハンドラ —
+  const navigateToChat = (id: string) => {
+    router.push(`/company/chat/${id}`)
+  }
+  const togglePin = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    setPinnedChats((prev) => (prev.includes(chatId) ? prev.filter((id) => id !== chatId) : [...prev, chatId]))
+    setPinnedChats((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
   }
-
-  // Handle tag selection
-  const handleTagSelect = (tag: string) => {
+  const availableTags = ["すべて", ...Array.from(new Set(chats.flatMap((c) => c.tags)))]
+  const handleTag = (tag: string) => {
     if (tag === "すべて") {
       setSelectedTags([])
     } else {
-      setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+      setSelectedTags((prev) =>
+        prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      )
     }
   }
 
+  // — ローディング & エラー状態 —
+  if (loading) {
+    return (
+      <div className="space-y-4 p-4">
+        {[...Array(5)].map((_, i) => (
+          <Card key={i}>
+            <CardContent>
+              <Skeleton className="h-6 w-1/3 mb-2" />
+              <Skeleton className="h-4 w-full mb-1" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">
+          <AlertTitle>読み込みエラー</AlertTitle>
+          <AlertDescription>
+            {error}
+            <div className="mt-2">
+              <Button onClick={fetchChats}>再読み込み</Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  // — メイン UI —
   return (
     <div className="container mx-auto py-6 px-4">
+      {/* ヘッダー */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-1">メッセージ</h1>
@@ -209,7 +295,7 @@ export default function ChatListPage() {
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={() => setShowFilters((f) => !f)}
           >
             <Filter className="h-4 w-4" />
             フィルター
@@ -219,44 +305,44 @@ export default function ChatListPage() {
               </Badge>
             )}
           </Button>
-
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="flex items-center gap-1">
                 <SortDesc className="h-4 w-4" />
-                {sortOrder === "newest" ? "新しい順" : sortOrder === "oldest" ? "古い順" : "未読優先"}
+                {sortOrder === "newest"
+                  ? "新しい順"
+                  : sortOrder === "oldest"
+                  ? "古い順"
+                  : "未読優先"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-48 p-0">
-              <div className="p-1">
-                <Button
-                  variant={sortOrder === "newest" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => setSortOrder("newest")}
-                >
-                  新しい順
-                </Button>
-                <Button
-                  variant={sortOrder === "oldest" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => setSortOrder("oldest")}
-                >
-                  古い順
-                </Button>
-                <Button
-                  variant={sortOrder === "unread" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => setSortOrder("unread")}
-                >
-                  未読優先
-                </Button>
-              </div>
+            <PopoverContent className="w-48 p-1">
+              <Button
+                variant={sortOrder === "newest" ? "secondary" : "ghost"}
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => setSortOrder("newest")}
+              >
+                新しい順
+              </Button>
+              <Button
+                variant={sortOrder === "oldest" ? "secondary" : "ghost"}
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => setSortOrder("oldest")}
+              >
+                古い順
+              </Button>
+              <Button
+                variant={sortOrder === "unread" ? "secondary" : "ghost"}
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => setSortOrder("unread")}
+              >
+                未読優先
+              </Button>
             </PopoverContent>
           </Popover>
-
           <Button onClick={() => router.push("/company/scout")}>
             <MessageSquare className="mr-2 h-4 w-4" />
             スカウト
@@ -264,6 +350,7 @@ export default function ChatListPage() {
         </div>
       </div>
 
+      {/* 検索バー */}
       <div className="mb-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -276,6 +363,7 @@ export default function ChatListPage() {
         </div>
       </div>
 
+      {/* タグフィルター */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -301,11 +389,11 @@ export default function ChatListPage() {
                           ? "default"
                           : "outline"
                         : selectedTags.includes(tag)
-                          ? "default"
-                          : "outline"
+                        ? "default"
+                        : "outline"
                     }
                     className="cursor-pointer"
-                    onClick={() => handleTagSelect(tag)}
+                    onClick={() => handleTag(tag)}
                   >
                     {tag}
                   </Badge>
@@ -316,140 +404,96 @@ export default function ChatListPage() {
         )}
       </AnimatePresence>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-4">
+      {/* タブ切り替え */}
+      <Tabs
+        defaultValue="all"
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "all" | "unread")}
+        className="mb-4"
+      >
         <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
           <TabsTrigger value="all">すべてのメッセージ</TabsTrigger>
           <TabsTrigger value="unread">
             未読メッセージ
-            {mockChats.reduce((count, chat) => count + chat.unreadCount, 0) > 0 && (
+            {chats.reduce((cnt, c) => cnt + c.unreadCount, 0) > 0 && (
               <Badge variant="destructive" className="ml-2">
-                {mockChats.reduce((count, chat) => count + chat.unreadCount, 0)}
+                {chats.reduce((cnt, c) => cnt + c.unreadCount, 0)}
               </Badge>
             )}
           </TabsTrigger>
         </TabsList>
       </Tabs>
 
+      {/* チャット一覧 */}
       <div className="space-y-3">
-        {filteredChats.length > 0 ? (
-          filteredChats.map((chat) => (
+        {filtered.length > 0 ? (
+          filtered.map((chat) => (
             <motion.div
               key={chat.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
+              onClick={() => navigateToChat(chat.id)}
             >
               <Card
-                className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
+                className={`group hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
                   chat.unreadCount > 0 ? "border-l-4 border-l-blue-500" : ""
                 } ${pinnedChats.includes(chat.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
-                onClick={() => navigateToChat(chat.id)}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center flex-1 min-w-0">
-                      <div className="relative h-12 w-12 rounded-full overflow-hidden flex-shrink-0">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={chat.student.avatar || "/placeholder.svg"} alt={chat.student.name} />
-                          <AvatarFallback>
-                            {chat.student.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div
-                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                            chat.student.status === "オンライン" ? "bg-green-500" : "bg-gray-400"
-                          }`}
-                        />
-                      </div>
-                      <div className="ml-4 flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <h3 className={`font-medium truncate ${chat.unreadCount > 0 ? "font-semibold" : ""}`}>
-                              {chat.student.name}
-                            </h3>
-                            {pinnedChats.includes(chat.id) && (
-                              <span className="text-blue-500 dark:text-blue-400">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <line x1="12" y1="17" x2="12" y2="22" />
-                                  <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-                                </svg>
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center ml-2">
-                            <span className="text-xs text-gray-500 whitespace-nowrap">
-                              {formatDate(chat.lastMessage.timestamp)}
-                            </span>
-                            {chat.unreadCount > 0 && (
-                              <Badge className="ml-2 bg-blue-500 text-white">{chat.unreadCount}</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-500 truncate">
-                          {chat.student.university} • {chat.student.major}
-                        </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <p
-                            className={`text-sm truncate ${
-                              chat.unreadCount > 0
-                                ? "font-medium text-gray-900 dark:text-gray-100"
-                                : "text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            {chat.lastMessage.sender === "company" && "あなた: "}
-                            {chat.lastMessage.content}
-                          </p>
-                          <div className="flex gap-1 ml-2 flex-shrink-0">
-                            {chat.tags.slice(0, 1).map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs px-1 py-0 h-5">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {chat.tags.length > 1 && (
-                              <Badge variant="outline" className="text-xs px-1 py-0 h-5">
-                                +{chat.tags.length - 1}
-                              </Badge>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100"
-                              onClick={(e) => togglePinChat(chat.id, e)}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className={pinnedChats.includes(chat.id) ? "text-blue-500" : ""}
-                              >
-                                <line x1="12" y1="17" x2="12" y2="22" />
-                                <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-                              </svg>
-                            </Button>
-                          </div>
-                        </div>
+                <CardContent className="p-4 flex items-start">
+                  <div className="relative h-12 w-12 rounded-full overflow-hidden flex-shrink-0">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={chat.student.avatar} alt={chat.student.name} />
+                      <AvatarFallback>
+                        {chat.student.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span
+                      className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                        chat.student.status === "オンライン" ? "bg-green-500" : "bg-gray-400"
+                      }`}
+                    />
+                  </div>
+                  <div className="ml-4 flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className={`font-medium truncate ${chat.unreadCount > 0 ? "font-semibold" : ""}`}>
+                        {chat.student.name}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                          {chat.lastMessage ? formatDate(chat.lastMessage.timestamp) : ""}
+                        </span>
+                        {chat.unreadCount > 0 && (
+                          <Badge className="ml-2 bg-blue-500 text-white">{chat.unreadCount}</Badge>
+                        )}
                       </div>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400 ml-2 flex-shrink-0" />
+                    <p className="text-sm text-gray-500 truncate">
+                      {chat.student.university} ・ {chat.student.major}
+                    </p>
+                    <p
+                      className={`text-sm mt-1 truncate ${
+                        chat.unreadCount > 0
+                          ? "font-medium text-gray-900 dark:text-gray-100"
+                          : "text-gray-500 dark:text-gray-400"
+                      }`}
+                    >
+                      {chat.lastMessage?.sender === "company" ? "あなた: " : ""}
+                      {chat.lastMessage?.content}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end ml-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100"
+                      onClick={(e) => togglePin(chat.id, e)}
+                    >
+                      <ChevronRight className="h-4 w-4 rotate-90" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -457,9 +501,7 @@ export default function ChatListPage() {
           ))
         ) : (
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-            <div className="text-gray-400 mb-4">
-              <MessageSquare className="h-12 w-12 mx-auto" />
-            </div>
+            <MessageSquare className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium mb-2">メッセージが見つかりません</h3>
             <p className="text-gray-500 mb-4">検索条件に一致するメッセージはありません。</p>
             {(searchTerm || selectedTags.length > 0) && (
@@ -480,10 +522,11 @@ export default function ChatListPage() {
         )}
       </div>
 
-      {filteredChats.length > 0 && (
+      {/* 最終更新タイムスタンプ */}
+      {filtered.length > 0 && (
         <div className="mt-6 text-center text-sm text-gray-500 flex items-center justify-center">
           <Clock className="h-4 w-4 mr-1" />
-          <span>最終更新: 2025年4月25日 10:30</span>
+          <span>最終更新: {new Date().toLocaleString()}</span>
         </div>
       )}
     </div>
