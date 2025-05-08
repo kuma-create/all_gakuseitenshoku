@@ -1,5 +1,5 @@
 import { ArrowLeft, Clock, Info } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,7 @@ export default function WebTestConfirmPage() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-10">
             <Link href="/" className="flex items-center gap-2">
-              <Image
+              <LazyImage
                 src="/placeholder.svg?height=32&width=32"
                 alt="学生転職ロゴ"
                 width={32}
@@ -73,7 +73,7 @@ export default function WebTestConfirmPage() {
             <div className="flex items-center gap-2">
               <div className="hidden text-sm font-medium text-gray-700 md:block">山田 太郎</div>
               <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                <Image
+                <LazyImage
                   src="/placeholder.svg?height=32&width=32"
                   alt="プロフィール画像"
                   width={32}

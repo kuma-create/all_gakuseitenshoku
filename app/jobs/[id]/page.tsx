@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import {
   ArrowLeft, Briefcase, Building, Calendar, Check, CheckCircle, Clock,
   ExternalLink, FileText, ListFilter, Loader2, MapPin, Plus, Quote, Send,
@@ -246,7 +246,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
               <CardContent className="relative -mt-16 bg-white p-6">
                 <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                   <div className="relative h-20 w-20 overflow-hidden rounded-xl border-4 border-white bg-white shadow-md">
-                    <Image
+                    <LazyImage
                       src={company?.logo_url || "/placeholder.svg?height=128&width=128&query=company logo"}
                       alt={`${company?.name}のロゴ`}
                       width={128}
@@ -491,7 +491,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
               <CardContent className="p-6">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-gray-200">
-                    <Image
+                    <LazyImage
                       src={company?.logo_url || "/placeholder.svg?height=64&width=64&query=company logo"}
                       alt={`${company?.name}のロゴ`}
                       width={64}
@@ -548,7 +548,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="mb-4 overflow-hidden rounded-lg">
-                  <Image
+                  <LazyImage
                     src={company?.cover_image_url || "/modern-tech-workspace.png"}
                     alt="オフィス環境"
                     width={400}
@@ -599,7 +599,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                         className="flex gap-3 border-b border-gray-100 pb-4 last:border-0 last:pb-0"
                       >
                         <div className="relative h-12 w-12 overflow-hidden rounded-md border border-gray-200">
-                          <Image
+                          <LazyImage
                             src={
                               relatedJob.company?.logo_url || "/placeholder.svg?height=48&width=48&query=company logo"
                             }

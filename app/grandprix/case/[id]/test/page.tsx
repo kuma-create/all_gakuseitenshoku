@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Clock, Save } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,7 @@ export default function CaseTestPage() {
       <header className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <Image
+            <LazyImage
               src="/placeholder.svg?height=32&width=32"
               alt="学生転職ロゴ"
               width={32}

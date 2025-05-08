@@ -11,4 +11,16 @@ const nextConfig = {
   },
 }
 
+// next.config.js
+module.exports = {
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**.supabase.co" },      // Supabase Storage
+      { protocol: "https", hostname: "**.s3.amazonaws.com" }, // AWS S3
+    ],
+  },
+}
+
+
+
 export default nextConfig

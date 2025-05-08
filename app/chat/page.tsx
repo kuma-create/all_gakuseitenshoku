@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import Link  from "next/link"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import { format } from "date-fns"
 import { ja }    from "date-fns/locale"
 import { Search, Plus, Filter } from "lucide-react"
@@ -178,7 +178,7 @@ export default function ChatPage() {
                       >
                         {/* 会社ロゴ */}
                         {c.logo ? (
-                          <Image
+                          <LazyImage
                             src={c.logo}
                             alt={c.company}
                             width={48}

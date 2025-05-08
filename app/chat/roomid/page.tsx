@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useParams } from "next/navigation"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import { ArrowUp } from "lucide-react"
 import { format } from "date-fns"
 import { ja }    from "date-fns/locale"
@@ -100,7 +100,7 @@ export default function ChatRoomPage() {
           return (
             <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
               {!isMe && (
-                <Image
+                <LazyImage
                   src="/avatar-default.png"
                   alt="avatar"
                   width={32}

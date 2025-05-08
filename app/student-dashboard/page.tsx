@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react"
 import Link  from "next/link"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 
 import { supabase }   from "@/lib/supabase/client"
 import { useAuth }    from "@/lib/auth-context"

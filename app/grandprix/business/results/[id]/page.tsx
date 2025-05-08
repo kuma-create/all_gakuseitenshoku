@@ -1,5 +1,5 @@
 import { ArrowLeft, Download, Home, MessageSquare, Share2, User, Briefcase, Trophy } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -72,7 +72,7 @@ export default function BusinessTestResultDetailPage({ params }: { params: { id:
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-10">
             <Link href="/" className="flex items-center gap-2">
-              <Image
+              <LazyImage
                 src="/placeholder.svg?height=32&width=32"
                 alt="学生転職ロゴ"
                 width={32}
@@ -130,7 +130,7 @@ export default function BusinessTestResultDetailPage({ params }: { params: { id:
             <div className="flex items-center gap-2">
               <div className="hidden text-sm font-medium text-gray-700 md:block">山田 太郎</div>
               <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                <Image
+                <LazyImage
                   src="/placeholder.svg?height=32&width=32"
                   alt="プロフィール画像"
                   width={32}
@@ -287,7 +287,7 @@ export default function BusinessTestResultDetailPage({ params }: { params: { id:
                     <div className="h-64 w-64 sm:h-80 sm:w-80">
                       {/* レーダーチャートの代わりに画像を表示 */}
                       <div className="relative h-full w-full">
-                        <Image
+                        <LazyImage
                           src="/purple-radar-analysis.png"
                           alt="スキルレーダーチャート"
                           width={320}
@@ -324,7 +324,7 @@ export default function BusinessTestResultDetailPage({ params }: { params: { id:
                   </CardHeader>
                   <CardContent>
                     <div className="h-48 sm:h-64">
-                      <Image
+                      <LazyImage
                         src="/skills-comparison-bar-chart.png"
                         alt="他の受験者との比較グラフ"
                         width={640}

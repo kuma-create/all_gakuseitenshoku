@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 import {
   ArrowUpDown,
@@ -384,7 +384,7 @@ function ApplicationCard({ application }: { application: any }) {
       <div className="flex flex-col sm:flex-row">
         <div className="flex items-center gap-4 border-b bg-gray-50 p-4 sm:w-64 sm:flex-col sm:items-start sm:border-b-0 sm:border-r">
           <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-gray-200 bg-white sm:h-16 sm:w-16">
-            <Image
+            <LazyImage
               src={application.companyLogo || "/placeholder.svg"}
               alt={`${application.companyName}のロゴ`}
               width={64}

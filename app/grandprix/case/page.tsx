@@ -1,5 +1,5 @@
 import { ArrowLeft, Calendar, Clock, ExternalLink, Trophy } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -82,7 +82,7 @@ export default function CaseGrandPrixPage() {
               ].map((challenge) => (
                 <Card key={challenge.id} className={challenge.featured ? "border-yellow-200 bg-yellow-50" : ""}>
                   <div className="relative">
-                    <Image
+                    <LazyImage
                       src={challenge.image || "/placeholder.svg"}
                       alt={challenge.title}
                       width={400}

@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import { ArrowLeft, AtSign, Eye, EyeOff, Lock, User, CheckCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
@@ -412,7 +412,7 @@ export default function SignupPage() {
               </div>
 
               <div className="rounded-xl overflow-hidden shadow-lg">
-                <Image
+                <LazyImage
                   src="/student-dashboard-preview.png"
                   alt="学生ダッシュボードのプレビュー"
                   width={400}

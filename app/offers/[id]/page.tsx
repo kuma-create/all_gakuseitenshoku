@@ -13,7 +13,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 
 import { supabase } from "@/lib/supabase/client"
@@ -163,7 +163,7 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
         {/* ヘッダー */}
         <div className="mb-6 rounded-lg border bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <Image
+            <LazyImage
               src={offer.logo_url ?? "/placeholder.svg"}
               alt={`${offer.company_name} のロゴ`}
               width={64}

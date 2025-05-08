@@ -1,6 +1,6 @@
 "use client"
 
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 import { ArrowRight, CheckCircle, ChevronRight, MessageSquare, Search, Star, Trophy, Users } from "lucide-react"
 
@@ -15,7 +15,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-white py-16 md:py-24 lg:py-32">
         <div className="absolute inset-0 z-0 opacity-5">
-          <Image src="/abstract-pattern-background.png" alt="Background pattern" fill className="object-cover" priority />
+          <LazyImage src="/abstract-pattern-background.png" alt="Background pattern" fill className="object-cover" priority />
         </div>
         <div className="container relative z-10 px-4 md:px-6">
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 lg:items-center">
@@ -65,7 +65,7 @@ export default function LandingPage() {
             <div className="relative">
               <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-red-500 to-red-600 opacity-30 blur-xl"></div>
               <div className="relative overflow-hidden rounded-xl bg-white shadow-2xl">
-                <Image
+                <LazyImage
                   src="/placeholder.svg?key=b45ex"
                   alt="学生転職ダッシュボード"
                   width={600}
@@ -274,7 +274,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <Image src="/placeholder.svg?key=dg1qw" alt="田中さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/placeholder.svg?key=dg1qw" alt="田中さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">田中 美咲</h3>
@@ -299,7 +299,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <Image src="/placeholder.svg?key=0rpco" alt="佐藤さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/placeholder.svg?key=0rpco" alt="佐藤さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">佐藤 健太</h3>
@@ -324,7 +324,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <Image src="/placeholder.svg?key=i4lae" alt="鈴木さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/placeholder.svg?key=i4lae" alt="鈴木さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">鈴木 優子</h3>

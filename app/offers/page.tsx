@@ -2,7 +2,7 @@
 "use client"
 
 import { Calendar, Filter, MessageSquare, Search as SearchIcon } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 import { useEffect, useState, ChangeEvent } from "react"
 
@@ -189,7 +189,7 @@ function OfferCard({ offer }: OfferCardProps) {
         {/* Company Info */}
         <div className="flex items-center gap-4 border-b border-gray-100 bg-white p-4 md:w-64 md:flex-col md:items-start md:border-b-0 md:border-r">
           <div className="relative h-12 w-12 overflow-hidden rounded-md border border-gray-200 md:h-16 md:w-16">
-            <Image
+            <LazyImage
               src={offer.logo_url}
               alt={`${offer.company} のロゴ`}
               width={64}

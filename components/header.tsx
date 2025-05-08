@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import {
   Bell, LayoutDashboard, User, Briefcase, Search, Mail,
   MessageSquare, Trophy, Star, LogIn,
@@ -103,7 +103,7 @@ export function Header() {
                   {user?.name || session?.user?.user_metadata?.full_name || "ユーザー"}
                 </span>
                 <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                  <Image
+                  <LazyImage
                     src="/placeholder.svg?width=32&height=32"
                     alt="プロフィール画像"
                     width={32}

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -204,7 +204,7 @@ export default function ApplicantDetailPage() {
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-sm">
-              <Image
+              <LazyImage
                 src={applicant.profileImage || "/placeholder.svg"}
                 alt={applicant.name}
                 fill

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { ArrowLeft, Calendar, Check, Clock, Mail, MapPin, Briefcase, DollarSign, Send, AlertCircle } from "lucide-react"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -71,7 +71,7 @@ export default function JobApplyPage({ params }: { params: { id: string } }) {
                 <div className="h-24 bg-gradient-to-r from-red-500 to-red-600"></div>
                 <CardHeader className="relative pb-3">
                   <div className="absolute -top-12 left-4 h-16 w-16 overflow-hidden rounded-md border-4 border-white bg-white shadow-sm">
-                    <Image
+                    <LazyImage
                       src={job.logo || "/placeholder.svg"}
                       alt={`${job.company}のロゴ`}
                       width={64}

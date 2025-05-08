@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import { ChevronLeft, ChevronRight, Trophy, Clock, Gift, Users, ExternalLink, List } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -121,7 +121,7 @@ export function GrandprixBanner() {
           >
             <div className={`absolute inset-0 bg-gradient-to-r ${event.color} opacity-90`}></div>
             <div className="absolute inset-0">
-              <Image
+              <LazyImage
                 src={event.image || "/placeholder.svg"}
                 alt={event.title}
                 width={1200}

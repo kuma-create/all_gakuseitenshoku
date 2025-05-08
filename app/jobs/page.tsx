@@ -15,7 +15,7 @@ import {
   useCallback,
 } from "react"
 import Link  from "next/link"
-import Image from "next/image"
+import { LazyImage } from "@/components/ui/lazy-image"
 import {
   Briefcase,
   Building,
@@ -589,7 +589,7 @@ function JobsPageInner() {
                       >
                         {/* -------- cover -------- */}
                         <div className="relative h-32 w-full overflow-hidden sm:h-40">
-                        <Image
+                        <LazyImage
                           src={job.company?.cover_image_url ?? "/placeholder.svg?height=200&width=600&query=tech company"}
                           alt={`${job.company?.name ?? "企業"} のカバー画像`}
                           width={600}
@@ -607,7 +607,7 @@ function JobsPageInner() {
 
                           <div className="absolute bottom-2 left-2 flex items-center gap-2 sm:bottom-4 sm:left-4 sm:gap-3">
                             <div className="relative h-12 w-12 overflow-hidden rounded-full border-2 border-white bg-white shadow-md sm:h-16 sm:w-16 sm:border-4">
-                            <Image
+                            <LazyImage
                               src={
                                 job.company?.logo
                                   ?? "/placeholder.svg?height=80&width=80&query=company logo"
@@ -748,7 +748,7 @@ function JobsPageInner() {
                         <div className="flex flex-col md:flex-row">
                           {/* cover */}
                           <div className="relative h-28 w-full md:h-auto md:w-1/4">
-                            <Image
+                            <LazyImage
                               src={job.company?.cover_image_url || "/placeholder.svg?height=200&width=200&query=tech company"}
                               alt={`${job.company?.name}のカバー画像`}
                               width={200}
@@ -759,7 +759,7 @@ function JobsPageInner() {
 
                             <div className="absolute bottom-2 left-2 flex items-center gap-2 md:bottom-auto md:left-auto md:right-4 md:top-4">
                               <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white bg-white shadow-md md:h-12 md:w-12">
-                                <Image
+                                <LazyImage
                                   src={job.company?.logo || "/placeholder.svg?height=48&width=48&query=company logo"}
                                   alt={`${job.company?.name}のロゴ`}
                                   width={48}
@@ -920,7 +920,7 @@ function JobsPageInner() {
                   {recommendedJobs.map(job => (   // ← ここに { を追加
                     <div key={job.id} className="flex items-center gap-3 p-4">
                       <div className="relative h-10 w-10 overflow-hidden rounded-full">
-                        <Image
+                        <LazyImage
                           src={job.company?.logo ?? "/placeholder.svg"}
                           alt={`${job.company?.name} のロゴ`}
                           width={40}
