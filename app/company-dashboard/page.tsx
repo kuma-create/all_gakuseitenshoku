@@ -1,8 +1,8 @@
 /* ───────────────────────────────────────────────
-   app/company-dashboard/page.tsx
-   - 企業ダッシュボード：Supabase 実データ版
-   - applications.student_id ↔ student_profiles.id を
-     fk 名 `applications_student_id_fkey` で JOIN
+   企業ダッシュボード  ─  Supabase 実データ版
+   ------------------------------------------------
+   * applications.student_id ↔ student_profiles.id
+     を FK `applications_student_id_fkey` で JOIN
 ────────────────────────────────────────────── */
 "use client"
 
@@ -10,70 +10,81 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
-  FileText, Users, MessageSquare, PlusCircle, Bell,
+  FileText,
+  Users,
+  MessageSquare,
+  PlusCircle,
+  Bell,
   Clock,
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase/client"
-import { useAuth }  from "@/lib/auth-context"
+import { useAuth }   from "@/lib/auth-context"
 
 import {
-  Card, CardContent, CardFooter, CardHeader, CardTitle,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card"
-import { Button }   from "@/components/ui/button"
+import { Button }  from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge }    from "@/components/ui/badge"
+import { Badge }   from "@/components/ui/badge"
 
-/* --------- 型 --------- */
+/* ---------- 型 ---------- */
 type ApplicationRow = {
-  id: string
+  id          : string
   student_name: string
-  job_title: string | null
-  created_at: string
-  status: string | null
+  job_title   : string | null
+  created_at  : string
+  status      : string | null
 }
 
 type JobRow = {
-  id: string
-  title: string
+  id        : string
+  title     : string
   applicants: number
-  views: number | null
-  days_left: number
+  views     : number | null
+  days_left : number
 }
 
 type MessageRow = {
-  id: string
+  id          : string
   student_name: string
-  content: string
-  created_at: string
-  is_read: boolean
+  content     : string
+  created_at  : string
+  is_read     : boolean
 }
 
-/* ------------------------------------ */
+/* ───────────────────────────────────────────── */
 export default function CompanyDashboard() {
-  const router = useRouter()
+  const router                     = useRouter()
   const { isLoggedIn, userType, user } = useAuth()
 
-  /* ---------- state ---------- */
-  const [loading, setLoading] = useState(true)
-  const [pubJobs, setPubJobs] = useState(0)
+  /* --- state -------------------------------------------------------- */
+  const [loading  , setLoading  ] = useState(true)
+  const [pubJobs  , setPubJobs  ] = useState(0)
   const [draftJobs, setDraftJobs] = useState(0)
   const [applications, setApplications] = useState<ApplicationRow[]>([])
-  const [jobs, setJobs] = useState<JobRow[]>([])
-  const [messages, setMessages] = useState<MessageRow[]>([])
-  const [unreadCnt, setUnreadCnt] = useState(0)
+  const [jobs       , setJobs       ] = useState<JobRow[]>([])
+  const [messages   , setMessages   ] = useState<MessageRow[]>([])
+  const [unreadCnt  , setUnreadCnt  ] = useState(0)
 
-  /* ---------- 認証 ---------- */
+  /* --- 認証 --------------------------------------------------------- */
   useEffect(() => {
-    if (!isLoggedIn && !loading) router.push("/login")
-    else if (userType !== "company" && !loading) router.push("/")
-  }, [isLoggedIn, userType, loading, router])
+    if (!loading) {
+      if (!isLoggedIn)            router.push("/login")
+      else if (userType !== "company") router.push("/")
+    }
+  }, [loading, isLoggedIn, userType, router])
 
-  /* ---------- Supabase 取得 ---------- */
+  /* --- Supabase 取得 ------------------------------------------------- */
   useEffect(() => {
     if (!isLoggedIn || userType !== "company" || !user?.id) return
+
     ;(async () => {
-      /* 企業ID */
+      /* ① 企業レコード取得 */
       const { data: company } = await supabase
         .from("companies")
         .select("id")
@@ -83,17 +94,17 @@ export default function CompanyDashboard() {
       if (!company) { setLoading(false); return }
       const companyId = company.id
 
-      /* 件数・リスト取得 */
+      /* ② 並列で必要データ取得 */
       const [
-        { data: pubRows },
-        { data: draftRows },
+        { data: publishedJobs },
+        { data: draftJobsRows },
         { data: applRows },
         { data: msgRows },
       ] = await Promise.all([
         supabase.from("jobs").select("id").eq("company_id", companyId).eq("published", true),
         supabase.from("jobs").select("id").eq("company_id", companyId).eq("published", false),
 
-        /* applications ↔ student_profiles JOIN（外部キー名で） */
+        /* 応募 — student_profiles 経由で学生名を取得 */
         supabase
           .from("applications")
           .select(`
@@ -106,7 +117,7 @@ export default function CompanyDashboard() {
           .order("created_at", { ascending: false })
           .limit(5),
 
-        /* メッセージ：student_profiles には直接 FK が無いので sender_id をそのまま表示 */
+        /* メッセージ（未読数カウント用） */
         supabase
           .from("messages")
           .select(`
@@ -114,19 +125,22 @@ export default function CompanyDashboard() {
             content,
             is_read,
             created_at,
-            sender_id
+            sender_profiles:student_profiles!messages_sender_id_fkey ( full_name )
           `)
-          .eq("chat_room_id", `in (select id from chat_rooms where company_id = '${companyId}')`)
+          .eq(
+            "chat_room_id",
+            `in (select id from chat_rooms where company_id = '${companyId}')`,
+          )
           .order("created_at", { ascending: false })
           .limit(5),
       ])
 
-      /* 整形 */
-      setPubJobs(pubRows?.length ?? 0)
-      setDraftJobs(draftRows?.length ?? 0)
+      /* ③ 整形 ------------------------------------------------------- */
+      setPubJobs(publishedJobs?.length ?? 0)
+      setDraftJobs(draftJobsRows?.length  ?? 0)
 
       setApplications(
-        (applRows ?? []).map(a => ({
+        (applRows ?? []).map((a) => ({
           id          : a.id,
           student_name: (a as any).student_profiles?.full_name ?? "不明",
           job_title   : a.jobs?.title ?? "―",
@@ -136,22 +150,27 @@ export default function CompanyDashboard() {
       )
 
       setMessages(
-        (msgRows ?? []).map(m => ({
+        (msgRows ?? []).map((m) => ({
           id          : m.id,
-          student_name: (m.sender_id as string).slice(0, 8),  // ★ 学生名が取れない場合は ID 先頭8桁
-          content     : m.content,
-          created_at  : m.created_at ?? "",
-          is_read     : m.is_read ?? false,
+          student_name:
+            (m as any).sender_profiles?.full_name ??
+            (m as any).sender_id?.slice(0, 8) ??
+            "不明",
+          content    : m.content,
+          created_at : m.created_at ?? "",
+          is_read    : m.is_read   ?? false,
         })),
       )
+      setUnreadCnt((msgRows ?? []).filter((m) => !m.is_read).length)
 
-      setUnreadCnt((msgRows ?? []).filter(m => !m.is_read).length)
-
-      /* Job カード詳細 */
+      /* 求人詳細カード用サブ集計 */
       const { data: jobList } = await supabase
         .from("jobs")
         .select(`
-          id, title, views, published_until,
+          id,
+          title,
+          views,
+          published_until,
           applications:applications(id)
         `)
         .eq("company_id", companyId)
@@ -159,14 +178,21 @@ export default function CompanyDashboard() {
         .limit(6)
 
       setJobs(
-        (jobList ?? []).map(j => ({
-          id: j.id,
-          title: j.title,
-          views: j.views,
+        (jobList ?? []).map((j) => ({
+          id        : j.id,
+          title     : j.title,
+          views     : j.views,
           applicants: j.applications.length,
-          days_left: j.published_until
-            ? Math.max(0, Math.floor((new Date(j.published_until).getTime() - Date.now()) / 86400000))
-            : 0,
+          days_left :
+            j.published_until
+              ? Math.max(
+                  0,
+                  Math.floor(
+                    (new Date(j.published_until).getTime() - Date.now()) /
+                      86_400_000,
+                  ),
+                )
+              : 0,
         })),
       )
 
@@ -174,6 +200,7 @@ export default function CompanyDashboard() {
     })()
   }, [isLoggedIn, userType, user])
 
+  /* --- ローディング -------------------------------------------------- */
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -182,63 +209,82 @@ export default function CompanyDashboard() {
     )
   }
 
-  /* ---------- 既存 UI にデータを流し込む ---------- */
+  /* =================================================================== */
   return (
     <main className="container mx-auto px-4 py-6">
-      {/* ヘッダー */}
-      <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+      {/* ── ヘッダー ───────────────────────────── */}
+      <header className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-3xl font-bold">{user?.name || "企業"}ダッシュボード</h1>
-          <p className="mt-1 text-gray-600">採用活動の管理と最新情報を確認できます</p>
+          <h1 className="text-3xl font-bold">
+            {user?.name || "企業"}ダッシュボード
+          </h1>
+          <p className="mt-1 text-gray-600">
+            採用活動の管理と最新情報を確認できます
+          </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Button className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" /> 新規求人作成
+            <PlusCircle className="h-4 w-4" />
+            新規求人作成
           </Button>
           <Button variant="outline" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" /> 通知
-            {unreadCnt > 0 && <Badge className="ml-1 bg-red-500">{unreadCnt}</Badge>}
+            <Bell className="h-4 w-4" />
+            通知
+            {unreadCnt > 0 && (
+              <Badge className="ml-1 bg-red-500">{unreadCnt}</Badge>
+            )}
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* 概要カード */}
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* 求人カード */}
-        <SummaryCard title="求人" main={pubJobs} sub={draftJobs} subLabel="下書き" link="/jobs/manage" />
+      {/* ── サマリー ───────────────────────────── */}
+      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          title="求人"
+          main={pubJobs}
+          sub={draftJobs}
+          subLabel="下書き"
+          link="/jobs/manage"
+        />
+        <SummaryCard
+          title="応募者"
+          main={applications.length}
+          link="/applications"
+        />
+        <SummaryCard
+          title="メッセージ"
+          main={unreadCnt}
+          sub={messages.length}
+          subLabel="取得件数"
+          link="/chat"
+        />
+      </section>
 
-        {/* 応募者カード */}
-        <SummaryCard title="応募者" main={applications.length} link="/applications" />
-
-        {/* メッセージカード */}
-        <SummaryCard title="メッセージ" main={unreadCnt} sub={messages.length} subLabel="取得件数" link="/chat" />
-      </div>
-
-      {/* タブ：応募者 / 求人 / メッセージ */}
+      {/* ── タブ ─────────────────────────────── */}
       <Tabs defaultValue="applications" className="mb-8">
         <TabsList className="mb-4 grid w-full grid-cols-3">
           <TabsTrigger value="applications" className="flex items-center gap-2">
-            <Users className="h-4 w-4" /> 応募者
+            <Users className="h-4 w-4" />
+            応募者
           </TabsTrigger>
           <TabsTrigger value="jobs" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" /> 求人
+            <FileText className="h-4 w-4" />
+            求人
           </TabsTrigger>
           <TabsTrigger value="messages" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" /> メッセージ
+            <MessageSquare className="h-4 w-4" />
+            メッセージ
           </TabsTrigger>
         </TabsList>
 
-        {/* 応募者タブ */}
         <TabsContent value="applications">
           <ApplicationsTable rows={applications} />
         </TabsContent>
 
-        {/* 求人タブ */}
         <TabsContent value="jobs">
           <JobsCards rows={jobs} />
         </TabsContent>
 
-        {/* メッセージタブ */}
         <TabsContent value="messages">
           <MessagesList rows={messages} />
         </TabsContent>
@@ -247,25 +293,34 @@ export default function CompanyDashboard() {
   )
 }
 
-/* ======== Sub Components ============================================== */
+/* ===================================================================== */
+/* サマリーカード -------------------------------------------------------- */
 function SummaryCard({
-  title, main, sub, subLabel, link,
+  title,
+  main,
+  sub,
+  subLabel = "サブ",
+  link,
 }: {
-  title: string
-  main: number
-  sub?: number
+  title   : string
+  main    : number
+  sub?    : number
   subLabel?: string
-  link: string
+  link    : string
 }) {
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-lg">{title}</CardTitle></CardHeader>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">{title}</CardTitle>
+      </CardHeader>
+
       <CardContent>
         <div className="flex items-end justify-between">
           <div>
             <p className="text-3xl font-bold">{main}</p>
-            <p className="text-sm text-gray-500">メイン</p>
+            <p className="text-sm text-gray-500">件</p>
           </div>
+
           {sub !== undefined && (
             <div className="text-right">
               <p className="text-xl font-semibold text-gray-600">{sub}</p>
@@ -274,6 +329,7 @@ function SummaryCard({
           )}
         </div>
       </CardContent>
+
       <CardFooter className="pt-0">
         <Link href={link} className="text-sm text-red-600 hover:underline">
           詳細 →
@@ -283,28 +339,34 @@ function SummaryCard({
   )
 }
 
+/* 応募者テーブル ------------------------------------------------------- */
 function ApplicationsTable({ rows }: { rows: ApplicationRow[] }) {
   return (
     <Card>
-      <CardHeader><CardTitle>最近の応募者</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>最近の応募者</CardTitle>
+      </CardHeader>
+
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b text-left text-sm text-gray-500">
                 <th className="pb-2">応募者名</th>
-                <th className="pb-2">応募職種</th>
+                <th className="pb-2">職種</th>
                 <th className="pb-2">応募日</th>
                 <th className="pb-2">ステータス</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(r => (
+              {rows.map((r) => (
                 <tr key={r.id} className="border-b">
                   <td className="py-3">{r.student_name}</td>
                   <td className="py-3">{r.job_title}</td>
                   <td className="py-3">{r.created_at}</td>
-                  <td className="py-3"><Badge variant="secondary">{r.status ?? "―"}</Badge></td>
+                  <td className="py-3">
+                    <Badge variant="secondary">{r.status ?? "―"}</Badge>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -315,21 +377,32 @@ function ApplicationsTable({ rows }: { rows: ApplicationRow[] }) {
   )
 }
 
+/* 求人カードグリッド --------------------------------------------------- */
 function JobsCards({ rows }: { rows: JobRow[] }) {
   return (
     <Card>
-      <CardHeader><CardTitle>公開中の求人</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>公開中の求人</CardTitle>
+      </CardHeader>
+
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rows.map(j => (
+          {rows.map((j) => (
             <Card key={j.id}>
               <CardHeader className="bg-gray-50 pb-2">
                 <CardTitle className="text-base">{j.title}</CardTitle>
               </CardHeader>
+
               <CardContent className="pt-4">
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><p className="text-gray-500">応募数</p><p className="font-medium">{j.applicants}</p></div>
-                  <div><p className="text-gray-500">閲覧数</p><p className="font-medium">{j.views ?? "―"}</p></div>
+                  <div>
+                    <p className="text-gray-500">応募数</p>
+                    <p className="font-medium">{j.applicants}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">閲覧数</p>
+                    <p className="font-medium">{j.views ?? "―"}</p>
+                  </div>
                   <div className="col-span-2">
                     <p className="text-gray-500">掲載終了まで</p>
                     <div className="flex items-center gap-2">
@@ -347,30 +420,47 @@ function JobsCards({ rows }: { rows: JobRow[] }) {
   )
 }
 
+/* メッセージ一覧 ------------------------------------------------------- */
 function MessagesList({ rows }: { rows: MessageRow[] }) {
   return (
     <Card>
-      <CardHeader><CardTitle>最近のメッセージ</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>最近のメッセージ</CardTitle>
+      </CardHeader>
+
       <CardContent>
         <div className="space-y-3">
-          {rows.map(m => (
-            <div key={m.id} className="flex items-center justify-between rounded-lg border p-3">
+          {rows.map((m) => (
+            <div
+              key={m.id}
+              className="flex items-center justify-between rounded-lg border p-3"
+            >
               <div className="flex items-center gap-3">
                 <div className="relative h-10 w-10 overflow-hidden rounded-full bg-gray-200">
-                  <div className="absolute inset-0 flex items-center justify-center text-lg font-medium text-gray-600">
+                  <span className="absolute inset-0 flex items-center justify-center text-lg font-medium text-gray-600">
                     {m.student_name.charAt(0)}
-                  </div>
+                  </span>
                 </div>
                 <div>
                   <p className="font-medium">{m.student_name}</p>
-                  <p className="text-sm text-gray-600">{m.content}</p>
+                  <p className="text-sm text-gray-600 line-clamp-1">
+                    {m.content}
+                  </p>
                 </div>
               </div>
+
               <div className="text-right">
                 <p className="text-xs text-gray-500">
-                  {new Date(m.created_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  {new Date(m.created_at).toLocaleString("ja-JP", {
+                    month : "numeric",
+                    day   : "numeric",
+                    hour  : "2-digit",
+                    minute: "2-digit",
+                  })}
                 </p>
-                {!m.is_read && <Badge className="mt-1 bg-red-500">未読</Badge>}
+                {!m.is_read && (
+                  <Badge className="mt-1 bg-red-500">未読</Badge>
+                )}
               </div>
             </div>
           ))}
