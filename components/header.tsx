@@ -20,6 +20,7 @@
    import { supabase } from "@/lib/supabase/client"
    import { useAuth }  from "@/lib/auth-context"
    import { cn }       from "@/lib/utils"
+   import NotificationBell from "@/components/notification-bell"
    
    /* ------------------------------------------------------------------ */
    /*                             型定義                                  */
@@ -131,12 +132,7 @@
              {(isLoggedIn || session) ? (
                <>
                  {/* 通知ベル */}
-                 <button aria-label="通知" className="relative">
-                   <Bell className="h-5 w-5 text-gray-600" />
-                   <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
-                     2
-                   </span>
-                 </button>
+                 <NotificationBell />
    
                  {/* アバター */}
                  <div className="flex items-center gap-2">
