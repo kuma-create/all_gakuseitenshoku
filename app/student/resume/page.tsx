@@ -142,7 +142,7 @@ export default function ResumePage() {
   /* ---------- UI ---------- */
   return (
     <>
-      <main className="container mx-auto max-w-4xl space-y-6 px-4 py-6">
+      <main className="container mx-auto max-w-4xl space-y-6 px-4 py-6 pb-32">
         {/* ヘッダー & 完了率バー */}
         <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm">
           <div className="mb-4 flex flex-col items-start justify-between gap-2 sm:mb-6 sm:flex-row sm:items-center sm:gap-4">

@@ -92,3 +92,14 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* rc-slider カスタム */
+.rc-slider-track {
+  background: #ef4444; /* tailwind red-500 */
+}
+.rc-slider-handle {
+  border-color: #ef4444;
+}
+.rc-slider-handle:hover {
+  border-color: #dc2626;
+}
