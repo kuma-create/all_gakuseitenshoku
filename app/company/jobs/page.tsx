@@ -55,51 +55,61 @@ import { Separator } from "@/components/ui/separator"
 /* ------------------------------------------------------------------ */
 /*                           Supabase 型定義                           */
 /* ------------------------------------------------------------------ */
-type JobRow         = Database["public"]["Tables"]["jobs"]["Row"]
+type JobRow = Database["public"]["Tables"]["jobs"]["Row"]
+
+/* 会社ごとの応募レコードだけ読み込むので job_id だけで十分 */
 type ApplicationRow = Database["public"]["Tables"]["applications"]["Row"]
 
-/* UI 用に拡張した型（★ ここに department / location / work_type を追加） */
+/* UI 用に拡張した型（location / work_type は JobRow に既存） */
 interface JobItem extends JobRow {
   applicants : number
   status     : "公開中" | "下書き" | "締切済"
-  postedDate : string
-  expiryDate : string
-  /* JobRow に無いカラムだけ追加する */
+  postedDate : string            // YYYY-MM-DD
+  expiryDate : string            // YYYY-MM-DD | ""
+  /* jobs テーブルに無い場合だけ追加 */
   department?: string | null
 }
 
 /* ------------------------------------------------------------------ */
 /*                             画面本体                                */
 /* ------------------------------------------------------------------ */
-export default function JobsListingPage() {
+export default function CompanyJobsPage() {
   const { user } = useAuth()
   const router   = useRouter()
 
-  const [jobs, setJobs] = useState<JobItem[]>([])
+  const [jobs, setJobs]       = useState<JobItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]     = useState<string | null>(null)
 
   /* フィルタ UI 用 state */
   const [searchTerm , setSearchTerm ] = useState("")
   const [statusTab  , setStatusTab  ] = useState("all")
-  const [sortOption , setSortOption ] = useState("posted")
+  const [sortOption , setSortOption ] = useState<"posted"|"applicants"|"expiry">("posted")
 
-  /* ------------------ Supabase から求人を取得 ---------------------- */
+  /* ------------------ Supabase からデータ取得 --------------------- */
   useEffect(() => {
-    if (!user) return        // 未ログインなら何もしない
+    if (!user) return
 
     ;(async () => {
       setLoading(true)
+      setError(null)
 
-      /* 1) 会社レコード取得 (user_id → company.id) */
-      const { data: company, error: companyErr } = await supabase
+      /* 1) 会社 ID を取得（重複やゼロ件でも落ちない） */
+      const { data: companyRow, error: companyErr } = await supabase
         .from("companies")
         .select("id")
         .eq("user_id", user.id)
-        .single()
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
       if (companyErr) {
         setError(companyErr.message)
+        setLoading(false)
+        return
+      }
+      if (!companyRow) {
+        setError("会社プロフィールが登録されていません")
         setLoading(false)
         return
       }
@@ -108,7 +118,7 @@ export default function JobsListingPage() {
       const { data: jobsData, error: jobsErr } = await supabase
         .from("jobs")
         .select("*")
-        .eq("company_id", company.id)
+        .eq("company_id", companyRow.id)
 
       if (jobsErr) {
         setError(jobsErr.message)
@@ -116,7 +126,7 @@ export default function JobsListingPage() {
         return
       }
 
-      /* 3) 応募テーブルを読み応募数を集計 */
+      /* 3) 応募数を集計 */
       const { data: appsData, error: appsErr } = await supabase
         .from("applications")
         .select("job_id")
@@ -133,8 +143,8 @@ export default function JobsListingPage() {
         counts[a.job_id] = (counts[a.job_id] ?? 0) + 1
       })
 
-      /* 4) UI 用データに整形 */
-      const now = new Date()
+      /* 4) UI 用整形 */
+      const now    = new Date()
       const toDate = (d: string | null) => (d ? d.slice(0, 10) : "")
 
       const jobItems: JobItem[] = jobsData.map(j => {
@@ -151,11 +161,7 @@ export default function JobsListingPage() {
           status,
           postedDate: toDate(j.created_at),
           expiryDate: toDate(j.published_until),
-          /* department / location / work_type がテーブルにある前提でそのままコピー
-             無い場合は undefined のまま */
-          department : (j as any).department ?? null,
-          location   : (j as any).location   ?? null,
-          work_type  : (j as any).work_type  ?? null,
+          department: (j as any).department ?? null,
         }
       })
 
@@ -164,31 +170,23 @@ export default function JobsListingPage() {
     })()
   }, [user])
 
-  /* ---------------- 検索・タブ・ソート処理 ------------------------ */
+  /* -------------------- 検索・フィルタ・ソート -------------------- */
   const filteredJobs = useMemo(() => {
-    /* (a) 検索 */
     let data = jobs.filter(j =>
       `${j.title}${j.department ?? ""}${j.location ?? ""}`
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
     )
 
-    /* (b) ステータスタブ */
     if (statusTab !== "all") data = data.filter(j => j.status === statusTab)
 
-    /* (c) ソート */
     data.sort((a, b) => {
-      if (sortOption === "posted") {
+      if (sortOption === "posted")
         return new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime()
-      }
-      if (sortOption === "applicants") {
+      if (sortOption === "applicants")
         return b.applicants - a.applicants
-      }
-      if (sortOption === "expiry") {
-        return new Date(a.expiryDate || "2099-12-31").getTime() -
-               new Date(b.expiryDate || "2099-12-31").getTime()
-      }
-      return 0
+      return new Date(a.expiryDate || "2099-12-31").getTime() -
+             new Date(b.expiryDate || "2099-12-31").getTime()
     })
 
     return data
@@ -196,31 +194,31 @@ export default function JobsListingPage() {
 
   /* ステータス別件数 */
   const counts = useMemo(() => ({
-    all : jobs.length,
+    all   : jobs.length,
     公開中 : jobs.filter(j => j.status === "公開中").length,
     下書き : jobs.filter(j => j.status === "下書き").length,
     締切済 : jobs.filter(j => j.status === "締切済").length,
   }), [jobs])
 
   /* バッジ色 */
-  const statusBadge = (s: JobItem["status"]) => ({
+  const badgeColor = (s: JobItem["status"]) => ({
     公開中 : "bg-green-100 text-green-800 hover:bg-green-100",
     下書き : "bg-gray-100 text-gray-800 hover:bg-gray-100",
     締切済 : "bg-red-100 text-red-800 hover:bg-red-100",
   }[s])
 
   /* 残り日数 */
-  const remainingDays = (expiry: string) => {
+  const remainDays = (expiry: string) => {
     if (!expiry) return "-"
     const diff = new Date(expiry).getTime() - Date.now()
     return diff <= 0 ? 0 : Math.ceil(diff / 86_400_000)
   }
 
-  /* 削除確認（例示） */
-  const confirmDelete = async (jobId: string) => {
+  /* 削除 */
+  const deleteJob = async (id: string) => {
     if (!window.confirm("この求人を削除しますか？")) return
-    await supabase.from("jobs").delete().eq("id", jobId)
-    setJobs(prev => prev.filter(j => j.id !== jobId))
+    await supabase.from("jobs").delete().eq("id", id)
+    setJobs(prev => prev.filter(j => j.id !== id))
   }
 
   /* ------------------------------ UI ------------------------------ */
@@ -229,8 +227,7 @@ export default function JobsListingPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-
-      {/* 見出し＋新規ボタン */}
+      {/* 見出し */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-1">求人一覧</h1>
@@ -243,7 +240,7 @@ export default function JobsListingPage() {
         </Link>
       </div>
 
-      {/* 検索・ソート UI */}
+      {/* 検索・ソート */}
       <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="relative flex-grow">
@@ -256,7 +253,7 @@ export default function JobsListingPage() {
             />
           </div>
 
-          <Select value={sortOption} onValueChange={v => setSortOption(v)}>
+          <Select value={sortOption} onValueChange={v => setSortOption(v as any)}>
             <SelectTrigger className="w-[140px]">
               <SlidersHorizontal className="h-4 w-4 mr-2" />
               <SelectValue placeholder="並び替え" />
@@ -269,7 +266,7 @@ export default function JobsListingPage() {
           </Select>
         </div>
 
-        {/* ステータスタブ */}
+        {/* ステータス タブ */}
         <Tabs defaultValue="all" className="mb-6" onValueChange={setStatusTab}>
           <TabsList className="grid grid-cols-4 mb-2">
             <TabsTrigger value="all">すべて ({counts.all})</TabsTrigger>
@@ -278,14 +275,13 @@ export default function JobsListingPage() {
             <TabsTrigger value="締切済">締切済 ({counts.締切済})</TabsTrigger>
           </TabsList>
 
-          {/* 各タブの内容は共通ロジックなので 1 つで OK */}
           <TabsContent value={statusTab} className="mt-0">
             <JobGrid
               jobs={filteredJobs}
-              onDelete={confirmDelete}
-              badgeColor={statusBadge}
-              remainingDays={remainingDays}
-              routerPush={router.push}
+              badgeColor={badgeColor}
+              remainDays={remainDays}
+              deleteJob={deleteJob}
+              push={router.push}
             />
           </TabsContent>
         </Tabs>
@@ -295,20 +291,20 @@ export default function JobsListingPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/*                         下位コンポーネント                           */
+/*                           下位コンポーネント                         */
 /* ------------------------------------------------------------------ */
 function JobGrid({
   jobs,
-  onDelete,
   badgeColor,
-  remainingDays,
-  routerPush,
+  remainDays,
+  deleteJob,
+  push,
 }: {
-  jobs          : JobItem[]
-  onDelete      : (id: string) => void
-  badgeColor    : (s: JobItem["status"]) => string | undefined
-  remainingDays : (e: string) => number | string
-  routerPush    : (path: string) => void
+  jobs       : JobItem[]
+  badgeColor : (s: JobItem["status"]) => string | undefined
+  remainDays : (e: string) => number | string
+  deleteJob  : (id: string) => void
+  push       : (path: string) => void
 }) {
   return (
     <>
@@ -316,7 +312,6 @@ function JobGrid({
         {jobs.map(job => (
           <Card key={job.id} className="overflow-hidden border border-gray-200 transition-all hover:shadow-md">
             <CardContent className="p-5">
-              {/* ステータスバッジ＋メニュー */}
               <div className="flex justify-between items-start mb-3">
                 <Badge className={badgeColor(job.status)}>{job.status}</Badge>
                 <DropdownMenu>
@@ -326,26 +321,24 @@ function JobGrid({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => routerPush(`/company/jobs/${job.id}`)}>
+                    <DropdownMenuItem onClick={() => push(`/company/jobs/${job.id}`)}>
                       <Edit className="mr-2 h-4 w-4" /> 編集する
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => routerPush(`/company/applicants?jobId=${job.id}`)}
+                      onClick={() => push(`/company/applicants?jobId=${job.id}`)}
                       disabled={job.applicants === 0}
                     >
                       <Users className="mr-2 h-4 w-4" /> 応募者を見る
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onDelete(job.id)} className="text-red-600">
+                    <DropdownMenuItem onClick={() => deleteJob(job.id)} className="text-red-600">
                       <Trash2 className="mr-2 h-4 w-4" /> 削除する
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
-              {/* タイトル */}
               <h3 className="text-xl font-semibold mb-2 line-clamp-2">{job.title}</h3>
 
-              {/* 基本情報 */}
               <div className="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
                 <div className="flex items-center">
                   <Briefcase className="h-4 w-4 mr-1.5 text-gray-500" />
@@ -363,7 +356,7 @@ function JobGrid({
                   <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
                   <span>
                     {job.expiryDate
-                      ? `残り${remainingDays(job.expiryDate)}日`
+                      ? `残り${remainDays(job.expiryDate)}日`
                       : "期限なし"}
                   </span>
                 </div>
@@ -371,14 +364,13 @@ function JobGrid({
 
               <Separator className="my-4" />
 
-              {/* 応募数・閲覧数 */}
               <div className="grid grid-cols-2 gap-4">
-                <StatBox
+                <Stat
                   icon={<Users className="h-4 w-4 mr-1.5 text-blue-500" />}
                   label="応募者数"
                   value={`${job.applicants}名`}
                 />
-                <StatBox
+                <Stat
                   icon={<Eye className="h-4 w-4 mr-1.5 text-blue-500" />}
                   label="閲覧数"
                   value={`${job.views ?? 0}回`}
@@ -387,13 +379,13 @@ function JobGrid({
             </CardContent>
 
             <CardFooter className="bg-gray-50 px-5 py-3 flex justify-between">
-              <Button variant="outline" size="sm" onClick={() => routerPush(`/company/jobs/${job.id}`)}>
+              <Button variant="outline" size="sm" onClick={() => push(`/company/jobs/${job.id}`)}>
                 <Edit className="h-4 w-4 mr-1.5" /> 編集
               </Button>
               <Button
                 variant={job.applicants > 0 ? "default" : "outline"}
                 size="sm"
-                onClick={() => routerPush(`/company/applicants?jobId=${job.id}`)}
+                onClick={() => push(`/company/applicants?jobId=${job.id}`)}
                 disabled={job.applicants === 0}
                 className={job.applicants > 0 ? "bg-blue-600 hover:bg-blue-700" : ""}
               >
@@ -405,15 +397,12 @@ function JobGrid({
         ))}
       </div>
 
-      {jobs.length === 0 && (
-        <EmptyState searchTerm="" />
-      )}
+      {jobs.length === 0 && <Empty />}
     </>
   )
 }
 
-/* 小さな統計ボックス */
-function StatBox({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="bg-gray-50 p-3 rounded-lg">
       <div className="text-xs text-gray-500 mb-1">{label}</div>
@@ -425,22 +414,15 @@ function StatBox({ icon, label, value }: { icon: React.ReactNode; label: string;
   )
 }
 
-/* 空表示 */
-function EmptyState({ searchTerm }: { searchTerm: string }) {
+function Empty() {
   return (
     <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
       <div className="text-gray-400 mb-4">
-        {searchTerm
-          ? <Search className="h-12 w-12 mx-auto" />
-          : <Briefcase className="h-12 w-12 mx-auto" />}
+        <Briefcase className="h-12 w-12 mx-auto" />
       </div>
-      <h3 className="text-lg font-medium mb-2">
-        {searchTerm ? "検索条件に一致する求人はありません" : "まだ求人が登録されていません"}
-      </h3>
+      <h3 className="text-lg font-medium mb-2">まだ求人が登録されていません</h3>
       <p className="text-gray-500 mb-4">
-        {searchTerm
-          ? "検索条件を変更するか、新しい求人を作成してください"
-          : "新しい求人を作成して、優秀な人材を募集しましょう"}
+        新しい求人を作成して、優秀な人材を募集しましょう
       </p>
       <Link href="/company/jobs/new">
         <Button>
