@@ -98,7 +98,7 @@
                width={80}
                height={80}
                priority
-               className="h-16 w-16 object-contain"
+               className="h-32 w-32 object-contain"
              />
             </Link>
    
