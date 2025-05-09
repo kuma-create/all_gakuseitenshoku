@@ -119,7 +119,7 @@ export default function JobDetailPage({
             `
             *,
             company:companies(
-              id,name,description,logo_url,cover_image_url,
+              id,name,description,logo,cover_image_url,
               industry,founded_year,employee_count,location,website_url
             )
           `,
@@ -153,7 +153,7 @@ export default function JobDetailPage({
           .select(
             `
             id,title,location,salary_min,salary_max,
-            company:companies(name,logo_url)
+            company:companies(name,logo)
           `,
           )
           .eq("company_id", j.company_id)
@@ -256,7 +256,7 @@ export default function JobDetailPage({
                 <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                   <Image
                     src={
-                      company?.logo_url ||
+                      company?.logo ||
                       "/placeholder.svg?height=128&width=128&text=Company"
                     }
                     alt="logo"
