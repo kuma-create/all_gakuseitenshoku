@@ -668,6 +668,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          answered_at: string | null
           attachment_url: string | null
           chat_room_id: string
           content: string
@@ -677,6 +678,7 @@ export type Database = {
           sender_id: string
         }
         Insert: {
+          answered_at?: string | null
           attachment_url?: string | null
           chat_room_id: string
           content: string
@@ -686,6 +688,7 @@ export type Database = {
           sender_id: string
         }
         Update: {
+          answered_at?: string | null
           attachment_url?: string | null
           chat_room_id?: string
           content?: string
@@ -831,6 +834,38 @@ export type Database = {
           },
         ]
       }
+      scout_templates: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scout_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scouts: {
         Row: {
           company_id: string
@@ -888,8 +923,11 @@ export type Database = {
       }
       student_profiles: {
         Row: {
+          about: string | null
+          academic_year: number | null
           address: string | null
           admission_month: string | null
+          avatar: string | null
           birth_date: string | null
           created_at: string | null
           department: string | null
@@ -900,6 +938,7 @@ export type Database = {
           email: string | null
           employment_type: string | null
           enrollment_status: string | null
+          experience: Json | null
           faculty: string | null
           first_name: string | null
           first_name_kana: string | null
@@ -908,10 +947,14 @@ export type Database = {
           gender: string | null
           graduation_month: string | null
           graduation_year: number | null
+          has_internship_experience: boolean
           id: string
+          interests: string[]
           language_skill: string | null
           last_name: string | null
           last_name_kana: string | null
+          location: string | null
+          major: string | null
           motive: string | null
           phone: string | null
           pr_body: string | null
@@ -935,8 +978,11 @@ export type Database = {
           work_style_options: string[] | null
         }
         Insert: {
+          about?: string | null
+          academic_year?: number | null
           address?: string | null
           admission_month?: string | null
+          avatar?: string | null
           birth_date?: string | null
           created_at?: string | null
           department?: string | null
@@ -947,6 +993,7 @@ export type Database = {
           email?: string | null
           employment_type?: string | null
           enrollment_status?: string | null
+          experience?: Json | null
           faculty?: string | null
           first_name?: string | null
           first_name_kana?: string | null
@@ -955,10 +1002,14 @@ export type Database = {
           gender?: string | null
           graduation_month?: string | null
           graduation_year?: number | null
+          has_internship_experience?: boolean
           id?: string
+          interests?: string[]
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
+          location?: string | null
+          major?: string | null
           motive?: string | null
           phone?: string | null
           pr_body?: string | null
@@ -982,8 +1033,11 @@ export type Database = {
           work_style_options?: string[] | null
         }
         Update: {
+          about?: string | null
+          academic_year?: number | null
           address?: string | null
           admission_month?: string | null
+          avatar?: string | null
           birth_date?: string | null
           created_at?: string | null
           department?: string | null
@@ -994,6 +1048,7 @@ export type Database = {
           email?: string | null
           employment_type?: string | null
           enrollment_status?: string | null
+          experience?: Json | null
           faculty?: string | null
           first_name?: string | null
           first_name_kana?: string | null
@@ -1002,10 +1057,14 @@ export type Database = {
           gender?: string | null
           graduation_month?: string | null
           graduation_year?: number | null
+          has_internship_experience?: boolean
           id?: string
+          interests?: string[]
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
+          location?: string | null
+          major?: string | null
           motive?: string | null
           phone?: string | null
           pr_body?: string | null
@@ -1131,9 +1190,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      company_user_ids: {
+        Row: {
+          user_id: string | null
+        }
+        Insert: {
+          user_id?: string | null
+        }
+        Update: {
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      avg_response_time: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avg_response_sec: number
+        }[]
+      }
+      avg_response_time_sec: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avg_response_sec: number
+        }[]
+      }
       increment_job_view: {
         Args: { _job_id: string }
         Returns: undefined

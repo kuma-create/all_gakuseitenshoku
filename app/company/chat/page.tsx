@@ -44,10 +44,12 @@ type RawChatRow = {
     status: "オンライン" | "オフライン"
   }
   messages: {
+    id: string            // もし必要なら
+    sender_id: string
     content: string
+    is_read: boolean | null
+    attachment_url: string | null
     created_at: string
-    sender: "student" | "company"
-    is_read: boolean
   }[]
 }
 
@@ -91,33 +93,50 @@ export default function ChatListPage() {
   const [pinnedChats, setPinnedChats] = useState<string[]>([])
 
   // — データ取得 & 整形 —
-  const fetchChats = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+// 認証ユーザー取得
+const fetchChats = useCallback(async () => {
+  setLoading(true);
+  setError(null);
 
-    try {
-      const { data, error: sbError } = await supabase
-        .from("chat_rooms")
-        .select(`
+  // 1) 会社ユーザーの ID を取得
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    setError("認証情報が取得できませんでした");
+    setLoading(false);
+    return;
+  }
+  const companyId = user.id;
+
+  try {
+    // 2) company_id で絞り込み & 正しいカラム名で取得
+    const { data, error: sbError } = await supabase
+      .from("chat_rooms")
+      .select(`
+        id,
+        student_profiles (
           id,
-          student_profiles (
-            id,
-            full_name,
-            university,
-            major,
-            graduation_year,
-            avatar_url,
-            status
-          ),
-          messages (
-            content,
-            created_at,
-            sender,
-            is_read
-          )
-        `) // ← 末尾のカンマを削除
+          full_name,
+          university,
+          major,
+          graduation_year,
+          avatar_url,
+          status
+        ),
+        messages (
+          id,
+          sender_id,
+          content,
+          is_read,
+          attachment_url,
+          created_at
+        )
+      `)
+      .eq("company_id", companyId);
 
-      if (sbError) throw sbError
+    if (sbError) throw sbError;
 
       // TS のヒントに従い、一度 unknown に落としてから RawChatRow[] にキャスト
       const raw = (data ?? []) as unknown as RawChatRow[]
@@ -131,8 +150,15 @@ export default function ChatListPage() {
             new Date(b.created_at).getTime()
         )
         const last = msgs.length ? msgs[msgs.length - 1] : null
-        const unread = msgs.filter((m) => !m.is_read && m.sender === "student").length
-
+        const lastSender: "company" | "student" = last
+        ? last.sender_id === companyId
+          ? "company"
+          : "student"
+        : "company"
+        const unread = msgs.filter(
+          (m) => m.sender_id !== companyId && !m.is_read
+        ).length;
+        
         return {
           id: r.id,
           student: {
@@ -148,12 +174,12 @@ export default function ChatListPage() {
             ? {
                 content: last.content,
                 timestamp: last.created_at,
-                sender: last.sender,
-                isRead: last.is_read,
+                sender: lastSender,
+                isRead: last.is_read ?? false,
               }
             : null,
           unreadCount: unread,
-          tags: [], // いったん機能オフ
+          tags: [],
         }
       })
 

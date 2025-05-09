@@ -1,224 +1,181 @@
 // app/company/chat/[chatId]/page.tsx
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
-import { format } from "date-fns"
-import { ja } from "date-fns/locale"
-
-// ← デフォルトではなく named import に
-import { ModernChatUI } from "@/components/chat/modern-chat-ui"
-// Message 型も named import
-import type { Message as ChatMessage } from "@/types/message"
-import { ThemeToggle } from "@/components/theme-toggle"
-
-/** モック用の“生”メッセージ型 */
-type RawMessage = {
-  id: number
-  sender: string
-  content: string
-  timestamp: string
-  status: string
-  attachment?: {
-    type: string
-    url: string
-    name: string
-  }
-}
-
-/** モック用のチャット型 */
-type RawChat = {
-  id: string
-  student: {
-    id: number
-    name: string
-    university: string
-    major: string
-    graduationYear: number
-    avatar: string
-    status: string
-  }
-  messages: RawMessage[]
-}
-
-const mockChats: Record<string, RawChat> = {
-  "1": {
-    id: "1",
-    student: {
-      id: 1,
-      name: "山田 太郎",
-      university: "東京大学",
-      major: "情報工学",
-      graduationYear: 2024,
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "オンライン",
-    },
-    messages: [
-      {
-        id: 1,
-        sender: "company",
-        content:
-          "山田さん、こんにちは。弊社のフロントエンドエンジニアのポジションに興味を持っていただきありがとうございます。",
-        timestamp: "2023-05-10T10:30:00",
-        status: "read",
-      },
-      // …（元のメッセージをすべて含めてください）
-      {
-        id: 10,
-        sender: "company",
-        content: "金曜日の14時はいかがでしょうか？",
-        timestamp: "2023-05-10T11:15:00",
-        status: "delivered",
-      },
-    ],
-  },
-  "2": {
-    id: "2",
-    student: {
-      id: 2,
-      name: "佐藤 花子",
-      university: "京都大学",
-      major: "経営学",
-      graduationYear: 2025,
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "オフライン",
-    },
-    messages: [],
-  },
-}
+import React, { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types";
+import { Loader2 } from "lucide-react";
+import { ModernChatUI } from "@/components/chat/modern-chat-ui";
+import type { Message as ChatMessage } from "@/types/message";  // ← 上で修正した型
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useToast } from "@/components/ui/use-toast";
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
 
 export default function ChatPage() {
-  const { chatId } = useParams()
-  const [chat, setChat] = useState<RawChat | null>(null)
+  const params = useParams();
+  const rawChatId = params.chatId;
+  const chatId = Array.isArray(rawChatId) ? rawChatId[0] : rawChatId;
+
+  const { toast } = useToast();
+
+  // 認証ユーザー取得
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (error) {
+        toast({
+          title: "認証情報の取得に失敗しました",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        setUserId(user?.id ?? null);
+      }
+    });
+  }, [toast]);
+
+  // メッセージ一覧＆ローディング
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const data = mockChats[chatId as string] ?? null
-    setChat(data)
-  }, [chatId])
+    if (!chatId || !userId) return;
+    setLoading(true);
 
+    // Supabase の messages テーブル Row 型
+    type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
+
+    supabase
+      .from("messages")
+      .select("id, sender_id, content, is_read, attachment_url, created_at")
+      .eq("chat_room_id", chatId)
+      .order("created_at", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) {
+          toast({
+            title: "メッセージの取得に失敗しました",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else if (data) {
+          // Row → ChatMessage にマッピング
+          const formatted: ChatMessage[] = (data as MessageRow[]).map((m) => ({
+            id: m.id, // ← ここが string になるので型と一致
+            sender: m.sender_id === userId ? "company" : "student",
+            content: m.content,
+            timestamp: m.created_at!,
+            status: m.is_read ? "read" : "delivered",
+            ...(m.attachment_url
+              ? {
+                  attachment: {
+                    url: m.attachment_url,
+                    name: "",
+                    type: "",
+                  },
+                }
+              : {}),
+          }));
+          setMessages(formatted);
+        }
+        setLoading(false);
+      });
+  }, [chatId, userId, toast]);
+
+  // メッセージ送信
   const handleSendMessage = async (
     content: string,
     attachments?: File[]
   ): Promise<void> => {
-    if (!chat) return
+    if (!chatId || !userId) return;
+    const attachmentUrl = null;
 
-    // TODO: 本番ではここで Supabase 連携
-    console.log("送信:", content, attachments)
-    await new Promise((r) => setTimeout(r, 500))
+    const { data, error } = await supabase
+      .from("messages")
+      .insert<Database["public"]["Tables"]["messages"]["Insert"]>({
+        chat_room_id: chatId,
+        sender_id: userId,
+        content: content.trim(),
+        is_read: false,
+        attachment_url: attachmentUrl,
+      })
+      .select() // ここもジェネリック不要
+      .single();
 
-    const nextId =
-      chat.messages.length > 0
-        ? Math.max(...chat.messages.map((m) => m.id)) + 1
-        : 1
-
-    const newMsg: RawMessage = {
-      id: nextId,
-      sender: "company",
-      content: content.trim(),
-      timestamp: new Date().toISOString(),
-      status: "sent",
-    }
-    if (attachments && attachments.length > 0) {
-      const file = attachments[0]
-      newMsg.attachment = {
-        type: file.type,
-        url: URL.createObjectURL(file),
-        name: file.name,
-      }
+    if (error) {
+      toast({
+        title: "メッセージの送信に失敗しました",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
     }
 
-    setChat({
-      ...chat,
-      messages: [...chat.messages, newMsg],
-    })
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: data.id,
+        sender: "company",
+        content: data.content,
+        timestamp: data.created_at!,
+        status: "sent",
+        ...(data.attachment_url
+          ? { attachment: { url: data.attachment_url, name: "", type: "" } }
+          : {}),
+      },
+    ]);
+  };
 
-    // delivered → read をシミュレート
-    setTimeout(() => {
-      setChat((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === nextId ? { ...m, status: "delivered" } : m
-              ),
-            }
-          : prev
-      )
-    }, 1000)
-
-    setTimeout(() => {
-      setChat((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === nextId ? { ...m, status: "read" } : m
-              ),
-            }
-          : prev
-      )
-    }, 3000)
-  }
-
+  // 面接日程設定
   const handleScheduleInterview = (details: {
-    date: Date
-    time: string
-    duration: string
-    type: "オンライン" | "オフライン"
-    location: string
+    date: Date;
+    time: string;
+    duration: string;
+    type: "オンライン" | "オフライン";
+    location: string;
   }) => {
-    const formatted = format(details.date, "yyyy年MM月dd日", { locale: ja })
-    const msg = `面接日程を設定しました。\n日時: ${formatted} ${
+    const formattedDate = format(details.date, "yyyy年MM月dd日", { locale: ja });
+    const msg = `面接日程を設定しました。\n日時: ${formattedDate} ${
       details.time
     }～\n所要時間: ${details.duration}\n${
       details.type === "オンライン"
         ? `URL: ${details.location}`
         : `場所: ${details.location}`
-    }`
-    void handleSendMessage(msg)
-  }
+    }`;
+    void handleSendMessage(msg);
+  };
 
-  if (!chat) {
+  // 認証 or 取得中はスピナー
+  if (loading || !userId) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
       </div>
-    )
+    );
   }
 
-  // RawMessage → ChatMessage にマッピング
-  const messages: ChatMessage[] = chat.messages.map((m) => ({
-    id: m.id,
-    sender: m.sender as ChatMessage["sender"],
-    content: m.content,
-    timestamp: m.timestamp,
-    status: m.status as ChatMessage["status"],   // ← Union にキャスト
-    ...(m.attachment ? { attachment: m.attachment } : {}),
-  }))
-
+  // チャット UI
   return (
     <div className="flex h-screen flex-col">
       <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
-
       <ModernChatUI
         messages={messages}
         currentUser="company"
         recipient={{
-          id: chat.student.id,
-          name: chat.student.name,
-          avatar: chat.student.avatar,
-          status: chat.student
-            .status as "オンライン" | "オフライン" | "離席中",
-          university: chat.student.university,
-          major: chat.student.major,
+          id: 0,
+          name: "",
+          avatar: "",
+          status: "オフライン",
+          university: "",
+          major: "",
         }}
         onSendMessage={handleSendMessage}
         onScheduleInterview={handleScheduleInterview}
         className="h-full"
       />
     </div>
-  )
+  );
 }

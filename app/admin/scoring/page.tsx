@@ -48,26 +48,6 @@ type SubmissionRow = Database["public"]["Tables"]["grandprix_submissions"]["Row"
   } | null
 }
 
-// クエリ結果の型定義
-type QueryResult = {
-  id: string
-  student_id: string
-  challenge_id: string
-  answer: string
-  score: number | null
-  feedback: string | null
-  status: string
-  submitted_at: string
-  created_at: string | null
-  updated_at: string | null
-  student_profiles: {
-    full_name: string | null
-  } | null
-  grandprix_challenges: {
-    title: string | null
-  } | null
-}
-
 export default function ScoringPage() {
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -96,14 +76,7 @@ export default function ScoringPage() {
 
       if (fetchError) throw fetchError
       
-      // 型安全なデータ変換
-      const typedData = (data as QueryResult[] ?? []).map(submission => ({
-        ...submission,
-        student_profiles: submission.student_profiles,
-        grandprix_challenges: submission.grandprix_challenges
-      }))
-
-      setSubmissions(typedData)
+      setSubmissions(data as SubmissionRow[] ?? [])
     } catch (e: any) {
       console.error(e)
       setError(e.message)
@@ -233,7 +206,7 @@ export default function ScoringPage() {
                 <TableRow key={row.id}>
                   <TableCell>{row.student_profiles?.full_name}</TableCell>
                   <TableCell>{row.grandprix_challenges?.title}</TableCell>
-                  <TableCell>{formatDate(row.submitted_at ?? "")}</TableCell>
+                  <TableCell>{formatDate(row.submitted_at)}</TableCell>
                   <TableCell>
                     <Badge
                       variant={row.status === "pending" ? "outline" : "default"}

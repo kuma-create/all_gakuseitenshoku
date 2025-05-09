@@ -1,142 +1,178 @@
+/* ───────────────────────────────────────────────
+   app/(admin)/analytics-dashboard.tsx
+   - チャット分析ダッシュボード
+   - Supabase RPC で平均応答時間を取得
+────────────────────────────────────────────── */
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import React, { useState, useEffect } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "@/lib/supabase/types"
 
-// Mock data for analytics
-const analyticsData = {
-  responseTime: {
-    average: "2時間15分",
-    improvement: "+15%",
-    chart: [
-      { date: "4/1", value: 180 },
-      { date: "4/8", value: 150 },
-      { date: "4/15", value: 165 },
-      { date: "4/22", value: 135 },
-      { date: "4/29", value: 120 },
-    ],
-  },
-  conversionRate: {
-    rate: "28%",
-    change: "+5%",
-    stages: [
-      { name: "スカウト送信", value: 100 },
-      { name: "メッセージ開封", value: 85 },
-      { name: "返信", value: 62 },
-      { name: "面接設定", value: 45 },
-      { name: "内定", value: 28 },
-    ],
-  },
-  engagementMetrics: {
-    messagesPerConversation: 12.5,
-    averageConversationLength: "5日",
-    responseRate: "78%",
-  },
+import {
+  Card, CardHeader, CardTitle, CardDescription, CardContent,
+} from "@/components/ui/card"
+import {
+  Tabs, TabsList, TabsTrigger, TabsContent,
+} from "@/components/ui/tabs"
+
+/* ------------------------------------------------------------------ */
+/*                         RPC 戻り値 / 引数型                          */
+/* ------------------------------------------------------------------ */
+type AvgRes  =
+  Database["public"]["Functions"]["avg_response_time_sec"]["Returns"] // { avg_response_sec:number }[]
+type AvgArgs =
+  Database["public"]["Functions"]["avg_response_time_sec"]["Args"]    // {}
+
+type Metrics = {
+  totalChats     : number
+  unreadMessages : number
+  avgResponseSec : number
 }
 
+/* ------------------------------------------------------------------ */
+/*                          ダッシュボード                            */
+/* ------------------------------------------------------------------ */
 export function AnalyticsDashboard() {
+  const sb = createClientComponentClient<Database>()
+
+  const [loading,  setLoading]  = useState(true)
+  const [metrics,  setMetrics]  = useState<Metrics>({
+    totalChats     : 0,
+    unreadMessages : 0,
+    avgResponseSec : 0,
+  })
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      setLoading(true)
+
+      /* ① 総チャット数 ------------------------------------------------ */
+      const { count: totalChats } = await sb
+        .from("chat_rooms")
+        .select("id", { count: "exact", head: true })
+
+      /* ② 未読メッセージ数 ------------------------------------------- */
+      const { count: unreadMessages } = await sb
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("is_read", false)
+
+      /* ③ 平均応答時間 (RPC) ----------------------------------------- */
+      const { data: rpcData, error: rpcError } = await sb.rpc("avg_response_time_sec")
+        
+
+      if (rpcError) console.error("RPC error:", rpcError)
+
+        const avg =
+          (rpcData as AvgRes | null)?.[0]?.avg_response_sec ?? 0
+        
+        setMetrics({
+          totalChats     : totalChats     ?? 0,
+          unreadMessages : unreadMessages ?? 0,
+          avgResponseSec : avg,
+        })
+      setLoading(false)
+    }
+
+    fetchMetrics()
+  }, [sb])
+
+  /* ローディング ----------------------------------------------------- */
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p>Loading metrics…</p>
+      </div>
+    )
+  }
+
+  /* 秒数 → “X時間YY分” ---------------------------------------------- */
+  const formatTime = (sec: number) => {
+    const h = Math.floor(sec / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    return `${h}時間${m.toString().padStart(2, "0")}分`
+  }
+
+  /* ------------------------------ UI ------------------------------- */
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold">チャット分析</h2>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">チャット分析ダッシュボード</h2>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList>
+        <TabsList className="grid grid-cols-3">
           <TabsTrigger value="overview">概要</TabsTrigger>
           <TabsTrigger value="response">応答時間</TabsTrigger>
           <TabsTrigger value="conversion">コンバージョン</TabsTrigger>
         </TabsList>
 
+        {/* ─── 概要タブ ─────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* 総チャット数 */}
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">平均応答時間</CardTitle>
+              <CardHeader>
+                <CardTitle>総チャット数</CardTitle>
+                <CardDescription>現在のチャットルーム数</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analyticsData.responseTime.average}</div>
-                <p className="text-xs text-muted-foreground">前月比 {analyticsData.responseTime.improvement}</p>
+              <CardContent className="text-3xl font-bold">
+                {metrics.totalChats}
               </CardContent>
             </Card>
 
+            {/* 未読メッセージ */}
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">内定率</CardTitle>
+              <CardHeader>
+                <CardTitle>未読メッセージ数</CardTitle>
+                <CardDescription>未確認のメッセージ件数</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analyticsData.conversionRate.rate}</div>
-                <p className="text-xs text-muted-foreground">前月比 {analyticsData.conversionRate.change}</p>
+              <CardContent className="text-3xl font-bold">
+                {metrics.unreadMessages}
               </CardContent>
             </Card>
 
+            {/* 平均応答時間 */}
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">会話あたりのメッセージ数</CardTitle>
+              <CardHeader>
+                <CardTitle>平均応答時間</CardTitle>
+                <CardDescription>過去30日の平均</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analyticsData.engagementMetrics.messagesPerConversation}</div>
-                <p className="text-xs text-muted-foreground">
-                  平均会話期間: {analyticsData.engagementMetrics.averageConversationLength}
-                </p>
+              <CardContent className="text-3xl font-bold">
+                {formatTime(metrics.avgResponseSec)}
               </CardContent>
             </Card>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>応募者対応効率</CardTitle>
-              <CardDescription>メッセージの応答時間と質に関する分析</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[200px] flex items-center justify-center border-2 border-dashed rounded-md">
-                <p className="text-muted-foreground">応答時間グラフ（実装時にはグラフを表示）</p>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
+        {/* ─── 応答時間タブ ───────────────────────── */}
         <TabsContent value="response" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>応答時間の推移</CardTitle>
-              <CardDescription>過去30日間の平均応答時間の推移</CardDescription>
+              <CardDescription>実装時に折れ線グラフを描画</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-md">
-                <p className="text-muted-foreground">応答時間の推移グラフ（実装時にはグラフを表示）</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>時間帯別応答率</CardTitle>
-              <CardDescription>時間帯別の応答率と平均応答時間</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[200px] flex items-center justify-center border-2 border-dashed rounded-md">
-                <p className="text-muted-foreground">時間帯別応答率グラフ（実装時にはグラフを表示）</p>
+                <span className="text-muted-foreground">
+                  折れ線グラフ placeholder
+                </span>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* ─── コンバージョンタブ ──────────────────── */}
         <TabsContent value="conversion" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>採用プロセスのコンバージョン</CardTitle>
-              <CardDescription>各ステージでのコンバージョン率</CardDescription>
+              <CardTitle>コンバージョンファネル</CardTitle>
+              <CardDescription>各ステージの通過率</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-md">
-                <p className="text-muted-foreground">コンバージョンファネルグラフ（実装時にはグラフを表示）</p>
-              </div>
-              <div className="mt-4 space-y-2">
-                {analyticsData.conversionRate.stages.map((stage, index) => (
-                  <div key={index} className="flex justify-between items-center">
-                    <span>{stage.name}</span>
-                    <span className="font-medium">{stage.value}%</span>
-                  </div>
-                ))}
+                <span className="text-muted-foreground">
+                  ファネルチャート placeholder
+                </span>
               </div>
             </CardContent>
           </Card>

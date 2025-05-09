@@ -1,4 +1,7 @@
-// lib/auth-context.tsx
+/* ───────────────────────────────────────────────
+   lib/auth-context.tsx
+   - 認証コンテキスト（admin ロール対応版）
+────────────────────────────────────────────── */
 "use client"
 console.log("👉 login() called")
 
@@ -18,8 +21,9 @@ import type { Database } from "@/lib/supabase/types"
 /* ------------------------------------------------------------------ */
 /*                             型定義                                  */
 /* ------------------------------------------------------------------ */
-export type UserRole = "student" | "company" | null
-/** ログイン／サインアップ時に必ず指定する役割 */
+/** ★ admin を追加 */
+export type UserRole = "student" | "company" | "admin" | null
+/** ログイン／サインアップ時に必ず指定する役割（admin は通常サインアップしない想定） */
 export type RoleOption = Exclude<UserRole, null>
 
 export type User = {
@@ -89,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearError = () => setError(null)
 
   /* ----------------------------------------------------------------
-     セッション ＋ プロフィール取得の共通ハンドラ
+     共通：セッション＋プロフィール取得
   ---------------------------------------------------------------- */
   const applySession = async (sess: Session | null) => {
     setSession(sess)
@@ -104,16 +108,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoggedIn(true)
 
-    // 1) role を取得
+    /* ---------- role 取得 ---------- */
     const { data: roleRow } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", sess.user.id)
       .maybeSingle()
+    /* ★ 既定値は student → admin ログインで role 未設定の場合もあるので null 回避 */
     const role = (roleRow?.role ?? "student") as UserRole
     setUserType(role)
 
-    // 2) user オブジェクトをセット
+    /* ---------- user オブジェクト ---------- */
     setUser({
       id: sess.user.id,
       email: sess.user.email ?? "",
@@ -124,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
     })
 
-    // 3) profile を取得
+    /* ---------- profile 取得 ---------- */
     if (role === "company") {
       const { data: comp } = await supabase
         .from("company_profiles")
@@ -132,13 +137,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", sess.user.id)
         .maybeSingle()
       setProfile(comp ?? null)
-    } else {
+    } else if (role === "student") {
       const { data: stu } = await supabase
         .from("student_profiles")
         .select("*")
         .eq("user_id", sess.user.id)
         .maybeSingle()
       setProfile(stu ?? null)
+    } else {
+      /* admin は profile なし */
+      setProfile(null)
     }
   }
 
@@ -182,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error
       if (!data.user) return true // メール確認フローのみ
 
-      // user_roles に登録
+      /* user_roles に登録 */
       await supabase
         .from("user_roles")
         .upsert(
@@ -191,13 +199,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         )
       setUserType(role)
 
-      // profile 初期化
+      /* profile 初期化（admin は作らない）*/
       if (role === "company") {
         await supabase.from("company_profiles").insert({
           user_id: data.user.id,
           company_name: fullName,
         })
-      } else {
+      } else if (role === "student") {
         await supabase.from("student_profiles").insert({
           user_id: data.user.id,
           full_name: fullName,
@@ -228,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const uid = data.user.id
 
-      // user_roles を upsert
+      /* user_roles を upsert（admin ログイン時は roleInput="admin" を渡す）*/
       await supabase
         .from("user_roles")
         .upsert(
@@ -236,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           { onConflict: "user_id" }
         )
 
-      // 最終 role を取得
+      /* role 最終決定 */
       const { data: roleRow } = await supabase
         .from("user_roles")
         .select("role")
@@ -245,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const roleFinal = (roleRow?.role ?? roleInput) as UserRole
       setUserType(roleFinal)
 
-      // Context state を更新
+      /* Context state 更新 */
       setSession(data.session)
       setIsLoggedIn(true)
       setUser({
@@ -255,10 +263,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: roleFinal,
       })
 
-      // ダッシュボードへ遷移
-      router.replace(
-        roleFinal === "company" ? "/company-dashboard" : "/student-dashboard"
-      )
+      /* ---------- ダッシュボードへ遷移 ---------- */
+      const redirectByRole = (role: UserRole) => {
+        switch (role) {
+          case "company":
+            return "/company-dashboard"
+          case "admin":          // ★ admin ダッシュボード
+            return "/admin"
+          case "student":
+          default:
+            return "/student-dashboard"
+        }
+      }
+      router.replace(redirectByRole(roleFinal))
       return true
     } catch (e: any) {
       console.error("Login error:", e)
@@ -300,9 +317,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (typeof window !== "undefined") {
     // @ts-ignore
     window.__dbg = { session, user, profile, userType }
-    console.log("🟢 session:", session)
-    console.log("🟢 user   :", user)
-    console.log("🟢 profile:", profile)
+    console.log("🟢 session :", session)
+    console.log("🟢 user    :", user)
+    console.log("🟢 profile :", profile)
     console.log("🟢 userType:", userType)
   }
 
