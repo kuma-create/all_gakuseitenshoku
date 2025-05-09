@@ -12,7 +12,7 @@ import {
 import { Loader2, Search, Filter } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { useAuthGuard } from "@/lib/use-auth-guard"
-import type { JobWithTags } from "@/lib/supabase/models"
+import type { JobRow, CompanyPreview } from "@/lib/supabase/models"
 
 import { JobCard } from "@/components/job-card"
 import { Input }   from "@/components/ui/input"
@@ -22,6 +22,16 @@ import { Slider }  from "@/components/ui/slider"
 import {
   Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet"
+
+/* ---------------- 型 ---------------- */
+type JobWithTags = JobRow & {
+  company: CompanyPreview | null        // company が無い行を許容
+  job_tags: { tag: string }[] | null
+  tags: string[]    
+  is_new: boolean   
+  is_hot: boolean   
+  is_featured: boolean              // フロント用に展開
+}
 
 export default function JobsPage() {
   const ready = useAuthGuard("student")
@@ -35,51 +45,67 @@ export default function JobsPage() {
 
 /* ------------------------------ Inner ------------------------------ */
 function JobsPageInner() {
-  /* ------------- state ------------- */
   const [searchQuery, setSearchQuery] = useState("")
   const [location,    setLocation]    = useState("")
   const [salaryRange, setSalaryRange] = useState<[number, number]>([300, 1000])
-  const [jobs,        setJobs]        = useState<JobWithTags[]>([])
-  const [saved,       setSaved]       = useState<string[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [filterOpen,  setFilterOpen]  = useState(false)
+
+  const [jobs,   setJobs]   = useState<JobWithTags[]>([])
+  const [saved,  setSaved]  = useState<string[]>([])
+  const [loading,setLoading]= useState(true)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   /* ------------- fetch ------------- */
   useEffect(() => {
     ;(async () => {
       setLoading(true)
-      const { data } = await supabase
+
+      const { data, error } = await supabase
         .from("jobs")
-        .select("*, companies(*), job_tags(tag)")
+        .select(`
+          *,
+          company:companies!left(id, name, logo, cover_image_url),
+          job_tags!left(tag)
+        `)                                  // ← LEFT JOIN
         .eq("published", true)
         .order("created_at", { ascending: false })
 
-      setJobs((data ?? []) as unknown as JobWithTags[])
+      if (error) {
+        console.error("jobs fetch error", error)
+        setJobs([])
+      } else {
+        const merged = (data as any[]).map(j => ({
+          ...j,
+          tags: j.job_tags?.map((t: any) => t.tag) ?? [],
+          is_new: !!j.created_at &&
+            Date.now() - new Date(j.created_at).getTime() < 1000 * 60 * 60 * 24 * 7,
+            is_hot:        !!j.is_hot,
+            is_featured:   !!j.is_featured,
+        })) as JobWithTags[]
+        setJobs(merged)
+      }
       setLoading(false)
     })()
   }, [])
-  
-  console.log("🚩 jobs raw", jobs.slice(0, 3));          // 3 件だけサンプル出力
 
   /* ------------- filter ------------- */
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase()
 
     return jobs.filter(j => {
-      /* --- テキスト検索 --- */
+      /* テキスト検索 */
       const textOk =
         q === "" ||
         j.title.toLowerCase().includes(q) ||
         (j.company?.name ?? "").toLowerCase().includes(q)
 
-      /* --- 勤務地 --- */
+      /* 勤務地 */
       const locOk =
         location === "" ||
         (j.location ?? "").includes(location)
 
-      /* --- 給与レンジ (NULL/0 も含める) --- */
-      const min = j.salary_min ?? 0
-      const max = j.salary_max ?? Number.MAX_SAFE_INTEGER
+      /* 給与レンジ (NULL/0 も含める) */
+      const min = Number(j.salary_min ?? 0)
+      const max = Number(j.salary_max ?? Number.MAX_SAFE_INTEGER)
       const salaryOk = min <= salaryRange[1] && max >= salaryRange[0]
 
       return textOk && locOk && salaryOk
@@ -90,7 +116,7 @@ function JobsPageInner() {
     setSaved(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }, [])
 
-  /* ------------- render ------------- */
+  /* ---------------- render ---------------- */
   return (
     <main className="min-h-screen bg-gray-50 pb-24">
       {/* ================= HEADER ================= */}
@@ -98,7 +124,7 @@ function JobsPageInner() {
         <div className="container space-y-6">
           <h1 className="text-3xl font-bold text-white">求人一覧</h1>
 
-          {/* ---- search bar ---- */}
+          {/* search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <Input
@@ -109,7 +135,7 @@ function JobsPageInner() {
             />
           </div>
 
-          {/* ---- filter button (mobile) ---- */}
+          {/* filter button (mobile) */}
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2 sm:hidden">
@@ -159,7 +185,7 @@ function JobsPageInner() {
   )
 }
 
-/* ------------------------------ Filter Form ------------------------------ */
+/* ---------------- Filter Form ---------------- */
 type FProps = {
   location: string
   setLocation: (v: string) => void
