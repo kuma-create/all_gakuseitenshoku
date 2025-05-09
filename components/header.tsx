@@ -95,13 +95,12 @@
              <Image
                src="/logo.png"
                alt="Culture ロゴ"
-               width={32}
-               height={32}
+               width={80}
+               height={80}
                priority
                className="h-8 w-8 object-contain"
              />
-             <span className="text-xl font-bold text-red-600">学生転職</span>
-           </Link>
+            </Link>
    
            {/* -------------- グローバルナビ（PC） -------------- */}
            <nav className="hidden lg:block">
