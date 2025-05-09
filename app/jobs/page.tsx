@@ -1,5 +1,7 @@
 /* ──────────────────────────────────────────────────────────────
    app/jobs/page.tsx
+   - 学生ユーザ用：求人一覧（カード表示＋モバイル検索 UI）
+   - JOIN 先は LEFT JOIN で company が無くても表示
 ────────────────────────────────────────────────────────────── */
 "use client"
 
@@ -23,16 +25,21 @@ import {
   Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet"
 
-/* ---------------- 型 ---------------- */
+/* ------------------------------------------------------------------ */
+/*                                型                                  */
+/* ------------------------------------------------------------------ */
 type JobWithTags = JobRow & {
-  company: CompanyPreview | null        // company が無い行を許容
-  job_tags: { tag: string }[] | null
-  tags: string[]    
-  is_new: boolean   
-  is_hot: boolean   
-  is_featured: boolean              // フロント用に展開
+  company    : CompanyPreview | null
+  job_tags   : { tag: string }[] | null
+  tags       : string[]
+  is_new     : boolean
+  is_hot     : boolean
+  is_featured: boolean
 }
 
+/* ------------------------------------------------------------------ */
+/*                               Page                                 */
+/* ------------------------------------------------------------------ */
 export default function JobsPage() {
   const ready = useAuthGuard("student")
   return ready ? <JobsPageInner /> : (
@@ -43,8 +50,9 @@ export default function JobsPage() {
   )
 }
 
-/* ------------------------------ Inner ------------------------------ */
+/* ------------------------------ Main ------------------------------ */
 function JobsPageInner() {
+  /* state */
   const [searchQuery, setSearchQuery] = useState("")
   const [location,    setLocation]    = useState("")
   const [salaryRange, setSalaryRange] = useState<[number, number]>([300, 1000])
@@ -54,18 +62,19 @@ function JobsPageInner() {
   const [loading,setLoading]= useState(true)
   const [filterOpen, setFilterOpen] = useState(false)
 
-  /* ------------- fetch ------------- */
+  /* ---------------- Supabase fetch ---------------- */
   useEffect(() => {
     ;(async () => {
       setLoading(true)
 
+      /** FK 名を指定して LEFT JOIN（jobs_company_id_fkey を残した想定） */
       const { data, error } = await supabase
         .from("jobs")
         .select(`
           *,
-          company:companies!left(id, name, logo, cover_image_url),
+          company:companies!jobs_company_id_fkey(id, name, logo, cover_image_url),
           job_tags!left(tag)
-        `)                                  // ← LEFT JOIN
+        `)
         .eq("published", true)
         .order("created_at", { ascending: false })
 
@@ -73,13 +82,14 @@ function JobsPageInner() {
         console.error("jobs fetch error", error)
         setJobs([])
       } else {
-        const merged = (data as any[]).map(j => ({
+        const merged = (data ?? []).map((j: any) => ({
           ...j,
           tags: j.job_tags?.map((t: any) => t.tag) ?? [],
           is_new: !!j.created_at &&
-            Date.now() - new Date(j.created_at).getTime() < 1000 * 60 * 60 * 24 * 7,
-            is_hot:        !!j.is_hot,
-            is_featured:   !!j.is_featured,
+                   Date.now() - new Date(j.created_at).getTime() <
+                   1000 * 60 * 60 * 24 * 7,
+          is_hot:        !!j.is_hot,
+          is_featured:   !!j.is_featured,
         })) as JobWithTags[]
         setJobs(merged)
       }
@@ -87,12 +97,11 @@ function JobsPageInner() {
     })()
   }, [])
 
-  /* ------------- filter ------------- */
+  /* ---------------- filtering ---------------- */
   const filtered = useMemo(() => {
-    const q = searchQuery.toLowerCase()
-
+    const q = searchQuery.trim().toLowerCase()
     return jobs.filter(j => {
-      /* テキスト検索 */
+      /* 検索文字 */
       const textOk =
         q === "" ||
         j.title.toLowerCase().includes(q) ||
@@ -103,7 +112,7 @@ function JobsPageInner() {
         location === "" ||
         (j.location ?? "").includes(location)
 
-      /* 給与レンジ (NULL/0 も含める) */
+      /* 給与 */
       const min = Number(j.salary_min ?? 0)
       const max = Number(j.salary_max ?? Number.MAX_SAFE_INTEGER)
       const salaryOk = min <= salaryRange[1] && max >= salaryRange[0]
@@ -113,13 +122,15 @@ function JobsPageInner() {
   }, [jobs, searchQuery, location, salaryRange])
 
   const toggleSave = useCallback((id: string) => {
-    setSaved(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    setSaved(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
+    )
   }, [])
 
   /* ---------------- render ---------------- */
   return (
     <main className="min-h-screen bg-gray-50 pb-24">
-      {/* ================= HEADER ================= */}
+      {/* ====== Header ====== */}
       <section className="bg-gradient-to-r from-red-500 to-red-700 py-10">
         <div className="container space-y-6">
           <h1 className="text-3xl font-bold text-white">求人一覧</h1>
@@ -135,7 +146,7 @@ function JobsPageInner() {
             />
           </div>
 
-          {/* filter button (mobile) */}
+          {/* filter (mobile) */}
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2 sm:hidden">
@@ -147,12 +158,14 @@ function JobsPageInner() {
               <SheetHeader>
                 <SheetTitle>詳細検索</SheetTitle>
               </SheetHeader>
+
               <FilterForm
                 location={location}
                 setLocation={setLocation}
                 salaryRange={salaryRange}
                 setSalaryRange={setSalaryRange}
               />
+
               <Button className="mt-6 w-full" onClick={() => setFilterOpen(false)}>
                 この条件で検索
               </Button>
@@ -161,7 +174,7 @@ function JobsPageInner() {
         </div>
       </section>
 
-      {/* ================= LIST ================= */}
+      {/* ====== List ====== */}
       <section className="container mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           <p>読み込み中...</p>
@@ -185,7 +198,7 @@ function JobsPageInner() {
   )
 }
 
-/* ---------------- Filter Form ---------------- */
+/* ---------------- Filter UI ---------------- */
 type FProps = {
   location: string
   setLocation: (v: string) => void
@@ -195,6 +208,7 @@ type FProps = {
 function FilterForm({ location, setLocation, salaryRange, setSalaryRange }: FProps) {
   return (
     <div className="space-y-6">
+      {/* location */}
       <div className="flex flex-col gap-1">
         <Label htmlFor="loc">勤務地</Label>
         <Input
@@ -205,6 +219,7 @@ function FilterForm({ location, setLocation, salaryRange, setSalaryRange }: FPro
         />
       </div>
 
+      {/* salary */}
       <div className="flex flex-col gap-2">
         <Label>給与レンジ (万円)</Label>
         <Slider
