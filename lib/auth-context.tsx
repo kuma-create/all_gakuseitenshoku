@@ -118,6 +118,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const role = (roleRow?.role ?? "student") as UserRole
     setUserType(role)
 
+    const redirectByRole = (r: UserRole) => {
+      switch (r) {
+        case "admin":
+          return "/admin"
+        case "company":
+          return "/company-dashboard"
+        default:
+          return "/student-dashboard"
+      }
+    }
+    // すでにそのページに居る場合はスキップ
+    if (typeof window !== "undefined" && location.pathname === "/login") {
+      router.replace(redirectByRole(role))
+    }
+
     /* ---------- user オブジェクト ---------- */
     setUser({
       id: sess.user.id,
@@ -195,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from("user_roles")
         .upsert(
           [{ user_id: data.user.id, role }],
-          { onConflict: "user_id" }
+          { onConflict: "user_id", ignoreDuplicates: true }
         )
       setUserType(role)
 
