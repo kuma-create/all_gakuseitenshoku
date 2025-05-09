@@ -58,6 +58,8 @@ function JobsPageInner() {
       setLoading(false)
     })()
   }, [])
+  
+  console.log("🚩 jobs raw", jobs.slice(0, 3));          // 3 件だけサンプル出力
 
   /* ------------- filter ------------- */
   const filtered = useMemo(() => {
