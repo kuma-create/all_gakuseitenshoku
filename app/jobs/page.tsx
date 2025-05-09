@@ -1,7 +1,5 @@
-/* ───────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────
    app/jobs/page.tsx
-   - Supabase ロジックは既存のまま
-   - UI/UX を JobCard & モダン検索に刷新
 ────────────────────────────────────────────────────────────── */
 "use client"
 
@@ -11,7 +9,6 @@ import {
   useMemo,
   useCallback,
 } from "react"
-import Link from "next/link"
 import { Loader2, Search, Filter } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { useAuthGuard } from "@/lib/use-auth-guard"
@@ -65,12 +62,26 @@ function JobsPageInner() {
   /* ------------- filter ------------- */
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase()
-    return jobs.filter(j =>
-      (q === "" || j.title.toLowerCase().includes(q)) &&
-      (location === "" || (j.location ?? "").includes(location)) &&
-      (j.salary_min ?? 0) <= salaryRange[1] &&
-      (j.salary_max ?? 0) >= salaryRange[0]
-    )
+
+    return jobs.filter(j => {
+      /* --- テキスト検索 --- */
+      const textOk =
+        q === "" ||
+        j.title.toLowerCase().includes(q) ||
+        (j.company?.name ?? "").toLowerCase().includes(q)
+
+      /* --- 勤務地 --- */
+      const locOk =
+        location === "" ||
+        (j.location ?? "").includes(location)
+
+      /* --- 給与レンジ (NULL/0 も含める) --- */
+      const min = j.salary_min ?? 0
+      const max = j.salary_max ?? Number.MAX_SAFE_INTEGER
+      const salaryOk = min <= salaryRange[1] && max >= salaryRange[0]
+
+      return textOk && locOk && salaryOk
+    })
   }, [jobs, searchQuery, location, salaryRange])
 
   const toggleSave = useCallback((id: string) => {
@@ -127,7 +138,9 @@ function JobsPageInner() {
         {loading ? (
           <p>読み込み中...</p>
         ) : filtered.length === 0 ? (
-          <p className="col-span-full text-center text-gray-500">求人が見つかりませんでした</p>
+          <p className="col-span-full text-center text-gray-500">
+            求人が見つかりませんでした
+          </p>
         ) : (
           filtered.map(j => (
             <JobCard
