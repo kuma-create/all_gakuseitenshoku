@@ -102,49 +102,62 @@ export default function NewJobPage() {
 
     setIsSaving(true)
 
-    try {
-      /* 1) company_profiles から自社 ID を取得 -------------------- */
-      const { data: cp, error: cpErr } = await supabase
-        .from("company_profiles")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle()
+// 2️⃣ handleSubmit() の try ブロックを次のように書き替えます
+  try {
+    /* A) profiles の有無チェック（お好みで残す） ---------------- */
+    const { data: profile, error: profileErr } = await supabase
+      .from("company_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .single()
 
-      if (cpErr) throw cpErr
-      if (!cp)   throw new Error("まず会社プロフィールを登録してください")
+    if (profileErr) throw profileErr
+    if (!profile)   throw new Error("まず会社プロフィールを登録してください")
 
-      /* 2) jobs へ INSERT ----------------------------------------- */
-      const payload = {
-        company_id      : cp.id,
-        title           : formData.title,
-        description     : formData.description,
-        requirements    : formData.requirements || null,
-        location        : formData.location || null,
-        work_type       : formData.employmentType,
-        salary_range    : formData.salary || null,
-        published       : formData.status === "公開",
-        published_until : formData.applicationDeadline || null,
-      } as const
+    /* B) FK 用の company_id を取得 -------------------------------- */
+    const { data: company, error: compErr } = await supabase
+      .from("companies")      // ← companies テーブル
+      .select("id")
+      .eq("user_id", user.id) // ← ログイン中ユーザーに紐づく行
+      .single()
 
-      const { error: insertErr } = await supabase.from("jobs").insert(payload)
+    if (compErr) throw compErr        // compErr.code === "PGRST116" なら行が無い
 
-      if (insertErr) throw insertErr
+    /* C) jobs へ INSERT ------------------------------------------- */
+    const payload = {
+      company_id      : company.id,          // ← ここが **唯一** の FK
+      title           : formData.title,
+      description     : formData.description,
+      requirements    : formData.requirements || null,
+      location        : formData.location    || null,
+      work_type       : formData.employmentType,
+      salary_range    : formData.salary      || null,
+      published       : formData.status === "公開",
+      published_until : formData.applicationDeadline || null,
+    } as const
 
-      /* 3) 成功時 UI --------------------------------------------- */
-      toast({ title: "作成完了", description: "新しい求人が作成されました。" })
-      setShowSuccessOptions(true)
-    } catch (err: any) {
-      console.error("Job insert error:", err)
-      toast({
-        title: "エラー",
-        description: err?.message ?? "求人の作成に失敗しました。",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    const { error: insertErr } = await supabase
+      .from("jobs")
+      .insert(payload)
+      .select()               // ← 行を返しておくとデバッグしやすい
+
+    if (insertErr) throw insertErr
+
+    toast({ title: "作成完了", description: "新しい求人が作成されました。" })
+    setShowSuccessOptions(true)
   }
+    catch (err: any) {
+    console.error("Job insert error:", err)
+    toast({
+      title: "エラー",
+      description: err?.details ?? err?.message ?? "求人の作成に失敗しました。",
+      variant: "destructive",
+    })
+  } 
+    finally {
+    setIsSaving(false)
+  }
+
 
   return (
     <div className="container mx-auto py-8 px-4 pb-24">
@@ -495,4 +508,4 @@ export default function NewJobPage() {
       </div>
     </div>
   )
-}
+}}
