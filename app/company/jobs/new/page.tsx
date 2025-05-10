@@ -103,28 +103,49 @@ export default function NewJobPage() {
     setIsSaving(true)
 
     try {
-      /* A) profiles の有無チェック（お好みで残す） ---------------- */
+      /* 0) 会社プロフィール（UI 用） ------------------------------ */
       const { data: profile, error: profileErr } = await supabase
         .from("company_profiles")
-        .select("id")
+        .select("company_name")
         .eq("user_id", user.id)
         .single()
-
+    
       if (profileErr) throw profileErr
       if (!profile)   throw new Error("まず会社プロフィールを登録してください")
-
-      /* B) FK 用の company_id を取得 -------------------------------- */
+    
+      /* 1) companies.id を取得。無ければその場で作成 -------------- */
+      let companyId: string | undefined
+    
       const { data: company, error: compErr } = await supabase
-        .from("companies")      // ← companies テーブル
+        .from("companies")
         .select("id")
-        .eq("user_id", user.id) // ← ログイン中ユーザーに紐づく行
-        .single()
-
-      if (compErr) throw compErr        // compErr.code === "PGRST116" なら行が無い
-
-      /* C) jobs へ INSERT ------------------------------------------- */
+        .eq("user_id", user.id)
+        .maybeSingle()
+    
+      if (compErr) throw compErr
+    
+      if (company && company.id) {
+        companyId = company.id
+      } else {
+        // 無ければ INSERT → 返ってきた id を使う
+        const { data: inserted, error: insertCompErr } = await supabase
+          .from("companies")
+          .insert({
+            user_id: user.id,
+            name   : profile.company_name ?? "未設定企業名",
+          })
+          .select("id")
+          .single()
+    
+        if (insertCompErr) throw insertCompErr
+        companyId = inserted.id
+      }
+    
+      if (!companyId) throw new Error("会社IDの取得に失敗しました")
+    
+      /* 2) jobs へ INSERT ---------------------------------------- */
       const payload = {
-        company_id      : company.id,          // ← ここが **唯一** の FK
+        company_id      : companyId,                  // ← FK はこれだけ
         title           : formData.title,
         description     : formData.description,
         requirements    : formData.requirements || null,
@@ -134,18 +155,18 @@ export default function NewJobPage() {
         published       : formData.status === "公開",
         published_until : formData.applicationDeadline || null,
       } as const
-
+    
       const { error: insertErr } = await supabase
         .from("jobs")
         .insert(payload)
-        .select()               // ← 行を返しておくとデバッグしやすい
-
+        .select()
+    
       if (insertErr) throw insertErr
-
+    
       toast({ title: "作成完了", description: "新しい求人が作成されました。" })
       setShowSuccessOptions(true)
     } catch (err: any) {
-      console.error("Job insert error:", err)
+      console.error(err)
       toast({
         title: "エラー",
         description: err?.details ?? err?.message ?? "求人の作成に失敗しました。",
