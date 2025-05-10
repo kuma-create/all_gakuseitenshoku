@@ -93,21 +93,28 @@ export default function CompanyJobsPage() {
       setError(null)
 
       /* ❶ company_profiles から会社 ID 取得 */
-      const { data: company, error: companyErr } = await supabase
-        .from("company_profiles")
+/* ❶ companies.id を取得（companyId を作る） */
+      const { data: companyRow, error: compErr } = await supabase
+        .from("companies")          // ← companies テーブルを読む
         .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle()
+        .eq("user_id", user.id)     // ← ログイン uid
+        .single()                   // 必ず 1 行返す
 
-      if (companyErr) { setError(companyErr.message); setLoading(false); return }
-      if (!company)   { setError("会社プロフィールが登録されていません"); setLoading(false); return }
+      if (compErr) { setError(compErr.message); setLoading(false); return }
+      if (!companyRow) {
+        setError("会社アカウントがありません")
+        setLoading(false)
+        return
+      }
+
+const companyId = companyRow.id    // ★ ここで変数を定義
+
 
       /* ❷ 求人取得 */
       const { data: jobsData, error: jobsErr } = await supabase
         .from("jobs")
         .select("*")
-        .eq("company_id", company.id)
+        .eq("company_id", companyId)  
 
       if (jobsErr) { setError(jobsErr.message); setLoading(false); return }
 
