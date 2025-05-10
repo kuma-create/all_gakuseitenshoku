@@ -12,7 +12,7 @@ import type { Session } from "@supabase/supabase-js"
 import {
   Bell, LayoutDashboard, User, Briefcase, Search, Mail,
   MessageSquare, Trophy, Star, LogIn, Building2, ShieldCheck,
-  LucideIcon,
+  LucideIcon, Send,
 } from "lucide-react"
 
 import { Button }   from "@/components/ui/button"
@@ -42,6 +42,7 @@ const studentLinks: NavItem[] = [
 const companyLinks: NavItem[] = [
   { href: "/company-dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/company/jobs",      label: "求人管理",   icon: Briefcase },
+  { href: "/company/scouts",    label: "スカウト",   icon: Send }, 
   { href: "/chat",              label: "チャット",   icon: MessageSquare },
 ]
 
