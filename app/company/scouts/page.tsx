@@ -13,7 +13,6 @@ import {
   User,
   X,
 } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/lib/supabase/types"
 
 import { Button } from "@/components/ui/button"
@@ -50,6 +49,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs"
+import { supabase as sb } from "@/lib/supabase/client"
 
 // 型ガード: experience フィールドの型をチェック
 function isExperienceArray(v: unknown): v is Experience[] {
@@ -101,7 +101,6 @@ const defaultTemplates: Omit<ScoutTemplateRow, "id" | "company_id" | "created_at
 ]
 
 export default function ScoutPage() {
-  const sb = useMemo(() => createClientComponentClient<Database>(), [])
   const router = useRouter()
   const { toast } = useToast()
 

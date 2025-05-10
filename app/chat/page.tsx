@@ -97,8 +97,7 @@ export default function ChatPage() {
 
     const { data, error } = await supabase
       .from("chat_rooms")
-      .select(
-        `
+      .select(`
         id,
         company_id,
         student_id,
