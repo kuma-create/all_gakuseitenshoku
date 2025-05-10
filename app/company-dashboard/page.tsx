@@ -1,9 +1,3 @@
-/* ───────────────────────────────────────────────
-   企業ダッシュボード  ─  Supabase 実データ版
-   ------------------------------------------------
-   * applications.student_id ↔ student_profiles.id
-     を FK `applications_student_id_fkey` で JOIN
-────────────────────────────────────────────── */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -19,7 +13,7 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase/client"
-import { useAuth }   from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context"
 
 import {
   Card,
@@ -28,9 +22,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button }  from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge }   from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 
 /* ---------- 型 ---------- */
 type ApplicationRow = {
@@ -59,22 +58,23 @@ type MessageRow = {
 
 /* ───────────────────────────────────────────── */
 export default function CompanyDashboard() {
-  const router                     = useRouter()
+  const router                       = useRouter()
   const { isLoggedIn, userType, user } = useAuth()
 
   /* --- state -------------------------------------------------------- */
-  const [loading  , setLoading  ] = useState(true)
-  const [pubJobs  , setPubJobs  ] = useState(0)
-  const [draftJobs, setDraftJobs] = useState(0)
+  const [loading     , setLoading    ] = useState(true)
+  const [pubJobs     , setPubJobs     ] = useState(0)
+  const [draftJobs   , setDraftJobs   ] = useState(0)
   const [applications, setApplications] = useState<ApplicationRow[]>([])
-  const [jobs       , setJobs       ] = useState<JobRow[]>([])
-  const [messages   , setMessages   ] = useState<MessageRow[]>([])
-  const [unreadCnt  , setUnreadCnt  ] = useState(0)
+  const [jobs        , setJobs        ] = useState<JobRow[]>([])
+  const [messages    , setMessages    ] = useState<MessageRow[]>([])
+  const [unreadCnt   , setUnreadCnt   ] = useState(0)
+  const [scoutCount  , setScoutCount  ] = useState(0)
 
   /* --- 認証 --------------------------------------------------------- */
   useEffect(() => {
     if (!loading) {
-      if (!isLoggedIn)            router.push("/login")
+      if (!isLoggedIn)                router.push("/login")
       else if (userType !== "company") router.push("/")
     }
   }, [loading, isLoggedIn, userType, router])
@@ -101,10 +101,16 @@ export default function CompanyDashboard() {
         { data: applRows },
         { data: msgRows },
       ] = await Promise.all([
-        supabase.from("jobs").select("id").eq("company_id", companyId).eq("published", true),
-        supabase.from("jobs").select("id").eq("company_id", companyId).eq("published", false),
-
-        /* 応募 — student_profiles 経由で学生名を取得 */
+        supabase
+          .from("jobs")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("published", true),
+        supabase
+          .from("jobs")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("published", false),
         supabase
           .from("applications")
           .select(`
@@ -116,8 +122,6 @@ export default function CompanyDashboard() {
           `)
           .order("created_at", { ascending: false })
           .limit(5),
-
-        /* メッセージ（未読数カウント用） */
         supabase
           .from("messages")
           .select(`
@@ -135,9 +139,15 @@ export default function CompanyDashboard() {
           .limit(5),
       ])
 
-      /* ③ 整形 ------------------------------------------------------- */
+      /* ③ スカウト件数取得 */
+      const { count: scoutCnt } = await supabase
+        .from("scouts")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+
+      setScoutCount(scoutCnt ?? 0)
       setPubJobs(publishedJobs?.length ?? 0)
-      setDraftJobs(draftJobsRows?.length  ?? 0)
+      setDraftJobs(draftJobsRows?.length ?? 0)
 
       setApplications(
         (applRows ?? []).map((a) => ({
@@ -183,7 +193,7 @@ export default function CompanyDashboard() {
           title     : j.title,
           views     : j.views,
           applicants: j.applications.length,
-          days_left :
+          days_left:
             j.published_until
               ? Math.max(
                   0,
@@ -209,7 +219,6 @@ export default function CompanyDashboard() {
     )
   }
 
-  /* =================================================================== */
   return (
     <main className="container mx-auto px-4 py-6">
       {/* ── ヘッダー ───────────────────────────── */}
@@ -223,6 +232,12 @@ export default function CompanyDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <Link href="/company/scout">
+            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+              <Users className="h-4 w-4" />
+              スカウト画面へ
+            </Button>
+          </Link>
           <Button className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" />
             新規求人作成
@@ -230,61 +245,38 @@ export default function CompanyDashboard() {
           <Button variant="outline" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
             通知
-            {unreadCnt > 0 && (
-              <Badge className="ml-1 bg-red-500">{unreadCnt}</Badge>
-            )}
+            {unreadCnt > 0 && <Badge className="ml-1 bg-red-500">{unreadCnt}</Badge>}
           </Button>
         </div>
       </header>
 
       {/* ── サマリー ───────────────────────────── */}
-      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          title="求人"
-          main={pubJobs}
-          sub={draftJobs}
-          subLabel="下書き"
-          link="/jobs/manage"
-        />
-        <SummaryCard
-          title="応募者"
-          main={applications.length}
-          link="/applications"
-        />
-        <SummaryCard
-          title="メッセージ"
-          main={unreadCnt}
-          sub={messages.length}
-          subLabel="取得件数"
-          link="/chat"
-        />
+      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <SummaryCard title="求人"      main={pubJobs}     sub={draftJobs}   subLabel="下書き" link="/jobs/manage" />
+        <SummaryCard title="応募者"    main={applications.length} link="/applications" />
+        <SummaryCard title="メッセージ" main={unreadCnt}    sub={messages.length} subLabel="取得件数" link="/chat" />
+        <SummaryCard title="スカウト"  main={scoutCount}   link="/company/scout" />
       </section>
 
-      {/* ── タブ ─────────────────────────────── */}
+      {/* ── タブ ───────────────────────────────── */}
       <Tabs defaultValue="applications" className="mb-8">
         <TabsList className="mb-4 grid w-full grid-cols-3">
           <TabsTrigger value="applications" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            応募者
+            <Users className="h-4 w-4" /> 応募者
           </TabsTrigger>
           <TabsTrigger value="jobs" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            求人
+            <FileText className="h-4 w-4" /> 求人
           </TabsTrigger>
           <TabsTrigger value="messages" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            メッセージ
+            <MessageSquare className="h-4 w-4" /> メッセージ
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="applications">
           <ApplicationsTable rows={applications} />
         </TabsContent>
-
         <TabsContent value="jobs">
           <JobsCards rows={jobs} />
         </TabsContent>
-
         <TabsContent value="messages">
           <MessagesList rows={messages} />
         </TabsContent>
