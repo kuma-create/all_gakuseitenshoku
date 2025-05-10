@@ -42,7 +42,7 @@ const studentLinks: NavItem[] = [
 const companyLinks: NavItem[] = [
   { href: "/company-dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/company/jobs",      label: "求人管理",   icon: Briefcase },
-  { href: "/company/scouts",    label: "スカウト",   icon: Send }, 
+  { href: "/company/scout",    label: "スカウト",   icon: Send }, 
   { href: "/chat",              label: "チャット",   icon: MessageSquare },
 ]
 
