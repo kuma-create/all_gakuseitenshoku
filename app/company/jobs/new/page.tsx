@@ -132,6 +132,7 @@ export default function NewJobPage() {
           .from("companies")
           .insert({
             user_id: user.id,
+            id     : crypto.randomUUID(),
             name   : profile.company_name ?? "未設定企業名",
           })
           .select("id")
