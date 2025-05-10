@@ -122,10 +122,10 @@ export default function ScoutPage() {
   const [sortOption           , setSortOption           ] = useState<string>("default")
 
   // モーダル state
-  const [isScoutModalOpen , setIsScoutModalOpen ] = useState<boolean>(false)
-  const [selectedStudent , setSelectedStudent ] = useState<Student | null>(null)
+  const [isScoutModalOpen, setIsScoutModalOpen] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
-  const [scoutMessage    , setScoutMessage    ] = useState<string>("")
+  const [scoutMessage, setScoutMessage] = useState("")
 
   const [isProfileModalOpen , setIsProfileModalOpen ] = useState<boolean>(false)
   const [profileStudent     , setProfileStudent     ] = useState<Student | null>(null)
@@ -343,18 +343,35 @@ export default function ScoutPage() {
       {/* ヘッダー */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">スカウト</h1>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <Input
-            placeholder="検索..."
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex items-center space-x-3">
+          {/* 検索ボックス */}
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <Input
+              placeholder="検索..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          {/* ここにヘッダーから即スカウトボタン */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedStudent(null)
+              setScoutMessage("")
+              setIsScoutModalOpen(true)
+            }}
+          >
+            <Send className="mr-1" />
+            スカウト
+          </Button>
+          {/* 既存の「新規求人作成」「通知」など */}
         </div>
       </div>
 
-      {/* ★ タブ切り替え ★ */}
+      {/* タブ切り替え（候補学生／送信済み／テンプレ管理） */}
       <Tabs defaultValue="candidates" className="mb-6">
         <TabsList>
           <TabsTrigger value="candidates">候補学生</TabsTrigger>
