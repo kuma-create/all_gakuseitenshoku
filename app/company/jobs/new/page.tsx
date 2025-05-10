@@ -115,6 +115,8 @@ export default function NewJobPage() {
     
       /* 1) companies.id を取得。無ければその場で作成 -------------- */
       let companyId: string | undefined
+
+      console.log("auth uid =", user?.id)
     
       const { data: company, error: compErr } = await supabase
         .from("companies")
