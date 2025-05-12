@@ -120,7 +120,7 @@ export default function JobDetailPage({
             *,
             company:companies(
               id,name,description,logo,cover_image_url,
-              industry,founded_year,employee_count,location,website_url
+              industry,founded_year,employee_count,location,website
             )
           `,
           )

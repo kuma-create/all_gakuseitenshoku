@@ -1,26 +1,45 @@
 // app/company/chat/[chatId]/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { Database } from "@/lib/supabase/types";
 import { Loader2 } from "lucide-react";
-import { ModernChatUI } from "@/components/chat/modern-chat-ui";
-import type { Message as ChatMessage } from "@/types/message";  // ← 上で修正した型
-import { ThemeToggle } from "@/components/theme-toggle";
-import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
+import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types";
+import { ModernChatUI } from "@/components/chat/modern-chat-ui";
+import type { Message as ChatMessage } from "@/types/message";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useToast } from "@/components/ui/use-toast";
+
+/* ------------------------------------------------------------------ */
+/*                               型定義                                */
+/* ------------------------------------------------------------------ */
+type MessageRow   = Database["public"]["Tables"]["messages"]["Row"];
+type ChatRoomRow  = Database["public"]["Tables"]["chat_rooms"]["Row"];
+type StudentRow   = Database["public"]["Tables"]["student_profiles"]["Row"];
+type ChatUser = {
+  id: string;
+  name: string;
+  avatar: string;
+  status: "オンライン" | "オフライン";
+  university: string;
+  major: string;
+};
+
+/* ------------------------------------------------------------------ */
+/*                             コンポーネント                          */
+/* ------------------------------------------------------------------ */
 export default function ChatPage() {
-  const params = useParams();
-  const rawChatId = params.chatId;
-  const chatId = Array.isArray(rawChatId) ? rawChatId[0] : rawChatId;
+  /* ------------------ URL パラメータ（chatId） ------------------ */
+  const { chatId: raw } = useParams<{ chatId: string | string[] }>();
+  const chatId = Array.isArray(raw) ? raw[0] : raw;
 
   const { toast } = useToast();
 
-  // 認証ユーザー取得
+  /* ------------------ 認証ユーザー ------------------ */
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user }, error }) => {
@@ -36,16 +55,66 @@ export default function ChatPage() {
     });
   }, [toast]);
 
-  // メッセージ一覧＆ローディング
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  /* ------------------ チャット相手（学生） ------------------ */
+  const [recipient, setRecipient] = useState<ChatUser>({
+    id: "",
+    name: "",
+    avatar: "",
+    status: "オフライン",
+    university: "",
+    major: "",
+  });
 
+  useEffect(() => {
+    if (!chatId) return;
+
+    supabase
+      .from("chat_rooms")
+      .select(
+        `
+          id,
+          student_profiles:student_id (
+            id,
+            name,
+            avatar_url,
+            university,
+            major
+          )
+        `
+      )
+      .eq("id", chatId)
+      .maybeSingle<ChatRoomRow & { student_profiles: StudentRow | null }>()
+      .then(({ data, error }) => {
+        if (error) {
+          toast({
+            title: "相手ユーザー取得に失敗しました",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (data?.student_profiles) {
+          const s = data.student_profiles;
+          setRecipient({
+            id: s.id,
+            name: s.name ?? "",
+            avatar: s.avatar_url ?? "",
+            status: "オンライン",
+            university: s.university ?? "",
+            major: s.major ?? "",
+          });
+        }
+      });
+  }, [chatId, toast]);
+
+  /* ------------------ メッセージ ------------------ */
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading]   = useState(true);
+
+  /* 既存メッセージ取得 */
   useEffect(() => {
     if (!chatId || !userId) return;
     setLoading(true);
-
-    // Supabase の messages テーブル Row 型
-    type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
     supabase
       .from("messages")
@@ -60,22 +129,19 @@ export default function ChatPage() {
             variant: "destructive",
           });
         } else if (data) {
-          // Row → ChatMessage にマッピング
           const formatted: ChatMessage[] = (data as MessageRow[]).map((m) => ({
-            id: m.id, // ← ここが string になるので型と一致
+            id: m.id,                       // string
             sender: m.sender_id === userId ? "company" : "student",
             content: m.content,
             timestamp: m.created_at!,
             status: m.is_read ? "read" : "delivered",
-            ...(m.attachment_url
-              ? {
-                  attachment: {
-                    url: m.attachment_url,
-                    name: "",
-                    type: "",
-                  },
-                }
-              : {}),
+            ...(m.attachment_url && {
+              attachment: {
+                url : m.attachment_url,
+                name: "",
+                type: "",
+              },
+            }),
           }));
           setMessages(formatted);
         }
@@ -83,57 +149,61 @@ export default function ChatPage() {
       });
   }, [chatId, userId, toast]);
 
-  // メッセージ送信
-  const handleSendMessage = async (
-    content: string,
-    attachments?: File[]
-  ): Promise<void> => {
-    if (!chatId || !userId) return;
-    const attachmentUrl = null;
+  /* メッセージ送信 */
+  const handleSendMessage = useCallback(
+    async (content: string, attachments?: File[]) => {
+      if (!chatId || !userId) return;
+      const attachmentUrl = null; // 先にアップロード処理を入れる場合はここで URL を生成
 
-    const { data, error } = await supabase
-      .from("messages")
-      .insert<Database["public"]["Tables"]["messages"]["Insert"]>({
-        chat_room_id: chatId,
-        sender_id: userId,
-        content: content.trim(),
-        is_read: false,
-        attachment_url: attachmentUrl,
-      })
-      .select() // ここもジェネリック不要
-      .single();
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          chat_room_id   : chatId,
+          sender_id      : userId,
+          content        : content.trim(),
+          is_read        : false,
+          attachment_url : attachmentUrl,
+        } satisfies Database["public"]["Tables"]["messages"]["Insert"])
+        .select()
+        .single();
 
-    if (error) {
-      toast({
-        title: "メッセージの送信に失敗しました",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
+      if (error) {
+        toast({
+          title: "メッセージの送信に失敗しました",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: data.id,
-        sender: "company",
-        content: data.content,
-        timestamp: data.created_at!,
-        status: "sent",
-        ...(data.attachment_url
-          ? { attachment: { url: data.attachment_url, name: "", type: "" } }
-          : {}),
-      },
-    ]);
-  };
+      setMessages((prev) => [
+        ...prev,
+        {
+          id       : data.id,
+          sender   : "company",
+          content  : data.content,
+          timestamp: data.created_at!,
+          status   : "sent",
+          ...(data.attachment_url && {
+            attachment: {
+              url : data.attachment_url,
+              name: "",
+              type: "",
+            },
+          }),
+        },
+      ]);
+    },
+    [chatId, userId, toast]
+  );
 
-  // 面接日程設定
+  /* 面接日程設定 */
   const handleScheduleInterview = (details: {
-    date: Date;
-    time: string;
-    duration: string;
-    type: "オンライン" | "オフライン";
-    location: string;
+    date     : Date;
+    time     : string;
+    duration : string;
+    type     : "オンライン" | "オフライン";
+    location : string;
   }) => {
     const formattedDate = format(details.date, "yyyy年MM月dd日", { locale: ja });
     const msg = `面接日程を設定しました。\n日時: ${formattedDate} ${
@@ -146,7 +216,7 @@ export default function ChatPage() {
     void handleSendMessage(msg);
   };
 
-  // 認証 or 取得中はスピナー
+  /* ---------- ローディング ---------- */
   if (loading || !userId) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -155,23 +225,17 @@ export default function ChatPage() {
     );
   }
 
-  // チャット UI
+  /* ------------------ 画面描画 ------------------ */
   return (
     <div className="flex h-screen flex-col">
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute right-4 top-4 z-20">
         <ThemeToggle />
       </div>
+
       <ModernChatUI
         messages={messages}
         currentUser="company"
-        recipient={{
-          id: 0,
-          name: "",
-          avatar: "",
-          status: "オフライン",
-          university: "",
-          major: "",
-        }}
+        recipient={recipient}
         onSendMessage={handleSendMessage}
         onScheduleInterview={handleScheduleInterview}
         className="h-full"
