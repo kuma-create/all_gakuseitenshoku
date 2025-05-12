@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────
-   app/page.tsx  –  Hero 調整版（余白圧縮＋被り解消＋画像拡大＋レスポンシブ）
+   app/page.tsx  –  Hero 最終調整版（画像 bottom 固定 & Stats 重なり解消）
 ──────────────────────────────────────────────── */
 "use client"
 
@@ -16,8 +16,8 @@ import {
   Trophy,
   Users,
 } from "lucide-react"
-
 import { LazyImage } from "@/components/ui/lazy-image"
+
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -41,24 +41,26 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-16 pt-12 md:pt-20 lg:pt-24">
+      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-24 pt-12 md:pt-20 lg:pt-24 xl:pt-28">
         {/* 背景ラジアルフェード */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
 
-        <div className="container mx-auto grid max-w-7xl items-center gap-12 px-4 md:grid-cols-2">
+        {/* ---------- メインコンテンツラッパー ---------- */}
+        <div className="container relative z-10 mx-auto grid max-w-7xl gap-y-12 px-4 md:grid-cols-2 md:items-center md:gap-x-8">
           {/* ---------- Left : Copy & CTA ---------- */}
           <div
             className={`space-y-8 text-white transition-all duration-700 ${
               loaded ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
             }`}
           >
-            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl">
               学生時代の<span className="inline-block">”職歴”で</span>
               <br />ハイレベルな就活を。
             </h1>
 
             <p className="max-w-xl text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
-              OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。企業からスカウトが届く、全く新しい就活プラットフォーム。
+              OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。
+              企業からスカウトが届く、全く新しい就活プラットフォーム。
             </p>
 
             {/* CTA ボックス */}
@@ -97,27 +99,35 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
+        </div>
 
-          {/* ---------- Right : Hero Image ---------- */}
-          <div
-            className={`relative mx-auto w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl transition-all duration-700 ${
-              loaded ? "scale-100 opacity-100" : "scale-90 opacity-0"
-            }`}
-          >
-            <Image
-              src="/hero-woman.png"
-              alt="指を立てるビジネスウーマン"
-              width={800}
-              height={1200}
-              priority
-              className="h-auto w-full select-none object-contain"
-            />
-          </div>
+        {/* ---------- Hero Image (デスクトップ) ---------- */}
+        <div className="pointer-events-none absolute bottom-0 right-0 hidden w-[46vw] max-w-[560px] lg:block xl:w-[42vw] xl:max-w-[640px]">
+          <Image
+            src="/hero-woman.png"
+            alt="指を立てるビジネスウーマン"
+            fill
+            priority
+            sizes="(max-width: 1536px) 46vw, 42vw"
+            className="object-contain object-bottom"
+          />
+        </div>
+
+        {/* ---------- Hero Image (モバイル) ---------- */}
+        <div className="mx-auto mt-8 w-2/3 max-w-xs sm:max-w-sm lg:hidden">
+          <Image
+            src="/hero-woman.png"
+            alt="指を立てるビジネスウーマン"
+            width={600}
+            height={900}
+            priority
+            className="h-auto w-full object-contain"
+          />
         </div>
       </section>
 
       {/* ─────────────── Stats Section ─────────────── */}
-      <section className="-mt-12 bg-white pb-10 pt-20 sm:-mt-16 md:-mt-24 md:pt-28">
+      <section className="bg-white py-20 md:py-24">
         <div className="container px-4 md:px-6">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             <Stat num="1,200+" label="登録企業" />
