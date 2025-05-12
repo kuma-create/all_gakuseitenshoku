@@ -447,6 +447,42 @@ export type Database = {
         }
         Relationships: []
       }
+      job_interests: {
+        Row: {
+          created_at: string | null
+          id: string
+          job_id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          job_id: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          job_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_interests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_interests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_tags: {
         Row: {
           id: string
