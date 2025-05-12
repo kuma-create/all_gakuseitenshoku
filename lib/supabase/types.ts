@@ -93,6 +93,90 @@ export type Database = {
           },
         ]
       }
+      challenge_questions: {
+        Row: {
+          challenge_id: string
+          order_no: number | null
+          question_id: string
+          weight: number | null
+        }
+        Insert: {
+          challenge_id: string
+          order_no?: number | null
+          question_id: string
+          weight?: number | null
+        }
+        Update: {
+          challenge_id?: string
+          order_no?: number | null
+          question_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_questions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_sessions: {
+        Row: {
+          challenge_id: string | null
+          elapsed_sec: number | null
+          ended_at: string | null
+          id: string
+          score: number | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["session_status"] | null
+          student_id: string | null
+        }
+        Insert: {
+          challenge_id?: string | null
+          elapsed_sec?: number | null
+          ended_at?: string | null
+          id?: string
+          score?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"] | null
+          student_id?: string | null
+        }
+        Update: {
+          challenge_id?: string | null
+          elapsed_sec?: number | null
+          ended_at?: string | null
+          id?: string
+          score?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"] | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_sessions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_submissions: {
         Row: {
           answer: string
@@ -139,28 +223,40 @@ export type Database = {
       }
       challenges: {
         Row: {
+          category: string
+          company: string | null
           created_at: string
           deadline: string
           description: string
           id: string
+          question_count: number
+          time_limit_min: number
           title: string
           updated_at: string
           word_limit: number
         }
         Insert: {
+          category?: string
+          company?: string | null
           created_at?: string
           deadline: string
           description: string
           id?: string
+          question_count?: number
+          time_limit_min?: number
           title: string
           updated_at?: string
           word_limit: number
         }
         Update: {
+          category?: string
+          company?: string | null
           created_at?: string
           deadline?: string
           description?: string
           id?: string
+          question_count?: number
+          time_limit_min?: number
           title?: string
           updated_at?: string
           word_limit?: number
@@ -580,6 +676,42 @@ export type Database = {
           },
         ]
       }
+      question_bank: {
+        Row: {
+          category: Database["public"]["Enums"]["question_category"]
+          choices: Json | null
+          correct_choice: number | null
+          created_at: string | null
+          difficulty: number | null
+          expected_kw: string[] | null
+          explanation: string | null
+          id: string
+          stem: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["question_category"]
+          choices?: Json | null
+          correct_choice?: number | null
+          created_at?: string | null
+          difficulty?: number | null
+          expected_kw?: string[] | null
+          explanation?: string | null
+          id?: string
+          stem: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["question_category"]
+          choices?: Json | null
+          correct_choice?: number | null
+          created_at?: string | null
+          difficulty?: number | null
+          expected_kw?: string[] | null
+          explanation?: string | null
+          id?: string
+          stem?: string
+        }
+        Relationships: []
+      }
       scout_templates: {
         Row: {
           company_id: string
@@ -663,6 +795,48 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_answers: {
+        Row: {
+          answer_raw: Json | null
+          elapsed_sec: number | null
+          is_correct: boolean | null
+          question_id: string
+          score: number | null
+          session_id: string
+        }
+        Insert: {
+          answer_raw?: Json | null
+          elapsed_sec?: number | null
+          is_correct?: boolean | null
+          question_id: string
+          score?: number | null
+          session_id: string
+        }
+        Update: {
+          answer_raw?: Json | null
+          elapsed_sec?: number | null
+          is_correct?: boolean | null
+          question_id?: string
+          score?: number | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -882,6 +1056,22 @@ export type Database = {
       }
     }
     Views: {
+      gp_rank: {
+        Row: {
+          rank: number | null
+          student_id: string | null
+          total_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_app_count: {
         Row: {
           cnt: number | null
@@ -891,6 +1081,10 @@ export type Database = {
       }
     }
     Functions: {
+      auto_grade_answer: {
+        Args: { p_question_id: string; p_answer_raw: Json }
+        Returns: number
+      }
       avg_response_time: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -903,13 +1097,37 @@ export type Database = {
           avg_response_sec: number
         }[]
       }
+      get_leaderboard: {
+        Args: { p_limit?: number }
+        Returns: {
+          student_id: string
+          total_score: number
+          rank: number
+          full_name: string
+          avatar: string
+        }[]
+      }
+      grade_session: {
+        Args: { p_session_id: string }
+        Returns: number
+      }
       increment_job_view: {
         Args: { _job_id: string }
         Returns: undefined
       }
+      start_webtest_session: {
+        Args: { p_challenge_id: string; p_student_id: string }
+        Returns: string
+      }
+      start_webtest_session_balanced: {
+        Args: { p_challenge_id: string; p_student_id: string }
+        Returns: string
+      }
     }
     Enums: {
       offer_status: "pending" | "accepted" | "rejected"
+      question_category: "web_lang" | "web_math" | "case" | "biz_battle"
+      session_status: "in_progress" | "submitted" | "graded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1026,6 +1244,8 @@ export const Constants = {
   public: {
     Enums: {
       offer_status: ["pending", "accepted", "rejected"],
+      question_category: ["web_lang", "web_math", "case", "biz_battle"],
+      session_status: ["in_progress", "submitted", "graded"],
     },
   },
 } as const
