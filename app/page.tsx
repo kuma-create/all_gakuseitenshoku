@@ -85,7 +85,7 @@ export default function LandingPage() {
           fill
           priority
           sizes="(max-width: 1024px) 0px, 40vw"
-          className="pointer-events-none absolute bottom-0 right-0 hidden max-w-none select-none object-contain object-bottom lg:block lg:w-[40vw] xl:w-[36vw]"
+          className="pointer-events-none absolute bottom-0 right-[-4vw] hidden max-w-none select-none object-contain object-bottom lg:block lg:w-[44vw] xl:right-[-6vw] xl:w-[40vw]"
         />
 
         {/* ---------- Hero Image (Mobile) ---------- */}
