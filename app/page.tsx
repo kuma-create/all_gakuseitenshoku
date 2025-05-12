@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────
-   app/page.tsx  –  改訂版 Landing Page（Header 不含）
+   app/page.tsx  –  改訂版 Landing Page（Header は layout.tsx 側で維持）
 ──────────────────────────────────────────────── */
 "use client"
 
@@ -35,95 +35,108 @@ import {
 } from "@/components/ui/accordion"
 
 export default function LandingPage() {
-  /* Hero フェードイン用フラグ（任意） */
+  /* Hero フェードイン用フラグ */
   const [loaded, setLoaded] = useState(false)
   useEffect(() => setLoaded(true), [])
 
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pt-20 md:pt-32 pb-16 md:pb-24 lg:pb-32">
-        {/* コンテンツ */}
-        <div className="container mx-auto grid max-w-7xl gap-12 px-4 md:grid-cols-2 md:items-center">
-          {/* ---------- Left : Copy & CTA ---------- */}
+      <section className="relative isolate flex min-h-[680px] items-center overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pt-24 md:pt-32">
+        {/* 背景の放射フェード */}
+        <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
+
+        {/* ---------- Copy / CTA ---------- */}
+        <div className="container relative z-10 grid max-w-7xl gap-12 px-4 md:grid-cols-2 md:items-center">
           <div
             className={`space-y-10 text-white transition-all duration-700 ${
               loaded ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
             }`}
           >
-            <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-5xl lg:text-6xl">
+            <h1 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight md:text-5xl lg:text-6xl">
               学生時代の<span className="inline-block">”職歴”で</span>
               <br />ハイレベルな就活を。
             </h1>
 
-            {/* CTA コンテナ（ホワイト枠） */}
-            <div className="w-full max-w-md">
-              <div className="overflow-hidden rounded-md bg-white/95 shadow-2xl">
-                {/* メイン CTA */}
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-16 w-full rounded-none bg-red-600 text-lg font-bold hover:bg-red-700"
+            {/* サブコピー */}
+            <p className="max-w-2xl text-lg leading-relaxed text-red-100/90 md:text-xl">
+              OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。
+              企業からスカウトが届く、全く新しい就活プラットフォーム。
+            </p>
+
+            {/* CTA ボックス（ホワイト枠） */}
+            <div className="w-full max-w-md overflow-hidden rounded-lg bg-white/95 shadow-[0_10px_40px_-5px_rgba(0,0,0,0.45)]">
+              {/* メイン CTA */}
+              <Button
+                asChild
+                size="lg"
+                className="h-16 w-full rounded-none bg-red-600 text-lg font-bold tracking-wide shadow-inner hover:bg-red-700"
+              >
+                <Link href="/signup">
+                  <span className="mr-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-red-600">
+                    無料
+                  </span>
+                  登録してスカウトを受け取る
+                </Link>
+              </Button>
+              {/* サブ CTA */}
+              <div className="border-t border-gray-200">
+                <Link
+                  href="/market-value"
+                  className="flex h-14 items-center justify-center text-base font-semibold text-gray-900 transition-colors hover:bg-gray-50"
                 >
-                  <Link href="/signup">
-                    <span className="mr-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-red-600">
-                      無料
-                    </span>
-                    登録してスカウトを受け取る
-                  </Link>
-                </Button>
-                {/* サブ CTA */}
-                <div className="border-t border-gray-200">
-                  <Link
-                    href="/market-value"
-                    className="flex h-14 items-center justify-center text-base font-semibold text-gray-900 hover:bg-gray-50"
-                  >
-                    あなたの<span className="mx-1 font-bold text-red-600">“市場価値”</span>を調べる
-                    <ChevronRight className="ml-1 h-5 w-5 text-red-600" />
-                  </Link>
-                </div>
+                  あなたの<span className="mx-1 font-bold text-red-600">“市場価値”</span>を調べる
+                  <ChevronRight className="ml-1 h-5 w-5 text-red-600" />
+                </Link>
               </div>
             </div>
-          </div>
 
-          {/* ---------- Right : Hero image ---------- */}
-          <div
-            className={`relative transition-all duration-700 delay-200 ${
-              loaded ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"
-            }`}
-          >
-            <div className="relative h-80 w-full md:h-[520px]">
-              <Image
-                src="/hero-woman.png" /* public/hero-woman.png を配置 */
-                alt="指を立てるビジネスウーマン"
-                fill
-                priority
-                className="object-contain object-bottom md:object-right-bottom"
-              />
+            {/* 小バッジ（緑チェック） */}
+            <div className="flex flex-wrap items-center gap-4 text-sm text-red-50/90">
+              {[
+                "登録は 1 分で完了",
+                "完全無料",
+                "いつでも退会可能",
+              ].map((txt) => (
+                <div key={txt} className="flex items-center gap-1.5">
+                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+                  <span>{txt}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
+
+        {/* ---------- Hero Image ---------- */}
+        <Image
+          src="/hero-woman.png"
+          alt="指を立てるビジネスウーマン"
+          fill
+          priority
+          sizes="(min-width: 1024px) 40vw, 60vw"
+          className="pointer-events-none absolute bottom-0 right-0 w-auto max-w-[50%] object-contain object-bottom md:pr-8 lg:pr-16"
+        />
       </section>
 
       {/* ─────────────── Stats Section ─────────────── */}
-      <section className="border-y bg-white py-10">
+      <section className="-mt-12 bg-white pb-10 pt-20 md:-mt-20 md:pt-28">
         <div className="container px-4 md:px-6">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">1,200+</p>
+              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">1,200+</p>
               <p className="text-sm text-gray-600 md:text-base">登録企業</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">25,000+</p>
+              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">25,000+</p>
               <p className="text-sm text-gray-600 md:text-base">学生ユーザー</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">85%</p>
+              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">85%</p>
               <p className="text-sm text-gray-600 md:text-base">内定率</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-red-600 md:text-4xl">3,500+</p>
-              <p className="text-sm text-gray-600 md:text-base">月間スカウト数</p>
+              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">3,500+</p>
+              <p className="text-sm text-gray-600 md:text-base">月間スカウト</p>
             </div>
           </div>
         </div>
