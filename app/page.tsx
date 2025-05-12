@@ -42,10 +42,11 @@ export default function LandingPage() {
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
       <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-24 pt-12 sm:pt-16 lg:pt-20">
+        {/* 背景フェード */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
 
+        {/* ---------- Copy & CTA ---------- */}
         <div className="container relative z-10 mx-auto grid max-w-7xl gap-10 px-4 md:grid-cols-2 md:items-center">
-          {/* Copy & CTA */}
           <div className={`space-y-8 text-white transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`}>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl">
               学生時代の<span className="inline-block">”職歴”で</span>
@@ -54,6 +55,8 @@ export default function LandingPage() {
             <p className="max-w-xl text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
               OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。企業からスカウトが届く、全く新しい就活プラットフォーム。
             </p>
+
+            {/* CTA */}
             <div className="w-full max-w-md overflow-hidden rounded-xl bg-white/95 shadow-[0_8px_40px_-6px_rgba(0,0,0,0.45)]">
               <Button asChild size="lg" className="h-14 w-full rounded-none bg-red-600 text-lg font-bold hover:bg-red-700 md:h-16">
                 <Link href="/signup">
@@ -68,28 +71,24 @@ export default function LandingPage() {
                 </Link>
               </div>
             </div>
+
             <div className="flex flex-wrap gap-4 text-xs text-red-50/90 sm:text-sm">
-              {["登録は 1 分で完了", "完全無料", "いつでも退会可能"].map((t) => (
-                <span key={t} className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-emerald-400" />
-                  {t}
-                </span>
-              ))}
+              {['登録は 1 分で完了','完全無料','いつでも退会可能'].map(t=>(<span key={t} className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-emerald-400"/>{t}</span>))}
             </div>
           </div>
         </div>
 
-        {/* Hero Image – PC */}
+        {/* ---------- Hero Image (PC) ---------- */}
         <Image
           src="/hero-woman.png"
           alt="指を立てるビジネスウーマン"
           fill
           priority
-          sizes="(max-width: 1024px) 0px, 44vw"
-          className="pointer-events-none absolute bottom-0 right-[-12vw] hidden max-w-none select-none object-contain object-bottom lg:block lg:w-[48vw] xl:right-[-14vw] xl:w-[44vw]"
+          sizes="(max-width: 1024px) 0px, 0vw"
+          className="pointer-events-none absolute bottom-0 right-0 hidden max-w-none select-none object-contain object-bottom lg:block lg:w-[40vw] xl:w-[36vw]"
         />
 
-        {/* Hero Image – Mobile */}
+        {/* ---------- Hero Image (Mobile) ---------- */}
         <div className="mx-auto mt-8 block w-2/3 max-w-xs sm:max-w-sm lg:hidden">
           <Image
             src="/hero-woman.png"
