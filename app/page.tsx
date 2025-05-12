@@ -4,35 +4,36 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
-import Image from "next/image"
+import Link   from "next/link"
+import Image  from "next/image"
 import {
-  ArrowRight,
-  CheckCircle,
-  ChevronRight,
-  MessageSquare,
-  Search,
-  Star,
-  Trophy,
-  Users,
+  ArrowRight, CheckCircle, ChevronRight,
+  MessageSquare, Search, Star, Trophy, Users,
 } from "lucide-react"
-import { LazyImage } from "@/components/ui/lazy-image"
 
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { LazyImage } from "@/components/ui/lazy-image"
+import { Button }    from "@/components/ui/button"
+import { Badge }     from "@/components/ui/badge"
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card"
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion"
+
+/* ---------- Hero 内で使うサブコンポーネント ---------- */
+function Stat({ num, label }: { num: string; label: string }) {
+  return (
+    <div className="text-center">
+      <p className="text-3xl font-extrabold text-red-600 md:text-4xl lg:text-5xl">
+        {num}
+      </p>
+      <p className="text-xs text-gray-600 md:text-sm lg:text-base">{label}</p>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────── */
 
 export default function LandingPage() {
   const [loaded, setLoaded] = useState(false)
@@ -52,6 +53,7 @@ export default function LandingPage() {
               学生時代の<span className="inline-block">”職歴”で</span>
               <br />ハイレベルな就活を。
             </h1>
+
             <p className="max-w-xl text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
               OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。企業からスカウトが届く、全く新しい就活プラットフォーム。
             </p>
@@ -65,7 +67,10 @@ export default function LandingPage() {
                 </Link>
               </Button>
               <div className="border-t border-gray-200">
-                <Link href="/market-value" className="flex h-12 items-center justify-center text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 md:h-14 md:text-base">
+                <Link
+                  href="/market-value"
+                  className="flex h-12 items-center justify-center text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 md:h-14 md:text-base"
+                >
                   あなたの<span className="mx-1 font-bold text-red-600">“市場価値”</span>を調べる
                   <ChevronRight className="ml-1 h-5 w-5 text-red-600" />
                 </Link>
@@ -73,19 +78,31 @@ export default function LandingPage() {
             </div>
 
             <div className="flex flex-wrap gap-4 text-xs text-red-50/90 sm:text-sm">
-              {['登録は 1 分で完了','完全無料','いつでも退会可能'].map(t=>(<span key={t} className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-emerald-400"/>{t}</span>))}
+              {["登録は 1 分で完了", "完全無料", "いつでも退会可能"].map((t) => (
+                <span key={t} className="flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+                  {t}
+                </span>
+              ))}
             </div>
           </div>
         </div>
 
         {/* ---------- Hero Image (PC) ---------- */}
+        {/* ❶ 右側へさらに寄せるために right をマイナス値に           */}
+        {/* ❷ 画像幅をやや広げ、視認性を高める（必要に応じて調整） */}
         <Image
           src="/hero-woman.png"
           alt="指を立てるビジネスウーマン"
           fill
           priority
           sizes="(max-width: 1024px) 0px, 0vw"
-          className="pointer-events-none absolute bottom-0 right-0 hidden max-w-none select-none object-contain object-bottom lg:block lg:w-[40vw] xl:w-[36vw]"
+          className="
+            pointer-events-none absolute bottom-0
+            /* ここが変更ポイント ↓↓↓ */
+            right-[-8%] lg:right-[-10%] xl:right-[-12%]
+            max-w-none select-none object-contain object-bottom
+            lg:block lg:w-[42vw] xl:w-[38vw]"
         />
 
         {/* ---------- Hero Image (Mobile) ---------- */}
@@ -559,18 +576,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-    </div>
-  )
-}
-
-/* ---------- サブ: スタッツカード ---------- */
-function Stat({ num, label }: { num: string; label: string }) {
-  return (
-    <div className="text-center">
-      <p className="text-3xl font-extrabold text-red-600 md:text-4xl lg:text-5xl">
-        {num}
-      </p>
-      <p className="text-xs text-gray-600 md:text-sm lg:text-base">{label}</p>
     </div>
   )
 }
