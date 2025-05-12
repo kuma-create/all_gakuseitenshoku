@@ -43,36 +43,34 @@ export default function LandingPage() {
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000]">
-        {/* 右側フルハイト画像（pointer-events-none でクリック貫通） */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 md:block">
+        {/* 右側イメージ — 画面幅の 45% だけ占有 */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[45%] lg:block">
           <Image
             src="/hero-woman.png"
             alt="ノート PC を持つビジネスウーマン"
             fill
             priority
-            sizes="(min-width: 768px) 50vw, 100vw"
-            className="select-none object-cover object-bottom"
+            sizes="(min-width:1024px) 45vw, 0vw"
+            className="select-none object-contain object-bottom"
           />
         </div>
 
-        {/* コンテナは “左 50%” に制限しつつ中央寄せ */}
-        <div className="container relative z-10 mx-auto flex min-h-[560px] items-center px-4 py-14 md:w-1/2 md:px-6 lg:min-h-[660px]">
+        {/* LEFT : コピー & CTA  (max-width を設けて左寄せ) */}
+        <div className="relative z-10 mx-auto flex min-h-[560px] max-w-7xl items-center px-6 py-16 lg:px-10">
           <div
-            className={`space-y-8 text-white transition-opacity duration-700 ${
+            className={`max-w-xl space-y-8 text-left text-white transition-opacity duration-700 ${
               loaded ? "opacity-100" : "opacity-0"
             }`}
           >
-            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
               学生時代の<span className="inline-block">”職歴”で</span>
               <br />
               ハイレベルな就活を。
             </h1>
 
-            <p className="max-w-lg text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
-              あなたの職歴を評価した
-              <span className="hidden sm:inline"><br /></span>
-              本気のスカウトが届く。
-              <br className="hidden md:block" />
+            <p className="text-lg leading-relaxed text-red-100 sm:text-xl">
+              あなたの職歴を評価した本気のスカウトが届く。
+              <br className="hidden sm:block" />
               限定オファーでキャリアを切り拓こう。
             </p>
 
@@ -99,7 +97,7 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            {/* Quick facts */}
+            {/* クイックポイント */}
             <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-emerald-300">
               {["登録は1分で完了", "完全無料", "有料グランプリ開催"].map(
                 (txt) => (
@@ -113,7 +111,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 中央をやや明るくするマスク */}
+        {/* センターを少し明るくするフェード */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-20 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
       </section>
 
