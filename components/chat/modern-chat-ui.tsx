@@ -33,10 +33,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ChatUser {
-  id: number
+  id: string
   name: string
-  avatar: string
-  status: "オンライン" | "オフライン" | "離席中"
+  avatar?: string
+  status?: "オンライン" | "オフライン" | "離席中"
   lastSeen?: string
   role?: string
   company?: string

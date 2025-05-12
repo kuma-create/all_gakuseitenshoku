@@ -91,13 +91,6 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_app_student"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       challenge_submissions: {
@@ -136,10 +129,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "challenge_submissions_challenge_id_fkey"
-            columns: ["challenge_id"]
+            foreignKeyName: "challenge_submissions_student_id_fkey"
+            columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "monthly_challenges"
+            referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -204,7 +197,7 @@ export type Database = {
             foreignKeyName: "chat_rooms_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company_profiles"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -221,17 +214,12 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_chat_rooms_companies"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
         ]
       }
       companies: {
         Row: {
+          address: string | null
+          contact_email: string | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
@@ -242,12 +230,15 @@ export type Database = {
           location: string | null
           logo: string | null
           name: string
+          phone: string | null
+          recruit_website: string | null
           status: string
           user_id: string | null
           website: string | null
-          website_url: string | null
         }
         Insert: {
+          address?: string | null
+          contact_email?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
@@ -258,12 +249,15 @@ export type Database = {
           location?: string | null
           logo?: string | null
           name: string
+          phone?: string | null
+          recruit_website?: string | null
           status?: string
           user_id?: string | null
           website?: string | null
-          website_url?: string | null
         }
         Update: {
+          address?: string | null
+          contact_email?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
@@ -274,77 +268,55 @@ export type Database = {
           location?: string | null
           logo?: string | null
           name?: string
+          phone?: string | null
+          recruit_website?: string | null
           status?: string
           user_id?: string | null
           website?: string | null
-          website_url?: string | null
+        }
+        Relationships: []
+      }
+      company_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          invited_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          invited_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          invited_at?: string
+          role?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "companies_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "company_members_company_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
-      }
-      company_profiles: {
-        Row: {
-          address: string | null
-          company_name: string
-          contact_email: string | null
-          cover_image_url: string | null
-          created_at: string | null
-          description: string | null
-          employee_count: number | null
-          founded_year: number | null
-          headquarters: string | null
-          id: string
-          industry: string | null
-          logo_url: string | null
-          phone: string | null
-          updated_at: string | null
-          user_id: string
-          website_url: string | null
-        }
-        Insert: {
-          address?: string | null
-          company_name: string
-          contact_email?: string | null
-          cover_image_url?: string | null
-          created_at?: string | null
-          description?: string | null
-          employee_count?: number | null
-          founded_year?: number | null
-          headquarters?: string | null
-          id?: string
-          industry?: string | null
-          logo_url?: string | null
-          phone?: string | null
-          updated_at?: string | null
-          user_id: string
-          website_url?: string | null
-        }
-        Update: {
-          address?: string | null
-          company_name?: string
-          contact_email?: string | null
-          cover_image_url?: string | null
-          created_at?: string | null
-          description?: string | null
-          employee_count?: number | null
-          founded_year?: number | null
-          headquarters?: string | null
-          id?: string
-          industry?: string | null
-          logo_url?: string | null
-          phone?: string | null
-          updated_at?: string | null
-          user_id?: string
-          website_url?: string | null
-        }
-        Relationships: []
       }
       experiences: {
         Row: {
@@ -378,188 +350,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
-      }
-      grandprix_challenges: {
-        Row: {
-          created_at: string | null
-          deadline: string | null
-          id: string
-          question: string | null
-          title: string | null
-          word_limit: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          deadline?: string | null
-          id?: string
-          question?: string | null
-          title?: string | null
-          word_limit?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          deadline?: string | null
-          id?: string
-          question?: string | null
-          title?: string | null
-          word_limit?: number | null
-        }
-        Relationships: []
-      }
-      grandprix_events: {
-        Row: {
-          created_at: string | null
-          description: string
-          end_date: string
-          event_type: string
-          id: string
-          is_active: boolean | null
-          start_date: string
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description: string
-          end_date: string
-          event_type: string
-          id?: string
-          is_active?: boolean | null
-          start_date: string
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string
-          end_date?: string
-          event_type?: string
-          id?: string
-          is_active?: boolean | null
-          start_date?: string
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      grandprix_participants: {
-        Row: {
-          created_at: string | null
-          event_id: string
-          feedback: string | null
-          id: string
-          score: number | null
-          status: string | null
-          student_id: string
-          submission_url: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          event_id: string
-          feedback?: string | null
-          id?: string
-          score?: number | null
-          status?: string | null
-          student_id: string
-          submission_url?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          event_id?: string
-          feedback?: string | null
-          id?: string
-          score?: number | null
-          status?: string | null
-          student_id?: string
-          submission_url?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "grandprix_participants_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "grandprix_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "grandprix_participants_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      grandprix_submissions: {
-        Row: {
-          answer: string
-          challenge_id: string
-          created_at: string | null
-          feedback: string | null
-          id: string
-          score: number | null
-          status: string
-          student_id: string
-          submitted_at: string
-          updated_at: string | null
-        }
-        Insert: {
-          answer: string
-          challenge_id: string
-          created_at?: string | null
-          feedback?: string | null
-          id?: string
-          score?: number | null
-          status?: string
-          student_id: string
-          submitted_at?: string
-          updated_at?: string | null
-        }
-        Update: {
-          answer?: string
-          challenge_id?: string
-          created_at?: string | null
-          feedback?: string | null
-          id?: string
-          score?: number | null
-          status?: string
-          student_id?: string
-          submitted_at?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_challenge"
-            columns: ["challenge_id"]
-            isOneToOne: false
-            referencedRelation: "grandprix_challenges"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_student"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "grandprix_submissions_challenge_id_fkey"
-            columns: ["challenge_id"]
-            isOneToOne: false
-            referencedRelation: "grandprix_challenges"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "grandprix_submissions_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       job_tags: {
         Row: {
@@ -644,20 +434,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_jobs_company"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "jobs_company_fk"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "jobs_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -706,36 +482,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      monthly_challenges: {
-        Row: {
-          created_at: string
-          deadline: string
-          id: string
-          issue_date: string
-          title: string
-          updated_at: string
-          word_limit: number
-        }
-        Insert: {
-          created_at?: string
-          deadline: string
-          id?: string
-          issue_date: string
-          title: string
-          updated_at?: string
-          word_limit: number
-        }
-        Update: {
-          created_at?: string
-          deadline?: string
-          id?: string
-          issue_date?: string
-          title?: string
-          updated_at?: string
-          word_limit?: number
-        }
-        Relationships: []
       }
       notifications: {
         Row: {
@@ -861,7 +607,7 @@ export type Database = {
             foreignKeyName: "scout_templates_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company_profiles"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -902,7 +648,7 @@ export type Database = {
             foreignKeyName: "scouts_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company_profiles"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -1089,60 +835,6 @@ export type Database = {
         }
         Relationships: []
       }
-      submissions: {
-        Row: {
-          answer: string
-          challenge_id: string
-          created_at: string
-          feedback: string | null
-          id: string
-          score: number | null
-          status: string
-          student_profile_id: string
-          submission_date: string
-          updated_at: string
-        }
-        Insert: {
-          answer: string
-          challenge_id: string
-          created_at?: string
-          feedback?: string | null
-          id?: string
-          score?: number | null
-          status: string
-          student_profile_id: string
-          submission_date?: string
-          updated_at?: string
-        }
-        Update: {
-          answer?: string
-          challenge_id?: string
-          created_at?: string
-          feedback?: string | null
-          id?: string
-          score?: number | null
-          status?: string
-          student_profile_id?: string
-          submission_date?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "submissions_challenge_id_fkey"
-            columns: ["challenge_id"]
-            isOneToOne: false
-            referencedRelation: "challenges"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "submissions_student_profile_id_fkey"
-            columns: ["student_profile_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1190,15 +882,10 @@ export type Database = {
       }
     }
     Views: {
-      company_user_ids: {
+      job_app_count: {
         Row: {
-          user_id: string | null
-        }
-        Insert: {
-          user_id?: string | null
-        }
-        Update: {
-          user_id?: string | null
+          cnt: number | null
+          job_title: string | null
         }
         Relationships: []
       }

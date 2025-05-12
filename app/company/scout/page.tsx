@@ -146,7 +146,7 @@ export default function ScoutPage() {
 
       // 会社ID取得
       const { data: comp, error: compErr } = await sb
-        .from("company_profiles")
+        .from("companies")
         .select("id")
         .eq("user_id", session.user.id)
         .single()

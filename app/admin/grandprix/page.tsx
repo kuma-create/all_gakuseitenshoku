@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 
 type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"]
-type SubmissionRow = Database["public"]["Tables"]["submissions"]["Row"] & {
+type SubmissionRow = Database["public"]["Tables"]["challenge_submissions"]["Row"] & {
   student_profiles: {
     full_name: string
     university: string
@@ -92,8 +92,8 @@ export default function AdminGrandPrixPage() {
 
       // 2) 提出された回答を取得
       const { data: subs, error: err2 } = await supabase
-        .from("submissions")
-        .select("*, student_profiles(full_name,university)")
+        .from("challenge_submissions")
+        .select("*, student_profiles(full_name, university)")
         .eq("challenge_id", current.id)
         .order("submission_date", { ascending: false })
       if (err2) throw err2
@@ -111,11 +111,11 @@ export default function AdminGrandPrixPage() {
       const pastWithStats = await Promise.all(
         (past || []).map(async (ch) => {
           const { count } = await supabase
-            .from("submissions")
+            .from("challenge_submissions")
             .select("*", { count: "exact", head: true })
             .eq("challenge_id", ch.id)
           const { data: scoreData } = await supabase
-            .from("submissions")
+            .from("challenge_submissions")
             .select("score")
             .eq("challenge_id", ch.id)
             .not("score", "is", null)
@@ -193,7 +193,7 @@ export default function AdminGrandPrixPage() {
 
     try {
       const { error: err } = await supabase
-        .from("submissions")
+        .from("challenge_submissions")
         .update({ score, status: "採点済", feedback })
         .eq("id", scoringSubmission.id)
       if (err) throw err
@@ -218,7 +218,7 @@ export default function AdminGrandPrixPage() {
   const openScoringModal = (sub: SubmissionRow) => {
     setScoringSubmission(sub)
     setScore(sub.score)
-    setFeedback(sub.feedback || "")
+    setFeedback(sub.comment || "")
     setScoringModalOpen(true)
   }
 
@@ -463,7 +463,7 @@ export default function AdminGrandPrixPage() {
                           </td>
                           <td className="py-3 px-2 text-sm">
                             {format(
-                              new Date(sub.submission_date!),
+                              new Date(sub.created_at!),
                               "yyyy/MM/dd HH:mm"
                             )}
                           </td>
@@ -530,7 +530,7 @@ export default function AdminGrandPrixPage() {
                         <div className="text-sm mb-2">
                           提出日時:{" "}
                           {format(
-                            new Date(sub.submission_date!),
+                            new Date(sub.created_at!),
                             "yyyy/MM/dd HH:mm"
                           )}
                         </div>
@@ -670,7 +670,7 @@ export default function AdminGrandPrixPage() {
                   <div className="text-muted-foreground">
                     提出日時:{" "}
                     {format(
-                      new Date(scoringSubmission.submission_date!),
+                      new Date(scoringSubmission.created_at!),
                       "yyyy/MM/dd HH:mm"
                     )}
                   </div>

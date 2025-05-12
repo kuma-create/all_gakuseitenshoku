@@ -37,7 +37,7 @@ export type User = {
 export type StudentProfile =
   Database["public"]["Tables"]["student_profiles"]["Row"]
 export type CompanyProfile =
-  Database["public"]["Tables"]["company_profiles"]["Row"]
+  Database["public"]["Tables"]["companies"]["Row"]
 export type UserProfile = StudentProfile | CompanyProfile | null
 
 export interface AuthContextValue {
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     /* ---------- profile 取得 ---------- */
     if (role === "company") {
       const { data: comp } = await supabase
-        .from("company_profiles")
+        .from("companies")
         .select("*")
         .eq("user_id", sess.user.id)
         .maybeSingle()
@@ -216,9 +216,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       /* profile 初期化（admin は作らない）*/
       if (role === "company") {
-        await supabase.from("company_profiles").insert({
+        await supabase.from("companies").insert({
           user_id: data.user.id,
-          company_name: fullName,
+          name: fullName,
         })
       } else if (role === "student") {
         await supabase.from("student_profiles").insert({

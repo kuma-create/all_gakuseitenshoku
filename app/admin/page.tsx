@@ -96,7 +96,7 @@ type Student = {
 
 type Company = {
   id: string;
-  company_profiles: { company_name: string };
+  name: string 
   created_at: string;
   status: string;
   jobs_count: number;
@@ -115,7 +115,7 @@ type Application = {
   student_profiles: { full_name: string }[] | null;
   jobs: {
     title: string;
-    company_profiles: { company_name: string }[] | null;
+    companies: { company_name: string }[] | null;
   }[] | null;
 };
 
@@ -217,7 +217,7 @@ export default function AdminDashboard() {
         // 企業一覧
         type RawCompany = {
           id: string;
-          company_profiles: { company_name: string }[] | null;
+          name: string | null
           created_at: string | null;
           status: string | null;
           jobs: { count: number | null }[] | null;
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
           .select(
             `
             id,
-            company_profiles(company_name),
+            name,
             created_at,
             status,
             jobs!jobs_company_id_fkey(count)
@@ -240,9 +240,7 @@ export default function AdminDashboard() {
         setCompanies(
           rawCompanies.map((c) => ({
             id: c.id,
-            company_profiles: c.company_profiles?.[0] ?? {
-              company_name: "—",
-            },
+            name: c.name ?? "—",
             created_at: c.created_at ?? "",
             status: c.status ?? "",
             jobs_count: c.jobs?.[0]?.count ?? 0,
@@ -273,7 +271,7 @@ export default function AdminDashboard() {
             student_profiles!applications_student_id_fkey(full_name),
             jobs!applications_job_id_fkey(
               title,
-              company_profiles!jobs_company_id_fkey(company_name)
+              companies!jobs_company_id_fkey(company_name)
             )
           `
           )
@@ -604,7 +602,7 @@ export default function AdminDashboard() {
                 <TableRow key={c.id}>
                   <TableCell>{c.id}</TableCell>
                   <TableCell>
-                    {c.company_profiles.company_name}
+                  {c.name ?? c.name ?? "—"}
                   </TableCell>
                   <TableCell>{c.jobs_count}</TableCell>
                   <TableCell>
@@ -832,7 +830,7 @@ export default function AdminDashboard() {
                     {r.jobs?.[0]?.title ?? "—"}
                   </TableCell>
                   <TableCell>
-                    {r.jobs?.[0]?.company_profiles?.[0]
+                    {r.jobs?.[0]?.companies?.[0]
                       ?.company_name ?? "—"}
                   </TableCell>
                   <TableCell>

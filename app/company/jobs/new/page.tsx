@@ -105,7 +105,7 @@ export default function NewJobPage() {
     try {
       /* 0) 会社プロフィール（UI 用） ------------------------------ */
       const { data: profile, error: profileErr } = await supabase
-        .from("company_profiles")
+        .from("companies")
         .select("company_name")
         .eq("user_id", user.id)
         .single()
@@ -135,7 +135,7 @@ export default function NewJobPage() {
           .insert({
             user_id: user.id,
             id     : crypto.randomUUID(),
-            name   : profile.company_name ?? "未設定企業名",
+            name   : name ?? "未設定企業名",
           })
           .select("id")
           .single()

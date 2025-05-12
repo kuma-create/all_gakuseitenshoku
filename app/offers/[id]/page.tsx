@@ -13,10 +13,10 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react"
-import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 
 import { supabase } from "@/lib/supabase/client"
+import { LazyImage } from "@/components/ui/lazy-image"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -42,63 +42,115 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
+/* ------------------------------------------------------------------ */
+/*                               型定義                                */
+/* ------------------------------------------------------------------ */
 interface OfferDetail {
+  /* scouts */
   id: string
+  message: string
+  status: string
+  created_at: string | null
+
+  /* jobs */
+  position: string | null
+
+  /* companies */
   company_name: string
   logo_url: string | null
+  description: string | null
+  employee_count: number | null
+  founded_year: number | null
+  industry: string | null
+  website: string | null
+
+  /* 追加情報（UI 用） */
   title: string
-  message: string
   detailedMessage: string
-  created_at: string | null
-  position: string
-  status: string
   location: string
   workStyle: string
   salary: string
   benefits: string[]
   skills: string[]
+  culture: string[]
+  testimonials: { name: string; position: string; comment: string }[]
+
+  /* companyInfo ブロック用まとめ */
   companyInfo: {
     employees: string
     founded: string
     industry: string
     website: string
-    description: string
+    description: string | null
     culture: string[]
     testimonials: { name: string; position: string; comment: string }[]
   }
 }
 
-export default function OfferDetailPage({ params }: { params: { id: string } }) {
+/* 一時的なクエリ結果型：Supabase がリレーションを解決できない場合に備えて */
+type ScoutWithRelations = {
+  id: string
+  message: string
+  status: string | null
+  created_at: string | null
+  companies: {
+    name: string
+    logo: string | null
+    description: string | null
+    employee_count: number | null
+    founded_year: number | null
+    industry: string | null
+    website: string | null
+  } | null
+  jobs: {
+    title: string | null
+  } | null
+}
+
+/* ------------------------------------------------------------------ */
+/*                               画面                                  */
+/* ------------------------------------------------------------------ */
+export default function OfferDetailPage({
+  params,
+}: {
+  params: { id: string }
+}) {
   const { id } = params
   const [offer, setOffer] = useState<OfferDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  /* ------------------------------ fetch ----------------------------- */
   useEffect(() => {
     async function load() {
       setLoading(true)
+      setError(null)
+
       const { data, error } = await supabase
         .from("scouts")
-        .select(`
+        .select(
+          `
           id,
           message,
           status,
           created_at,
-          company_profiles (
-            company_name,
-            logo_url,
+          companies (
+            name,
+            logo,
             description,
             employee_count,
             founded_year,
             industry,
-            website_url
+            website
           ),
           jobs (
             title
           )
-        `)
+        `
+        )
         .eq("id", id)
         .single()
+        .returns<ScoutWithRelations>() // 型を明示して配列/オブジェクト扱いにする
 
       if (error || !data) {
         console.error(error)
@@ -107,36 +159,60 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
         return
       }
 
+      /* ------------------ クエリ結果 → 画面用構造に変換 ----------------- */
       setOffer({
+        /** scouts */
         id: data.id,
-        company_name: data.company_profiles.company_name,
-        logo_url: data.company_profiles.logo_url,
-        title: "オファータイトルをここに設定",      // 必要に応じて調整
         message: data.message,
-        detailedMessage: data.message,             // 別カラムがあればそちらを使ってください
+        status: data.status ?? "",
         created_at: data.created_at,
-        position: data.jobs?.title ?? "",
-        status:    data.status ?? "",
-        location: "未設定",                        // 実データがあれば置き換え
+
+        /** jobs */
+        position: data.jobs?.title ?? null,
+
+        /** companies */
+        company_name: data.companies?.name ?? "",
+        logo_url: data.companies?.logo ?? null,
+        description: data.companies?.description ?? null,
+        employee_count: data.companies?.employee_count ?? null,
+        founded_year: data.companies?.founded_year ?? null,
+        industry: data.companies?.industry ?? null,
+        website: data.companies?.website ?? null,
+
+        /** 追加情報（ダミー or 後日スキーマ追加） */
+        title: "オファータイトルをここに設定",
+        detailedMessage: data.message,
+        location: "未設定",
         workStyle: "未設定",
         salary: "未設定",
-        benefits: [],                              // 実データがあれば配列で
-        skills: [],                                // 実データがあれば配列で
+        benefits: [],
+        skills: [],
+        culture: [],
+        testimonials: [],
+
+        /* companyInfo まとめ */
         companyInfo: {
-          employees: `${data.company_profiles.employee_count ?? 0}名`,
-          founded: `${data.company_profiles.founded_year ?? ""}`,
-          industry: data.company_profiles.industry ?? "",
-          website: data.company_profiles.website_url ?? "",
-          description: data.company_profiles.description ?? "",
-          culture: [],       // 実データがあれば配列で
-          testimonials: [],  // 実データがあれば配列で
+          employees: data.companies?.employee_count
+            ? `${data.companies.employee_count}名`
+            : "未設定",
+          founded: data.companies?.founded_year
+            ? `${data.companies.founded_year}`
+            : "未設定",
+          industry: data.companies?.industry ?? "未設定",
+          website: data.companies?.website ?? "",
+          description: data.companies?.description ?? null,
+          culture: [],
+          testimonials: [],
         },
       })
+
       setLoading(false)
     }
+
     load()
   }, [id])
 
+  /* ------------------------------ UI ------------------------------- */
   if (loading) return <p className="p-6 text-center">読み込み中…</p>
   if (error || !offer)
     return <p className="p-6 text-center text-red-600">{error}</p>
@@ -160,7 +236,7 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
           </Link>
         </div>
 
-        {/* ヘッダー */}
+        {/* ───────── ヘッダー ───────── */}
         <div className="mb-6 rounded-lg border bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <LazyImage
@@ -168,7 +244,7 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
               alt={`${offer.company_name} のロゴ`}
               width={64}
               height={64}
-              className="rounded-lg border"
+              className="rounded-lg border object-cover"
             />
             <div>
               <div className="flex items-center gap-2">
@@ -176,20 +252,24 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
                 {isNew && <Badge className="bg-red-500">新着</Badge>}
                 <Badge
                   variant={isUnread ? "outline" : "secondary"}
-                  className={isUnread ? "border-blue-200 bg-blue-50 text-blue-700" : ""}
+                  className={
+                    isUnread ? "border-blue-200 bg-blue-50 text-blue-700" : ""
+                  }
                 >
                   {offer.status}
                 </Badge>
               </div>
-              <p className="text-sm text-gray-600 mt-1">{offer.position}</p>
-              <p className="text-xs text-gray-500 mt-1">{dateLabel} 受信</p>
+              {offer.position && (
+                <p className="mt-1 text-sm text-gray-600">{offer.position}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">{dateLabel} 受信</p>
             </div>
           </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {/* 左カラム */}
-          <div className="md:col-span-2 space-y-6">
+          {/* ───────── 左カラム ───────── */}
+          <div className="space-y-6 md:col-span-2">
             {/* サマリー */}
             <Card>
               <CardHeader>
@@ -198,6 +278,8 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-700">{offer.message}</p>
+
+                {/* 属性テーブル */}
                 <div className="mt-4 grid grid-cols-2 gap-3 bg-gray-50 p-3 text-sm">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-gray-500" />
@@ -213,38 +295,44 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
                   </div>
                   <div className="flex items-center gap-2">
                     <Building className="h-4 w-4 text-gray-500" />
-                    <span>業種: {offer.companyInfo.industry}</span>
+                    <span>業種: {offer.industry ?? "未設定"}</span>
                   </div>
                 </div>
-                <div className="mt-4">
-                  <p className="font-medium text-sm">求めるスキル</p>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {offer.skills.map((skill) => (
-                      <Badge
-                        key={skill}
-                        variant="outline"
-                        className="bg-blue-50 text-blue-700"
-                      >
-                        {skill}
-                      </Badge>
-                    ))}
+
+                {/* スキルタグ */}
+                {offer.skills.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium">求めるスキル</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {offer.skills.map((skill) => (
+                        <Badge
+                          key={skill}
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700"
+                        >
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
             {/* 詳細メッセージ */}
-            <Collapsible defaultOpen>
-              <CollapsibleTrigger className="w-full p-4 text-left font-medium bg-white hover:bg-gray-50">
-                詳細メッセージを表示
-              </CollapsibleTrigger>
-              <Separator />
-              <CollapsibleContent className="p-4 bg-white">
-                <pre className="whitespace-pre-wrap text-sm text-gray-700">
-                  {offer.detailedMessage}
-                </pre>
-              </CollapsibleContent>
-            </Collapsible>
+            {offer.detailedMessage && (
+              <Collapsible defaultOpen>
+                <CollapsibleTrigger className="w-full bg-white p-4 text-left font-medium hover:bg-gray-50">
+                  詳細メッセージを表示
+                </CollapsibleTrigger>
+                <Separator />
+                <CollapsibleContent className="bg-white p-4">
+                  <pre className="whitespace-pre-wrap text-sm text-gray-700">
+                    {offer.detailedMessage}
+                  </pre>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
             {/* 企業情報 */}
             <Card>
@@ -255,9 +343,13 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-gray-700">
-                  {offer.companyInfo.description}
-                </p>
+                {offer.companyInfo.description && (
+                  <p className="text-sm text-gray-700">
+                    {offer.companyInfo.description}
+                  </p>
+                )}
+
+                {/* 基本情報 */}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="font-medium">基本情報</p>
@@ -267,76 +359,101 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
                       <li>業種: {offer.companyInfo.industry}</li>
                     </ul>
                   </div>
-                  <div>
-                    <p className="font-medium">企業文化</p>
-                    <ul className="mt-2 space-y-1 text-gray-600">
-                      {offer.companyInfo.culture.map((c, i) => (
-                        <li key={i}>{c}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                <Separator />
-                <div className="space-y-3">
-                  <p className="font-medium">社員の声</p>
-                  {offer.companyInfo.testimonials.map((t, i) => (
-                    <div
-                      key={i}
-                      className="bg-gray-50 p-3 rounded-md text-sm"
-                    >
-                      <p className="italic">"{t.comment}"</p>
-                      <p className="mt-1 text-xs font-medium">
-                        — {t.name}, {t.position}
-                      </p>
+
+                  {/* 企業文化 */}
+                  {offer.companyInfo.culture.length > 0 && (
+                    <div>
+                      <p className="font-medium">企業文化</p>
+                      <ul className="mt-2 space-y-1 text-gray-600">
+                        {offer.companyInfo.culture.map((c, i) => (
+                          <li key={i}>{c}</li>
+                        ))}
+                      </ul>
                     </div>
-                  ))}
+                  )}
                 </div>
-                <div className="mt-4 flex justify-between items-center bg-gray-50 p-3 rounded-md">
-                  <span>公式サイト</span>
-                  <Button variant="outline" size="sm" asChild>
-                    <a
-                      href={offer.companyInfo.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1"
-                    >
-                      サイトを見る <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
-                </div>
+
+                {/* 社員の声 */}
+                {offer.companyInfo.testimonials.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-3">
+                      <p className="font-medium">社員の声</p>
+                      {offer.companyInfo.testimonials.map((t, i) => (
+                        <div
+                          key={i}
+                          className="rounded-md bg-gray-50 p-3 text-sm"
+                        >
+                          <p className="italic">"{t.comment}"</p>
+                          <p className="mt-1 text-xs font-medium">
+                            — {t.name}, {t.position}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* 公式サイト */}
+                {offer.companyInfo.website && (
+                  <div className="mt-4 flex items-center justify-between rounded-md bg-gray-50 p-3">
+                    <span>公式サイト</span>
+                    <Button variant="outline" size="sm" asChild>
+                      <a
+                        href={offer.companyInfo.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1"
+                      >
+                        サイトを見る <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* 右カラム */}
+          {/* ───────── 右カラム ───────── */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>想定年収</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center bg-gray-50 p-4 rounded-lg">
-                <p className="text-xl font-bold text-red-600">
-                  {offer.salary}
-                </p>
-                <p className="text-xs text-gray-500">※変動あり</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>福利厚生</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm">
-                  {offer.benefits.map((b, i) => (
-                    <li key={i}>・{b}</li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            {/* 想定年収 */}
+            {offer.salary && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>想定年収</CardTitle>
+                </CardHeader>
+                <CardContent className="rounded-lg bg-gray-50 p-4 text-center">
+                  <p className="text-xl font-bold text-red-600">
+                    {offer.salary}
+                  </p>
+                  <p className="text-xs text-gray-500">※変動あり</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 福利厚生 */}
+            {offer.benefits.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>福利厚生</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    {offer.benefits.map((b, i) => (
+                      <li key={i}>・{b}</li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 興味ボタン */}
             <Card className="sticky top-6">
               <CardHeader>
                 <CardTitle>このオファーについて</CardTitle>
-                <CardDescription>興味の有無を教えてください</CardDescription>
+                <CardDescription>
+                  興味の有無を教えてください
+                </CardDescription>
               </CardHeader>
               <CardFooter>
                 <InterestButtons offerId={offer.id} />
@@ -346,7 +463,7 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
         </div>
       </main>
 
-      {/* モバイル用アクション */}
+      {/* モバイル固定アクション */}
       <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-4 md:hidden">
         <InterestButtons offerId={offer.id} isMobile />
       </div>
@@ -354,7 +471,9 @@ export default function OfferDetailPage({ params }: { params: { id: string } }) 
   )
 }
 
-// 興味ボタン
+/* ------------------------------------------------------------------ */
+/*                          興味ボタン共通                             */
+/* ------------------------------------------------------------------ */
 function InterestButtons({
   offerId,
   isMobile = false,
@@ -372,11 +491,12 @@ function InterestButtons({
   const confirmNotInterested = () => {
     setInterest("not_interested")
     setShowDialog(false)
+    /** TODO: supabase に PATCH 処理を追加する場合はここ */
   }
 
   return (
     <>
-      <div className={`${isMobile ? "" : "grid grid-cols-2 gap-3"}`}>
+      <div className={isMobile ? "" : "grid grid-cols-2 gap-3"}>
         <Button
           variant="outline"
           onClick={handleNotInterested}
@@ -396,7 +516,7 @@ function InterestButtons({
       </div>
 
       <Button
-        className="w-full gap-1.5 bg-red-600 hover:bg-red-700 mt-3"
+        className="mt-3 w-full gap-1.5 bg-red-600 hover:bg-red-700"
         disabled={interest !== "interested"}
         asChild
       >
@@ -406,6 +526,7 @@ function InterestButtons({
         </Link>
       </Button>
 
+      {/* 確認ダイアログ */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>

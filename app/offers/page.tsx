@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge"
 interface Offer {
   id: string
   company: string
-  logo_url: string
+  logo: string
   position: string
   message: string
   created_at: string
@@ -40,9 +40,9 @@ export default function OffersPage() {
           message,
           status,
           created_at,
-          company_profiles (
-            company_name,
-            logo_url
+          companies (
+            name,
+            logo
           ),
           jobs (
             title
@@ -56,8 +56,8 @@ export default function OffersPage() {
       } else {
         const mapped: Offer[] = (data ?? []).map((s) => ({
           id:         s.id,
-          company:    s.company_profiles.company_name,
-          logo_url:   s.company_profiles.logo_url ?? "/placeholder.svg",
+          company:    s.companies.name,
+          logo:       s.companies.logo ?? "/placeholder.svg",
           position:   s.jobs?.title ?? "",
           message:    s.message,
           created_at: s.created_at ?? "",
@@ -190,7 +190,7 @@ function OfferCard({ offer }: OfferCardProps) {
         <div className="flex items-center gap-4 border-b border-gray-100 bg-white p-4 md:w-64 md:flex-col md:items-start md:border-b-0 md:border-r">
           <div className="relative h-12 w-12 overflow-hidden rounded-md border border-gray-200 md:h-16 md:w-16">
             <LazyImage
-              src={offer.logo_url}
+              src={offer.logo}
               alt={`${offer.company} のロゴ`}
               width={64}
               height={64}

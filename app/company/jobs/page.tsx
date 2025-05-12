@@ -57,7 +57,7 @@ import { Separator } from "@/components/ui/separator"
 ------------------------------------------------------------------ */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"]
 type ApplicationRow = Database["public"]["Tables"]["applications"]["Row"]
-type CompanyProfile = Database["public"]["Tables"]["company_profiles"]["Row"]
+type CompanyProfile = Database["public"]["Tables"]["companies"]["Row"]
 
 /* UI 用に拡張した型 */
 interface JobItem extends JobRow {

@@ -1,7 +1,7 @@
-/* ────────────────────────────────────────────────
+/* ────────────────────────────────────────────
    lib/hooks/use-student-profile.ts
    “学生プロフィール” を取得／編集／保存する共通フック
-──────────────────────────────────────────────── */
+─────────────────────────────────────────── */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
@@ -9,7 +9,8 @@ import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 /* ---------- 型 ---------- */
-type Row = Database["public"]["Tables"]["student_profiles"]["Row"]
+type Row    = Database["public"]["Tables"]["student_profiles"]["Row"]
+type Insert = Database["public"]["Tables"]["student_profiles"]["Insert"]
 type LocalState = Partial<Row> & { __editing?: boolean }
 
 /* ---------- サーバー CRUD ---------- */
@@ -26,17 +27,16 @@ async function fetchMyProfile(): Promise<Row> {
     .from("student_profiles")
     .select("*")
     .eq("user_id", user.id)
-    .maybeSingle()
+    .maybeSingle<Row>()
   if (error) throw error
+  if (data) return data
 
-  /* 無ければ “空プロフィール” を生成 */
-  if (data) return data as Row
-
-  const empty: Row = {
+  /* ------------------ 空プロフィール生成 ------------------ */
+  const emptyInsert: Insert = {
     id: crypto.randomUUID(),
     user_id: user.id,
 
-    /* ---------- 基本 ---------- */
+    /* --- 基本 --- */
     full_name: "",
     last_name: "",
     first_name: "",
@@ -45,28 +45,31 @@ async function fetchMyProfile(): Promise<Row> {
     birth_date: null,
     gender: null,
     phone: "",
-    email: user.email ?? null,
+    email: user.email ?? "",
     address: "",
+    avatar: null,
 
-    /* ---------- 学歴 ---------- */
+    /* --- 学歴 --- */
     university: "",
     faculty: "",
     department: null,
+    academic_year: null,
     admission_month: null,
     graduation_month: null,
     graduation_year: null,
     enrollment_status: null,
     research_theme: "",
 
-    /* ---------- スキル ---------- */
+    /* --- スキル・経験 --- */
     qualification_text: "",
     skill_text: "",
     language_skill: "",
     framework_lib: "",
     dev_tools: "",
     skills: null,
+    experience: "",
 
-    /* ---------- PR ---------- */
+    /* --- PR --- */
     pr_title: "",
     pr_body: "",
     pr_text: "",
@@ -74,8 +77,9 @@ async function fetchMyProfile(): Promise<Row> {
     strength2: "",
     strength3: "",
     motive: "",
+    about: "",
 
-    /* ---------- 希望 ---------- */
+    /* --- 希望 --- */
     desired_industries: null,
     desired_positions: null,
     desired_locations: null,
@@ -85,16 +89,23 @@ async function fetchMyProfile(): Promise<Row> {
     work_style_options: null,
     preference_note: "",
 
-    /* ---------- その他 ---------- */
-    profile_image: null,
-    created_at: new Date().toISOString(),   // もとの型は string | null
-    updated_at: new Date().toISOString(),   // ★ 追加！
+    /* --- メタ --- */
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }
 
-  return empty
+  /* DB へ INSERT（`onConflict` で将来の race condition も回避） */
+  const { data: inserted, error: insErr } = await supabase
+    .from("student_profiles")
+    .insert(emptyInsert)
+    .select("*")
+    .single<Row>()
+  if (insErr || !inserted) throw insErr ?? new Error("insert failed")
+
+  return inserted
 }
 
-async function saveMyProfile(payload: Row) {
+async function saveMyProfile(payload: Insert) {
   const { error } = await supabase
     .from("student_profiles")
     .upsert(payload, { onConflict: "user_id" })
@@ -103,11 +114,11 @@ async function saveMyProfile(payload: Row) {
 
 /* ---------- React Hook ---------- */
 export function useStudentProfile() {
-  const [data, setData]           = useState<Row | null>(null)   // サーバー確定値
-  const [local, setLocal]         = useState<LocalState>({})     // 編集バッファ
-  const [loading, setLoading]     = useState(true)
-  const [saving, setSaving]       = useState(false)
-  const [error, setError]         = useState<string | null>(null)
+  const [data, setData]       = useState<Row | null>(null)   // サーバー確定値
+  const [local, setLocal]     = useState<LocalState>({})     // 編集バッファ
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState<string | null>(null)
 
   /* 初期ロード */
   useEffect(() => {
@@ -115,7 +126,7 @@ export function useStudentProfile() {
       try {
         const profile = await fetchMyProfile()
         setData(profile)
-        setLocal(profile)            // 初期バッファも確定値と一致
+        setLocal(profile) // バッファ初期化
       } catch (e: any) {
         setError(e.message)
       } finally {
@@ -124,12 +135,11 @@ export function useStudentProfile() {
     })()
   }, [])
 
-  /* ローカル編集パッチ適用 */
+  /* ローカル編集パッチ */
   const updateLocal = useCallback(
     (patch: LocalState | ((prev: LocalState) => LocalState)) => {
       setLocal((prev) => {
-        const next =
-          typeof patch === "function" ? patch(prev) : { ...prev, ...patch }
+        const next = typeof patch === "function" ? patch(prev) : { ...prev, ...patch }
         return { ...next, __editing: true }
       })
     },
@@ -146,12 +156,12 @@ export function useStudentProfile() {
     if (!data) return
     try {
       setSaving(true)
-      const merged: Row = { ...data, ...local } as Row
+      const merged: Insert = { ...data, ...local } as Insert
       delete (merged as any).__editing
-      merged.updated_at = new Date().toISOString()  // 更新日時を上書き
+      merged.updated_at = new Date().toISOString()
       await saveMyProfile(merged)
-      setData(merged)
-      setLocal(merged)
+      setData(merged as Row)
+      setLocal(merged as Row)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -159,7 +169,7 @@ export function useStudentProfile() {
     }
   }, [data, local])
 
-  /* 完成度 % （必須 3 項目充足率のシンプル例） */
+  /* 完成度 % */
   const completionRate = (() => {
     if (!local) return 0
     const req: (keyof Row)[] = ["full_name", "university", "faculty"]
@@ -168,7 +178,7 @@ export function useStudentProfile() {
   })()
 
   return {
-    data:        local as Row,
+    data: local as Row,
     loading,
     error,
     saving,

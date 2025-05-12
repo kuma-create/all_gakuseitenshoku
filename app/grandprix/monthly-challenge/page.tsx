@@ -54,27 +54,32 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-
-import { GrandPrixLeaderboard } from "@/components/grandprix-leaderboard"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Alert,
   AlertTitle,
   AlertDescription,
 } from "@/components/ui/alert"
+import { GrandPrixLeaderboard } from "@/components/grandprix-leaderboard"
 
-// Supabase テーブルの型
+// ───────────────────────────────────────────────────────────
+// Supabase 型
+// ───────────────────────────────────────────────────────────
 type ChallengeRow =
-  Database["public"]["Tables"]["monthly_challenges"]["Row"]
+  Database["public"]["Tables"]["challenges"]["Row"]
 type SubmissionRow =
   Database["public"]["Tables"]["challenge_submissions"]["Row"]
 
-// チャレンジ本体 + ユーザーの提出情報をマージした型
+/** チャレンジ + 自分の提出情報をマージした構造 */
 type ChallengeWithSubmission = ChallengeRow & {
-  status: SubmissionRow["status"]
-  score?: SubmissionRow["score"]
+  status : SubmissionRow["status"] | "not_submitted"
+  score? : SubmissionRow["score"]
   answer?: SubmissionRow["answer"]
   comment?: SubmissionRow["comment"]
+}
+
+type ChallengeWithRelations = ChallengeRow & {
+  challenge_submissions: SubmissionRow[]        // ← 必ず配列になる
 }
 
 export default function MonthlyChallengePage() {
@@ -82,23 +87,24 @@ export default function MonthlyChallengePage() {
   const { toast } = useToast()
   const challengeRef = useRef<HTMLDivElement>(null)
 
-  // ステート
+  // ──────────────── state ────────────────
   const [currentChallenge, setCurrentChallenge] = useState<ChallengeWithSubmission | null>(null)
-  const [pastChallenges, setPastChallenges] = useState<ChallengeWithSubmission[]>([])
-  const [answer, setAnswer] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [submitLoading, setSubmitLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showReviewDialog, setShowReviewDialog] = useState(false)
-  const [selectedChallenge, setSelectedChallenge] = useState<ChallengeWithSubmission | null>(null)
+  const [pastChallenges,  setPastChallenges]    = useState<ChallengeWithSubmission[]>([])
+  const [answer,          setAnswer]            = useState("")
+  const [loading,         setLoading]           = useState(false)
+  const [submitLoading,   setSubmitLoading]     = useState(false)
+  const [error,           setError]             = useState<string | null>(null)
+  const [showReviewDialog,setShowReviewDialog]  = useState(false)
+  const [selectedChallenge,setSelectedChallenge]= useState<ChallengeWithSubmission | null>(null)
 
-  // データ取得 (チャレンジ + 自分の回答を一度に取得してマージ)
+  // ──────────────── fetch ────────────────
   const fetchChallenges = useCallback(async () => {
     setLoading(true)
     setError(null)
+
     try {
       const { data, error } = await supabase
-        .from("monthly_challenges")
+        .from("challenges")
         .select(`
           *,
           challenge_submissions (
@@ -109,35 +115,34 @@ export default function MonthlyChallengePage() {
             student_id
           )
         `)
-        .order("issue_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .returns<ChallengeWithRelations[]>()
 
       if (error) throw error
-      if (!data) throw new Error("データがありません")
+      if (!data)  throw new Error("データがありません")
 
       const now = new Date()
 
-      // マージして ChallengeWithSubmission 型に整形
       const all: ChallengeWithSubmission[] = data.map((c) => {
-        // 自分のサブミッションを探す
         const sub = (c.challenge_submissions ?? []).find(
           (s) => s.student_id === user?.id
         )
 
         return {
           ...c,
-          status: sub?.status ?? "not_submitted",
-          score: sub?.score ?? undefined,
-          answer: sub?.answer ?? undefined,
+          status : sub?.status  ?? "not_submitted",
+          score  : sub?.score   ?? undefined,
+          answer : sub?.answer  ?? undefined,
           comment: sub?.comment ?? undefined,
         }
       })
 
-      // 締切が未来 or 当日のものを current として扱う
       setCurrentChallenge(
         all.find((c) => new Date(c.deadline) >= now) || null
       )
-      // 過去分
-      setPastChallenges(all.filter((c) => new Date(c.deadline) < now))
+      setPastChallenges(
+        all.filter((c) => new Date(c.deadline) < now)
+      )
     } catch (e: any) {
       console.error(e)
       setError(e.message)
@@ -155,9 +160,10 @@ export default function MonthlyChallengePage() {
     fetchChallenges()
   }, [fetchChallenges])
 
-  // 回答提出
+  // ──────────────── submit ────────────────
   const handleSubmit = async () => {
     if (!currentChallenge || !user) return
+
     if (answer.trim() === "") {
       toast({
         title: "入力エラー",
@@ -166,6 +172,7 @@ export default function MonthlyChallengePage() {
       })
       return
     }
+
     if (answer.length > currentChallenge.word_limit) {
       toast({
         title: "文字数制限エラー",
@@ -181,9 +188,11 @@ export default function MonthlyChallengePage() {
         .from("challenge_submissions")
         .insert({
           challenge_id: currentChallenge.id,
-          student_id: user.id,
+          student_id  : user.id,
           answer,
+          // status は DB の DEFAULT ('submitted') に任せる
         })
+
       if (error) throw error
 
       toast({
@@ -204,7 +213,7 @@ export default function MonthlyChallengePage() {
     }
   }
 
-  // ステータスバッジ
+  // ──────────────── helpers ────────────────
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "scored":
@@ -212,27 +221,25 @@ export default function MonthlyChallengePage() {
       case "submitted":
         return <Badge className="bg-blue-100 text-blue-800">提出済</Badge>
       case "not_submitted":
-        return <Badge variant="outline" className="text-gray-500">未提出</Badge>
       default:
-        return null
+        return <Badge variant="outline" className="text-gray-500">未提出</Badge>
     }
   }
 
-  // スクロール
   const scrollToChallenge = () => {
     challengeRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
-  // ダイアログオープン
   const openReviewDialog = (c: ChallengeWithSubmission) => {
     setSelectedChallenge(c)
     setShowReviewDialog(true)
   }
 
+  // ──────────────── UI ────────────────
   if (loading) {
     return (
       <div className="space-y-8 p-4">
-        {/* Skeleton Placeholder */}
+        {/* Skeletons */}
         <div className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 py-16 text-white">
           <Skeleton className="h-8 w-1/3 mx-auto" />
         </div>
@@ -266,7 +273,7 @@ export default function MonthlyChallengePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
-      {/* ヒーローセクション */}
+      {/* ───────── Hero ───────── */}
       <section className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 py-16 text-white">
         <div className="absolute inset-0 opacity-10">
           <div className="h-full w-full bg-[url('/abstract-pattern.png')] bg-cover bg-center" />
@@ -286,7 +293,7 @@ export default function MonthlyChallengePage() {
         </div>
       </section>
 
-      {/* 今月のお題 */}
+      {/* ───────── Current Challenge ───────── */}
       <section ref={challengeRef} className="py-12">
         <div className="container px-4">
           <h2 className="mb-8 text-2xl font-bold">今月のお題</h2>
@@ -302,7 +309,7 @@ export default function MonthlyChallengePage() {
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4 text-gray-500" />
                           <span>
-                            {format(new Date(currentChallenge.issue_date), "yyyy年MM月", { locale: ja })}
+                            {format(new Date(currentChallenge.created_at), "yyyy年MM月", { locale: ja })}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -323,6 +330,7 @@ export default function MonthlyChallengePage() {
                   </div>
                 </div>
               </CardHeader>
+
               <CardContent>
                 <div className="space-y-4">
                   <Textarea
@@ -338,6 +346,7 @@ export default function MonthlyChallengePage() {
                   </div>
                 </div>
               </CardContent>
+
               <CardFooter className="flex justify-end">
                 <Button onClick={handleSubmit} disabled={submitLoading || answer.trim() === ""}>
                   {submitLoading ? (
@@ -362,10 +371,10 @@ export default function MonthlyChallengePage() {
         </div>
       </section>
 
-      {/* リーダーボード */}
+      {/* ───────── Leaderboard ───────── */}
       <GrandPrixLeaderboard />
 
-      {/* 過去のお題と成績 */}
+      {/* ───────── Past Challenges ───────── */}
       <section className="py-12">
         <div className="container px-4">
           <h2 className="mb-8 text-2xl font-bold">過去のお題と成績</h2>
@@ -387,7 +396,7 @@ export default function MonthlyChallengePage() {
                   {pastChallenges.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">
-                        {format(new Date(c.issue_date), "yyyy年M月", { locale: ja })}
+                        {format(new Date(c.created_at), "yyyy年M月", { locale: ja })}
                       </TableCell>
                       <TableCell>{c.title}</TableCell>
                       <TableCell>{getStatusBadge(c.status)}</TableCell>
@@ -421,7 +430,7 @@ export default function MonthlyChallengePage() {
                     <div className="flex items-center justify-between w-full pr-4">
                       <div className="flex items-center gap-3">
                         <span className="font-medium">
-                          {format(new Date(c.issue_date), "yyyy年M月", { locale: ja })}
+                          {format(new Date(c.created_at), "yyyy年M月", { locale: ja })}
                         </span>
                         {getStatusBadge(c.status)}
                       </div>
@@ -449,13 +458,13 @@ export default function MonthlyChallengePage() {
         </div>
       </section>
 
-      {/* 回答レビュー ダイアログ */}
+      {/* ───────── Review Dialog ───────── */}
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{selectedChallenge?.title}</DialogTitle>
             <DialogDescription>
-              {format(new Date(selectedChallenge?.issue_date || 0), "yyyy年M月", { locale: ja })} の回答
+              {selectedChallenge && format(new Date(selectedChallenge.created_at), "yyyy年M月", { locale: ja })} の回答
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

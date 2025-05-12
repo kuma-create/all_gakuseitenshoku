@@ -5,9 +5,9 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 
 type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"] & {
-  company_profiles: Pick<
-    Database["public"]["Tables"]["company_profiles"]["Row"],
-    "company_name" | "logo_url"
+  companies: Pick<
+    Database["public"]["Tables"]["companies"]["Row"],
+    "name" | "logo"
   >;
   jobs: Pick<Database["public"]["Tables"]["jobs"]["Row"], "title">;
 };
@@ -21,7 +21,7 @@ export async function getScoutsByStudent(
 
   const { data, error } = await supabase
     .from("scouts")
-    .select("*, company_profiles(company_name, logo_url), jobs(title)")
+    .select("*, companies(name, logo), jobs(title)")
     .eq("student_id", studentId)
     .order("created_at", { ascending: false });
 

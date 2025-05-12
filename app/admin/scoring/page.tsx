@@ -4,79 +4,65 @@
 import React, { useEffect, useState, useCallback } from "react"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
+
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardHeader, CardTitle,
 } from "@/components/ui/card"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Alert,
-  AlertTitle,
-  AlertDescription,
-} from "@/components/ui/alert"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 
-// Supabase の submissions テーブルに対応する型定義
-type SubmissionRow = Database["public"]["Tables"]["grandprix_submissions"]["Row"] & {
-  student_profiles: {
-    full_name: string | null
-  } | null
-  grandprix_challenges: {
-    title: string | null
-  } | null
+/* ------------------------------------------------------------------ */
+/*                             型定義                                  */
+/* ------------------------------------------------------------------ */
+// grandprix_challenges と student_profiles を JOIN しつつ、
+// タイトルはエイリアス (challenge_title) として単列に取得
+type SubmissionRow = Database["public"]["Tables"]["challenge_submissions"]["Row"] & {
+  /** JOIN student_profiles */
+  student_profiles: { full_name: string | null } | null
+  /** grandprix_challenges.title をエイリアスで展開 */
+  challenge_title: string | null
 }
 
 export default function ScoringPage() {
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
 
-  const [selected, setSelected] = useState<SubmissionRow | null>(null)
+  const [selected, setSelected]     = useState<SubmissionRow | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [scoreInput, setScoreInput] = useState("")
-  const [feedbackInput, setFeedbackInput] = useState("")
+  const [scoreInput, setScoreInput]       = useState("")
+  const [commentInput, setCommentInput]   = useState("")
 
   const { toast } = useToast()
 
-  // データ取得
+  /* ------------------------------ データ取得 ------------------------------ */
   const fetchSubmissions = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const { data, error: fetchError } = await supabase
-        .from("grandprix_submissions")
+        .from("challenge_submissions")
         .select(`
           *,
-          student_profiles!student_id ( full_name ),
-          grandprix_challenges!challenge_id ( title )
+          student_profiles(full_name),
+          challenge_title:grandprix_challenges(title)
         `)
-        .order("submitted_at", { ascending: false })
+        .order("created_at", { ascending: false })
 
       if (fetchError) throw fetchError
-      
-      setSubmissions(data as SubmissionRow[] ?? [])
+      setSubmissions((data ?? []) as SubmissionRow[])
     } catch (e: any) {
       console.error(e)
       setError(e.message)
@@ -91,29 +77,33 @@ export default function ScoringPage() {
   }, [toast])
 
   useEffect(() => {
-    fetchSubmissions()
+    void fetchSubmissions()
   }, [fetchSubmissions])
 
-  // 採点ダイアログ表示
+  /* ------------------------------ ダイアログ制御 ------------------------------ */
   const openDialog = (row: SubmissionRow) => {
     setSelected(row)
-    setScoreInput(row.status === "scored" && row.score != null ? String(row.score) : "")
-    setFeedbackInput(row.status === "scored" && row.feedback != null ? row.feedback : "")
+    setScoreInput(
+      row.status === "scored" && row.score != null ? String(row.score) : ""
+    )
+    setCommentInput(
+      row.status === "scored" && row.comment != null ? row.comment : ""
+    )
     setIsDialogOpen(true)
   }
 
-  // 採点送信
+  /* ------------------------------ 採点保存 ------------------------------ */
   const handleSubmitScore = async () => {
     if (!selected || scoreInput === "") return
 
     setLoading(true)
     try {
       const { error: updateError } = await supabase
-        .from("grandprix_submissions")
+        .from("challenge_submissions")
         .update({
-          status: "scored",
-          score: Number(scoreInput),
-          feedback: feedbackInput,
+          status : "scored",
+          score  : Number(scoreInput),
+          comment: commentInput,
         })
         .eq("id", selected.id)
 
@@ -121,7 +111,7 @@ export default function ScoringPage() {
 
       toast({ title: "採点を保存しました" })
       setIsDialogOpen(false)
-      fetchSubmissions() // 再取得して最新状態に
+      void fetchSubmissions()
     } catch (e: any) {
       console.error(e)
       toast({
@@ -134,21 +124,23 @@ export default function ScoringPage() {
     }
   }
 
-  // 日付フォーマット
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleString("ja-JP", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+  /* ------------------------------ ヘルパー ------------------------------ */
+  const formatDate = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString("ja-JP", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-"
 
-  // — Loading State —
+  /* ------------------------------ レンダリング ------------------------------ */
   if (loading && submissions.length === 0) {
     return (
       <div className="space-y-4 p-4">
-        {[...Array(5)].map((_, i) => (
+        {Array.from({ length: 5 }).map((_, i) => (
           <Card key={i}>
             <CardHeader>
               <Skeleton className="h-6 w-1/4" />
@@ -163,7 +155,6 @@ export default function ScoringPage() {
     )
   }
 
-  // — Error State —
   if (error) {
     return (
       <div className="p-4">
@@ -180,11 +171,11 @@ export default function ScoringPage() {
     )
   }
 
-  // — Main Render —
   return (
     <div className="container mx-auto py-8 space-y-6">
       <h1 className="text-3xl font-bold">グランプリ提出採点</h1>
 
+      {/* 提出一覧 ---------------------------------------------------------- */}
       <Card>
         <CardHeader>
           <CardTitle>提出一覧</CardTitle>
@@ -204,25 +195,24 @@ export default function ScoringPage() {
             <TableBody>
               {submissions.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell>{row.student_profiles?.full_name}</TableCell>
-                  <TableCell>{row.grandprix_challenges?.title}</TableCell>
-                  <TableCell>{formatDate(row.submitted_at)}</TableCell>
+                  <TableCell>{row.student_profiles?.full_name ?? "-"}</TableCell>
+                  <TableCell>{row.challenge_title ?? "-"}</TableCell>
+                  <TableCell>{formatDate(row.created_at)}</TableCell>
                   <TableCell>
                     <Badge
-                      variant={row.status === "pending" ? "outline" : "default"}
+                      variant={
+                        row.status === "pending" || row.status === "submitted"
+                          ? "outline"
+                          : "default"
+                      }
                     >
-                      {row.status === "pending" ? "未採点" : "採点済み"}
+                      {row.status === "scored" ? "採点済み" : "未採点"}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    {row.status === "scored" ? row.score : "-"}
-                  </TableCell>
+                  <TableCell>{row.status === "scored" ? row.score : "-"}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      onClick={() => openDialog(row)}
-                    >
-                      {row.status === "pending" ? "採点する" : "編集"}
+                    <Button variant="outline" onClick={() => openDialog(row)}>
+                      {row.status === "scored" ? "編集" : "採点する"}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -241,22 +231,23 @@ export default function ScoringPage() {
         </CardContent>
       </Card>
 
-      {/* 採点ダイアログ */}
+      {/* 採点ダイアログ ---------------------------------------------------- */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              {selected?.student_profiles?.full_name} さんの採点
+              {selected?.student_profiles?.full_name ?? "-"} さんの採点
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             <div>
               <h3 className="font-medium mb-2">回答内容</h3>
-              <div className="bg-muted p-4 rounded-md whitespace-pre-wrap">
-                {selected?.answer}
+              <div className="bg-muted p-4 rounded-md whitespace-pre-wrap max-h-64 overflow-y-auto">
+                {selected?.answer ?? "-"}
               </div>
             </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="score">スコア (0〜100)</Label>
@@ -271,11 +262,11 @@ export default function ScoringPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="feedback">フィードバック</Label>
+                <Label htmlFor="comment">フィードバック</Label>
                 <Textarea
-                  id="feedback"
-                  value={feedbackInput}
-                  onChange={(e) => setFeedbackInput(e.target.value)}
+                  id="comment"
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value)}
                   className="mt-1"
                   rows={4}
                 />
