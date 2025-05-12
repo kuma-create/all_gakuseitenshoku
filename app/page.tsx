@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────
-   app/page.tsx  –  統合済み Landing Page
+   app/page.tsx  –  改訂版 Landing Page（Header 不含）
 ──────────────────────────────────────────────── */
 "use client"
 
@@ -17,7 +17,6 @@ import {
   Users,
 } from "lucide-react"
 
-import { AnimatedLogo } from "@/components/animated-logo"
 import { LazyImage } from "@/components/ui/lazy-image"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,101 +35,54 @@ import {
 } from "@/components/ui/accordion"
 
 export default function LandingPage() {
-  /* ヒーローに簡単なフェードイン演出（任意） */
+  /* Hero フェードイン用フラグ（任意） */
   const [loaded, setLoaded] = useState(false)
   useEffect(() => setLoaded(true), [])
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* ─────────────── Header ─────────────── */}
-      <header className="sticky top-0 z-50 bg-[#6b1a14] py-4">
-        <div className="container flex items-center justify-between px-4 md:px-6">
-          <AnimatedLogo />
-          <div className="flex items-center gap-4">
-            <Button
-              asChild
-              variant="outline"
-              className="border-white text-white hover:bg-white/10 hover:text-white"
-            >
-              <Link href="/login">ログイン/新規登録</Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="hidden border-white text-white hover:bg-white/10 hover:text-white md:inline-flex"
-            >
-              <Link href="/signup?type=company">採用担当者はこちら</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative overflow-hidden bg-white py-16 md:py-24 lg:py-32">
-        {/* 背景パターン */}
-        <div className="absolute inset-0 z-0 opacity-5">
-          <LazyImage
-            src="/abstract-pattern.png"
-            alt="Background pattern"
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
-
-        <div className="container relative z-10 grid gap-12 px-4 md:px-6 lg:grid-cols-2 lg:items-center lg:gap-16">
+      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pt-20 md:pt-32 pb-16 md:pb-24 lg:pb-32">
+        {/* コンテンツ */}
+        <div className="container mx-auto grid max-w-7xl gap-12 px-4 md:grid-cols-2 md:items-center">
           {/* ---------- Left : Copy & CTA ---------- */}
           <div
-            className={`flex flex-col justify-center space-y-8 transition-all duration-700 ${
+            className={`space-y-10 text-white transition-all duration-700 ${
               loaded ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
             }`}
           >
-            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">
-              逆求人型就活サービス
-            </Badge>
-            <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-              職務経歴書で
-              <span className="text-red-600">スカウト</span>
-              される、新しい就活のカタチ
+            <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-5xl lg:text-6xl">
+              学生時代の<span className="inline-block">”職歴”で</span>
+              <br />ハイレベルな就活を。
             </h1>
-            <p className="mt-4 text-lg text-gray-600 md:text-xl">
-              OfferBoxのような逆求人型で、あなたらしいキャリアを切り拓こう。
-              企業からスカウトが届く、新しい就活プラットフォーム。
-            </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col gap-4 sm:flex-row">
-              <Button size="lg" className="bg-red-600 px-8 hover:bg-red-700" asChild>
-                <Link href="/signup">
-                  はじめてみる
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50"
-                asChild
-              >
-                <Link href="/signup?type=company">
-                  企業の方はこちら
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-
-            {/* Bullet points */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-              {[
-                "登録は1分で完了",
-                "完全無料",
-                "いつでも退会可能",
-              ].map((txt) => (
-                <div key={txt} className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>{txt}</span>
+            {/* CTA コンテナ（ホワイト枠） */}
+            <div className="w-full max-w-md">
+              <div className="overflow-hidden rounded-md bg-white/95 shadow-2xl">
+                {/* メイン CTA */}
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-16 w-full rounded-none bg-red-600 text-lg font-bold hover:bg-red-700"
+                >
+                  <Link href="/signup">
+                    <span className="mr-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-red-600">
+                      無料
+                    </span>
+                    登録してスカウトを受け取る
+                  </Link>
+                </Button>
+                {/* サブ CTA */}
+                <div className="border-t border-gray-200">
+                  <Link
+                    href="/market-value"
+                    className="flex h-14 items-center justify-center text-base font-semibold text-gray-900 hover:bg-gray-50"
+                  >
+                    あなたの<span className="mx-1 font-bold text-red-600">“市場価値”</span>を調べる
+                    <ChevronRight className="ml-1 h-5 w-5 text-red-600" />
+                  </Link>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
@@ -140,20 +92,21 @@ export default function LandingPage() {
               loaded ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"
             }`}
           >
-            <div className="relative h-[420px] w-full md:h-[500px]">
+            <div className="relative h-80 w-full md:h-[520px]">
               <Image
-                src="/hero-woman.png" // public/hero-woman.png を配置
-                alt="キャリアを案内するビジネススーツの女性"
+                src="/hero-woman.png" /* public/hero-woman.png を配置 */
+                alt="指を立てるビジネスウーマン"
                 fill
                 priority
-                className="object-contain object-right"
+                className="object-contain object-bottom md:object-right-bottom"
               />
             </div>
           </div>
         </div>
       </section>
-      {/* Stats Section */}
-      <section className="border-y bg-gray-50 py-10">
+
+      {/* ─────────────── Stats Section ─────────────── */}
+      <section className="border-y bg-white py-10">
         <div className="container px-4 md:px-6">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             <div className="text-center">
