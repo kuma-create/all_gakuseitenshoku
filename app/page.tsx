@@ -43,78 +43,77 @@ export default function LandingPage() {
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000]">
-        {/* 12-col グリッドで左右レイアウト（背景は両側共通の赤） */}
-        <div className="container relative z-10 mx-auto px-4 py-14 md:px-6 md:py-20">
-          <div className="grid items-center gap-10 md:grid-cols-12">
-            {/* ---------- LEFT : コピー & CTA ---------- */}
-            <div
-              className={`space-y-8 text-white transition-opacity duration-700 md:col-span-6 ${
-                loaded ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
-                学生時代の<span className="inline-block">”職歴”で</span>
-                <br />
-                ハイレベルな就活を。
-              </h1>
+        {/* 右側フルハイト画像（pointer-events-none でクリック貫通） */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 md:block">
+          <Image
+            src="/hero-woman.png"
+            alt="ノート PC を持つビジネスウーマン"
+            fill
+            priority
+            sizes="(min-width: 768px) 50vw, 100vw"
+            className="select-none object-cover object-bottom"
+          />
+        </div>
 
-              <p className="max-w-lg text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
-                あなたの職歴を評価した <br className="md:hidden" />
-                本気のスカウトが届く。 <br className="hidden md:block" />
-                限定オファーでキャリアを切り拓こう。
-              </p>
+        {/* コンテナは “左 50%” に制限しつつ中央寄せ */}
+        <div className="container relative z-10 mx-auto flex min-h-[560px] items-center px-4 py-14 md:w-1/2 md:px-6 lg:min-h-[660px]">
+          <div
+            className={`space-y-8 text-white transition-opacity duration-700 ${
+              loaded ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
+              学生時代の<span className="inline-block">”職歴”で</span>
+              <br />
+              ハイレベルな就活を。
+            </h1>
 
-              {/* CTA Buttons */}
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <Link href="/signup" className="w-full sm:w-auto">
-                  <Button
-                    size="lg"
-                    className="w-full bg-white text-[#861010] hover:bg-red-50"
-                  >
-                    スカウトを受け取る
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/market-value" className="w-full sm:w-auto">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="w-full border-white text-white hover:bg-white/10"
-                  >
-                    市場価値を試す
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
+            <p className="max-w-lg text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
+              あなたの職歴を評価した
+              <span className="hidden sm:inline"><br /></span>
+              本気のスカウトが届く。
+              <br className="hidden md:block" />
+              限定オファーでキャリアを切り拓こう。
+            </p>
 
-              {/* Quick facts */}
-              <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-emerald-300">
-                {["登録は1分で完了", "完全無料", "有料グランプリ開催"].map(
-                  (txt) => (
-                    <li key={txt} className="flex items-center gap-1">
-                      <CheckCircle className="h-[14px] w-[14px]" />
-                      {txt}
-                    </li>
-                  ),
-                )}
-              </ul>
+            {/* CTA Buttons */}
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <Link href="/signup" className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  className="w-full bg-white text-[#861010] hover:bg-red-50"
+                >
+                  スカウトを受け取る
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/market-value" className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full border-white text-white hover:bg-white/10"
+                >
+                  市場価値を試す
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
             </div>
 
-            {/* ---------- RIGHT : 人物画像 ---------- */}
-            <div className="relative h-[360px] sm:h-[420px] md:col-span-6 lg:h-[500px]">
-              <Image
-                src="/hero-woman.png"
-                alt="ノート PC を持つビジネスウーマン"
-                fill
-                priority
-                sizes="(min-width: 1024px) 50vw, 100vw"
-                className="pointer-events-none select-none object-contain object-bottom"
-              />
-            </div>
+            {/* Quick facts */}
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-emerald-300">
+              {["登録は1分で完了", "完全無料", "有料グランプリ開催"].map(
+                (txt) => (
+                  <li key={txt} className="flex items-center gap-1">
+                    <CheckCircle className="h-[14px] w-[14px]" />
+                    {txt}
+                  </li>
+                ),
+              )}
+            </ul>
           </div>
         </div>
 
-        {/* 背景のフェード効果（中央を少し明るく） */}
+        {/* 中央をやや明るくするマスク */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-20 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
       </section>
 
