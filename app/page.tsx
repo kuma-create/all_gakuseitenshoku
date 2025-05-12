@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────
-   app/page.tsx  –  改訂版 Landing Page（Header は layout.tsx 側で維持）
+   app/page.tsx  –  Hero 調整版（余白圧縮＋被り解消＋画像拡大＋レスポンシブ）
 ──────────────────────────────────────────────── */
 "use client"
 
@@ -35,55 +35,48 @@ import {
 } from "@/components/ui/accordion"
 
 export default function LandingPage() {
-  /* Hero フェードイン用フラグ */
   const [loaded, setLoaded] = useState(false)
   useEffect(() => setLoaded(true), [])
 
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative isolate flex min-h-[680px] items-center overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pt-24 md:pt-32">
-        {/* 背景の放射フェード */}
+      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-16 pt-12 md:pt-20 lg:pt-24">
+        {/* 背景ラジアルフェード */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
 
-        {/* ---------- Copy / CTA ---------- */}
-        <div className="container relative z-10 grid max-w-7xl gap-12 px-4 md:grid-cols-2 md:items-center">
+        <div className="container mx-auto grid max-w-7xl items-center gap-12 px-4 md:grid-cols-2">
+          {/* ---------- Left : Copy & CTA ---------- */}
           <div
-            className={`space-y-10 text-white transition-all duration-700 ${
-              loaded ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+            className={`space-y-8 text-white transition-all duration-700 ${
+              loaded ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
             }`}
           >
-            <h1 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight md:text-5xl lg:text-6xl">
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
               学生時代の<span className="inline-block">”職歴”で</span>
               <br />ハイレベルな就活を。
             </h1>
 
-            {/* サブコピー */}
-            <p className="max-w-2xl text-lg leading-relaxed text-red-100/90 md:text-xl">
-              OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。
-              企業からスカウトが届く、全く新しい就活プラットフォーム。
+            <p className="max-w-xl text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
+              OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。企業からスカウトが届く、全く新しい就活プラットフォーム。
             </p>
 
-            {/* CTA ボックス（ホワイト枠） */}
-            <div className="w-full max-w-md overflow-hidden rounded-lg bg-white/95 shadow-[0_10px_40px_-5px_rgba(0,0,0,0.45)]">
-              {/* メイン CTA */}
+            {/* CTA ボックス */}
+            <div className="w-full max-w-md overflow-hidden rounded-xl bg-white/95 shadow-[0_8px_40px_-6px_rgba(0,0,0,0.45)]">
               <Button
                 asChild
                 size="lg"
-                className="h-16 w-full rounded-none bg-red-600 text-lg font-bold tracking-wide shadow-inner hover:bg-red-700"
+                className="h-14 w-full rounded-none bg-red-600 text-lg font-bold hover:bg-red-700 md:h-16"
               >
                 <Link href="/signup">
-                  <span className="mr-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-red-600">
-                    無料
-                  </span>
+                  <span className="mr-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-red-600">無料</span>
                   登録してスカウトを受け取る
                 </Link>
               </Button>
-              {/* サブ CTA */}
               <div className="border-t border-gray-200">
                 <Link
                   href="/market-value"
-                  className="flex h-14 items-center justify-center text-base font-semibold text-gray-900 transition-colors hover:bg-gray-50"
+                  className="flex h-12 items-center justify-center text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 md:h-14 md:text-base"
                 >
                   あなたの<span className="mx-1 font-bold text-red-600">“市場価値”</span>を調べる
                   <ChevronRight className="ml-1 h-5 w-5 text-red-600" />
@@ -91,8 +84,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* 小バッジ（緑チェック） */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-red-50/90">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-red-50/90 sm:text-sm">
               {[
                 "登録は 1 分で完了",
                 "完全無料",
@@ -105,39 +97,33 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-        </div>
 
-        {/* ---------- Hero Image ---------- */}
-        <Image
-          src="/hero-woman.png"
-          alt="指を立てるビジネスウーマン"
-          fill
-          priority
-          sizes="(min-width: 1024px) 40vw, 60vw"
-          className="pointer-events-none absolute bottom-0 right-0 w-auto max-w-[50%] object-contain object-bottom md:pr-8 lg:pr-16"
-        />
+          {/* ---------- Right : Hero Image ---------- */}
+          <div
+            className={`relative mx-auto w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl transition-all duration-700 ${
+              loaded ? "scale-100 opacity-100" : "scale-90 opacity-0"
+            }`}
+          >
+            <Image
+              src="/hero-woman.png"
+              alt="指を立てるビジネスウーマン"
+              width={800}
+              height={1200}
+              priority
+              className="h-auto w-full select-none object-contain"
+            />
+          </div>
+        </div>
       </section>
 
       {/* ─────────────── Stats Section ─────────────── */}
-      <section className="-mt-12 bg-white pb-10 pt-20 md:-mt-20 md:pt-28">
+      <section className="-mt-12 bg-white pb-10 pt-20 sm:-mt-16 md:-mt-24 md:pt-28">
         <div className="container px-4 md:px-6">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-            <div className="text-center">
-              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">1,200+</p>
-              <p className="text-sm text-gray-600 md:text-base">登録企業</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">25,000+</p>
-              <p className="text-sm text-gray-600 md:text-base">学生ユーザー</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">85%</p>
-              <p className="text-sm text-gray-600 md:text-base">内定率</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-extrabold text-red-600 md:text-4xl">3,500+</p>
-              <p className="text-sm text-gray-600 md:text-base">月間スカウト</p>
-            </div>
+            <Stat num="1,200+" label="登録企業" />
+            <Stat num="25,000+" label="学生ユーザー" />
+            <Stat num="85%" label="内定率" />
+            <Stat num="3,500+" label="月間スカウト" />
           </div>
         </div>
       </section>
@@ -225,6 +211,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      
 
       {/* How It Works Section */}
       <section id="how-it-works" className="bg-gray-50 py-20 md:py-28">
@@ -587,6 +574,18 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+    </div>
+  )
+}
+
+/* ---------- サブ: スタッツカード ---------- */
+function Stat({ num, label }: { num: string; label: string }) {
+  return (
+    <div className="text-center">
+      <p className="text-3xl font-extrabold text-red-600 md:text-4xl lg:text-5xl">
+        {num}
+      </p>
+      <p className="text-xs text-gray-600 md:text-sm lg:text-base">{label}</p>
     </div>
   )
 }
