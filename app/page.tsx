@@ -41,78 +41,63 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-16 pt-12 sm:pt-16 lg:pt-20">
+      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-24 pt-12 sm:pt-16 lg:pt-20">
+        {/* 背景フェード */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
 
-        <div className="container mx-auto grid max-w-7xl items-end gap-10 px-4 md:grid-cols-2 md:gap-6 lg:gap-10">
-          {/* ---------- Left : Copy & CTA ---------- */}
-          <div
-            className={`space-y-8 text-white transition-all duration-700 ${
-              loaded ? "opacity-100" : "opacity-0"
-            }`}
-          >
+        {/* ---------- Copy & CTA ---------- */}
+        <div className="container relative z-10 mx-auto grid max-w-7xl gap-10 px-4 md:grid-cols-2 md:items-center">
+          <div className={`space-y-8 text-white transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`}>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl">
               学生時代の<span className="inline-block">”職歴”で</span>
               <br />ハイレベルな就活を。
             </h1>
-
             <p className="max-w-xl text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
               OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。企業からスカウトが届く、全く新しい就活プラットフォーム。
             </p>
 
-            {/* CTA ボックス */}
+            {/* CTA */}
             <div className="w-full max-w-md overflow-hidden rounded-xl bg-white/95 shadow-[0_8px_40px_-6px_rgba(0,0,0,0.45)]">
-              <Button
-                asChild
-                size="lg"
-                className="h-14 w-full rounded-none bg-red-600 text-lg font-bold hover:bg-red-700 md:h-16"
-              >
+              <Button asChild size="lg" className="h-14 w-full rounded-none bg-red-600 text-lg font-bold hover:bg-red-700 md:h-16">
                 <Link href="/signup">
                   <span className="mr-3 rounded-full bg-white px-3 py-1 text-sm font-bold text-red-600">無料</span>
                   登録してスカウトを受け取る
                 </Link>
               </Button>
               <div className="border-t border-gray-200">
-                <Link
-                  href="/market-value"
-                  className="flex h-12 items-center justify-center text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 md:h-14 md:text-base"
-                >
+                <Link href="/market-value" className="flex h-12 items-center justify-center text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 md:h-14 md:text-base">
                   あなたの<span className="mx-1 font-bold text-red-600">“市場価値”</span>を調べる
                   <ChevronRight className="ml-1 h-5 w-5 text-red-600" />
                 </Link>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-red-50/90 sm:text-sm">
-              {[
-                "登録は 1 分で完了",
-                "完全無料",
-                "いつでも退会可能",
-              ].map((txt) => (
-                <div key={txt} className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-emerald-400" />
-                  <span>{txt}</span>
-                </div>
-              ))}
+            <div className="flex flex-wrap gap-4 text-xs text-red-50/90 sm:text-sm">
+              {['登録は 1 分で完了','完全無料','いつでも退会可能'].map(t=>(<span key={t} className="flex items-center gap-1"><CheckCircle className="h-4 w-4 text-emerald-400"/>{t}</span>))}
             </div>
           </div>
+        </div>
 
-          {/* ---------- Right : Hero Image ---------- */}
-          <div
-            className={`mx-auto w-2/3 max-w-xs sm:max-w-sm md:w-full md:max-w-md lg:max-w-lg xl:max-w-xl transition-opacity duration-700 ${
-              loaded ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <Image
-              src="/hero-woman.png"
-              alt="指を立てるビジネスウーマン"
-              width={800}
-              height={1200}
-              priority
-              sizes="(max-width: 768px) 66vw, (max-width: 1280px) 40vw, 35vw"
-              className="h-auto w-full select-none object-contain object-bottom"
-            />
-          </div>
+        {/* ---------- Hero Image (PC) ---------- */}
+        <Image
+          src="/hero-woman.png"
+          alt="指を立てるビジネスウーマン"
+          fill
+          priority
+          sizes="(max-width: 1024px) 0px, 40vw"
+          className="pointer-events-none absolute bottom-0 right-0 hidden max-w-none select-none object-contain object-bottom lg:block lg:w-[40vw] xl:w-[36vw]"
+        />
+
+        {/* ---------- Hero Image (Mobile) ---------- */}
+        <div className="mx-auto mt-8 block w-2/3 max-w-xs sm:max-w-sm lg:hidden">
+          <Image
+            src="/hero-woman.png"
+            alt="指を立てるビジネスウーマン"
+            width={700}
+            height={1000}
+            priority
+            className="h-auto w-full select-none object-contain"
+          />
         </div>
       </section>
 
