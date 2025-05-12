@@ -1,237 +1,393 @@
-/* ──────────────────────────────────────────────────────────────
-   app/jobs/page.tsx
-   - 学生ユーザ用：求人一覧（カード表示＋モバイル検索 UI）
-   - JOIN 先は LEFT JOIN で company が無くても表示
-────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────
+   app/jobs/[id]/page.tsx
+   - 学生ユーザ用：求人詳細ページ
+   - ⭐ “興味あり” は job_interests テーブルで管理
+   - 👁️ 1 日 1 回の pv カウント RPC: increment_job_view
+──────────────────────────────────────────────── */
 "use client"
 
 import {
-  useEffect,
   useState,
-  useMemo,
+  useEffect,
   useCallback,
+  Fragment,
 } from "react"
-import { Loader2, Search, Filter } from "lucide-react"
-import { supabase } from "@/lib/supabase/client"
-import { useAuthGuard } from "@/lib/use-auth-guard"
-import type { JobRow, CompanyPreview } from "@/lib/supabase/models"
-
-import { JobCard } from "@/components/job-card"
-import { Input }   from "@/components/ui/input"
-import { Button }  from "@/components/ui/button"
-import { Label }   from "@/components/ui/label"
-import { Slider }  from "@/components/ui/slider"
+import Link from "next/link"
+import Image from "next/image"
+import dynamic, { type DynamicOptions } from "next/dynamic"
 import {
-  Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet"
+  ArrowLeft,
+  Bookmark,
+  BookmarkCheck,
+  Briefcase,
+  Building2,
+  Calendar,
+  Check,
+  Clock,
+  DollarSign,
+  ExternalLink,
+  Globe,
+  Loader2,
+  MapPin,
+  Users,
+} from "lucide-react"
 
-/* ------------------------------------------------------------------ */
-/*                                型                                  */
-/* ------------------------------------------------------------------ */
-type JobWithTags = JobRow & {
-  company    : CompanyPreview | null
-  job_tags   : { tag: string }[] | null
-  tags       : string[]
-  is_new     : boolean
-  is_hot     : boolean
-  is_featured: boolean
-}
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+const supabase = createClientComponentClient()
 
-/* ------------------------------------------------------------------ */
-/*                               Page                                 */
-/* ------------------------------------------------------------------ */
-export default function JobsPage() {
-  const ready = useAuthGuard("student")
-  return ready ? <JobsPageInner /> : (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Loader2 className="mr-2 h-6 w-6 animate-spin text-red-500" />
-      <span>認証確認中...</span>
+import { useAuth } from "@/lib/auth-context"
+import { useJobInterest } from "@/lib/hooks/use-job-interest"
+
+import type { Database } from "@/lib/supabase/types"
+type JobRow     = Database["public"]["Tables"]["jobs"]["Row"]
+type CompanyRow = Database["public"]["Tables"]["companies"]["Row"]
+
+/* Heavy な Markdown 描画を遅延読み込み */
+const JobDescription = dynamic(
+  () =>
+    import("@/components/job-description").then((m) => ({
+      default: m.JobDescription,
+    })),          // 👈 named export → default に包んで返す
+  { ssr: false, loading: () => <SkeletonDescription /> },
+)
+
+
+/* ---------- Skeleton ---------- */
+function SkeletonDescription() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="h-4 w-full animate-pulse rounded bg-muted-foreground/20" />
+      ))}
     </div>
   )
 }
 
-/* ------------------------------ Main ------------------------------ */
-function JobsPageInner() {
-  /* state */
-  const [searchQuery, setSearchQuery] = useState("")
-  const [location,    setLocation]    = useState("")
-  const [salaryRange, setSalaryRange] = useState<[number, number]>([300, 1000])
+/* =================================================================== */
+/*                               Page                                  */
+/* =================================================================== */
+export default function JobPage({ params }: { params: { id: string } }) {
+  /* -------------------- Auth -------------------- */
+  const { userType, session } = useAuth()           // "student" / "company" / null
+  const studentId = session?.user?.id ?? null
 
-  const [jobs,   setJobs]   = useState<JobWithTags[]>([])
-  const [saved,  setSaved]  = useState<string[]>([])
-  const [loading,setLoading]= useState(true)
-  const [filterOpen, setFilterOpen] = useState(false)
+  /* -------------------- State ------------------- */
+  const [loading,     setLoading]     = useState(true)
+  const [job,         setJob]         = useState<JobRow | null>(null)
+  const [company,     setCompany]     = useState<CompanyRow | null>(null)
+  const [tags,        setTags]        = useState<string[]>([])
+  const [error,       setError]       = useState<string | null>(null)
+  const [hasApplied,  setHasApplied]  = useState(false)
 
-  /* ---------------- Supabase fetch ---------------- */
-  useEffect(() => {
-    ;(async () => {
-      setLoading(true)
+  /* ⭐ “興味あり” */
+  const { loading: interestLoading, interested, toggle } =
+    useJobInterest(params.id)
 
-      /** FK 名を指定して LEFT JOIN（jobs_company_id_fkey を残した想定） */
-      const { data, error } = await supabase
-        .from("jobs")
-        .select(`
-          *,
-          company:companies!jobs_company_id_fkey(id, name, logo, cover_image_url),
-          job_tags!left(tag)
-        `)
-        .eq("published", true)
-        .order("created_at", { ascending: false })
-
-      if (error) {
-        console.error("jobs fetch error", error)
-        setJobs([])
-      } else {
-        const merged = (data ?? []).map((j: any) => ({
-          ...j,
-          tags: j.job_tags?.map((t: any) => t.tag) ?? [],
-          is_new: !!j.created_at &&
-                   Date.now() - new Date(j.created_at).getTime() <
-                   1000 * 60 * 60 * 24 * 7,
-          is_hot:        !!j.is_hot,
-          is_featured:   !!j.is_featured,
-        })) as JobWithTags[]
-        setJobs(merged)
-      }
-      setLoading(false)
-    })()
-  }, [])
-
-  /* ---------------- filtering ---------------- */
-  const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    return jobs.filter(j => {
-      /* 検索文字 */
-      const textOk =
-        q === "" ||
-        j.title.toLowerCase().includes(q) ||
-        (j.company?.name ?? "").toLowerCase().includes(q)
-
-      /* 勤務地 */
-      const locOk =
-        location === "" ||
-        (j.location ?? "").includes(location)
-
-      /* 給与 */
-      const min = Number(j.salary_min ?? 0)
-      const max = Number(j.salary_max ?? Number.MAX_SAFE_INTEGER)
-      const salaryOk = min <= salaryRange[1] && max >= salaryRange[0]
-
-      return textOk && locOk && salaryOk
+  /* ----------------- Helpers -------------------- */
+  const trackPV = useCallback(async () => {
+    if (!params.id || !studentId) return
+    const { error } = await supabase.rpc("increment_job_view", {
+      _job_id: params.id,
     })
-  }, [jobs, searchQuery, location, salaryRange])
+    if (error) console.error("increment_job_view error", error)
+  }, [params.id, studentId])
 
-  const toggleSave = useCallback((id: string) => {
-    setSaved(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
+  /* ----------------- Fetch ---------------------- */
+  useEffect(() => {
+    if (!params.id) return
+    ;(async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        /* Job + 会社 */
+        const { data: j, error: je } = await supabase
+          .from("jobs")
+          .select(
+            `
+            *,
+            company:companies!jobs_company_id_fkey(
+              id, name, description, logo, cover_image_url,
+              industry, founded_year, employee_count,
+              location, recruit_website
+            )
+          `,
+          )
+          .eq("id", params.id)
+          .single()
+        if (je) throw je
+        if (!j) throw new Error("求人が見つかりませんでした")
+
+        /* Tags */
+        const { data: jt } = await supabase
+          .from("job_tags")
+          .select("tag")
+          .eq("job_id", params.id)
+
+        /* 応募済み判定（学生のみ） */
+        if (userType === "student" && studentId) {
+          const { data: ap } = await supabase
+            .from("applications")
+            .select("id")
+            .eq("job_id", params.id)
+            .eq("student_id", studentId)
+            .maybeSingle()
+          setHasApplied(!!ap)
+        }
+
+        setJob(j)
+        setCompany(j.company)
+        setTags(jt?.map((t) => t.tag) ?? [])
+
+        void trackPV()
+      } catch (e: any) {
+        console.error(e)
+        setError(e.message ?? "データ取得に失敗しました")
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [params.id, userType, studentId, trackPV])
+
+  /* ------------------- UI ----------------------- */
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        読み込み中...
+      </div>
     )
-  }, [])
+  }
 
-  /* ---------------- render ---------------- */
+  if (error || !job) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+        <p className="text-destructive">{error ?? "求人が見つかりません"}</p>
+        <ButtonBack />
+      </div>
+    )
+  }
+
+  /* ------------ Render ------------- */
   return (
-    <main className="min-h-screen bg-gray-50 pb-24">
-      {/* ====== Header ====== */}
-      <section className="bg-gradient-to-r from-red-500 to-red-700 py-10">
-        <div className="container space-y-6">
-          <h1 className="text-3xl font-bold text-white">求人一覧</h1>
+    <main className="pb-24">
+      {/* ===== ヘッダー ===== */}
+      <section className="relative h-48 w-full">
+        {/* カバー画像 */}
+        {company?.cover_image_url && (
+          <Image
+            src={company.cover_image_url}
+            alt={`${company.name} cover`}
+            fill
+            className="object-cover opacity-80"
+            priority
+          />
+        )}
+        <div className="absolute inset-0 bg-black/40" />
 
-          {/* search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="企業名・職種で検索"
-              className="pl-10"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
+        {/* 操作ボタン */}
+        <div className="absolute left-4 top-4 flex gap-2">
+          <ButtonBack />
 
-          {/* filter (mobile) */}
-          <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 sm:hidden">
-                <Filter size={16} />
-                詳細検索
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-2xl">
-              <SheetHeader>
-                <SheetTitle>詳細検索</SheetTitle>
-              </SheetHeader>
-
-              <FilterForm
-                location={location}
-                setLocation={setLocation}
-                salaryRange={salaryRange}
-                setSalaryRange={setSalaryRange}
-              />
-
-              <Button className="mt-6 w-full" onClick={() => setFilterOpen(false)}>
-                この条件で検索
-              </Button>
-            </SheetContent>
-          </Sheet>
+          {/* ⭐ 興味あり */}
+          <button
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow"
+            disabled={interestLoading}
+            onClick={toggle}
+          >
+            {interestLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            ) : interested ? (
+              <BookmarkCheck className="h-5 w-5 text-primary" />
+            ) : (
+              <Bookmark className="h-5 w-5 text-muted-foreground" />
+            )}
+          </button>
         </div>
+
+        {/* 会社ロゴ */}
+        {company?.logo && (
+          <Image
+            src={company.logo}
+            width={96}
+            height={96}
+            alt={`${company.name} logo`}
+            className="absolute bottom-4 right-4 rounded-lg object-contain shadow-lg"
+          />
+        )}
       </section>
 
-      {/* ====== List ====== */}
-      <section className="container mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        {loading ? (
-          <p>読み込み中...</p>
-        ) : filtered.length === 0 ? (
-          <p className="col-span-full text-center text-gray-500">
-            求人が見つかりませんでした
-          </p>
-        ) : (
-          filtered.map(j => (
-            <JobCard
-              key={j.id}
-              job={j}
-              saved={saved.includes(j.id)}
-              onToggleSave={toggleSave}
-              variant="grid"
-            />
-          ))
+      {/* ===== メイン情報 ===== */}
+      <section className="container mt-6 space-y-8">
+        {/* タイトル */}
+        <h1 className="text-2xl font-bold">{job.title}</h1>
+
+        {/* メタ */}
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+          {company && (
+            <span className="flex items-center gap-1">
+              <Building2 size={14} />
+              {company.name}
+            </span>
+          )}
+          {job.location && (
+            <span className="flex items-center gap-1">
+              <MapPin size={14} />
+              {job.location}
+            </span>
+          )}
+          {job.salary_min && (
+            <span className="flex items-center gap-1">
+              <DollarSign size={14} />
+              {job.salary_min} 〜 {job.salary_max ?? "応相談"} 万円
+            </span>
+          )}
+        </div>
+
+        {/* タグ */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((t) => (
+              <span
+                key={t}
+                className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
         )}
+
+        {/* 応募ボタン */}
+        {userType === "student" && (
+          <ApplySection jobId={job.id} hasApplied={hasApplied} />
+        )}
+
+        {/* ========= タブ ========= */}
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-3">
+          {/* ------- 左カラム：詳細 ------- */}
+          <div className="lg:col-span-2">
+            <h2 className="mb-4 text-lg font-semibold">仕事内容</h2>
+            <JobDescription markdown={job.description ?? ""} />
+          </div>
+
+          {/* ------- 右カラム：会社 ------- */}
+          {company && (
+            <aside className="space-y-6 rounded-lg border p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-semibold">会社情報</h3>
+
+              <InfoRow icon={Briefcase} label="業種">
+                {company.industry || "-"}
+              </InfoRow>
+              <InfoRow icon={Calendar} label="設立">
+                {company.founded_year ? `${company.founded_year} 年` : "-"}
+              </InfoRow>
+              <InfoRow icon={Users} label="従業員数">
+                {company.employee_count
+                  ? `${company.employee_count} 名`
+                  : "-"}
+              </InfoRow>
+              <InfoRow icon={MapPin} label="所在地">
+                {company.location || "-"}
+              </InfoRow>
+
+              {company.recruit_website && (
+                <a
+                  href={company.recruit_website}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-primary underline"
+                >
+                  会社サイト <ExternalLink size={14} />
+                </a>
+              )}
+            </aside>
+          )}
+        </div>
       </section>
     </main>
   )
 }
 
-/* ---------------- Filter UI ---------------- */
-type FProps = {
-  location: string
-  setLocation: (v: string) => void
-  salaryRange: [number, number]
-  setSalaryRange: (r: [number, number]) => void
-}
-function FilterForm({ location, setLocation, salaryRange, setSalaryRange }: FProps) {
-  return (
-    <div className="space-y-6">
-      {/* location */}
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="loc">勤務地</Label>
-        <Input
-          id="loc"
-          placeholder="例: 東京"
-          value={location}
-          onChange={e => setLocation(e.target.value)}
-        />
-      </div>
+/* =================================================================== */
+/*                               Parts                                 */
+/* =================================================================== */
 
-      {/* salary */}
-      <div className="flex flex-col gap-2">
-        <Label>給与レンジ (万円)</Label>
-        <Slider
-          min={0}
-          max={2000}
-          step={50}
-          value={salaryRange}
-          onValueChange={val => setSalaryRange(val as [number, number])}
-        />
-        <span className="text-xs text-neutral-600">
-          {salaryRange[0]} 万 〜 {salaryRange[1]} 万
-        </span>
+/* -------- 戻るボタン -------- */
+function ButtonBack() {
+  return (
+    <Link
+      href="/jobs"
+      className="inline-flex h-10 items-center gap-1 rounded-full bg-white/90 px-4 text-sm shadow"
+    >
+      <ArrowLeft size={16} /> 戻る
+    </Link>
+  )
+}
+
+/* -------- 応募エリア -------- */
+function ApplySection({
+  jobId,
+  hasApplied,
+}: {
+  jobId: string
+  hasApplied: boolean
+}) {
+  const [posting, setPosting] = useState(false)
+  const handleApply = async () => {
+    if (hasApplied) return
+    setPosting(true)
+    const supabase = createClientComponentClient<Database>()
+    const { error } = await supabase.from("applications").insert({
+      job_id: jobId,
+    })
+    if (error) {
+      alert("応募に失敗しました")
+    } else {
+      alert("応募が完了しました！")
+    }
+    setPosting(false)
+  }
+
+  return (
+    <div className="mt-6">
+      <button
+        className={`flex w-full items-center justify-center gap-2 rounded-md px-6 py-3 text-white transition ${
+          hasApplied
+            ? "cursor-not-allowed bg-gray-400"
+            : "bg-primary hover:bg-primary/90"
+        }`}
+        disabled={hasApplied || posting}
+        onClick={handleApply}
+      >
+        {posting ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : hasApplied ? (
+          <>
+            <Check size={16} /> 応募済み
+          </>
+        ) : (
+          "応募する"
+        )}
+      </button>
+    </div>
+  )
+}
+
+/* -------- 会社情報の行 -------- */
+type InfoProps = {
+  icon: typeof Building2
+  label: string
+  children: React.ReactNode
+}
+function InfoRow({ icon: Icon, label, children }: InfoProps) {
+  return (
+    <div className="flex items-start gap-3 text-sm">
+      <Icon size={16} className="mt-[2px] text-muted-foreground" />
+      <div>
+        <p className="font-medium text-muted-foreground">{label}</p>
+        <p>{children}</p>
       </div>
     </div>
   )

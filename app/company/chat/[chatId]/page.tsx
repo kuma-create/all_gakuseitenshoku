@@ -97,8 +97,8 @@ export default function ChatPage() {
           const s = data.student_profiles;
           setRecipient({
             id: s.id,
-            name: s.name ?? "",
-            avatar: s.avatar_url ?? "",
+            name: s.full_name ?? "",
+            avatar: s.avatar ?? "",
             status: "オンライン",
             university: s.university ?? "",
             major: s.major ?? "",

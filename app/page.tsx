@@ -88,21 +88,21 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* ---------- Hero Image (PC) ---------- */}
-        {/* ❶ 右側へさらに寄せるために right をマイナス値に           */}
-        {/* ❷ 画像幅をやや広げ、視認性を高める（必要に応じて調整） */}
+{/* ---------- Hero Image (PC) ---------- */}
         <Image
           src="/hero-woman.png"
           alt="指を立てるビジネスウーマン"
-          fill
+          width={900}          /* 適当な実寸。適宜変更可 */
+          height={1300}
           priority
-          sizes="(max-width: 1024px) 0px, 0vw"
           className="
             pointer-events-none absolute bottom-0
-            /* ここが変更ポイント ↓↓↓ */
-            right-[-8%] lg:right-[-10%] xl:right-[-12%]
-            max-w-none select-none object-contain object-bottom
-            lg:block lg:w-[42vw] xl:w-[38vw]"
+            right-0 lg:right-[-6%] xl:right-[-10%]
+            select-none object-contain object-bottom
+            hidden lg:block
+            lg:w-[42vw] xl:w-[38vw] /* 画面幅に対するパーセンテージ指定 */
+            max-w-none
+          "
         />
 
         {/* ---------- Hero Image (Mobile) ---------- */}
