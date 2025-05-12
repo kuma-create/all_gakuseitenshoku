@@ -1,83 +1,157 @@
+/* ───────────────────────────────────────────────
+   app/page.tsx  –  統合済み Landing Page
+──────────────────────────────────────────────── */
 "use client"
 
-import { LazyImage } from "@/components/ui/lazy-image"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowRight, CheckCircle, ChevronRight, MessageSquare, Search, Star, Trophy, Users } from "lucide-react"
+import Image from "next/image"
+import {
+  ArrowRight,
+  CheckCircle,
+  ChevronRight,
+  MessageSquare,
+  Search,
+  Star,
+  Trophy,
+  Users,
+} from "lucide-react"
 
+import { AnimatedLogo } from "@/components/animated-logo"
+import { LazyImage } from "@/components/ui/lazy-image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 export default function LandingPage() {
+  /* ヒーローに簡単なフェードイン演出（任意） */
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => setLoaded(true), [])
+
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white py-16 md:py-24 lg:py-32">
-        <div className="absolute inset-0 z-0 opacity-5">
-          <LazyImage src="/abstract-pattern.png" alt="Background pattern" fill className="object-cover" priority />
+      {/* ─────────────── Header ─────────────── */}
+      <header className="sticky top-0 z-50 bg-[#6b1a14] py-4">
+        <div className="container flex items-center justify-between px-4 md:px-6">
+          <AnimatedLogo />
+          <div className="flex items-center gap-4">
+            <Button
+              asChild
+              variant="outline"
+              className="border-white text-white hover:bg-white/10 hover:text-white"
+            >
+              <Link href="/login">ログイン/新規登録</Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="hidden border-white text-white hover:bg-white/10 hover:text-white md:inline-flex"
+            >
+              <Link href="/signup?type=company">採用担当者はこちら</Link>
+            </Button>
+          </div>
         </div>
-        <div className="container relative z-10 px-4 md:px-6">
-          <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 lg:items-center">
-            <div className="flex flex-col justify-center space-y-8">
-              <div>
-                <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">逆求人型就活サービス</Badge>
-                <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-                  職務経歴書で<span className="text-red-600">スカウト</span>される、新しい就活のカタチ
-                </h1>
-                <p className="mt-6 text-lg text-gray-600 md:text-xl">
-                  OfferBoxのような逆求人型で、あなたらしいキャリアを切り拓こう。
-                  企業からスカウトが届く、新しい就活プラットフォーム。
-                </p>
-              </div>
+      </header>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-red-600 px-8 hover:bg-red-700" asChild>
-                  <Link href="/signup">
-                    はじめてみる
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" asChild>
-                  <Link href="/signup?type=company">
-                    企業の方はこちら
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
+      {/* ─────────────── Hero ─────────────── */}
+      <section className="relative overflow-hidden bg-white py-16 md:py-24 lg:py-32">
+        {/* 背景パターン */}
+        <div className="absolute inset-0 z-0 opacity-5">
+          <LazyImage
+            src="/abstract-pattern.png"
+            alt="Background pattern"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>登録は1分で完了</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>完全無料</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>いつでも退会可能</span>
-                </div>
-              </div>
+        <div className="container relative z-10 grid gap-12 px-4 md:px-6 lg:grid-cols-2 lg:items-center lg:gap-16">
+          {/* ---------- Left : Copy & CTA ---------- */}
+          <div
+            className={`flex flex-col justify-center space-y-8 transition-all duration-700 ${
+              loaded ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+            }`}
+          >
+            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">
+              逆求人型就活サービス
+            </Badge>
+            <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+              職務経歴書で
+              <span className="text-red-600">スカウト</span>
+              される、新しい就活のカタチ
+            </h1>
+            <p className="mt-4 text-lg text-gray-600 md:text-xl">
+              OfferBoxのような逆求人型で、あなたらしいキャリアを切り拓こう。
+              企業からスカウトが届く、新しい就活プラットフォーム。
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <Button size="lg" className="bg-red-600 px-8 hover:bg-red-700" asChild>
+                <Link href="/signup">
+                  はじめてみる
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50"
+                asChild
+              >
+                <Link href="/signup?type=company">
+                  企業の方はこちら
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </div>
 
-            <div className="relative">
-              <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-red-500 to-red-600 opacity-30 blur-xl"></div>
-              <div className="relative overflow-hidden rounded-xl bg-white shadow-2xl">
-                <LazyImage
-                  src="/placeholder.svg?key=b45ex"
-                  alt="学生転職ダッシュボード"
-                  width={600}
-                  height={400}
-                  className="w-full h-auto"
-                />
-              </div>
+            {/* Bullet points */}
+            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+              {[
+                "登録は1分で完了",
+                "完全無料",
+                "いつでも退会可能",
+              ].map((txt) => (
+                <div key={txt} className="flex items-center gap-1.5">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>{txt}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ---------- Right : Hero image ---------- */}
+          <div
+            className={`relative transition-all duration-700 delay-200 ${
+              loaded ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"
+            }`}
+          >
+            <div className="relative h-[420px] w-full md:h-[500px]">
+              <Image
+                src="/hero-woman.png" // public/hero-woman.png を配置
+                alt="キャリアを案内するビジネススーツの女性"
+                fill
+                priority
+                className="object-contain object-right"
+              />
             </div>
           </div>
         </div>
       </section>
-
       {/* Stats Section */}
       <section className="border-y bg-gray-50 py-10">
         <div className="container px-4 md:px-6">
