@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────
-   app/page.tsx  –  Hero 最終調整版（画像 bottom 固定 & Stats 重なり解消）
+   app/page.tsx  –  Hero 改良版（グリッド内配置で画像が確実に見える）
 ──────────────────────────────────────────────── */
 "use client"
 
@@ -41,16 +41,14 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-24 pt-12 md:pt-20 lg:pt-24 xl:pt-28">
-        {/* 背景ラジアルフェード */}
+      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000] pb-16 pt-12 sm:pt-16 lg:pt-20">
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-25 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
 
-        {/* ---------- メインコンテンツラッパー ---------- */}
-        <div className="container relative z-10 mx-auto grid max-w-7xl gap-y-12 px-4 md:grid-cols-2 md:items-center md:gap-x-8">
+        <div className="container mx-auto grid max-w-7xl items-end gap-10 px-4 md:grid-cols-2 md:gap-6 lg:gap-10">
           {/* ---------- Left : Copy & CTA ---------- */}
           <div
             className={`space-y-8 text-white transition-all duration-700 ${
-              loaded ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+              loaded ? "opacity-100" : "opacity-0"
             }`}
           >
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl">
@@ -59,8 +57,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="max-w-xl text-base leading-relaxed text-red-100 sm:text-lg md:text-xl">
-              OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。
-              企業からスカウトが届く、全く新しい就活プラットフォーム。
+              OfferBox のような逆求人型で、あなたらしいキャリアを切り拓こう。企業からスカウトが届く、全く新しい就活プラットフォーム。
             </p>
 
             {/* CTA ボックス */}
@@ -99,30 +96,23 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-        </div>
 
-        {/* ---------- Hero Image (デスクトップ) ---------- */}
-        <div className="pointer-events-none absolute bottom-0 right-0 hidden w-[46vw] max-w-[560px] lg:block xl:w-[42vw] xl:max-w-[640px]">
-          <Image
-            src="/hero-woman.png"
-            alt="指を立てるビジネスウーマン"
-            fill
-            priority
-            sizes="(max-width: 1536px) 46vw, 42vw"
-            className="object-contain object-bottom"
-          />
-        </div>
-
-        {/* ---------- Hero Image (モバイル) ---------- */}
-        <div className="mx-auto mt-8 w-2/3 max-w-xs sm:max-w-sm lg:hidden">
-          <Image
-            src="/hero-woman.png"
-            alt="指を立てるビジネスウーマン"
-            width={600}
-            height={900}
-            priority
-            className="h-auto w-full object-contain"
-          />
+          {/* ---------- Right : Hero Image ---------- */}
+          <div
+            className={`mx-auto w-2/3 max-w-xs sm:max-w-sm md:w-full md:max-w-md lg:max-w-lg xl:max-w-xl transition-opacity duration-700 ${
+              loaded ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <Image
+              src="/hero-woman.png"
+              alt="指を立てるビジネスウーマン"
+              width={800}
+              height={1200}
+              priority
+              sizes="(max-width: 768px) 66vw, (max-width: 1280px) 40vw, 35vw"
+              className="h-auto w-full select-none object-contain object-bottom"
+            />
+          </div>
         </div>
       </section>
 
