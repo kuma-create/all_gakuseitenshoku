@@ -1,12 +1,10 @@
-/* ------------------------------------------------------------------------
-   app/auth/email-callback/page.tsx
-   - 確認メールのリンクから戻ってきた直後に実行
-   - Session を確立し、プロフィール存在チェック
-------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------
+   app/email-callback/page.tsx
+------------------------------------------------------------------*/
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
 import { Loader2 } from "lucide-react";
@@ -15,17 +13,30 @@ const supabase = createClientComponentClient<Database>();
 
 export default function EmailCallbackPage() {
   const router = useRouter();
+  const search = useSearchParams();
+  const [status, setStatus] = useState<"loading" | "error">("loading");
 
   useEffect(() => {
     (async () => {
-      /* 1. セッション確立（#access_token を自動パース） */
+      /* 1) ?code= がある場合 (v2 方式) ----------------------------- */
+      const code = search.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error(error);
+          setStatus("error");
+          return;
+        }
+      }
+
+      /* 2) セッション取得 (v1 hash 方式 or v2 交換後) -------------- */
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        router.replace("/auth/signup?error=callback");
+        setStatus("error");
         return;
       }
 
-      /* 2. 既存プロフィール有無を確認 */
+      /* 3) プロフィール有無でリダイレクト ------------------------- */
       const { data, error } = await supabase
         .from("student_profiles")
         .select("id")
@@ -34,14 +45,25 @@ export default function EmailCallbackPage() {
 
       if (error) {
         console.error(error);
-        router.replace("/error");
+        setStatus("error");
         return;
       }
 
-      /* 3. 有→ダッシュボード / 無→オンボーディングへ */
       router.replace(data ? "/dashboard" : "/onboarding/profile");
     })();
-  }, [router]);
+  }, [router, search]);
+
+  /* --------------- UI --------------- */
+  if (status === "error") {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 text-red-600">
+        <p className="text-lg font-semibold">リンクが無効か期限切れです</p>
+        <p className="text-sm text-gray-600">
+          もう一度登録をやり直すか、再度メールを送信してください。
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-3 text-gray-700">
