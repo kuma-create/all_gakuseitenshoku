@@ -21,6 +21,7 @@ import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion"
 
+
 /* ---------- Hero 内で使うサブコンポーネント ---------- */
 function Stat({ num, label }: { num: string; label: string }) {
   return (
@@ -42,10 +43,10 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#ff6464] via-[#7a0000] to-[#4a0000]">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#b23636] via-[#7a0000] to-[#4a0000]">
         {/* 右側イメージ — 画面幅の 45% だけ占有 */}
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[45%] lg:block">
-          <Image
+          <LazyImage
             src="/hero-woman.png"
             alt="ノート PC を持つビジネスウーマン"
             fill
@@ -76,20 +77,23 @@ export default function LandingPage() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col gap-4 sm:flex-row">
+              {/* primary */}
               <Link href="/signup" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className="w-full bg-white text-[#861010] hover:bg-red-50"
+                  className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#fff5f2]"
                 >
                   スカウトを受け取る
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
+
+              {/* secondary */}
               <Link href="/market-value" className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-full border-white text-white hover:bg-white/10"
+                  className="w-full border-[#ffebe8] text-[#ffebe8] hover:bg-white/10"
                 >
                   市場価値を試す
                   <ChevronRight className="ml-2 h-4 w-4" />
@@ -97,8 +101,8 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            {/* クイックポイント */}
-            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-emerald-300">
+            {/* Quick facts */}
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-emerald-200">
               {["登録は1分で完了", "完全無料", "有料グランプリ開催"].map(
                 (txt) => (
                   <li key={txt} className="flex items-center gap-1">
