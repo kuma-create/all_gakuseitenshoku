@@ -81,7 +81,7 @@ export default function LandingPage() {
               <Link href="/signup" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#fff5f2]"
+                  className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#c94141] hover:text-[#ffffff]"
                 >
                   スカウトを受け取る
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -93,16 +93,16 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-full border-[#ffebe8] text-[#ffebe8] hover:bg-white/10"
+                  className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#c94141] hover:text-[#ffffff]"
                 >
-                  市場価値を試す
+                  27卒はこちらから
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
             </div>
 
             {/* Quick facts */}
-            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-emerald-200">
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#ffebe8]">
               {["登録は1分で完了", "完全無料", "有料グランプリ開催"].map(
                 (txt) => (
                   <li key={txt} className="flex items-center gap-1">
