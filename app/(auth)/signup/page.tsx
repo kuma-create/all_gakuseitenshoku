@@ -1,11 +1,10 @@
 /* ------------------------------------------------------------------------
    app/(auth)/signup/page.tsx
-   - STEP1: 基本情報入力
+   - STEP1: 基本情報入力（姓・名を追加）
    - STEP2: 確認メール送信完了
 ------------------------------------------------------------------------- */
 "use client";
 
-import type React from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,6 +50,8 @@ export default function SignupPage() {
 
   /* form */
   const [formData, setFormData] = useState({
+    last_name: "",
+    first_name: "",
     email: "",
     password: "",
     referral: "",
@@ -78,12 +79,16 @@ export default function SignupPage() {
 
     try {
       /* ❶ メール認証付きサインアップ ---------------------------- */
+      const fullName = `${formData.last_name} ${formData.first_name}`.trim();
       const { data, error: authErr } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          data: { referral_source: formData.referral },
-          emailRedirectTo: `${location.origin}/auth/email-callback`,
+          data: {
+            referral_source: formData.referral,
+            full_name: fullName,
+          },
+          emailRedirectTo: `${location.origin}/email-callback`,
         },
       });
       if (authErr) throw authErr;
@@ -93,7 +98,7 @@ export default function SignupPage() {
       const { error: insertErr } = await supabase
         .from("user_signups")
         .insert({
-          user_id: data.user.id,                // 👈 これを追加
+          user_id: data.user.id,
           referral_source: formData.referral,
         });
       if (insertErr) console.error(insertErr); // 失敗しても致命的ではない
@@ -147,6 +152,30 @@ export default function SignupPage() {
               {step === 1 && (
                 <CardContent className="pt-6">
                   <form onSubmit={handleSignup} className="space-y-6">
+                    {/* 姓名 */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-2">
+                        <Label htmlFor="last_name">苗字</Label>
+                        <Input
+                          id="last_name"
+                          placeholder="山田"
+                          required
+                          value={formData.last_name}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="first_name">名前</Label>
+                        <Input
+                          id="first_name"
+                          placeholder="太郎"
+                          required
+                          value={formData.first_name}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    </div>
+
                     {/* email / password */}
                     <div className="space-y-4">
                       {/* email */}
@@ -266,7 +295,7 @@ export default function SignupPage() {
                           処理中...
                         </>
                       ) : (
-                        "メールを送信する"
+                        "学生転職に登録する"
                       )}
                     </Button>
                   </form>
@@ -312,39 +341,42 @@ export default function SignupPage() {
   );
 }
 
-/* ───────── サブコンポーネント ───────── */
+/* ---------- サブコンポーネント（メリットカード） ---------- */
 function BenefitsSidebar() {
   const benefits = [
     {
       title: "企業からのスカウト",
-      desc: "あなたのプロフィールを見た企業から直接オファーが届きます",
+      desc : "あなたのプロフィールを見た企業から直接オファーが届きます",
     },
     {
       title: "職務経歴書の自動作成",
-      desc: "経験やスキルを入力するだけで、魅力的な職務経歴書が完成します",
+      desc : "経験やスキルを入力するだけで、魅力的な職務経歴書が完成します",
     },
     {
       title: "就活グランプリへの参加",
-      desc: "ビジネススキルを可視化し、企業からの注目度をアップできます",
+      desc : "ビジネススキルを可視化し、企業からの注目度をアップできます",
     },
   ];
 
   return (
-    <div className="sticky top-4 space-y-6 md:col-span-2">
-      <h3 className="mb-4 text-lg font-bold text-gray-900">登録するメリット</h3>
-      <ul className="space-y-4">
-        {benefits.map((b) => (
-          <li key={b.title} className="flex items-start gap-3">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-              <CheckCircle size={14} />
-            </div>
-            <div>
-              <p className="font-medium">{b.title}</p>
-              <p className="text-sm text-gray-600">{b.desc}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <aside className="sticky top-4 md:col-span-2">
+      <div className="rounded-xl border bg-white px-6 py-8 shadow-lg">
+        <h3 className="mb-6 text-lg font-bold text-gray-900">登録するメリット</h3>
+
+        <ul className="space-y-6">
+          {benefits.map((b) => (
+            <li key={b.title} className="flex gap-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50">
+                <CheckCircle className="h-4 w-4 text-red-500" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium">{b.title}</p>
+                <p className="text-sm text-gray-600">{b.desc}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
   );
 }
