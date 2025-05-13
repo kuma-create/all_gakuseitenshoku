@@ -42,7 +42,7 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#861010] via-[#7a0000] to-[#4a0000]">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#ff6464] via-[#7a0000] to-[#4a0000]">
         {/* 右側イメージ — 画面幅の 45% だけ占有 */}
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[45%] lg:block">
           <Image
@@ -62,16 +62,16 @@ export default function LandingPage() {
               loaded ? "opacity-100" : "opacity-0"
             }`}
           >
-            <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
-              学生時代の<span className="inline-block">”職歴”で</span>
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl">
+              学生時代の”職歴”で
               <br />
-              ハイレベルな就活を。
+              ハイレベルな就活を
             </h1>
 
-            <p className="text-lg leading-relaxed text-red-100 sm:text-xl">
+            <p className="text-lg leading-relaxed text-red-100 sm:text-2xl">
               あなたの職歴を評価した本気のスカウトが届く。
               <br className="hidden sm:block" />
-              限定オファーでキャリアを切り拓こう。
+              限定オファーであなたらしいキャリアを切り拓こう。
             </p>
 
             {/* CTA Buttons */}
