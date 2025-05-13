@@ -95,7 +95,7 @@ export default function LandingPage() {
                   variant="outline"
                   className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#c94141] hover:text-[#ffffff]"
                 >
-                  27卒はこちらから
+                  早期選考はこちら
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -119,29 +119,19 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-20 [mask-image:radial-gradient(ellipse_at_center,white,transparent_70%)]" />
       </section>
 
-      {/* ─────────────── Stats Section ─────────────── */}
-      <section className="bg-white py-20 md:py-24">
-        <div className="container px-4 md:px-6">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-            <Stat num="1,200+" label="登録企業" />
-            <Stat num="25,000+" label="学生ユーザー" />
-            <Stat num="85%" label="内定率" />
-            <Stat num="3,500+" label="月間スカウト" />
-          </div>
-        </div>
-      </section>
-
       {/* Features Section */}
       <section id="features" className="py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">機能・メリット</Badge>
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200">学生転職とは</Badge>
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              あなたの就活を<span className="text-red-600">もっと効率的に</span>
+              長期インターンやアルバイトの<span className="text-red-600">経歴</span>にスカウトが届く
+              新しいハイキャリア就活サービス
             </h2>
             <p className="mt-4 text-gray-600">
-              学生転職は、従来の就活の常識を覆す新しいプラットフォーム。
-              あなたの強みを最大限に活かし、理想の企業とマッチングします。
+              学生転職は、従来の就活の常識を覆す新しいスカウトオファーサービスです。
+              これまでの経験を企業にアピールし
+              スキルに見合った年収・ポジション付きの評価のあるオファーを受け取ってみませんか？
             </p>
           </div>
 
@@ -220,13 +210,13 @@ export default function LandingPage() {
       <section id="how-it-works" className="bg-gray-50 py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">使い方</Badge>
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200">スカウトまでの流れ</Badge>
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
               <span className="text-red-600">3ステップ</span>で理想の企業と出会う
             </h2>
             <p className="mt-4 text-gray-600">
-              学生転職は、従来の就活よりもシンプルで効率的。
-              あなたのプロフィールを作成するだけで、企業からスカウトが届きます。
+              プロフィール作成や就活グランプリへの参加であなたの市場価値を高めましょう。
+              市場価値が高いほど驚きのスカウトが届く！
             </p>
           </div>
 
@@ -255,10 +245,11 @@ export default function LandingPage() {
                   <span className="text-xl font-bold">2</span>
                 </div>
                 <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
-                  <h3 className="mb-3 text-xl font-bold">スカウトを受け取る</h3>
+                  <h3 className="mb-3 text-xl font-bold">市場価値を高める</h3>
                   <p className="text-gray-600">
-                    あなたのプロフィールに興味を持った企業から直接スカウトメッセージが届きます。
-                    興味のある企業とだけ、コミュニケーションを取りましょう。
+                    職務経歴書のブラッシュアップや就活グランプリなどの参加を通じて
+                    自身の市場地を高めていきましょう。
+                    プロフィールや就活グランプリの結果によりスカウトの内容が変わってきます。
                   </p>
                 </div>
               </div>
@@ -268,10 +259,10 @@ export default function LandingPage() {
                   <span className="text-xl font-bold">3</span>
                 </div>
                 <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
-                  <h3 className="mb-3 text-xl font-bold">面談・内定につながる</h3>
+                  <h3 className="mb-3 text-xl font-bold">スカウトを受け取る</h3>
                   <p className="text-gray-600">
-                    興味のある企業とメッセージでやり取りし、面談や選考に進みます。
-                    あなたらしさを活かした就活で、理想の企業からの内定を勝ち取りましょう。
+                    あなたのプロフィールに興味を持った企業から直接スカウトメッセージが届きます。
+                    興味のある企業とコミュニケーションを取りましょう。
                   </p>
                 </div>
               </div>
@@ -289,6 +280,108 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/*就活グランプリ*/}
+      /* ─────────────── Grand Prix Section ─────────────── */
+      <section id="grandprix" className="py-16 md:py-24">
+        <div className="container px-4 md:px-6">
+          {/* イントロ */}
+          <div className="mx-auto max-w-3xl text-center mb-16">
+            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">
+              就活グランプリとは
+            </Badge>
+            <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+              就活生同士が競い
+              <span className="text-red-600">市場価値</span>
+              を高める
+            </h2>
+            <p className="text-gray-600 sm:text-lg">
+              就活グランプリでは「ビジネス戦闘力」「Webテスト」「ケースワーク」の3種類のコンテンツで
+              <br className="hidden sm:block" />
+              就活生同士が順位や点数を競い合い、己の市場価値向上を目指します。
+              <br className="hidden sm:block" />
+              またグランプリ結果に応じて企業から特別スカウトをもらいやすくなります。
+            </p>
+          </div>
+
+          {/* 3 Cards */}
+          <div className="grid gap-8 md:grid-cols-3">
+            {/* ① ビジネス戦闘力診断 */}
+            <Card className="border-0 bg-gradient-to-br from-violet-50 to-white shadow-sm">
+              <CardHeader className="flex items-start gap-3 pb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <CardTitle className="text-lg font-bold">ビジネス戦闘力診断</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  あなたのビジネススキルを診断し、強みと弱みを可視化します。
+                  企業からのスカウト獲得にも有利です。
+                </p>
+              </CardContent>
+              <CardFooter>
+                <Button asChild size="sm" className="w-full bg-violet-600 hover:bg-violet-700">
+                  <Link href="/grandprix/biz">参加する</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+
+            {/* ② Webテスト */}
+            <Card className="border-0 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+              <CardHeader className="flex items-start gap-3 pb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <Search className="h-5 w-5" />
+                </div>
+                <CardTitle className="text-lg font-bold">Webテストグランプリ</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  SPI・玉手箱・TG-Webなど主要Webテスト対策ができます。
+                  実践的な問題で本番に備えましょう。
+                </p>
+              </CardContent>
+              <CardFooter>
+                <Button asChild size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  <Link href="/grandprix/webtest">参加する</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+
+            {/* ③ ケーススタディ */}
+            <Card className="border-0 bg-gradient-to-br from-amber-50 to-white shadow-sm">
+              <CardHeader className="flex items-start gap-3 pb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                  <MessageSquare className="h-5 w-5" />
+                </div>
+                <CardTitle className="text-lg font-bold">ケーススタディグランプリ</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  実際の企業課題に挑戦し、あなたの問題解決力をアピール。
+                  優秀者は最終選考免除の特典も。
+                </p>
+              </CardContent>
+              <CardFooter>
+                <Button asChild size="sm" className="w-full bg-amber-600 hover:bg-amber-700">
+                  <Link href="/grandprix/case">参加する</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+
+          {/* 下部 CTA */}
+          <div className="mt-14 text-center">
+            <Link href="/grandprix">
+              <Button size="lg" className="bg-red-600 px-10 hover:bg-red-700">
+                就活グランプリに挑戦する
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+
       {/* Testimonials Section */}
       <section id="testimonials" className="py-20 md:py-28">
         <div className="container px-4 md:px-6">
@@ -304,7 +397,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <LazyImage src="/placeholder.svg?key=dg1qw" alt="田中さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/public/student_tanaka.jpg" alt="田中さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">田中 美咲</h3>
@@ -329,7 +422,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <LazyImage src="/placeholder.svg?key=0rpco" alt="佐藤さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/public/student_sato.jpg" alt="佐藤さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">佐藤 健太</h3>
@@ -347,14 +440,14 @@ export default function LandingPage() {
               </p>
               <div className="flex items-center gap-1 text-sm">
                 <span className="font-medium text-gray-500">内定先：</span>
-                <span className="font-medium">テックスタートアップ株式会社</span>
+                <span className="font-medium">リブ・コンサルティング</span>
               </div>
             </div>
 
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <LazyImage src="/placeholder.svg?key=i4lae" alt="鈴木さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/public/studetn_suzuki.jpg" alt="鈴木さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">鈴木 優子</h3>
@@ -383,7 +476,7 @@ export default function LandingPage() {
       <section id="faq" className="bg-gray-50 py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">よくある質問</Badge>
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200">よくある質問</Badge>
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
               <span className="text-red-600">疑問</span>にお答えします
             </h2>
