@@ -43,11 +43,11 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* ─────────────── Hero ─────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#b23636] via-[#7a0000] to-[#4a0000]">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#d24848] via-[#9c0202] to-[#4a0000]">
         {/* 右側イメージ — 画面幅の 45% だけ占有 */}
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[45%] lg:block">
           <LazyImage
-            src="/hero-woman.png"
+            src="/hero-woman.webp"
             alt="ノート PC を持つビジネスウーマン"
             fill
             priority
@@ -81,6 +81,7 @@ export default function LandingPage() {
               <Link href="/signup" className="w-full sm:w-auto">
                 <Button
                   size="lg"
+                  variant="outline"
                   className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#c94141] hover:text-[#ffffff]"
                 >
                   スカウトを受け取る
@@ -409,8 +410,9 @@ export default function LandingPage() {
                 ))}
               </div>
               <p className="mb-4 text-gray-600">
-                「就活グランプリで自分の強みを客観的に知ることができました。面接でも自信を持って自己PRができ、
-                第一志望の外資系コンサルに内定をいただけました。」
+                「新規事業や経営などビジネスの最上流に若いうちから携わりたいと思い、
+                コンサルファームと事業会社を両面で見ていました。ネットで調べても絶対に出会えなかった
+                事業会社から多数スカウトが届き結果経営幹部待遇での内定をもらうことができました。」
               </p>
               <div className="flex items-center gap-1 text-sm">
                 <span className="font-medium text-gray-500">内定先：</span>
@@ -459,8 +461,8 @@ export default function LandingPage() {
                 ))}
               </div>
               <p className="mb-4 text-gray-600">
-                「長期インターンの募集を見つけて応募したところ、そのまま本選考でも高評価をいただき、
-                大手メーカーのマーケティング職に内定。在学中から実務経験を積めたのが大きかったです。」
+                「学生時代からAI系の受託会社にてエンジニアをしていましたが、新卒ではAI×〇〇領域で新規事業に挑戦してみたいと考えていました。
+                AI領域のスタートアップが増えている中でAIを活用した未来の姿や自分のやりたいことの全てにマッチした企業と出会うことができました。」
               </p>
               <div className="flex items-center gap-1 text-sm">
                 <span className="font-medium text-gray-500">内定先：</span>
