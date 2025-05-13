@@ -123,7 +123,7 @@ export default function LandingPage() {
       <section id="features" className="py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200">学生転職とは</Badge>
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200 text-2lg" >学生転職とは</Badge>
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
               長期インターンやアルバイトの<span className="text-red-600">経歴</span>にスカウトが届く
               新しいハイキャリア就活サービス
@@ -210,7 +210,7 @@ export default function LandingPage() {
       <section id="how-it-works" className="bg-gray-50 py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200">スカウトまでの流れ</Badge>
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200 text-2lg">スカウトまでの流れ</Badge>
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
               <span className="text-red-600">3ステップ</span>で理想の企業と出会う
             </h2>
@@ -281,12 +281,11 @@ export default function LandingPage() {
       </section>
 
       {/*就活グランプリ*/}
-      /* ─────────────── Grand Prix Section ─────────────── */
       <section id="grandprix" className="py-16 md:py-24">
         <div className="container px-4 md:px-6">
           {/* イントロ */}
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">
+            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200 text-2lg">
               就活グランプリとは
             </Badge>
             <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
@@ -386,7 +385,7 @@ export default function LandingPage() {
       <section id="testimonials" className="py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200">利用者の声</Badge>
+            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200 text-2lg">利用者の声</Badge>
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
               <span className="text-red-600">先輩たち</span>の成功体験
             </h2>
@@ -397,7 +396,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <LazyImage src="/public/student_tanaka.jpg" alt="田中さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/student_tanaka.jpg" alt="田中さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">田中 美咲</h3>
@@ -422,7 +421,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <LazyImage src="/public/student_sato.jpg" alt="佐藤さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/student_sato.jpg" alt="佐藤さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">佐藤 健太</h3>
@@ -447,7 +446,7 @@ export default function LandingPage() {
             <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
-                  <LazyImage src="/public/studetn_suzuki.jpg" alt="鈴木さんのプロフィール" fill className="object-cover" />
+                  <LazyImage src="/studetn_suzuki.jpg" alt="鈴木さんのプロフィール" fill className="object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">鈴木 優子</h3>
@@ -476,7 +475,7 @@ export default function LandingPage() {
       <section id="faq" className="bg-gray-50 py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200">よくある質問</Badge>
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200 text-2lg">よくある質問</Badge>
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
               <span className="text-red-600">疑問</span>にお答えします
             </h2>
