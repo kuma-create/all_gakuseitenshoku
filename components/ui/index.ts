@@ -16,3 +16,5 @@ export * from "./switch"
 export * from "./table"
 export * from "./tabs"
 export * from "./toast"
+export * from "./alert"      // ← 追加
+export * from "./textarea" 

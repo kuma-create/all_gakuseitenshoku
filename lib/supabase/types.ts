@@ -1066,6 +1066,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_signups: {
+        Row: {
+          created_at: string
+          id: string
+          referral_source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referral_source: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referral_source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           created_at: string | null
@@ -1150,6 +1171,26 @@ export type Database = {
       increment_job_view: {
         Args: { _job_id: string }
         Returns: undefined
+      }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_chat_participant: {
+        Args: { room_id: string }
+        Returns: boolean
+      }
+      is_company: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_company_member: {
+        Args: { c_id: string }
+        Returns: boolean
+      }
+      is_student: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       start_webtest_session: {
         Args: { p_challenge_id: string; p_student_id: string }

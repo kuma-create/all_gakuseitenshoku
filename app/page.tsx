@@ -90,7 +90,7 @@ export default function LandingPage() {
               </Link>
 
               {/* secondary */}
-              <Link href="/market-value" className="w-full sm:w-auto">
+              <Link href="/jobs" className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   variant="outline"
@@ -152,7 +152,7 @@ export default function LandingPage() {
                 </p>
               </CardContent>
               <CardFooter>
-                <Link href="#" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
+                <Link href="/signup" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
                   詳しく見る
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Link>
@@ -174,7 +174,7 @@ export default function LandingPage() {
                 </p>
               </CardContent>
               <CardFooter>
-                <Link href="#" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
+                <Link href="/signup" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
                   詳しく見る
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Link>
@@ -196,7 +196,7 @@ export default function LandingPage() {
                 </p>
               </CardContent>
               <CardFooter>
-                <Link href="#" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
+                <Link href="/signup" className="inline-flex items-center text-sm font-medium text-red-600 hover:underline">
                   詳しく見る
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Link>
@@ -588,12 +588,14 @@ export default function LandingPage() {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             <div>
               <Link href="/" className="flex items-center gap-2">
-                <div className="relative h-8 w-8 overflow-hidden rounded bg-red-600">
-                  <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-white">
-                    学
-                  </span>
-                </div>
-                <span className="text-xl font-bold text-red-600">学生転職</span>
+              <Image
+                src="/logo.png"          /* /public/logo.png に配置 */
+                alt="学生転職 ロゴ"
+                width={40}
+                height={40}
+                className="h-8 w-8 select-none"
+                priority
+              />
               </Link>
               <p className="mt-4 text-sm text-gray-600">
                 学生のための新しい就活プラットフォーム。 あなたらしいキャリアを見つけよう。
