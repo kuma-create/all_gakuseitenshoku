@@ -914,6 +914,7 @@ export type Database = {
           major: string | null
           motive: string | null
           phone: string | null
+          postal_code: string | null
           pr_body: string | null
           pr_text: string | null
           pr_title: string | null
@@ -970,6 +971,7 @@ export type Database = {
           major?: string | null
           motive?: string | null
           phone?: string | null
+          postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
           pr_title?: string | null
@@ -1026,6 +1028,7 @@ export type Database = {
           major?: string | null
           motive?: string | null
           phone?: string | null
+          postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
           pr_title?: string | null
