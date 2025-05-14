@@ -17,8 +17,7 @@ import {
   CheckCircle,
   Circle,
 } from "lucide-react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import type { Database } from "@/lib/supabase/types";
+import { supabase } from "@/lib/supabase/client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +33,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-const supabase = createClientComponentClient<Database>();
+
 
 export default function SignupPage() {
   const router = useRouter();
