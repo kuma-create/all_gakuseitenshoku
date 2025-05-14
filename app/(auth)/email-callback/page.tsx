@@ -1,70 +1,64 @@
 /* ------------------------------------------------------------------
-   app/email-callback/page.tsx (全量差し替えでも OK)
+   app/email-callback/page.tsx
 ------------------------------------------------------------------*/
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import type { Database } from "@/lib/supabase/types";
+import { supabase } from "@/lib/supabase/client";   // ← 共有インスタンス
 import { Loader2 } from "lucide-react";
 
-const supabase = createClientComponentClient<Database>();
-
 export default function EmailCallbackPage() {
-  const router = useRouter();
-  const search = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "error">("loading");
+  const router  = useRouter();
+  const search  = useSearchParams();
+  const [error, setError] = useState<string | null>(null);
+
+  /** 成功時: プロフ有無でダッシュボード or オンボーディング */
+  const handleSignedIn = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;                        // まだクッキーが来ていない
+
+    const { data, error } = await supabase
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      setError("プロフィール取得に失敗しました");
+      return;
+    }
+
+    router.replace(data ? "/dashboard" : "/onboarding/profile");
+  };
 
   useEffect(() => {
-    (async () => {
-      /* -------- 1) verifyOtp (token + email + type) -------- */
-      const token = search.get("token");
-      const type  = search.get("type");            // signup / recovery など
-      const email = search.get("email");           // ← ここが今回のポイント！
+    /* 1) URL にエラーが付いていれば即表示 */
+    if (search.get("error_code")) {
+      setError(decodeURIComponent(search.get("error_description") ?? "認証エラー"));
+      return;
+    }
 
-      if (token && type === "signup" && email) {
-        const { error } = await supabase.auth.verifyOtp({
-          email,
-          token,
-          type: "signup",
-        });
-        if (error) {
-          console.error(error);
-          setStatus("error");
-          return;
-        }
-      }
+    /* 2) 既にセッションがあるかチェック（ハッシュ解析後に入っている可能性） */
+    handleSignedIn();
 
-      /* -------- 2) セッション取得 (hash を supabase-js がパース) -------- */
-      const { data: { session }, error: sessErr } = await supabase.auth.getSession();
-      if (sessErr || !session) {
-        console.error(sessErr ?? "session null");
-        setStatus("error");
-        return;
-      }
+    /* 3) 無い場合は onAuthStateChange で待つ */
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") handleSignedIn();
+    });
 
-      /* -------- 3) プロフィール有無でリダイレクト -------- */
-      const { data: profile, error: profErr } = await supabase
-        .from("student_profiles")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      if (profErr) {
-        console.error(profErr);
-        setStatus("error");
-        return;
-      }
-
-      router.replace(profile ? "/dashboard" : "/onboarding/profile");
-    })();
-  }, [router, search]);
-
-  /* ---------- UI ---------- */
-  if (status === "error") {
+  /* ---------------- UI ---------------- */
+  if (error) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 text-red-600">
-        <p className="text-lg font-semibold">リンクが無効か期限切れです</p>
+        <p className="text-lg font-semibold">{error}</p>
         <p className="text-sm text-gray-600">
           もう一度登録をやり直すか、再度メールを送信してください。
         </p>
