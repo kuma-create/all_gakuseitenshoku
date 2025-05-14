@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------
    app/onboarding/profile/page.tsx
 ------------------------------------------------------------------*/
-"use client";
+"use client"
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -109,7 +109,7 @@ const initialState: FormState = {
 
 export default function OnboardingProfile() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [form, setForm] = useState<FormState>(initialState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,7 +194,7 @@ export default function OnboardingProfile() {
   /* ---------------- 送信 ---------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 5) {
+    if (step < 4) {
       setStep((s) => (s + 1) as typeof step);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
