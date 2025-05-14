@@ -148,14 +148,12 @@ export default function OnboardingProfile() {
     const { id, value } = target;
   
     /* checkbox / radio だけ checked を見る */
-    if (
-      target instanceof HTMLInputElement &&
-      (target.type === "checkbox" || target.type === "radio")
-    ) {
-      setForm((p) => ({ ...p, [id]: target.checked }));
-    } else {
-      setForm((p) => ({ ...p, [id]: value }));
-    }
+    if (target instanceof HTMLInputElement && target.type === "checkbox") {
+           setForm((p) => ({ ...p, [id]: target.checked }));
+         } else {
+           // radio / text / select などは value をそのまま入れる
+           setForm((p) => ({ ...p, [id]: value }));
+         }
 
     /* ② 郵便番号が 7 桁揃ったら自動検索 */
     if (id === "postal_code") {
@@ -236,7 +234,7 @@ export default function OnboardingProfile() {
       });
       if (insErr) throw insErr;
 
-      router.replace("/dashboard");
+      router.replace("/student-dashboard");
     } catch (err: any) {
       console.error(err);
       setError(err.message ?? "保存できませんでした。");
