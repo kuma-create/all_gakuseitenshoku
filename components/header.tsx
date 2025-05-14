@@ -5,8 +5,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link         from "next/link"
-import Image        from "next/image"
+import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import type { Session } from "@supabase/supabase-js"
 import {
@@ -15,11 +15,11 @@ import {
   LucideIcon, Send,
 } from "lucide-react"
 
-import { Button }   from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { LazyImage } from "@/components/ui/lazy-image"
-import { supabase } from "@/lib/supabase/client"
-import { useAuth }  from "@/lib/auth-context"
-import { cn }       from "@/lib/utils"
+import { supabase } from "@/lib/supabase/client"   /* ★ 共通クライアント */
+import { useAuth } from "@/lib/auth-context"
+import { cn } from "@/lib/utils"
 import NotificationBell from "@/components/notification-bell"
 
 /* ------------------------------------------------------------------ */
@@ -42,8 +42,8 @@ const studentLinks: NavItem[] = [
 const companyLinks: NavItem[] = [
   { href: "/company-dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/company/jobs",      label: "求人管理",   icon: Briefcase },
-  { href: "/company/scout",    label: "スカウト",   icon: Send }, 
-  { href: "/chat",              label: "チャット",   icon: MessageSquare },
+  { href: "/company/scout",     label: "スカウト",    icon: Send },
+  { href: "/chat",              label: "チャット",    icon: MessageSquare },
 ]
 
 const adminLinks: NavItem[] = [
@@ -63,13 +63,14 @@ const landingLinks: NavItem[] = [
 /*                               Header                                */
 /* ------------------------------------------------------------------ */
 export function Header() {
-  const pathname  = usePathname()
+  const pathname = usePathname()
   const { isLoggedIn, userType, user, logout } = useAuth()
   const [session, setSession] = useState<Session | null>(null)
 
   /* ---- Supabase セッション監視 ---- */
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_e, ses) => setSession(ses),
     )
@@ -79,9 +80,9 @@ export function Header() {
   /* ---- 役割に応じてリンク切替 ---- */
   let navLinks: NavItem[] = landingLinks
   if (isLoggedIn || session) {
-    if      (userType === "admin")   navLinks = adminLinks
+    if (userType === "admin")      navLinks = adminLinks
     else if (userType === "company") navLinks = companyLinks
-    else                             navLinks = studentLinks
+    else                            navLinks = studentLinks
   }
 
   /* ---------------- render ---------------- */
