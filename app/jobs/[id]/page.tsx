@@ -58,8 +58,7 @@ import {
 } from "@/components/ui/skeleton"
 
 /* Supabase client（client component 用） */
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-const supabase = createClientComponentClient()
+import { supabase } from "@/lib/supabase/client";  
 
 /* 認証情報 ⇒ userType を取得 */
 import { useAuth } from "@/lib/auth-context"
@@ -148,17 +147,26 @@ export default function JobDetailPage({
           .maybeSingle()
 
         /* Related jobs */
-        const { data: rel } = await supabase
-          .from("jobs")
-          .select(
-            `
-            id,title,location,salary_min,salary_max,
-            company:companies(name,logo)
-          `,
-          )
-          .eq("company_id", j.company_id)
-          .neq("id", params.id)
-          .limit(3)
+        let rel: any[] = []
+
+        if (j.company_id) {                              // 👈 null ガード
+          const { data: relData, error: relErr } = await supabase
+            .from("jobs")
+            .select(
+              `
+              id, title, location, salary_min, salary_max,
+              company:companies(name, logo)
+            `,
+            )
+            .eq("company_id", j.company_id)              // ← ここは string 確定
+            .neq("id", params.id)
+            .limit(3)
+        
+          if (relErr) console.error("related jobs error:", relErr)
+          rel = relData ?? []
+        }
+        
+        setRelated(rel)
 
         /* 興味あり localStorage */
         const saved = JSON.parse(localStorage.getItem("savedJobs") || "[]")

@@ -1,8 +1,5 @@
 /* ────────────────────────────────────────────────
    app/jobs/[id]/page.tsx
-   - 学生ユーザ用：求人詳細ページ
-   - ⭐ “興味あり” は job_interests テーブルで管理
-   - 👁️ 1 日 1 回の pv カウント RPC: increment_job_view
 ──────────────────────────────────────────────── */
 "use client"
 
@@ -14,7 +11,7 @@ import {
 } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import dynamic, { type DynamicOptions } from "next/dynamic"
+import dynamic from "next/dynamic"
 import {
   ArrowLeft,
   Bookmark,
@@ -23,7 +20,6 @@ import {
   Building2,
   Calendar,
   Check,
-  Clock,
   DollarSign,
   ExternalLink,
   Globe,
@@ -32,9 +28,7 @@ import {
   Users,
 } from "lucide-react"
 
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-const supabase = createClientComponentClient()
-
+import { supabase } from "@/lib/supabase/client"
 import { useAuth } from "@/lib/auth-context"
 import { useJobInterest } from "@/lib/hooks/use-job-interest"
 
@@ -47,17 +41,19 @@ const JobDescription = dynamic(
   () =>
     import("@/components/job-description").then((m) => ({
       default: m.JobDescription,
-    })),          // 👈 named export → default に包んで返す
+    })),
   { ssr: false, loading: () => <SkeletonDescription /> },
 )
-
 
 /* ---------- Skeleton ---------- */
 function SkeletonDescription() {
   return (
     <div className="space-y-4">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="h-4 w-full animate-pulse rounded bg-muted-foreground/20" />
+        <div
+          key={i}
+          className="h-4 w-full animate-pulse rounded bg-muted-foreground/20"
+        />
       ))}
     </div>
   )
@@ -100,18 +96,14 @@ export default function JobPage({ params }: { params: { id: string } }) {
         setLoading(true)
         setError(null)
 
-        /* Job + 会社 */
+        /* Job + 会社（全列取得で型を一致させる） */
         const { data: j, error: je } = await supabase
           .from("jobs")
           .select(
             `
-            *,
-            company:companies!jobs_company_id_fkey(
-              id, name, description, logo, cover_image_url,
-              industry, founded_year, employee_count,
-              location, recruit_website
-            )
-          `,
+              *,
+              company:companies!jobs_company_id_fkey(*)
+            `,
           )
           .eq("id", params.id)
           .single()
@@ -335,13 +327,15 @@ function ApplySection({
   hasApplied: boolean
 }) {
   const [posting, setPosting] = useState(false)
+
   const handleApply = async () => {
     if (hasApplied) return
     setPosting(true)
-    const supabase = createClientComponentClient<Database>()
+
     const { error } = await supabase.from("applications").insert({
       job_id: jobId,
     })
+
     if (error) {
       alert("応募に失敗しました")
     } else {

@@ -87,22 +87,14 @@ export default function SignupPage() {
             referral_source: formData.referral,
             full_name: fullName,
           },
-          emailRedirectTo: `${location.origin}/email-callback?email=${encodeURIComponent(
-            formData.email,
-        )}`,
+          emailRedirectTo:
+            `${location.origin}/email-callback` +
+            `?email=${encodeURIComponent(formData.email)}` +
+            `&ref=${encodeURIComponent(formData.referral)}`,
       }});
       if (authErr) throw authErr;
       if (!data.user) throw new Error("ユーザー登録に失敗しました");
       
-
-      /* ❷ 流入経路を永続テーブルに保存 ------------------------ */
-      const { error: insertErr } = await supabase
-        .from("user_signups")
-        .insert({
-          user_id: data.user.id,
-          referral_source: formData.referral,
-        });
-      if (insertErr) console.error(insertErr); // 失敗しても致命的ではない
 
       /* ❸ 完了画面へ ------------------------------------------ */
       setStep(2);
