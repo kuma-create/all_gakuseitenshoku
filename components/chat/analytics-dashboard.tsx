@@ -1,98 +1,78 @@
-/* ───────────────────────────────────────────────
-   app/(admin)/analytics-dashboard.tsx
-   - チャット分析ダッシュボード
-   - Supabase RPC で平均応答時間を取得
-────────────────────────────────────────────── */
-"use client"
-
-import React, { useState, useEffect } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Database } from "@/lib/supabase/types"
-
+"use client";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types";
 import {
   Card, CardHeader, CardTitle, CardDescription, CardContent,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 import {
   Tabs, TabsList, TabsTrigger, TabsContent,
-} from "@/components/ui/tabs"
+} from "@/components/ui/tabs";
 
-/* ------------------------------------------------------------------ */
-/*                         RPC 戻り値 / 引数型                          */
-/* ------------------------------------------------------------------ */
 type AvgRes  =
-  Database["public"]["Functions"]["avg_response_time_sec"]["Returns"] // { avg_response_sec:number }[]
-type AvgArgs =
-  Database["public"]["Functions"]["avg_response_time_sec"]["Args"]    // {}
-
+  Database["public"]["Functions"]["avg_response_time_sec"]["Returns"];
 type Metrics = {
-  totalChats     : number
-  unreadMessages : number
-  avgResponseSec : number
-}
+  totalChats: number;
+  unreadMessages: number;
+  avgResponseSec: number;
+};
 
-/* ------------------------------------------------------------------ */
-/*                          ダッシュボード                            */
-/* ------------------------------------------------------------------ */
 export function AnalyticsDashboard() {
-  const sb = createClientComponentClient<Database>()
-
-  const [loading,  setLoading]  = useState(true)
-  const [metrics,  setMetrics]  = useState<Metrics>({
-    totalChats     : 0,
-    unreadMessages : 0,
-    avgResponseSec : 0,
-  })
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<Metrics>({
+    totalChats: 0,
+    unreadMessages: 0,
+    avgResponseSec: 0,
+  });
 
   useEffect(() => {
     const fetchMetrics = async () => {
-      setLoading(true)
+      setLoading(true);
 
-      /* ① 総チャット数 ------------------------------------------------ */
-      const { count: totalChats } = await sb
+      /* ① 総チャット数 */
+      const { count: totalChats } = await supabase
         .from("chat_rooms")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true });
 
-      /* ② 未読メッセージ数 ------------------------------------------- */
-      const { count: unreadMessages } = await sb
+      /* ② 未読メッセージ数 */
+      const { count: unreadMessages } = await supabase
         .from("messages")
         .select("id", { count: "exact", head: true })
-        .eq("is_read", false)
+        .eq("is_read", false);
 
-      /* ③ 平均応答時間 (RPC) ----------------------------------------- */
-      const { data: rpcData, error: rpcError } = await sb.rpc("avg_response_time_sec")
-        
+      /* ③ 平均応答時間 (RPC) */
+      const { data: rpcData, error: rpcError } =
+        await supabase.rpc("avg_response_time_sec");
+      if (rpcError) console.error("RPC error:", rpcError);
 
-      if (rpcError) console.error("RPC error:", rpcError)
+      const avg =
+        (rpcData as AvgRes | null)?.[0]?.avg_response_sec ?? 0;
 
-        const avg =
-          (rpcData as AvgRes | null)?.[0]?.avg_response_sec ?? 0
-        
-        setMetrics({
-          totalChats     : totalChats     ?? 0,
-          unreadMessages : unreadMessages ?? 0,
-          avgResponseSec : avg,
-        })
-      setLoading(false)
-    }
+      setMetrics({
+        totalChats: totalChats ?? 0,
+        unreadMessages: unreadMessages ?? 0,
+        avgResponseSec: avg,
+      });
+      setLoading(false);
+    };
 
-    fetchMetrics()
-  }, [sb])
+    fetchMetrics();
+  }, []); // supabase is singleton
 
-  /* ローディング ----------------------------------------------------- */
+  /* ローディング表示 */
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <p>Loading metrics…</p>
       </div>
-    )
+    );
   }
 
-  /* 秒数 → “X時間YY分” ---------------------------------------------- */
   const formatTime = (sec: number) => {
-    const h = Math.floor(sec / 3600)
-    const m = Math.floor((sec % 3600) / 60)
-    return `${h}時間${m.toString().padStart(2, "0")}分`
-  }
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return `${h}時間${m.toString().padStart(2, "0")}分`;
+  };
 
   /* ------------------------------ UI ------------------------------- */
   return (

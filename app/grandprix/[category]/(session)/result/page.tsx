@@ -15,7 +15,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 import { LazyImage } from "@/components/ui/lazy-image"
@@ -48,7 +48,6 @@ export default function WebTestResultPage() {
     sessionId: string
   }>()
   const router = useRouter()
-  const supabase = createClientComponentClient<Database>()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)

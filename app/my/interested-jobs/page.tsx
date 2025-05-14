@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Loader2 } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 
 import type { Database } from "@/lib/supabase/types"
 import { JobCard } from "@/components/job-card"
@@ -29,7 +29,6 @@ export type JobWithTags = JobRow & {
   is_featured : boolean
 }
 
-const supabase = createClientComponentClient<Database>()
 
 /* ======================================================================= */
 export default function InterestedJobsPage() {

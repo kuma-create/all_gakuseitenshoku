@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { ArrowLeft, Clock, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 import { Button } from "@/components/ui/button"
@@ -28,7 +28,6 @@ import { useToast } from "@/components/ui/use-toast"
  */
 export default function GrandPrixCategoryPage() {
   const { category } = useParams<{ category: string }>()
-  const supabase = createClientComponentClient<Database>()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)

@@ -6,7 +6,7 @@
 ------------------------------------------------------------------- */
 
 import { useEffect, useState } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import { Medal, Trophy } from "lucide-react"
 import { motion } from "framer-motion"
 import dayjs from "dayjs"
@@ -91,7 +91,6 @@ type MonthKey = (typeof monthOptions)[number]["value"]
 /*                     GrandPrixLeaderboard コンポーネント            */
 /* ------------------------------------------------------------------ */
 export const GrandPrixLeaderboard = () => {
-  const supabase = createClientComponentClient()
 
   const [selectedMonth, setSelectedMonth] =
     useState<MonthKey>(monthOptions[0].value)
@@ -123,7 +122,7 @@ export const GrandPrixLeaderboard = () => {
         .toISOString()
 
       const { data: event } = await supabase
-        .from("grandprix_events")
+        .from("challenges")
         .select("id")
         .gte("start_date", monthStart)
         .lte("start_date", monthEnd)
@@ -137,7 +136,7 @@ export const GrandPrixLeaderboard = () => {
 
       /* 2) 参加者 + プロフィール */
       const { data, error } = await supabase
-        .from("grandprix_participants")
+        .from("challenges")
         .select(
           `
             student_id,

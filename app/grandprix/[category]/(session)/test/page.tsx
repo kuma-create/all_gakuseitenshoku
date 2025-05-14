@@ -17,7 +17,7 @@ import {
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 import { LazyImage } from "@/components/ui/lazy-image"
@@ -49,7 +49,6 @@ export default function WebTestPage() {
     category: string
     sessionId: string
   }>()
-  const supabase = createClientComponentClient<Database>()
   const router = useRouter()
   const { toast } = useToast()
 

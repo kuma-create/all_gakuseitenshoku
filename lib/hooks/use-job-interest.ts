@@ -4,10 +4,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types";
-
-const supabase = createClientComponentClient<Database>();
 
 /** -------------------------------------------------
  * @param jobId      対象求人 ID
