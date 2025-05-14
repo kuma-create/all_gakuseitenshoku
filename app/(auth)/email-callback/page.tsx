@@ -1,9 +1,7 @@
 /* ------------------------------------------------------------------
-   app/email-callback/page.tsx
-   - メール確認 / OAuth / magic-link すべてをここで吸収
+   app/email-callback/page.tsx (全量差し替えでも OK)
 ------------------------------------------------------------------*/
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -19,18 +17,12 @@ export default function EmailCallbackPage() {
 
   useEffect(() => {
     (async () => {
-      /* ---------------- 1) メール OTP 方式 ---------------- */
-      const token = search.get("token");      // 6 桁コード付き URL
-      const type  = search.get("type");       // signup / recovery など
-      if (token && type === "signup") {
-        const email =
-          sessionStorage.getItem("pending_sign_up_email") ?? undefined;
-        if (!email) {
-          // フォームを経由せず直接アクセスされた場合
-          setStatus("error");
-          return;
-        }
+      /* -------- 1) verifyOtp (token + email + type) -------- */
+      const token = search.get("token");
+      const type  = search.get("type");            // signup / recovery など
+      const email = search.get("email");           // ← ここが今回のポイント！
 
+      if (token && type === "signup" && email) {
         const { error } = await supabase.auth.verifyOtp({
           email,
           token,
@@ -41,28 +33,25 @@ export default function EmailCallbackPage() {
           setStatus("error");
           return;
         }
-        // 使い終わったら削除
-        sessionStorage.removeItem("pending_sign_up_email");
       }
 
-      /* ---------------- 2) OAuth / hash 方式 -------------- */
-      // （#access_token=... が付いている場合は supabase-js が自動でパース）
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
-        console.error(error);
+      /* -------- 2) セッション取得 (hash を supabase-js がパース) -------- */
+      const { data: { session }, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr || !session) {
+        console.error(sessErr ?? "session null");
         setStatus("error");
         return;
       }
 
-      /* ---------------- 3) プロフ有無で分岐 --------------- */
-      const { data: profile, error: profileErr } = await supabase
+      /* -------- 3) プロフィール有無でリダイレクト -------- */
+      const { data: profile, error: profErr } = await supabase
         .from("student_profiles")
         .select("id")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
-      if (profileErr) {
-        console.error(profileErr);
+      if (profErr) {
+        console.error(profErr);
         setStatus("error");
         return;
       }
@@ -71,7 +60,7 @@ export default function EmailCallbackPage() {
     })();
   }, [router, search]);
 
-  /* ---------------- UI ---------------- */
+  /* ---------- UI ---------- */
   if (status === "error") {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 text-red-600">
