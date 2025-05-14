@@ -36,10 +36,6 @@ const prefectures = [
   "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県",
 ];
 
-// onboarding/profile/page.tsx
-const [zipLoading, setZipLoading] = useState(false);
-const [zipError  , setZipError]   = useState<string | null>(null);
-
 
 /* ステップごとのフォーム型 ------------------------------------------------ */
 type Step1 = {
@@ -111,6 +107,10 @@ export default function OnboardingProfile() {
   const [form, setForm] = useState<FormState>(initialState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // onboarding/profile/page.tsx
+    const [zipLoading, setZipLoading] = useState(false);
+    const [zipError  , setZipError]   = useState<string | null>(null);
 
   const fetchAddress = async (zipcode: string) => {
     setZipLoading(true);
