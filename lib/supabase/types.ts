@@ -906,6 +906,7 @@ export type Database = {
           has_internship_experience: boolean
           id: string
           interests: string[]
+          join_ipo: boolean | null
           language_skill: string | null
           last_name: string | null
           last_name_kana: string | null
@@ -961,6 +962,7 @@ export type Database = {
           has_internship_experience?: boolean
           id?: string
           interests?: string[]
+          join_ipo?: boolean | null
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
@@ -1016,6 +1018,7 @@ export type Database = {
           has_internship_experience?: boolean
           id?: string
           interests?: string[]
+          join_ipo?: boolean | null
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
