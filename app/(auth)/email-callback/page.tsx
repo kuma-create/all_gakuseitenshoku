@@ -1,5 +1,6 @@
 /* ------------------------------------------------------------------
    app/email-callback/page.tsx
+   - メール確認 / OAuth / magic-link すべてをここで吸収
 ------------------------------------------------------------------*/
 "use client";
 
@@ -18,42 +19,59 @@ export default function EmailCallbackPage() {
 
   useEffect(() => {
     (async () => {
-      /* 1) ?code= がある場合 (v2 方式) ----------------------------- */
-      const code = search.get("code");
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+      /* ---------------- 1) メール OTP 方式 ---------------- */
+      const token = search.get("token");      // 6 桁コード付き URL
+      const type  = search.get("type");       // signup / recovery など
+      if (token && type === "signup") {
+        const email =
+          sessionStorage.getItem("pending_sign_up_email") ?? undefined;
+        if (!email) {
+          // フォームを経由せず直接アクセスされた場合
+          setStatus("error");
+          return;
+        }
+
+        const { error } = await supabase.auth.verifyOtp({
+          email,
+          token,
+          type: "signup",
+        });
         if (error) {
           console.error(error);
           setStatus("error");
           return;
         }
+        // 使い終わったら削除
+        sessionStorage.removeItem("pending_sign_up_email");
       }
 
-      /* 2) セッション取得 (v1 hash 方式 or v2 交換後) -------------- */
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setStatus("error");
-        return;
-      }
-
-      /* 3) プロフィール有無でリダイレクト ------------------------- */
-      const { data, error } = await supabase
-        .from("student_profiles")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (error) {
+      /* ---------------- 2) OAuth / hash 方式 -------------- */
+      // （#access_token=... が付いている場合は supabase-js が自動でパース）
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
         console.error(error);
         setStatus("error");
         return;
       }
 
-      router.replace(data ? "/dashboard" : "/onboarding/profile");
+      /* ---------------- 3) プロフ有無で分岐 --------------- */
+      const { data: profile, error: profileErr } = await supabase
+        .from("student_profiles")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (profileErr) {
+        console.error(profileErr);
+        setStatus("error");
+        return;
+      }
+
+      router.replace(profile ? "/dashboard" : "/onboarding/profile");
     })();
   }, [router, search]);
 
-  /* --------------- UI --------------- */
+  /* ---------------- UI ---------------- */
   if (status === "error") {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 text-red-600">
