@@ -1,13 +1,23 @@
-// lib/supabase/client.ts
-
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-/**
- * ブラウザ上で使うためのシングルトン Supabase クライアント。
- * クッキー認証は不要なので @supabase/supabase-js の createClient を直呼び。
- */
-export const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+/* -------------------------------------------------
+   HMR が走っても再生成されないよう globalThis に保存
+--------------------------------------------------*/
+declare global {
+  /* eslint-disable no-var */
+  var __supabase__: SupabaseClient<Database> | undefined;
+}
+
+const supabase =
+  globalThis.__supabase__ ??
+  createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.__supabase__ = supabase;
+}
+
+export { supabase };

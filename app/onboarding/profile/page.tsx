@@ -3,7 +3,7 @@
 ------------------------------------------------------------------*/
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
@@ -125,6 +125,20 @@ export default function OnboardingProfile() {
       setForm((p) => ({ ...p, [id]: value }));
     }
   };
+
+    useEffect(() => {
+        (async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // signup 時に渡した user_metadata.full_name を分割
+        const meta = user.user_metadata as { full_name?: string };
+        if (meta?.full_name) {
+            const [ln = "", fn = ""] = meta.full_name.split(" ");
+            setForm((p) => ({ ...p, last_name: ln, first_name: fn }));
+        }
+        })();
+    }, []);
 
   /* ---------------- 送信 ---------------- */
   const handleSubmit = async (e: React.FormEvent) => {

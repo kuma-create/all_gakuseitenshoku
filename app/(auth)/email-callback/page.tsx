@@ -18,6 +18,17 @@ export default function EmailCallbackPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;                        // まだクッキーが来ていない
 
+    const referral = search.get("ref");
+    if (referral) {
+      // すでに行がある場合は無視したいので upsert を推奨
+      await supabase
+        .from("user_signups")
+        .upsert(
+          { user_id: session.user.id, referral_source: referral },
+          { onConflict: "user_id" }        // 1人1レコード想定
+        );
+    }
+
     const { data, error } = await supabase
       .from("student_profiles")
       .select("id")
