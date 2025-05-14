@@ -86,6 +86,8 @@ export default function SignupPage() {
           data: {
             referral_source: formData.referral,
             full_name: fullName,
+            last_name : formData.last_name,
+            first_name: formData.first_name,
           },
           emailRedirectTo:
             `${location.origin}/email-callback` +
