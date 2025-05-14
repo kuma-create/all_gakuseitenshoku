@@ -38,6 +38,11 @@ const prefectures = [
   "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県",
 ];
 
+// onboarding/profile/page.tsx
+const [zipLoading, setZipLoading] = useState(false);
+const [zipError  , setZipError]   = useState<string | null>(null);
+
+
 /* ステップごとのフォーム型 ------------------------------------------------ */
 type Step1 = {
   last_name: string;
@@ -109,6 +114,37 @@ export default function OnboardingProfile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchAddress = async (zipcode: string) => {
+    setZipLoading(true);
+    setZipError(null);
+  
+    try {
+      const res = await fetch(
+        `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zipcode}`
+      );
+      const json = await res.json();
+  
+      if (json.status !== 200 || !json.results?.length) {
+        throw new Error(json.message || "住所が見つかりませんでした");
+      }
+  
+      const { address1, address2, address3 } = json.results[0];
+  
+      setForm((p) => ({
+        ...p,
+        prefecture : address1,          // 東京都など
+        city       : `${address2}${address3}`, // 千代田区千代田 など
+        // address_line は番地以降を手入力してもらう
+      }));
+    } catch (err: any) {
+      console.error(err);
+      setZipError(err.message);
+    } finally {
+      setZipLoading(false);
+    }
+  };
+  
+
   const handleChange = (e: InputChange) => {
     const target = e.target;
     const { id, value } = target;
@@ -122,6 +158,13 @@ export default function OnboardingProfile() {
     } else {
       setForm((p) => ({ ...p, [id]: value }));
     }
+
+    /* ② 郵便番号が 7 桁揃ったら自動検索 */
+    if (id === "postal_code") {
+        const digits = value.replace(/\D/g, "");   // 数字だけ
+        if (digits.length === 7) fetchAddress(digits);
+    }
+
   };
 
     useEffect(() => {
@@ -218,7 +261,15 @@ export default function OnboardingProfile() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-8">
             {step === 1 && <Step1Inputs form={form} onChange={handleChange} />}
-            {step === 2 && <Step2Inputs form={form} onChange={handleChange} />}
+            {step === 2 && (
+                <Step2Inputs
+                    form={form}
+                    onChange={handleChange}
+                    zipLoading={zipLoading}
+                    zipError={zipError}
+                />
+                )}
+
             {step === 3 && <Step3Inputs form={form} onChange={handleChange} />}
             {step === 4 && <Step4Inputs form={form} onChange={handleChange} />}
             {error && (
@@ -298,31 +349,66 @@ function Step1Inputs({
 }
 
 function Step2Inputs({
-  form,
-  onChange,
-}: { form: FormState; onChange: (e: InputChange) => void }) {
-  return (
-    <div className="space-y-6">
-      <Field id="postal_code" label="郵便番号" value={form.postal_code} onChange={onChange} required />
-      <SelectField
-        id="prefecture"
-        label="都道府県"
-        value={form.prefecture}
-        onChange={onChange}
-        options={prefectures}
-        required
-      />
-      <Field id="city" label="市区町村" value={form.city} onChange={onChange} required />
-      <Field
-        id="address_line"
-        label="それ以降の住所"
-        value={form.address_line}
-        onChange={onChange}
-        placeholder="番地・建物名など"
-      />
-    </div>
-  );
-}
+    form,
+    onChange,
+    zipLoading,
+    zipError,
+  }: {
+    form: FormState;
+    onChange: (e: InputChange) => void;
+    zipLoading: boolean;
+    zipError: string | null;
+  }) {
+    return (
+      /* ←── ルートはこの 1 つだけ */
+      <div className="space-y-6">
+        {/* ① 郵便番号 */}
+        <div className="grid gap-2">
+          <Label htmlFor="postal_code">郵便番号</Label>
+          <Input
+            id="postal_code"
+            value={form.postal_code}
+            onChange={onChange}
+            placeholder="例）1000001"
+            pattern="\d{3}-?\d{4}"
+            maxLength={8}          /* 7 桁＋ハイフン許容 */
+            required
+          />
+          {zipLoading && (
+            <p className="text-xs text-gray-500">住所検索中…</p>
+          )}
+          {zipError && (
+            <p className="text-xs text-red-600">{zipError}</p>
+          )}
+        </div>
+  
+        {/* ② 都道府県 / 市区町村 / 番地 */}
+        <SelectField
+          id="prefecture"
+          label="都道府県"
+          value={form.prefecture}
+          onChange={onChange}
+          options={prefectures}
+          required
+        />
+        <Field
+          id="city"
+          label="市区町村"
+          value={form.city}
+          onChange={onChange}
+          required
+        />
+        <Field
+          id="address_line"
+          label="それ以降の住所"
+          value={form.address_line}
+          onChange={onChange}
+          placeholder="番地・建物名など"
+        />
+      </div>
+    );
+  }
+  
 
 function Step3Inputs({
   form,
