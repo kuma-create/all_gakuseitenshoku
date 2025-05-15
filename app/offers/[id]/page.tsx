@@ -525,7 +525,6 @@ function InterestButtons({
           チャットを開始する
         </Link>
       </Button>
-
       {/* 確認ダイアログ */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>

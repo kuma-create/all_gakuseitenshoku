@@ -12,7 +12,7 @@ import type { Database } from "@/lib/supabase/types"
 type Row = Database["public"]["Tables"]["experiences"]["Row"]
 
 /* -------------------------------------------------- */
-/*                       Hook                         */
+/*                       Hooks                         */
 /* -------------------------------------------------- */
 export function useExperiences() {
   const [data,    setData]    = useState<Row[]>([])
