@@ -17,41 +17,32 @@ export default function EmailCallbackPage() {
   useEffect(() => {
     /* ▼ 1) v2 `?code=` 方式を先に処理 ------------------------------ */
     (async () => {
-      const code = search.get("code");
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+      const url = window.location.href;   
+      if (url.includes("code=")) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(url);
         if (error) {
           console.error(error);
           setStatus("error");
           return;
         }
-      }
-    })();
 
-    /* ▼ 2) サインイン完了イベントを待つ ---------------------------- */
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event !== "SIGNED_IN" || !session) return;
-
-      /* 3) プロフィール有無でリダイレクト */
-      const { data, error } = await supabase
-        .from("student_profiles")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error(error);
-        setStatus("error");
-        return;
-      }
-
-      router.replace(data ? "/dashboard" : "/onboarding/profile");
-    });
-
-    /* クリーンアップ */
-    return () => subscription.unsubscribe();
+       /* ② プロフィール有無でリダイレクト */
+       const { data: { user } } = await supabase.auth.getUser();
+       if (!user?.id) {                           // ← ① ID が無ければエラー扱いで抜ける
+         setStatus("error");
+         return;
+       }
+       
+       const { data: profile } = await supabase    // ← ② user.id は必ず string
+         .from("student_profiles")
+         .select("id")
+         .eq("user_id", user.id)                   // ★ user.id （non-nullable）
+         .maybeSingle();
+       
+    
+       router.replace(profile ? "/student-dashboard" : "/onboarding/profile");
+     }
+     })();
   }, [router, search]);
 
   /* -------------------- UI -------------------- */
