@@ -57,7 +57,7 @@ interface OfferDetail {
 
   /* companies */
   company_name: string
-  logo_url: string | null
+  logo: string | null
   description: string | null
   employee_count: number | null
   founded_year: number | null
@@ -172,7 +172,7 @@ export default function OfferDetailPage({
 
         /** companies */
         company_name: data.companies?.name ?? "",
-        logo_url: data.companies?.logo ?? null,
+        logo: data.companies?.logo ?? null,
         description: data.companies?.description ?? null,
         employee_count: data.companies?.employee_count ?? null,
         founded_year: data.companies?.founded_year ?? null,
@@ -240,7 +240,7 @@ export default function OfferDetailPage({
         <div className="mb-6 rounded-lg border bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <LazyImage
-              src={offer.logo_url ?? "/placeholder.svg"}
+              src={offer.logo ?? "/placeholder.svg"}
               alt={`${offer.company_name} のロゴ`}
               width={64}
               height={64}
