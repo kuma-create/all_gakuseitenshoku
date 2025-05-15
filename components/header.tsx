@@ -5,8 +5,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
+import Link            from "next/link"
+import Image           from "next/image"
 import { usePathname } from "next/navigation"
 import type { Session } from "@supabase/supabase-js"
 import {
@@ -14,15 +14,13 @@ import {
   MessageSquare, Trophy, Star, LogIn, Building2, ShieldCheck,
   LucideIcon, Send,
 } from "lucide-react"
-import { LazyImage } from "./ui/lazy-image"
 
-import { Button } from "@/components/ui/button"
-import { supabase } from "@/lib/supabase/client"   /* ★ 共通クライアント */
-import { useAuth } from "@/lib/auth-context"
-import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase/client"
+import { useAuth }  from "@/lib/auth-context"
+import { cn }       from "@/lib/utils"
 import NotificationBell from "@/components/notification-bell"
-import { Avatar } from "@/components/avatar"
-
+import { Avatar }   from "@/components/avatar"
+import { Button }   from "@/components/ui/button"
 
 /* ------------------------------------------------------------------ */
 /*                             型定義                                  */
@@ -33,24 +31,23 @@ type NavItem = { href: string; label: string; icon?: LucideIcon }
 const studentLinks: NavItem[] = [
   { href: "/student-dashboard", label: "Dashboard",     icon: LayoutDashboard },
   { href: "/student/profile",   label: "プロフィール",   icon: User },
-  { href: "/student/resume",    label: "職務経歴",       icon: Briefcase },
-  { href: "/jobs",              label: "求人一覧",       icon: Search },
-  { href: "/offers",            label: "オファー一覧",   icon: Mail },
-  { href: "/chat",              label: "チャット",       icon: MessageSquare },
-  { href: "/grandprix",         label: "就活グランプリ", icon: Trophy },
-  { href: "/features",          label: "特集",           icon: Star },
+  { href: "/student/resume",    label: "レジュメ",       icon: Briefcase },
+  { href: "/student/jobs",      label: "求人検索",       icon: Search },
+  { href: "/student/scouts",    label: "スカウト",       icon: Mail },
+  { href: "/student/chat",      label: "チャット",       icon: MessageSquare },
 ]
 
 const companyLinks: NavItem[] = [
-  { href: "/company-dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/company/jobs",      label: "求人管理",   icon: Briefcase },
-  { href: "/company/scout",     label: "スカウト",    icon: Send },
-  { href: "/chat",              label: "チャット",    icon: MessageSquare },
+  { href: "/company-dashboard", label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/company/jobs",      label: "求人管理",    icon: Briefcase },
+  { href: "/company/scout",     label: "スカウト送信", icon: Send },
+  { href: "/company/chat",      label: "チャット",    icon: MessageSquare },
 ]
 
 const adminLinks: NavItem[] = [
-  { href: "/admin",             label: "管理画面",         icon: ShieldCheck },
-  { href: "/company-dashboard", label: "企業ダッシュボード", icon: Building2 },
+  { href: "/admin",    label: "Admin",   icon: ShieldCheck },
+  { href: "/grandprix", label: "GP",     icon: Trophy },
+  { href: "/ranking",   label: "Ranking", icon: Star },
 ]
 
 const landingLinks: NavItem[] = [
@@ -65,28 +62,32 @@ const landingLinks: NavItem[] = [
 /*                               Header                                */
 /* ------------------------------------------------------------------ */
 export function Header() {
-  const pathname = usePathname()
-  const { isLoggedIn, userType, user, logout } = useAuth()
-  const [session, setSession] = useState<Session | null>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const pathname  = usePathname()
+  const { isLoggedIn, userType, logout } = useAuth()
+  const [session,    setSession]   = useState<Session | null>(null)
+  const [avatarUrl,  setAvatarUrl] = useState<string | null>(null)
 
   /* ---- Supabase セッション監視 ---- */
   useEffect(() => {
+    let unsub: () => void
+
     supabase.auth.getSession().then(async ({ data }) => {
-        setSession(data.session)
-        if (data.session) await fetchAvatar(data.session.user.id)
-      })
+      setSession(data.session)
+      if (data.session) await fetchAvatar(data.session.user.id)
+    })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_e, ses) => {
-                setSession(ses)
-                if (ses) await fetchAvatar(ses.user.id)
-              },
+        setSession(ses)
+        if (ses) await fetchAvatar(ses.user.id)
+      },
     )
-    return () => subscription.unsubscribe()
+    unsub = () => subscription.unsubscribe()
+
+    return unsub
   }, [])
 
-    /* ------- avatar_url を student_profiles から取得 ------- */
+  /* ------- avatar_url を student_profiles から取得 ------- */
   const fetchAvatar = async (uid: string) => {
     const { data } = await supabase
       .from("student_profiles")
@@ -99,107 +100,74 @@ export function Header() {
   /* ---- 役割に応じてリンク切替 ---- */
   let navLinks: NavItem[] = landingLinks
   if (isLoggedIn || session) {
-    if (userType === "admin")      navLinks = adminLinks
+    if (userType === "admin")       navLinks = adminLinks
     else if (userType === "company") navLinks = companyLinks
-    else                            navLinks = studentLinks
+    else                             navLinks = studentLinks
   }
 
   /* ---------------- render ---------------- */
   return (
-    <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/75">
-      <div className="mx-auto flex h-16 max-w-screen-xl items-center justify-between px-4 md:px-6">
-        {/* ------ ロゴ ------ */}
-        <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo.png"
-            alt="Culture ロゴ"
-            width={80}
-            height={80}
-            priority
-            className="h-32 w-32 object-contain"
-          />
-        </Link>
+    <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-zinc-200/70 bg-white/80 px-4 backdrop-blur dark:border-zinc-700/40 dark:bg-zinc-900/80 lg:px-6">
+      {/* ----- 左 : ロゴ ----- */}
+      <Link href="/" className="flex items-center space-x-2">
+        <Image src="/logo.svg" alt="logo" width={24} height={24} />
+        <span className="font-semibold">学生転職</span>
+      </Link>
 
-        {/* ------ グローバルナビ (PC) ------ */}
-        <nav className="hidden lg:block">
-          <ul className="flex items-center gap-6">
-            {navLinks.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || pathname.startsWith(`${href}/`)
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className={cn(
-                      "flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-red-600",
-                      active ? "text-red-600" : "text-gray-600",
-                    )}
-                  >
-                    {Icon && <Icon size={18} />}
-                    {label}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
-
-        {/* ------ 右ユーティリティ ------ */}
-        <div className="flex items-center gap-4">
-          {(isLoggedIn || session) ? (
-            <>
-              {/* 通知ベル */}
-              <NotificationBell />
-
-              {/* アバター */}
-              <div className="flex items-center gap-2">
-                <span className="hidden text-sm font-medium text-gray-700 md:block">
-                  {user?.name ||
-                    session?.user?.user_metadata?.full_name ||
-                    "ユーザー"}
-                </span>
-                <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                  <LazyImage
-                    src="/placeholder.svg?width=32&height=32"
-                    alt="プロフィール画像"
-                    width={32}
-                    height={32}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <Avatar src={avatarUrl} size={32} />
-              </div>
-
-              {/* ログアウト */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  if (session) await supabase.auth.signOut()
-                  logout()
-                }}
-                className="text-gray-600"
+      {/* ----- 中央 : ナビゲーション ----- */}
+      <nav className="hidden lg:block">
+        <ul className="flex flex-wrap gap-4 text-sm font-medium text-gray-700 dark:text-gray-200">
+          {navLinks.map(({ href, label, icon: Icon }) => (
+            <li key={href}>
+              <Link
+                href={href}
+                className={cn(
+                  "flex items-center gap-1",
+                  pathname.startsWith(href) && "text-red-600",
+                )}
               >
-                ログアウト
-              </Button>
-            </>
-          ) : (
-            /* ----- 未ログイン時：ログイン＋新規登録 ----- */
-            <>
-              <Button asChild variant="ghost" size="sm" className="text-gray-600">
-                <Link href="/login">
-                  <LogIn className="mr-1 h-4 w-4" />
-                  ログイン
-                </Link>
-              </Button>
+                {Icon && <Icon size={14} className="shrink-0" />}
+                {label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-              <Button asChild size="sm" className="bg-red-600 text-white hover:bg-red-700">
-                <Link href="/signup">
-                  新規登録
-                </Link>
-              </Button>
-            </>
-          )}
-        </div>
+      {/* ----- 右端 : 通知 & ユーザー ----- */}
+      <div className="flex items-center gap-4">
+        {isLoggedIn && <NotificationBell />}
+        {isLoggedIn ? (
+          <>
+            {/* Avatar */}
+            <div className="h-8 w-8 overflow-hidden rounded-full">
+              <Avatar src={avatarUrl} size={32} />
+            </div>
+
+            {/* ログアウト */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}         
+              className="text-gray-600"
+            >
+              ログアウト
+            </Button>
+          </>
+        ) : (
+          /* ----- 未ログイン時：ログイン＋新規登録 ----- */
+          <>
+            <Button asChild variant="ghost" size="sm" className="text-gray-600">
+              <Link href="/login">
+                <LogIn className="mr-1 h-4 w-4" />
+                ログイン
+              </Link>
+            </Button>
+            <Button asChild size="sm" className="bg-red-600 text-white hover:bg-red-700">
+              <Link href="/signup">新規登録</Link>
+            </Button>
+          </>
+        )}
       </div>
 
       {/* ナビ折返し防止 */}
