@@ -7,12 +7,12 @@
 import { useEffect, useState } from "react"
 import Link            from "next/link"
 import Image           from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"   // ← ★ useRouter 追加
 import type { Session } from "@supabase/supabase-js"
 import {
   Bell, LayoutDashboard, User, Briefcase, Search, Mail,
-  MessageSquare, Trophy, Star, LogIn, Building2, ShieldCheck,
-  LucideIcon, Send,
+  MessageSquare, Trophy, Star, LogIn, ShieldCheck, Send,
+  LucideIcon,
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase/client"
@@ -45,9 +45,9 @@ const companyLinks: NavItem[] = [
 ]
 
 const adminLinks: NavItem[] = [
-  { href: "/admin",    label: "Admin",   icon: ShieldCheck },
-  { href: "/grandprix", label: "GP",     icon: Trophy },
-  { href: "/ranking",   label: "Ranking", icon: Star },
+  { href: "/admin",     label: "Admin",    icon: ShieldCheck },
+  { href: "/grandprix", label: "GP",       icon: Trophy },
+  { href: "/ranking",   label: "Ranking",  icon: Star },
 ]
 
 const landingLinks: NavItem[] = [
@@ -62,29 +62,29 @@ const landingLinks: NavItem[] = [
 /*                               Header                                */
 /* ------------------------------------------------------------------ */
 export function Header() {
-  const pathname  = usePathname()
+  const pathname = usePathname()
+  const router   = useRouter()                       // ← ★
   const { isLoggedIn, userType, logout } = useAuth()
-  const [session,    setSession]   = useState<Session | null>(null)
-  const [avatarUrl,  setAvatarUrl] = useState<string | null>(null)
+
+  const [session,   setSession]  = useState<Session | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   /* ---- Supabase セッション監視 ---- */
   useEffect(() => {
-    let unsub: () => void
-
-    supabase.auth.getSession().then(async ({ data }) => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession()
       setSession(data.session)
       if (data.session) await fetchAvatar(data.session.user.id)
-    })
+    }
+    init()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_e, ses) => {
+    const { data: { subscription } } =
+      supabase.auth.onAuthStateChange(async (_e, ses) => {
         setSession(ses)
         if (ses) await fetchAvatar(ses.user.id)
-      },
-    )
-    unsub = () => subscription.unsubscribe()
+      })
 
-    return unsub
+    return () => subscription.unsubscribe()
   }, [])
 
   /* ------- avatar_url を student_profiles から取得 ------- */
@@ -97,10 +97,21 @@ export function Header() {
     setAvatarUrl(data?.avatar_url ?? null)
   }
 
+  /* ---- ログアウト処理 ---- */
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error("signOut error:", error)
+      return
+    }
+    logout()            // AuthContext をクリア
+    router.replace("/") // 認証不要ページへ即遷移
+  }
+
   /* ---- 役割に応じてリンク切替 ---- */
   let navLinks: NavItem[] = landingLinks
   if (isLoggedIn || session) {
-    if (userType === "admin")       navLinks = adminLinks
+    if (userType === "admin")        navLinks = adminLinks
     else if (userType === "company") navLinks = companyLinks
     else                             navLinks = studentLinks
   }
@@ -143,19 +154,17 @@ export function Header() {
             <div className="h-8 w-8 overflow-hidden rounded-full">
               <Avatar src={avatarUrl} size={32} />
             </div>
-
             {/* ログアウト */}
             <Button
               variant="ghost"
               size="sm"
-              onClick={logout}         
+              onClick={handleLogout}       // ← ★ 差し替え
               className="text-gray-600"
             >
               ログアウト
             </Button>
           </>
         ) : (
-          /* ----- 未ログイン時：ログイン＋新規登録 ----- */
           <>
             <Button asChild variant="ghost" size="sm" className="text-gray-600">
               <Link href="/login">
