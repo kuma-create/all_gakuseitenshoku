@@ -63,7 +63,7 @@ const landingLinks: NavItem[] = [
 /* ------------------------------------------------------------------ */
 export function Header() {
   const pathname = usePathname()
-  const router   = useRouter()                       // ← ★
+  const router   = useRouter()
   const { isLoggedIn, userType, logout } = useAuth()
 
   const [session,   setSession]  = useState<Session | null>(null)
@@ -89,6 +89,7 @@ export function Header() {
 
   /* ------- avatar_url を student_profiles から取得 ------- */
   const fetchAvatar = async (uid: string) => {
+    if (!uid) return;
     const { data } = await supabase
       .from("student_profiles")
       .select("avatar_url")
@@ -104,16 +105,16 @@ export function Header() {
       console.error("signOut error:", error)
       return
     }
-    logout()            // AuthContext をクリア
-    router.replace("/") // 認証不要ページへ即遷移
+    logout()
+    router.replace("/")
   }
 
   /* ---- 役割に応じてリンク切替 ---- */
   let navLinks: NavItem[] = landingLinks
-  if (isLoggedIn || session) {
+  if (isLoggedIn) {
     if (userType === "admin")        navLinks = adminLinks
     else if (userType === "company") navLinks = companyLinks
-    else                             navLinks = studentLinks
+    else if (userType === "student") navLinks = studentLinks
   }
 
   /* ---------------- render ---------------- */
@@ -157,7 +158,7 @@ export function Header() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleLogout}       // ← ★ 差し替え
+              onClick={handleLogout}
               className="text-gray-600"
             >
               ログアウト
