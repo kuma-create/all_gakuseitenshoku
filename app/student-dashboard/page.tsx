@@ -110,9 +110,8 @@ export default function StudentDashboard() {
         </header>
 
         {/* ─── プロフィール完成度カード ─── */}
-        <Suspense fallback={<SkeletonCard />}>
           <ProfileCompletionCard />
-        </Suspense>
+          if (!completion) return <SkeletonCard />;  
       </section>
 
       {/* ───── カード 3 枚 ───── */}
