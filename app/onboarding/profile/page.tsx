@@ -113,10 +113,9 @@ export default function OnboardingProfile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [zipLoading, setZipLoading] = useState(false);
+  const [zipError,   setZipError]   = useState<string | null>(null);
 
-  // onboarding/profile/page.tsx
-    const [zipLoading, setZipLoading] = useState(false);
-    const [zipError  , setZipError]   = useState<string | null>(null);
 
   const fetchAddress = async (zipcode: string) => {
     setZipLoading(true);
