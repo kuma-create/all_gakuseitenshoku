@@ -1,6 +1,6 @@
 /* ------------------------------------------------------------------
    app/student/scouts/page.tsx
-   - 学生向けスカウト一覧（認証ガード付き）
+   - 学生向けスカウト一覧（認証ガード付き・400対策版）
 ------------------------------------------------------------------ */
 "use client"
 
@@ -15,11 +15,13 @@ import { Loader2 } from "lucide-react"
 
 type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"]
 
+/** PostgREST ネスト表記で取得した行 */
 type ScoutWithRelations = ScoutRow & {
   companies: { name: string; logo: string | null } | null
   jobs:      { title: string | null } | null
 }
 
+/** UI で扱いやすい形にフラット化 */
 export type UIScout = {
   id:          string
   companyName: string
@@ -44,16 +46,23 @@ export default function ScoutsPage() {
     async (uid: string) => {
       setLoading(true)
 
+      /** 重要：
+       *  - `companies(name,logo)` のネスト表記に変更（alias をやめて 400 対策）
+       *  - target_id で本人分だけ取得
+       */
       const { data, error } = await supabase
         .from("scouts")
         .select(
           `
-          *,
-          companies:companies(name, logo),
-          jobs:jobs(title)
+          id,
+          message,
+          status,
+          created_at,
+          companies ( name, logo ),
+          jobs      ( title )
         `,
         )
-        .eq("target_id", uid)                         // ★ 認証ユーザーのみ
+        .eq("target_id", uid)
         .order("created_at", { ascending: false })
         .returns<ScoutWithRelations[]>()
 
@@ -87,17 +96,14 @@ export default function ScoutsPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        // 未ログインならログイン画面へ
-        router.replace("/login")
+        router.replace("/login")         // 未ログインならログインへ
         return
       }
 
       if (!cancelled) await fetchScouts(user.id)
     })()
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [fetchScouts, router])
 
   /* ---------------------- ステータス更新 ----------------------- */
