@@ -212,7 +212,7 @@ useEffect(() => {
     /* 表示名 */
     const display =
       p?.full_name ||
-      `${p?.first_name ?? ""}${p?.last_name ?? ""}` ||
+      `${p?.last_name ?? ""} ${p?.first_name ?? ""}`.trim() ||
       "学生"
     setName(display)
 
