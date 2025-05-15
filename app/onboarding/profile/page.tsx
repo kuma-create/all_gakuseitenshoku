@@ -73,10 +73,6 @@ type Step4 = {
 
 type FormState = Step1 & Step2 & Step3 & Step4;
 
-const [avatarFile, setAvatarFile] = useState<File | null>(null);  // ←ここ！
-const [avatarUploading, setAvatarUploading] = useState(false);
-const [avatarError, setAvatarError] = useState<string | null>(null);
-
 
 const initialState: FormState = {
   /* step1 */
@@ -115,6 +111,10 @@ export default function OnboardingProfile() {
 
   const [zipLoading, setZipLoading] = useState(false);
   const [zipError,   setZipError]   = useState<string | null>(null);
+
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);  // ←ここ！
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
 
   const fetchAddress = async (zipcode: string) => {
@@ -282,7 +282,14 @@ export default function OnboardingProfile() {
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-8">
-            {step === 1 && <Step1Inputs form={form} onChange={handleChange} />}
+          {step === 1 && (
+            <Step1Inputs
+              form={form}
+              onChange={handleChange}
+              setAvatarFile={setAvatarFile}
+              avatarError={avatarError}
+            />
+          )}
             {step === 2 && (
                 <Step2Inputs
                     form={form}
@@ -325,9 +332,13 @@ export default function OnboardingProfile() {
 function Step1Inputs({
   form,
   onChange,
+  setAvatarFile,
+  avatarError,
 }: {
   form: FormState;
   onChange: (e: InputChange) => void;
+  setAvatarFile: React.Dispatch<React.SetStateAction<File | null>>;
+  avatarError: string | null;
 }) {
   return (
     <div className="space-y-6">
@@ -371,18 +382,15 @@ function Step1Inputs({
     <div className="grid gap-2">
     <Label htmlFor="avatar">顔写真</Label>
     <Input
-        id="avatar"
-        type="file"
-        accept="image/*"
-        onChange={(e) => {
+      id="avatar"
+      type="file"
+      accept="image/*"
+      onChange={(e) => {
         const f = e.target.files?.[0] ?? null;
-        setAvatarFile(f);          // ← state に保持
-        setAvatarError(null);
-        }}
+        setAvatarFile(f);
+      }}
     />
-    {avatarError && (
-        <p className="text-xs text-red-600">{avatarError}</p>
-    )}
+    {avatarError && <p className="text-xs text-red-600">{avatarError}</p>}
     </div>
 
     </div>
