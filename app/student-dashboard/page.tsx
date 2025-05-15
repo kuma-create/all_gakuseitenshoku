@@ -18,9 +18,9 @@ import {
 } from "@/components/ui/card"
 import { Button }  from "@/components/ui/button"
 import { Badge }   from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ProfileCompletionCard } from "@/components/ProfileCompletionCard"
+import { useProfileCompletion } from "@/hooks/useProfileCompletion"; 
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
@@ -196,41 +196,31 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 function ProfileCard({ userId }: { userId: string }) {
   const [avatarUrl, setAvatar] = useState<string | null>(null)
   const [name, setName]        = useState<string>("学生")
-  const [completion, setComp]  = useState<number>(0)
+  const { score: completion = 0 } = useProfileCompletion() ?? {}
   const [saving, setSaving]    = useState(false)
 
-  /* ---- 初回 fetch ---- */
-  useEffect(() => {
-    ;(async () => {
-      const { data: p } = await supabase
-        .from("student_profiles")
-        .select(`
-          full_name, first_name, last_name, avatar, 
-          about, pr_text, skills, pr_body
-        `)
-        .eq("user_id", userId)
-        .maybeSingle()
 
-      /* 表示名 */
-      const disp =
-        p?.full_name ||
-        ((p?.first_name ?? "") + (p?.last_name ?? "")) ||
-        "学生"
-      setName(disp)
+/* ---- 初回 fetch：名前 & アバターだけ ---- */
+useEffect(() => {
+  ;(async () => {
+    const { data: p } = await supabase
+      .from("student_profiles")
+      .select("full_name, first_name, last_name, avatar, profile_image")
+      .eq("user_id", userId)
+      .maybeSingle()
 
-      /* アイコン */
-      setAvatar(p?.avatar ?? p?.avatar ?? null)
+    /* 表示名 */
+    const display =
+      p?.full_name ||
+      `${p?.first_name ?? ""}${p?.last_name ?? ""}` ||
+      "学生"
+    setName(display)
 
-      /* 完成度ロジック
-         - about/pr_text & skills が揃う → 70 %
-         - pr_body 文字数 /1000 ×30 % 加算（最大 30）
-      */
-      const base70 = p && (p.about || p.pr_text) && Array.isArray(p.skills) && p.skills.length > 0
-      const bodyLen = p?.pr_body?.length ?? 0
-      const plusPct = Math.min(30, Math.round(bodyLen / 1000 * 30))
-      setComp((base70 ? 70 : 0) + plusPct)
-    })()
-  }, [userId])
+    /* アイコン */
+    setAvatar(p?.avatar ?? p?.profile_image ?? null)
+  })()
+}, [userId])
+
 
   /* ---- アイコンアップロード ---- */
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -263,7 +253,7 @@ function ProfileCard({ userId }: { userId: string }) {
           <span className="ml-1 font-medium text-gray-800">{completion}%</span>
         </CardDescription>
       </CardHeader>
-      
+
        <CardContent>
          <ProfileCompletionCard />   {/* ← 追加行だけ */}
        </CardContent>
