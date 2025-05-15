@@ -73,6 +73,11 @@ type Step4 = {
 
 type FormState = Step1 & Step2 & Step3 & Step4;
 
+const [avatarFile, setAvatarFile] = useState<File | null>(null);  // ←ここ！
+const [avatarUploading, setAvatarUploading] = useState(false);
+const [avatarError, setAvatarError] = useState<string | null>(null);
+
+
 const initialState: FormState = {
   /* step1 */
   last_name: "",
@@ -107,6 +112,7 @@ export default function OnboardingProfile() {
   const [form, setForm] = useState<FormState>(initialState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
 
   // onboarding/profile/page.tsx
     const [zipLoading, setZipLoading] = useState(false);
@@ -196,6 +202,26 @@ export default function OnboardingProfile() {
       return;
     }
 
+    let avatarUrl: string | null = null;
+    if (avatarFile) {
+    setAvatarUploading(true);
+    const ext = avatarFile.name.split(".").pop();
+    const filePath = `${crypto.randomUUID()}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, avatarFile, { upsert: false });
+
+    if (upErr) {
+        setAvatarError("画像をアップロードできませんでした");
+        setAvatarUploading(false);
+        return;
+    }
+    avatarUrl = supabase.storage.from("avatars").getPublicUrl(filePath).data.publicUrl;
+    setAvatarUploading(false);
+    }
+
+
     // 最終ステップ → DB へ保存
     setLoading(true);
     setError(null);
@@ -225,6 +251,7 @@ export default function OnboardingProfile() {
         pr_text: form.work_summary,
         qualification_text: form.qualification_text,
         skill_text: form.skill_text,
+        avatar_url: avatarUrl,
         /* 任意: company1～3 は experience JSON に格納する例 */
         experience: [
           { order: 1, text: form.company1 },
@@ -340,6 +367,25 @@ function Step1Inputs({
 
       {/* 生年月日 */}
       <Field id="birth_date" label="生年月日" type="date" value={form.birth_date} onChange={onChange} required />
+
+      {/* 顔写真（任意） */}
+    <div className="grid gap-2">
+    <Label htmlFor="avatar">顔写真</Label>
+    <Input
+        id="avatar"
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+        const f = e.target.files?.[0] ?? null;
+        setAvatarFile(f);          // ← state に保持
+        setAvatarError(null);
+        }}
+    />
+    {avatarError && (
+        <p className="text-xs text-red-600">{avatarError}</p>
+    )}
+    </div>
+
     </div>
   );
 }

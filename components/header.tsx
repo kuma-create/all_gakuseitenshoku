@@ -14,13 +14,15 @@ import {
   MessageSquare, Trophy, Star, LogIn, Building2, ShieldCheck,
   LucideIcon, Send,
 } from "lucide-react"
+import { LazyImage } from "./ui/lazy-image"
 
 import { Button } from "@/components/ui/button"
-import { LazyImage } from "@/components/ui/lazy-image"
 import { supabase } from "@/lib/supabase/client"   /* ★ 共通クライアント */
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 import NotificationBell from "@/components/notification-bell"
+import { Avatar } from "@/components/avatar"
+
 
 /* ------------------------------------------------------------------ */
 /*                             型定義                                  */
@@ -66,16 +68,33 @@ export function Header() {
   const pathname = usePathname()
   const { isLoggedIn, userType, user, logout } = useAuth()
   const [session, setSession] = useState<Session | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   /* ---- Supabase セッション監視 ---- */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    supabase.auth.getSession().then(async ({ data }) => {
+        setSession(data.session)
+        if (data.session) await fetchAvatar(data.session.user.id)
+      })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_e, ses) => setSession(ses),
+      async (_e, ses) => {
+                setSession(ses)
+                if (ses) await fetchAvatar(ses.user.id)
+              },
     )
     return () => subscription.unsubscribe()
   }, [])
+
+    /* ------- avatar_url を student_profiles から取得 ------- */
+  const fetchAvatar = async (uid: string) => {
+    const { data } = await supabase
+      .from("student_profiles")
+      .select("avatar_url")
+      .eq("user_id", uid)
+      .maybeSingle<{ avatar_url: string | null }>()
+    setAvatarUrl(data?.avatar_url ?? null)
+  }
 
   /* ---- 役割に応じてリンク切替 ---- */
   let navLinks: NavItem[] = landingLinks
@@ -147,6 +166,7 @@ export function Header() {
                     className="h-full w-full object-cover"
                   />
                 </div>
+                <Avatar src={avatarUrl} size={32} />
               </div>
 
               {/* ログアウト */}
