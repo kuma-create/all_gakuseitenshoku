@@ -26,7 +26,8 @@ export function useProfileCompletion() {
       if (!user) { setComp(null); return; }
 
       const { data, error } = await supabase
-        .rpc("calculate_profile_completion", { p_user_id: user.id })
+      .rpc("calculate_profile_completion",
+        { p_user_id: user.id })      
         .single<Completion>();
 
       if (error) console.error("RPC error:", error);
@@ -46,17 +47,26 @@ export function useProfileCompletion() {
 
   /* 2) Realtime：student_profiles UPDATE を監視 ------ */
   useEffect(() => {
+    let currentUid: string | null = null;  
     const channel = supabase
       .channel("public:student_profiles")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "student_profiles" },
-        () => {
-          // 値が変わったら再度 RPC を叩く
-          supabase.rpc("calculate_profile_completion").then(({ data, error }) => {
-            if (error) console.error("Realtime RPC error:", error);
-            else setComp(data as Completion);
-          });
+        async () => {
+        /* user.id を都度取得（null 安全） */
+          const { data: { user } } = await supabase.auth.getUser();
+          const uid = user?.id ?? currentUid;
+          if (!uid) return;
+
+          currentUid = uid;                            // 更新
+
+          const { data, error } = await supabase
+            .rpc("calculate_profile_completion", { p_user_id: uid })
+            .single<Completion>();
+
+          if (error) console.error("Realtime RPC error:", error);
+          else       setComp(data);
         },
       )
       .subscribe();
