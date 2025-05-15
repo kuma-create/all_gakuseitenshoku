@@ -263,8 +263,7 @@ function ProfileCard({ userId }: { userId: string }) {
           <span className="ml-1 font-medium text-gray-800">{completion}%</span>
         </CardDescription>
       </CardHeader>
-
-       /* ぜんぶ ProfileCompletionCard に丸投げ */
+      
        <CardContent>
          <ProfileCompletionCard />   {/* ← 追加行だけ */}
        </CardContent>
