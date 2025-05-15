@@ -22,7 +22,7 @@ import {
   Sheet, SheetContent, SheetTrigger,
 } from "@/components/ui/sheet";
 import { ProfileCompletionCard } from "@/components/ProfileCompletionCard";
-import { useProfileCompletion }  from "@/hooks/useProfileCompletion";
+import { useProfileCompletion }  from "@/lib/hooks/useProfileCompletion";
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,

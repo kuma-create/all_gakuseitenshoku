@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";          // 追加
-import { useProfileCompletion } from "@/hooks/useProfileCompletion";
+import { useProfileCompletion } from "@/lib/hooks/useProfileCompletion";
 import { Check, X } from "lucide-react";
 
 /* 日本語ラベル */

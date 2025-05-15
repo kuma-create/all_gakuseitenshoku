@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/lib/hooks/use-toast"
 
 // Mock job data - in a real app, this would come from an API
 const fetchJob = async (id: string) => {
