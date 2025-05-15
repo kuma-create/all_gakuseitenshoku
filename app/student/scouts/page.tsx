@@ -1,166 +1,157 @@
 /* ------------------------------------------------------------------
    app/student/scouts/page.tsx
-   - 学生向けスカウト一覧（認証ガード付き・400対策版）
+   – 学生向けスカウト一覧（認証ガード付き）
 ------------------------------------------------------------------ */
-"use client"
+"use client";
 
-import React, { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { supabase }  from "@/lib/supabase/client"
-import type { Database } from "@/lib/supabase/types"
-import { ScoutNotification } from "@/components/scout-notification"
-import { Loader2 } from "lucide-react"
+import React, { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types";
+import { Loader2 } from "lucide-react";
+import { ScoutNotification } from "@/components/scout-notification";
 
-/* -------------------------------- 型 -------------------------------- */
-
-type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"]
-
-/** PostgREST ネスト表記で取得した行 */
+/* ---------- 型 ---------- */
+type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"];
 type ScoutWithRelations = ScoutRow & {
-  companies: { name: string; logo: string | null } | null
-  jobs:      { title: string | null } | null
-}
+  companies: { name: string; logo: string | null } | null;
+  jobs: { title: string | null } | null;
+};
 
-/** UI で扱いやすい形にフラット化 */
 export type UIScout = {
-  id:          string
-  companyName: string
-  position:    string
-  message:     string
-  createdAt:   string
-  status:      "pending" | "accepted" | "declined"
-  companyLogo: string
-}
+  id: string;
+  companyName: string;
+  companyLogo: string;
+  position: string;
+  message: string;
+  /** YYYY/MM/DD など、表示用に整形済みの文字列 */
+  createdAt: string;
+  status: "pending" | "accepted" | "declined";
+};
 
-/* ------------------------------ 画面 ------------------------------ */
+/* ------------------------------------------------------------------
+   コンポーネント
+------------------------------------------------------------------ */
+export default function StudentScoutsPage() {
+  const router = useRouter();
 
-export default function ScoutsPage() {
-  const router = useRouter()
+  const [loading, setLoading] = useState(true);
+  const [scouts, setScouts] = useState<UIScout[]>([]);
 
-  const [scouts,  setScouts]  = useState<UIScout[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
+  /** 応答（承諾 / 辞退）時のローディング対象 ID */
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
-  /* ------------------------ データ取得 ------------------------ */
-  const fetchScouts = useCallback(
-    async (uid: string) => {
-      setLoading(true)
-
-      /** 重要：
-       *  - `companies(name,logo)` のネスト表記に変更（alias をやめて 400 対策）
-       *  - target_id で本人分だけ取得
-       */
-      const { data, error } = await supabase
-        .from("scouts")
-        .select(
-          `
-          id,
-          message,
-          status,
-          created_at,
-          companies ( name, logo ),
-          jobs      ( title )
-        `,
-        )
-        .eq("target_id", uid)
-        .order("created_at", { ascending: false })
-        .returns<ScoutWithRelations[]>()
+  /* ========= ① 認証チェック ========= */
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.auth.getUser();
 
       if (error) {
-        console.error("Failed to fetch scouts:", error)
-        setError(error.message)
-        setScouts([])
-      } else {
-        const uiScouts: UIScout[] = (data ?? []).map((row) => ({
-          id:          row.id,
-          companyName: row.companies?.name ?? "Unknown Company",
-          position:    row.jobs?.title      ?? "Unknown Position",
-          message:     row.message,
-          createdAt:   row.created_at       ?? "",
-          status:      (row.status as UIScout["status"]) ?? "pending",
-          companyLogo: row.companies?.logo  ?? "/placeholder.svg",
-        }))
-        setError(null)
-        setScouts(uiScouts)
-      }
-      setLoading(false)
-    },
-    [],
-  )
-
-  /* --------------------- 認証ガード＋初回取得 -------------------- */
-  useEffect(() => {
-    let cancelled = false
-
-    ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        router.replace("/login")         // 未ログインならログインへ
-        return
+        console.error(error);
+        return;
       }
 
-      if (!cancelled) await fetchScouts(user.id)
-    })()
+      if (!data.user) {
+        router.replace("/login");
+        return;
+      }
 
-    return () => { cancelled = true }
-  }, [fetchScouts, router])
+      fetchScouts(data.user.id);
+    })();
+  }, [router]);
 
-  /* ---------------------- ステータス更新 ----------------------- */
-  const patchStatus = async (id: string, next: UIScout["status"]) => {
-    setLoading(true)
+  /* ========= ② スカウト取得 ========= */
+  const fetchScouts = async (userId: string) => {
+    setLoading(true);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("scouts")
-      .update({ status: next })
-      .eq("id", id)
+      .select(
+        `
+          id,
+          status,
+          created_at,
+          message,
+          companies:company_id ( name, logo ),
+          jobs:job_id ( title )
+        `
+      )
+      .eq("student_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(`Error updating scout status to ${next}:`, error)
-    } else {
-      setScouts((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status: next } : s)),
-      )
+      console.error(error);
+      setLoading(false);
+      return;
     }
-    setLoading(false)
+
+    const ui = (data as ScoutWithRelations[]).map((s) => ({
+      id: s.id,
+      companyName: s.companies?.name ?? "Unknown",
+      companyLogo: s.companies?.logo ?? "/images/placeholder-avatar.png",
+      position: s.jobs?.title ?? "職種未確定",
+      message: s.message ?? "",
+      createdAt: s.created_at
+        ? new Date(s.created_at).toLocaleDateString()
+        : "—",
+      status: s.status as UIScout["status"],
+    }));
+
+    setScouts(ui);
+    setLoading(false);
+  };
+
+  /* ========= ③ 承諾 / 辞退 ========= */
+  const handleRespond = useCallback(
+    async (scoutId: string, status: "accepted" | "declined") => {
+      setRespondingId(scoutId);
+
+      const { error } = await supabase
+        .from("scouts")
+        .update<Partial<ScoutRow>>({ status })
+        .eq("id", scoutId);
+
+      if (error) console.error(error);
+
+      // ローカル状態を即時更新
+      setScouts((prev) =>
+        prev.map((s) => (s.id === scoutId ? { ...s, status } : s))
+      );
+      setRespondingId(null);
+    },
+    []
+  );
+
+  /* ========= ④ UI ========= */
+  if (loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        ロード中…
+      </div>
+    );
   }
 
-  const handleAccept  = (id: string) => patchStatus(id, "accepted")
-  const handleDecline = (id: string) => patchStatus(id, "declined")
-
-  /* ------------------------ レンダリング ------------------------ */
-  return (
-    <div className="container mx-auto space-y-6 py-8">
-      <h1 className="text-3xl font-bold">スカウト一覧</h1>
-
-      {loading && (
-        <div className="flex items-center gap-2 text-gray-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          読み込み中...
-        </div>
-      )}
-
-      {!loading && error && (
-        <p className="text-red-500">Error: {error}</p>
-      )}
-
-      {!loading && !error && scouts.length === 0 && (
-        <p className="text-center text-muted-foreground">
-          現在、スカウトはありません。
-        </p>
-      )}
-
-      <div className="space-y-4">
-        {scouts.map((scout) => (
-          <ScoutNotification
-            key={scout.id}
-            scout={scout}
-            onAccept={handleAccept}
-            onDecline={handleDecline}
-            isLoading={loading}
-          />
-        ))}
+  if (!scouts.length) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <p className="text-muted-foreground">まだスカウトはありません</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8">
+      {scouts.map((s) => (
+        <ScoutNotification
+          key={s.id}
+          scout={s}
+          /** ScoutNotificationProps に必須なので渡す */
+          onAccept={() => handleRespond(s.id, "accepted")}
+          onDecline={() => handleRespond(s.id, "declined")}
+          isLoading={respondingId === s.id}
+        />
+      ))}
     </div>
-  )
+  );
 }
