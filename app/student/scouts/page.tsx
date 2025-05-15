@@ -1,67 +1,60 @@
 /* ------------------------------------------------------------------
    app/student/scouts/page.tsx
-   – 学生向けスカウト一覧（認証ガード付き）
 ------------------------------------------------------------------ */
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import type { Database } from "@/lib/supabase/types";
 import { Loader2 } from "lucide-react";
 import { ScoutNotification } from "@/components/scout-notification";
 
-/* ---------- 型 ---------- */
-type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"];
-type ScoutWithRelations = ScoutRow & {
-  companies: { name: string; logo: string | null } | null;
-  jobs: { title: string | null } | null;
-};
-
-export type UIScout = {
+/* ===== UI 用の型（画面で使うぶんだけ） ===== */
+type UIScout = {
   id: string;
   companyName: string;
   companyLogo: string;
   position: string;
   message: string;
-  /** YYYY/MM/DD など、表示用に整形済みの文字列 */
   createdAt: string;
   status: "pending" | "accepted" | "declined";
 };
 
-/* ------------------------------------------------------------------
-   コンポーネント
------------------------------------------------------------------- */
 export default function StudentScoutsPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [scouts, setScouts] = useState<UIScout[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  /** 応答（承諾 / 辞退）時のローディング対象 ID */
-  const [respondingId, setRespondingId] = useState<string | null>(null);
-
-  /* ========= ① 認証チェック ========= */
+  /* ================================================================
+     1. 認証ユーザー取得 → いなければ /login へ
+  ================================================================= */
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
 
       if (error) {
         console.error(error);
         return;
       }
 
-      if (!data.user) {
+      if (!user) {
         router.replace("/login");
         return;
       }
 
-      fetchScouts(data.user.id);
+      fetchScouts(user.id);
     })();
   }, [router]);
 
-  /* ========= ② スカウト取得 ========= */
-  const fetchScouts = async (userId: string) => {
+  /* ================================================================
+     2. スカウト一覧取得（JOIN はテーブル名そのまま）
+  ================================================================= */
+  const fetchScouts = async (studentId: string) => {
     setLoading(true);
 
     const { data, error } = await supabase
@@ -70,13 +63,13 @@ export default function StudentScoutsPage() {
         `
           id,
           status,
-          created_at,
           message,
-          companies:company_id ( name, logo ),
-          jobs:job_id ( title )
+          created_at,
+          companies ( name, logo ),
+          jobs      ( title )
         `
       )
-      .eq("student_id", userId)
+      .eq("student_id", studentId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -85,44 +78,51 @@ export default function StudentScoutsPage() {
       return;
     }
 
-    const ui = (data as ScoutWithRelations[]).map((s) => ({
-      id: s.id,
-      companyName: s.companies?.name ?? "Unknown",
-      companyLogo: s.companies?.logo ?? "/images/placeholder-avatar.png",
-      position: s.jobs?.title ?? "職種未確定",
-      message: s.message ?? "",
-      createdAt: s.created_at
-        ? new Date(s.created_at).toLocaleDateString()
+    /* data の型付けが面倒なので一旦 any で受ける */
+    const ui: UIScout[] = (data as any[]).map((row) => ({
+      id: row.id,
+      companyName: row.companies?.name ?? "Unknown",
+      companyLogo:
+        row.companies?.logo ?? "/images/placeholder-avatar.png",
+      position: row.jobs?.title ?? "職種未確定",
+      message: row.message ?? "",
+      createdAt: row.created_at
+        ? new Date(row.created_at).toLocaleDateString()
         : "—",
-      status: s.status as UIScout["status"],
+      status: row.status,
     }));
 
     setScouts(ui);
     setLoading(false);
   };
 
-  /* ========= ③ 承諾 / 辞退 ========= */
-  const handleRespond = useCallback(
-    async (scoutId: string, status: "accepted" | "declined") => {
-      setRespondingId(scoutId);
+  /* ================================================================
+     3. 承諾 / 辞退
+  ================================================================= */
+  const updateStatus = useCallback(
+    async (id: string, status: "accepted" | "declined") => {
+      setBusyId(id);
 
       const { error } = await supabase
         .from("scouts")
-        .update<Partial<ScoutRow>>({ status })
-        .eq("id", scoutId);
+        .update({ status })
+        .eq("id", id);
 
       if (error) console.error(error);
 
-      // ローカル状態を即時更新
+      /* ローカル状態だけ先に更新して即時反映 */
       setScouts((prev) =>
-        prev.map((s) => (s.id === scoutId ? { ...s, status } : s))
+        prev.map((s) => (s.id === id ? { ...s, status } : s))
       );
-      setRespondingId(null);
+
+      setBusyId(null);
     },
     []
   );
 
-  /* ========= ④ UI ========= */
+  /* ================================================================
+     4. UI
+  ================================================================= */
   if (loading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -135,7 +135,9 @@ export default function StudentScoutsPage() {
   if (!scouts.length) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">まだスカウトはありません</p>
+        <p className="text-muted-foreground">
+          まだスカウトはありません
+        </p>
       </div>
     );
   }
@@ -146,10 +148,9 @@ export default function StudentScoutsPage() {
         <ScoutNotification
           key={s.id}
           scout={s}
-          /** ScoutNotificationProps に必須なので渡す */
-          onAccept={() => handleRespond(s.id, "accepted")}
-          onDecline={() => handleRespond(s.id, "declined")}
-          isLoading={respondingId === s.id}
+          onAccept={() => updateStatus(s.id, "accepted")}
+          onDecline={() => updateStatus(s.id, "declined")}
+          isLoading={busyId === s.id}
         />
       ))}
     </div>

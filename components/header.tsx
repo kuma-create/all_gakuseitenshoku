@@ -122,7 +122,6 @@ export function Header() {
       {/* ----- 左 : ロゴ ----- */}
       <Link href="/" className="flex items-center space-x-2">
         <Image src="/logo.svg" alt="logo" width={24} height={24} />
-        <span className="font-semibold">学生転職</span>
       </Link>
 
       {/* ----- 中央 : ナビゲーション ----- */}
