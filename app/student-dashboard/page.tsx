@@ -1,81 +1,114 @@
-/* ──────────────────────────────────────────────────────────
-   app/student-dashboard/page.tsx          – Supabase 連携版
-───────────────────────────────────────────────────────── */
-"use client";
+/* ────────────────────────────────────────────────
+   app/student-dashboard/page.tsx  – 完全版
+──────────────────────────────────────────────── */
+"use client"
 
-import { useEffect, useState, Suspense } from "react";
-import Link  from "next/link";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useState } from "react"
+import Image from "next/image"
+import Link  from "next/link"
+import { useRouter } from "next/navigation"
 
-import { supabase }   from "@/lib/supabase/client";
-import { useAuth }    from "@/lib/auth-context";
-import { useAuthGuard } from "@/lib/use-auth-guard";
+import { supabase }   from "@/lib/supabase/client"
+import { useAuth }    from "@/lib/auth-context"
+import { useAuthGuard } from "@/lib/use-auth-guard"
+import type { Database } from "@/lib/supabase/types"
 
 import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-} from "@/components/ui/card";
-import { Badge }   from "@/components/ui/badge";
-import { Button }  from "@/components/ui/button";
-import { ProfileCompletionCard } from "@/components/ProfileCompletionCard";
+} from "@/components/ui/card"
+import { Button }  from "@/components/ui/button"
+import { Badge }   from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 import {
-  Briefcase,
-  Mail,
-  MessageSquare,
-  ChevronRight,
-  Edit,
-} from "lucide-react";
+  Briefcase, Mail, MessageSquare, ChevronRight,
+  Edit, Camera, BellDot, Menu,
+} from "lucide-react"
 
-/* ------------------------------ 型 ------------------------------ */
-type Stats = {
-  scouts       : number;
-  applications : number;
-  chatRooms    : number;
-};
+/* ---------- 型 ---------- */
+type Stats = { scouts: number; applications: number; chatRooms: number }
+type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"]
 
-/* ---------------------------- 画面 ---------------------------- */
+type GrandPrix = { id: string; title: string; banner_url?: string | null }
+
+type Scout = {
+  id: string
+  company_id: string
+  company_name: string | null
+  created_at: string
+  is_read: boolean
+}
+
 export default function StudentDashboard() {
-  /* 認証ガード（student ロール必須） */
-  const ready     = useAuthGuard("student");
-  const { user }  = useAuth();
-  const router    = useRouter();
+  const ready    = useAuthGuard("student")
+  const { user } = useAuth()
+  const router   = useRouter()
 
-  /* ダッシュボード数値 */
-  const [stats, setStats]       = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 });
-  const [loadingStats, setLoad] = useState(true);
+  const [stats,      setStats]   = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 })
+  const [statsLoad,  setSL]      = useState(true)
+  const [grandPrix,  setGP]      = useState<GrandPrix[]>([])
+  const [offers,     setOffers]  = useState<Scout[]>([])
+  const [cardsLoad,  setCL]      = useState(true)
 
-  /* Supabase から件数取得 */
+  /* ---------- Supabase fetch ---------- */
   useEffect(() => {
-    if (!user?.id) return;
-    (async () => {
-      setLoad(true);
-      const studentId = user.id;
+    if (!user?.id) return
+    const studentId = user.id
 
-      const [{ count: scoutsCnt },  { count: appsCnt }, { count: roomsCnt }] = await Promise.all([
-        supabase.from("scouts")
-          .select("id", { count: "exact", head: true })
-          .eq("student_id", studentId),
+    ;(async () => {
+      /* ---- ① Stats ---- */
+      setSL(true)
+      const [{ count: scoutsCnt }, { count: appsCnt }, { count: roomsCnt }] =
+        await Promise.all([
+          supabase.from("scouts"       ).select("id", { count: "exact", head: true }).eq("student_id", studentId),
+          supabase.from("applications" ).select("id", { count: "exact", head: true }).eq("student_id", studentId),
+          supabase.from("chat_rooms"   ).select("id", { count: "exact", head: true }).eq("student_id", studentId),
+        ])
+      setStats({ scouts: scoutsCnt ?? 0, applications: appsCnt ?? 0, chatRooms: roomsCnt ?? 0 })
+      setSL(false)
 
-        supabase.from("applications")
-          .select("id", { count: "exact", head: true })
-          .eq("student_id", studentId),
+      /* ---- ② GrandPrix & Offers ---- */
+      setCL(true)
+      const [{ data: gpRaw }, { data: offerRaw }] = await Promise.all([
+        supabase
+          .from("challenges")
+          .select("id,title,deadline")
+          .order("deadline", { ascending: true })
+          .limit(3),
 
-        supabase.from("chat_rooms")
-          .select("id", { count: "exact", head: true })
-          .eq("student_id", studentId),
-      ]);
+        supabase
+          .from("scouts")
+          .select("id, company_id, is_read, created_at, companies(name)")
+          .eq("student_id", studentId)
+          .order("created_at", { ascending: false })
+          .limit(5),
+      ])
 
-      setStats({
-        scouts      : scoutsCnt ?? 0,
-        applications: appsCnt  ?? 0,
-        chatRooms   : roomsCnt ?? 0,
-      });
-      setLoad(false);
-    })();
-  }, [user]);
+      const gpData: GrandPrix[] =
+        (gpRaw as ChallengeRow[] | null)?.map((c) => ({
+          id: c.id,
+          title: c.title,
+          banner_url: null,
+        })) ?? []
 
-  /* 保存後に戻った場合に最新完成度を取る */
-  useEffect(() => router.refresh(), [router]);
+      const offersData: Scout[] =
+        (offerRaw as any[] | null)?.map((r) => ({
+          id: r.id,
+          company_id: r.company_id,
+          company_name: (r.companies as { name?: string } | null)?.name ?? null,
+          created_at: r.created_at,
+          is_read: r.is_read,
+        })) ?? []
+
+      setGP(gpData)
+      setOffers(offersData)
+      setCL(false)
+    })()
+  }, [user])
+
+  /* ---- 戻り時に再フェッチ ---- */
+  useEffect(() => router.refresh(), [router])
 
   if (!ready) {
     return (
@@ -85,81 +118,322 @@ export default function StudentDashboard() {
           <p>認証確認中…</p>
         </div>
       </div>
-    );
+    )
   }
 
-  /* ---------------------------- JSX ---------------------------- */
+  /* ---------------- JSX ---------------- */
   return (
-    <main className="container mx-auto px-4 py-8 space-y-8">
-      {/* ───── Hero ───── */}
-      <section className="rounded-xl bg-gradient-to-r from-red-50 to-white p-6 shadow-sm">
-        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              こんにちは、{user?.name ?? "学生"} さん！
-            </h1>
-            <p className="mt-1 text-gray-600">今日も就活を頑張りましょう。</p>
-          </div>
+    <main className="container mx-auto px-4 py-8 space-y-10">
+      <GreetingHero userName={user?.name ?? "学生"} />
 
-          <Button asChild variant="outline" className="flex items-center gap-1 self-start">
-            <Link href="/student/profile">
-              <Edit className="mr-1 h-4 w-4" />
-              プロフィールを編集
-            </Link>
-          </Button>
-        </header>
+      {/* ===== 3 カラム ===== */}
+      <section className="grid gap-6 md:grid-cols-12">
+        <div className="md:col-span-3">
+          <ProfileCard userId={user!.id} />
+        </div>
 
-        {/* ─── プロフィール完成度カード ─── */}
-          <ProfileCompletionCard />
-          if (!completion) return <SkeletonCard />;  
+        <div className="md:col-span-6">
+          {cardsLoad ? <SkeletonCard height={260} /> : <GrandPrixSlider events={grandPrix} />}
+        </div>
+
+        <div className="md:col-span-3">
+          {cardsLoad ? <SkeletonCard height={260} /> : <OffersList offers={offers} />}
+        </div>
       </section>
 
-      {/* ───── カード 3 枚 ───── */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* スカウト */}
-        <StatCard
-          title="スカウト状況"
-          desc="企業からのオファー"
-          icon={<Mail className="h-5 w-5 text-red-600" />}
-          loading={loadingStats}
-          stats={[{ label: "累計", value: stats.scouts, badge: true }]}
-          href="/offers"
-        />
-
-        {/* 応募履歴 */}
-        <StatCard
-          title="応募履歴"
-          desc="エントリーした求人"
-          icon={<Briefcase className="h-5 w-5 text-red-600" />}
-          loading={loadingStats}
-          stats={[{ label: "累計", value: stats.applications, badge: true }]}
-          href="/applications"
-        />
-
-        {/* チャット */}
-        <StatCard
-          title="チャット"
-          desc="企業とのやり取り"
-          icon={<MessageSquare className="h-5 w-5 text-red-600" />}
-          loading={loadingStats}
-          stats={[{ label: "トークルーム", value: stats.chatRooms, badge: true }]}
-          href="/chat"
-        />
-      </div>
+      <StatCards stats={stats} loading={statsLoad} />
     </main>
-  );
+  )
 }
 
-/* ---------------------- 小コンポーネント ---------------------- */
+/* ================================================================
+   Greeting Hero
+================================================================ */
+function GreetingHero({ userName }: { userName: string }) {
+  return (
+    <section className="rounded-xl bg-gradient-to-r from-red-50 to-white p-6 shadow-sm">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">こんにちは、{userName} さん！</h1>
+          <p className="mt-1 text-gray-600">今日も就活を頑張りましょう。</p>
+        </div>
+
+        {/* モバイル用ドロワーメニュー */}
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="md:hidden">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-64">
+            <nav className="mt-8 space-y-4">
+              <NavLink href="/jobs">求人を探す</NavLink>
+              <NavLink href="/offers">オファー</NavLink>
+              <NavLink href="/chat">チャット</NavLink>
+              <NavLink href="/grandprix">就活グランプリ一覧</NavLink>
+              <NavLink href="/student/profile">プロフィール編集</NavLink>
+              <NavLink href="/resume">職務経歴書</NavLink>
+            </nav>
+          </SheetContent>
+        </Sheet>
+      </header>
+    </section>
+  )
+}
+
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="block rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100">
+      {children}
+    </Link>
+  )
+}
+
+/* ================================================================
+   ProfileCard – student_profiles を 1 クエリで取得
+================================================================ */
+function ProfileCard({ userId }: { userId: string }) {
+  const [avatarUrl, setAvatar] = useState<string | null>(null)
+  const [name, setName]        = useState<string>("学生")
+  const [completion, setComp]  = useState<number>(0)
+  const [saving, setSaving]    = useState(false)
+
+  /* ---- 初回 fetch ---- */
+  useEffect(() => {
+    ;(async () => {
+      const { data: p } = await supabase
+        .from("student_profiles")
+        .select(`
+          full_name, first_name, last_name, avatar, profile_image,
+          about, pr_text, skills, pr_body
+        `)
+        .eq("user_id", userId)
+        .maybeSingle()
+
+      /* 表示名 */
+      const disp =
+        p?.full_name ||
+        ((p?.first_name ?? "") + (p?.last_name ?? "")) ||
+        "学生"
+      setName(disp)
+
+      /* アイコン */
+      setAvatar(p?.avatar ?? p?.profile_image ?? null)
+
+      /* 完成度ロジック
+         - about/pr_text & skills が揃う → 70 %
+         - pr_body 文字数 /1000 ×30 % 加算（最大 30）
+      */
+      const base70 = p && (p.about || p.pr_text) && Array.isArray(p.skills) && p.skills.length > 0
+      const bodyLen = p?.pr_body?.length ?? 0
+      const plusPct = Math.min(30, Math.round(bodyLen / 1000 * 30))
+      setComp((base70 ? 70 : 0) + plusPct)
+    })()
+  }, [userId])
+
+  /* ---- アイコンアップロード ---- */
+  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSaving(true)
+
+    const path = `avatars/${userId}`
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true })
+    if (error) {
+      alert("アップロードに失敗しました")
+      setSaving(false)
+      return
+    }
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path)
+    await supabase.from("student_profiles").update({ avatar: publicUrl }).eq("user_id", userId)
+    setAvatar(publicUrl)
+    setSaving(false)
+  }, [userId])
+
+  return (
+    <Card className="sticky top-20">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3">
+          <AvatarBlock url={avatarUrl} onUpload={handleUpload} saving={saving} />
+          <span className="text-lg font-bold">{name}</span>
+        </CardTitle>
+        <CardDescription>
+          プロフィール完成度
+          <span className="ml-1 font-medium text-gray-800">{completion}%</span>
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-3">
+        <Progress value={completion} className="h-2" />
+        <p className="text-xs text-gray-500">
+          100% にすると<strong>シークレットオファー</strong>が届きやすくなります
+        </p>
+      </CardContent>
+
+      <CardFooter className="flex flex-col gap-2">
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/student/profile">
+            <Edit className="mr-1 h-4 w-4" />
+            プロフィール編集
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/resume">職務経歴書を編集</Link>
+        </Button>
+      </CardFooter>
+    </Card>
+  )
+}
+
+function AvatarBlock({
+  url, saving, onUpload,
+}: { url: string | null; saving: boolean; onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+  return (
+    <div className="relative h-16 w-16">
+      <Image
+        src={url ?? "/placeholder-avatar.png"}
+        alt="Avatar"
+        fill
+        className="rounded-full object-cover"
+      />
+      <label className="absolute bottom-0 right-0 rounded-full bg-white p-1 shadow cursor-pointer">
+        <Camera className="h-4 w-4" />
+        <input type="file" accept="image/*" className="hidden" onChange={onUpload} disabled={saving} />
+      </label>
+    </div>
+  )
+}
+
+/* ================================================================
+   GrandPrixSlider – 3 件横スライド
+================================================================ */
+function GrandPrixSlider({ events }: { events: GrandPrix[] }) {
+  if (!events.length) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-gray-600">
+          現在開催中の就活グランプリはありません
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">開催中の就活グランプリ</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex snap-x gap-4 overflow-x-auto pb-2">
+          {events.map((e) => (
+            <Link
+              key={e.id}
+              href={`/grandprix/${e.id}`}
+              className="snap-center shrink-0 w-64 rounded-lg overflow-hidden shadow hover:shadow-md transition-shadow"
+            >
+              <div className="relative h-36 w-full">
+                <Image
+                  src={e.banner_url ?? "/placeholder-banner.jpg"}
+                  alt={e.title}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="p-3">
+                <h3 className="line-clamp-2 font-semibold">{e.title}</h3>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+      <CardFooter className="justify-end bg-gray-50">
+        <LinkButton href="/grandprix">一覧を見る</LinkButton>
+      </CardFooter>
+    </Card>
+  )
+}
+
+/* ================================================================
+   OffersList – 最新オファー
+================================================================ */
+function OffersList({ offers }: { offers: Scout[] }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">最新のオファー</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {offers.length === 0 && (
+          <p className="text-sm text-gray-600">まだオファーは届いていません</p>
+        )}
+        {offers.map((o) => (
+          <Link
+            key={o.id}
+            href={`/offers/${o.company_id}`}
+            className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-gray-50"
+          >
+            <span className="truncate text-sm">
+              {o.company_name ?? "名称未設定の企業"}
+            </span>
+            {o.is_read ? (
+              <ChevronRight className="h-4 w-4 text-gray-400" />
+            ) : (
+              <BellDot className="h-4 w-4 text-red-600" />
+            )}
+          </Link>
+        ))}
+      </CardContent>
+      <CardFooter className="justify-end bg-gray-50">
+        <LinkButton href="/offers">詳細を見る</LinkButton>
+      </CardFooter>
+    </Card>
+  )
+}
+
+/* ================================================================
+   StatCards – スカウト / 応募 / チャット
+================================================================ */
+function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
+  return (
+    <div className="grid gap-6 md:grid-cols-3">
+      <StatCard
+        title="スカウト状況"
+        desc="企業からのオファー"
+        icon={<Mail className="h-5 w-5 text-red-600" />}
+        loading={loading}
+        stats={[{ label: "累計", value: stats.scouts, badge: true }]}
+        href="/offers"
+      />
+      <StatCard
+        title="応募履歴"
+        desc="エントリーした求人"
+        icon={<Briefcase className="h-5 w-5 text-red-600" />}
+        loading={loading}
+        stats={[{ label: "累計", value: stats.applications, badge: true }]}
+        href="/applications"
+      />
+      <StatCard
+        title="チャット"
+        desc="企業とのやり取り"
+        icon={<MessageSquare className="h-5 w-5 text-red-600" />}
+        loading={loading}
+        stats={[{ label: "トークルーム", value: stats.chatRooms, badge: true }]}
+        href="/chat"
+      />
+    </div>
+  )
+}
+
+/* ---------------- 共通小物 ---------------- */
 function StatCard(props: {
-  title: string;
-  desc: string;
-  icon: React.ReactNode;
-  loading: boolean;
-  stats: { label: string; value: number; badge?: boolean }[];
-  href: string;
+  title: string
+  desc: string
+  icon: React.ReactNode
+  loading: boolean
+  stats: { label: string; value: number; badge?: boolean }[]
+  href: string
 }) {
-  const { title, desc, icon, loading, stats, href } = props;
+  const { title, desc, icon, loading, stats, href } = props
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
@@ -184,7 +458,7 @@ function StatCard(props: {
         <LinkButton href={href}>確認する</LinkButton>
       </CardFooter>
     </Card>
-  );
+  )
 }
 
 function Stat({ label, value, badge = false }: { label: string; value: number; badge?: boolean }) {
@@ -199,10 +473,9 @@ function Stat({ label, value, badge = false }: { label: string; value: number; b
         <p className="text-xl font-bold">{value}</p>
       )}
     </div>
-  );
+  )
 }
 
-/** 右矢印付きリンクボタン */
 function LinkButton({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Button asChild variant="default" className="bg-red-600 hover:bg-red-700">
@@ -211,12 +484,9 @@ function LinkButton({ href, children }: { href: string; children: React.ReactNod
         <ChevronRight className="ml-1 h-4 w-4" />
       </Link>
     </Button>
-  );
+  )
 }
 
-/* Skeleton 表示用 */
-function SkeletonCard() {
-  return (
-    <div className="mt-6 h-28 w-full animate-pulse rounded-lg bg-gray-100" />
-  );
+function SkeletonCard({ height = 200 }: { height?: number }) {
+  return <div style={{ height }} className="animate-pulse rounded-lg bg-gray-100 w-full" />
 }
