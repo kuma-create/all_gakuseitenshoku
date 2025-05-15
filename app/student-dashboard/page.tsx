@@ -1,59 +1,55 @@
 /* ──────────────────────────────────────────────────────────
    app/student-dashboard/page.tsx          – Supabase 連携版
 ───────────────────────────────────────────────────────── */
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link  from "next/link"
-import { LazyImage } from "@/components/ui/lazy-image"
+import { useEffect, useState, Suspense } from "react";
+import Link  from "next/link";
+import { useRouter } from "next/navigation";
 
-import { supabase }   from "@/lib/supabase/client"
-import { useAuth }    from "@/lib/auth-context"
-import { useAuthGuard } from "@/lib/use-auth-guard"
+import { supabase }   from "@/lib/supabase/client";
+import { useAuth }    from "@/lib/auth-context";
+import { useAuthGuard } from "@/lib/use-auth-guard";
 
 import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-} from "@/components/ui/card"
-import { Badge }   from "@/components/ui/badge"
-import { Button }  from "@/components/ui/button"
+} from "@/components/ui/card";
+import { Badge }   from "@/components/ui/badge";
+import { Button }  from "@/components/ui/button";
+import { ProfileCompletionCard } from "@/components/ProfileCompletionCard";
 
 import {
   Briefcase,
   Mail,
   MessageSquare,
-  Trophy,
-  FileText,
-  Calendar,
-  Bell,
   ChevronRight,
   Edit,
-  CheckCircle,
-  AlertCircle,
-} from "lucide-react"
+} from "lucide-react";
 
 /* ------------------------------ 型 ------------------------------ */
 type Stats = {
-  scouts       : number
-  applications : number
-  chatRooms    : number
-}
+  scouts       : number;
+  applications : number;
+  chatRooms    : number;
+};
 
 /* ---------------------------- 画面 ---------------------------- */
 export default function StudentDashboard() {
   /* 認証ガード（student ロール必須） */
-  const ready     = useAuthGuard("student")
-  const { user }  = useAuth()
+  const ready     = useAuthGuard("student");
+  const { user }  = useAuth();
+  const router    = useRouter();
 
   /* ダッシュボード数値 */
-  const [stats, setStats]       = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 })
-  const [loadingStats, setLoad] = useState(true)
+  const [stats, setStats]       = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 });
+  const [loadingStats, setLoad] = useState(true);
 
   /* Supabase から件数取得 */
   useEffect(() => {
-    if (!user?.id) return
-    ;(async () => {
-      setLoad(true)
-      const studentId = user.id
+    if (!user?.id) return;
+    (async () => {
+      setLoad(true);
+      const studentId = user.id;
 
       const [{ count: scoutsCnt },  { count: appsCnt }, { count: roomsCnt }] = await Promise.all([
         supabase.from("scouts")
@@ -67,16 +63,19 @@ export default function StudentDashboard() {
         supabase.from("chat_rooms")
           .select("id", { count: "exact", head: true })
           .eq("student_id", studentId),
-      ])
+      ]);
 
       setStats({
         scouts      : scoutsCnt ?? 0,
         applications: appsCnt  ?? 0,
         chatRooms   : roomsCnt ?? 0,
-      })
-      setLoad(false)
-    })()
-  }, [user])
+      });
+      setLoad(false);
+    })();
+  }, [user]);
+
+  /* 保存後に戻った場合に最新完成度を取る */
+  useEffect(() => router.refresh(), [router]);
 
   if (!ready) {
     return (
@@ -86,25 +85,14 @@ export default function StudentDashboard() {
           <p>認証確認中…</p>
         </div>
       </div>
-    )
+    );
   }
-
-  /* プロフィール完成度（暫定ダミー） */
-  const profileSections = [
-    { name: "基本情報", completed: true },
-    { name: "学歴",     completed: true },
-    { name: "スキル",   completed: true },
-    { name: "職務経歴", completed: false },
-    { name: "自己PR",   completed: false },
-  ]
-  const completed = profileSections.filter(s => s.completed).length
-  const percent   = Math.round((completed / profileSections.length) * 100)
 
   /* ---------------------------- JSX ---------------------------- */
   return (
-    <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8 space-y-8">
       {/* ───── Hero ───── */}
-      <section className="mb-8 rounded-xl bg-gradient-to-r from-red-50 to-white p-6 shadow-sm">
+      <section className="rounded-xl bg-gradient-to-r from-red-50 to-white p-6 shadow-sm">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
@@ -121,105 +109,85 @@ export default function StudentDashboard() {
           </Button>
         </header>
 
-        {/* プロフィール完成度バー */}
-        <div className="mt-6 rounded-lg bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">プロフィール完成度</span>
-              <Badge
-                variant={percent === 100 ? "default" : "outline"}
-                className={percent === 100 ? "bg-green-600" : "bg-gray-200 text-gray-600"}
-              >
-                {percent}%
-              </Badge>
-            </div>
-          </div>
-
-          <div className="h-2 w-full overflow-hidden rounded bg-gray-100">
-            <div
-              className="h-full rounded bg-red-600 transition-all"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        </div>
+        {/* ─── プロフィール完成度カード ─── */}
+        <Suspense fallback={<SkeletonCard />}>
+          <ProfileCompletionCard />
+        </Suspense>
       </section>
 
       {/* ───── カード 3 枚 ───── */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* スカウト */}
-        <Card className="overflow-hidden transition-all hover:shadow-md">
-          <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Mail className="h-5 w-5 text-red-600" />
-              スカウト状況
-            </CardTitle>
-            <CardDescription>企業からのオファー</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {loadingStats ? (
-              <p>読み込み中…</p>
-            ) : (
-              <div className="flex items-center justify-between">
-                <Stat label="累計" value={stats.scouts} badge />
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-end bg-gray-50 px-6 py-3">
-            <LinkButton href="/offers">確認する</LinkButton>
-          </CardFooter>
-        </Card>
+        <StatCard
+          title="スカウト状況"
+          desc="企業からのオファー"
+          icon={<Mail className="h-5 w-5 text-red-600" />}
+          loading={loadingStats}
+          stats={[{ label: "累計", value: stats.scouts, badge: true }]}
+          href="/offers"
+        />
 
         {/* 応募履歴 */}
-        <Card className="overflow-hidden transition-all hover:shadow-md">
-          <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Briefcase className="h-5 w-5 text-red-600" />
-              応募履歴
-            </CardTitle>
-            <CardDescription>エントリーした求人</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {loadingStats ? (
-              <p>読み込み中…</p>
-            ) : (
-              <div className="flex items-center justify-between">
-                <Stat label="累計" value={stats.applications} badge />
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-end bg-gray-50 px-6 py-3">
-            <LinkButton href="/applications">確認する</LinkButton>
-          </CardFooter>
-        </Card>
+        <StatCard
+          title="応募履歴"
+          desc="エントリーした求人"
+          icon={<Briefcase className="h-5 w-5 text-red-600" />}
+          loading={loadingStats}
+          stats={[{ label: "累計", value: stats.applications, badge: true }]}
+          href="/applications"
+        />
 
         {/* チャット */}
-        <Card className="overflow-hidden transition-all hover:shadow-md">
-          <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <MessageSquare className="h-5 w-5 text-red-600" />
-              チャット
-            </CardTitle>
-            <CardDescription>企業とのやり取り</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {loadingStats ? (
-              <p>読み込み中…</p>
-            ) : (
-              <div className="flex items-center justify-between">
-                <Stat label="トークルーム" value={stats.chatRooms} badge />
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-end bg-gray-50 px-6 py-3">
-            <LinkButton href="/chat">確認する</LinkButton>
-          </CardFooter>
-        </Card>
+        <StatCard
+          title="チャット"
+          desc="企業とのやり取り"
+          icon={<MessageSquare className="h-5 w-5 text-red-600" />}
+          loading={loadingStats}
+          stats={[{ label: "トークルーム", value: stats.chatRooms, badge: true }]}
+          href="/chat"
+        />
       </div>
     </main>
-  )
+  );
 }
 
-/* ---------------------- 便利な小物コンポーネント ---------------------- */
+/* ---------------------- 小コンポーネント ---------------------- */
+function StatCard(props: {
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+  loading: boolean;
+  stats: { label: string; value: number; badge?: boolean }[];
+  href: string;
+}) {
+  const { title, desc, icon, loading, stats, href } = props;
+  return (
+    <Card className="overflow-hidden transition-all hover:shadow-md">
+      <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          {icon}
+          {title}
+        </CardTitle>
+        <CardDescription>{desc}</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-6">
+        {loading ? (
+          <p>読み込み中…</p>
+        ) : (
+          <div className="flex items-center justify-between">
+            {stats.map((s) => (
+              <Stat key={s.label} {...s} />
+            ))}
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-end bg-gray-50 px-6 py-3">
+        <LinkButton href={href}>確認する</LinkButton>
+      </CardFooter>
+    </Card>
+  );
+}
+
 function Stat({ label, value, badge = false }: { label: string; value: number; badge?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-1">
@@ -232,7 +200,7 @@ function Stat({ label, value, badge = false }: { label: string; value: number; b
         <p className="text-xl font-bold">{value}</p>
       )}
     </div>
-  )
+  );
 }
 
 /** 右矢印付きリンクボタン */
@@ -244,5 +212,12 @@ function LinkButton({ href, children }: { href: string; children: React.ReactNod
         <ChevronRight className="ml-1 h-4 w-4" />
       </Link>
     </Button>
-  )
+  );
+}
+
+/* Skeleton 表示用 */
+function SkeletonCard() {
+  return (
+    <div className="mt-6 h-28 w-full animate-pulse rounded-lg bg-gray-100" />
+  );
 }

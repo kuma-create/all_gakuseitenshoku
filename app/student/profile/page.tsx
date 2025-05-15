@@ -14,6 +14,7 @@ import { toast } from "@/components/ui/use-toast"
 
 import { useAuthGuard }      from "@/lib/use-auth-guard"
 import { useStudentProfile } from "@/lib/hooks/use-student-profile"
+import { useProfileCompletion } from "@/hooks/useProfileCompletion"; 
 
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
@@ -137,6 +138,8 @@ export default function StudentProfilePage() {
   /* 4) completion --------------------------------------------------------- */
   const isFilled = (v: unknown) =>
     Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
+
+  const completion = useProfileCompletion();     
 
   const sectionDone = {
     basic: isFilled(profile.last_name) && isFilled(profile.first_name),

@@ -884,6 +884,7 @@ export type Database = {
           address: string | null
           admission_month: string | null
           avatar: string | null
+          avatar_url: string | null
           birth_date: string | null
           created_at: string | null
           department: string | null
@@ -941,6 +942,7 @@ export type Database = {
           address?: string | null
           admission_month?: string | null
           avatar?: string | null
+          avatar_url?: string | null
           birth_date?: string | null
           created_at?: string | null
           department?: string | null
@@ -998,6 +1000,7 @@ export type Database = {
           address?: string | null
           admission_month?: string | null
           avatar?: string | null
+          avatar_url?: string | null
           birth_date?: string | null
           created_at?: string | null
           department?: string | null
@@ -1159,6 +1162,10 @@ export type Database = {
         Returns: {
           avg_response_sec: number
         }[]
+      }
+      calculate_profile_completion: {
+        Args: { p_user_id: string }
+        Returns: Json
       }
       get_leaderboard: {
         Args: { p_limit?: number }
