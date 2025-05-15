@@ -20,6 +20,7 @@ import { Button }  from "@/components/ui/button"
 import { Badge }   from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { ProfileCompletionCard } from "@/components/ProfileCompletionCard"
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
@@ -204,7 +205,7 @@ function ProfileCard({ userId }: { userId: string }) {
       const { data: p } = await supabase
         .from("student_profiles")
         .select(`
-          full_name, first_name, last_name, avatar, profile_image,
+          full_name, first_name, last_name, avatar, 
           about, pr_text, skills, pr_body
         `)
         .eq("user_id", userId)
@@ -218,7 +219,7 @@ function ProfileCard({ userId }: { userId: string }) {
       setName(disp)
 
       /* アイコン */
-      setAvatar(p?.avatar ?? p?.profile_image ?? null)
+      setAvatar(p?.avatar ?? p?.avatar ?? null)
 
       /* 完成度ロジック
          - about/pr_text & skills が揃う → 70 %
@@ -263,12 +264,10 @@ function ProfileCard({ userId }: { userId: string }) {
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-3">
-        <Progress value={completion} className="h-2" />
-        <p className="text-xs text-gray-500">
-          100% にすると<strong>シークレットオファー</strong>が届きやすくなります
-        </p>
-      </CardContent>
+       /* ぜんぶ ProfileCompletionCard に丸投げ */
+       <CardContent>
+         <ProfileCompletionCard />   {/* ← 追加行だけ */}
+       </CardContent>
 
       <CardFooter className="flex flex-col gap-2">
         <Button asChild variant="outline" className="w-full">
