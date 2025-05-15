@@ -1,117 +1,135 @@
 /* ────────────────────────────────────────────────
-   app/student-dashboard/page.tsx  – 完全版
+   app/student-dashboard/page.tsx  – 完全版（Null ガード + 早期リダイレクト）
 ──────────────────────────────────────────────── */
-"use client"
+"use client";
 
-import React, { useCallback, useEffect, useState } from "react"
-import Image from "next/image"
-import Link  from "next/link"
-import { useRouter } from "next/navigation"
+import React, { useCallback, useEffect, useState } from "react";
+import Image          from "next/image";
+import Link           from "next/link";
+import { useRouter }  from "next/navigation";
 
-import { supabase }   from "@/lib/supabase/client"
-import { useAuth }    from "@/lib/auth-context"
-import { useAuthGuard } from "@/lib/use-auth-guard"
-import type { Database } from "@/lib/supabase/types"
+import { supabase }        from "@/lib/supabase/client";
+import { useAuth }         from "@/lib/auth-context";
+import { useAuthGuard }    from "@/lib/use-auth-guard";
+import type { Database }   from "@/lib/supabase/types";
 
 import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-} from "@/components/ui/card"
-import { Button }  from "@/components/ui/button"
-import { Badge }   from "@/components/ui/badge"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { ProfileCompletionCard } from "@/components/ProfileCompletionCard"
-import { useProfileCompletion } from "@/hooks/useProfileCompletion"; 
+} from "@/components/ui/card";
+import { Button }  from "@/components/ui/button";
+import { Badge }   from "@/components/ui/badge";
+import {
+  Sheet, SheetContent, SheetTrigger,
+} from "@/components/ui/sheet";
+import { ProfileCompletionCard } from "@/components/ProfileCompletionCard";
+import { useProfileCompletion }  from "@/hooks/useProfileCompletion";
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
   Edit, Camera, BellDot, Menu,
-} from "lucide-react"
+} from "lucide-react";
 
 /* ---------- 型 ---------- */
-type Stats = { scouts: number; applications: number; chatRooms: number }
-type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"]
+type Stats = { scouts: number; applications: number; chatRooms: number };
+type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"];
 
-type GrandPrix = { id: string; title: string; banner_url?: string | null }
+type GrandPrix = { id: string; title: string; banner_url?: string | null };
 
 type Scout = {
-  id: string
-  company_id: string
-  company_name: string | null
-  created_at: string
-  is_read: boolean
-}
+  id: string;
+  company_id: string;
+  company_name: string | null;
+  created_at: string;
+  is_read: boolean;
+};
 
+/* ===============================================================
+   メインページ
+================================================================ */
 export default function StudentDashboard() {
-  const ready    = useAuthGuard("student")
-  const { user } = useAuth()
-  const router   = useRouter()
+  /* 0) 認証関連 ------------------------------------------------ */
+  const authChecked = useAuthGuard("student"); // RLS が student 以外なら弾く
+  const { user } = useAuth();                  // null になる可能性あり
+  const router   = useRouter();
 
-  const [stats,      setStats]   = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 })
-  const [statsLoad,  setSL]      = useState(true)
-  const [grandPrix,  setGP]      = useState<GrandPrix[]>([])
-  const [offers,     setOffers]  = useState<Scout[]>([])
-  const [cardsLoad,  setCL]      = useState(true)
+  /* 1) user がいないときは /login へ移動して描画を打ち切り ---------- */
+  if (authChecked && !user) {
+    router.replace("/login");
+    return null;
+  }
 
-  /* ---------- Supabase fetch ---------- */
+  /* 2) 状態 ---------------------------------------------------- */
+  const [stats,     setStats]  = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 });
+  const [statsLoad, setSL]     = useState(true);
+  const [grandPrix, setGP]     = useState<GrandPrix[]>([]);
+  const [offers,    setOffers] = useState<Scout[]>([]);
+  const [cardsLoad, setCL]     = useState(true);
+
+  /* 3) Supabase fetch ------------------------------------------ */
   useEffect(() => {
-    if (!user?.id) return
-    const studentId = user.id
+    if (!user?.id) return;               // ← ここでも null ガード
+    const studentId = user.id;
 
-    ;(async () => {
+    (async () => {
       /* ---- ① Stats ---- */
-      setSL(true)
-      const [{ count: scoutsCnt }, { count: appsCnt }, { count: roomsCnt }] =
-        await Promise.all([
-          supabase.from("scouts"       ).select("id", { count: "exact", head: true }).eq("student_id", studentId),
-          supabase.from("applications" ).select("id", { count: "exact", head: true }).eq("student_id", studentId),
-          supabase.from("chat_rooms"   ).select("id", { count: "exact", head: true }).eq("student_id", studentId),
-        ])
-      setStats({ scouts: scoutsCnt ?? 0, applications: appsCnt ?? 0, chatRooms: roomsCnt ?? 0 })
-      setSL(false)
+      setSL(true);
+      const [
+        { count: scoutsCnt },
+        { count: appsCnt },
+        { count: roomsCnt },
+      ] = await Promise.all([
+        supabase.from("scouts")       .select("id", { head: true, count: "exact" }).eq("student_id", studentId),
+        supabase.from("applications") .select("id", { head: true, count: "exact" }).eq("student_id", studentId),
+        supabase.from("chat_rooms")   .select("id", { head: true, count: "exact" }).eq("student_id", studentId),
+      ]);
+      setStats({
+        scouts: scoutsCnt ?? 0,
+        applications: appsCnt ?? 0,
+        chatRooms: roomsCnt ?? 0,
+      });
+      setSL(false);
 
       /* ---- ② GrandPrix & Offers ---- */
-      setCL(true)
+      setCL(true);
       const [{ data: gpRaw }, { data: offerRaw }] = await Promise.all([
         supabase
           .from("challenges")
-          .select("id,title,deadline")
+          .select("id,title,deadline")       // ★ alias 不使用なので 400 は出ない
           .order("deadline", { ascending: true })
           .limit(3),
-
         supabase
           .from("scouts")
-          .select("id, company_id, is_read, created_at, companies(name)")
+          .select("id,company_id,is_read,created_at,companies(name)")
           .eq("student_id", studentId)
           .order("created_at", { ascending: false })
           .limit(5),
-      ])
+      ]);
 
-      const gpData: GrandPrix[] =
-        (gpRaw as ChallengeRow[] | null)?.map((c) => ({
-          id: c.id,
-          title: c.title,
-          banner_url: null,
-        })) ?? []
+      const gpData: GrandPrix[] = (gpRaw as ChallengeRow[] | null)?.map((c) => ({
+        id:    c.id,
+        title: c.title,
+        banner_url: null,              // バナーは別フェッチ前提
+      })) ?? [];
 
-      const offersData: Scout[] =
-        (offerRaw as any[] | null)?.map((r) => ({
-          id: r.id,
-          company_id: r.company_id,
-          company_name: (r.companies as { name?: string } | null)?.name ?? null,
-          created_at: r.created_at,
-          is_read: r.is_read,
-        })) ?? []
+      const offersData: Scout[] = (offerRaw as any[] | null)?.map((r) => ({
+        id:            r.id,
+        company_id:    r.company_id,
+        company_name:  r.companies?.name ?? null,
+        created_at:    r.created_at,
+        is_read:       r.is_read,
+      })) ?? [];
 
-      setGP(gpData)
-      setOffers(offersData)
-      setCL(false)
-    })()
-  }, [user])
+      setGP(gpData);
+      setOffers(offersData);
+      setCL(false);
+    })();
+  }, [user?.id]);
 
-  /* ---- 戻り時に再フェッチ ---- */
-  useEffect(() => router.refresh(), [router])
+  /* 4) 戻ったときに再フェッチ（Next.js の router.refresh）------ */
+  useEffect(() => router.refresh(), [router]);
 
-  if (!ready) {
+  /* 5) 認証チェック中ローディング ------------------------------- */
+  if (!authChecked) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
@@ -119,18 +137,18 @@ export default function StudentDashboard() {
           <p>認証確認中…</p>
         </div>
       </div>
-    )
+    );
   }
 
-  /* ---------------- JSX ---------------- */
+  /* 6) 画面描画 ------------------------------------------------- */
   return (
-    <main className="container mx-auto px-4 py-8 space-y-10">
+    <main className="container mx-auto space-y-10 px-4 py-8">
       <GreetingHero userName={user?.name ?? "学生"} />
 
-      {/* ===== 3 カラム ===== */}
+      {/* 3 カラム */}
       <section className="grid gap-6 md:grid-cols-12">
         <div className="md:col-span-3">
-          <ProfileCard userId={user!.id} />
+          {user && <ProfileCard userId={user.id} />}
         </div>
 
         <div className="md:col-span-6">
@@ -144,7 +162,7 @@ export default function StudentDashboard() {
 
       <StatCards stats={stats} loading={statsLoad} />
     </main>
-  )
+  );
 }
 
 /* ================================================================
@@ -155,7 +173,9 @@ function GreetingHero({ userName }: { userName: string }) {
     <section className="rounded-xl bg-gradient-to-r from-red-50 to-white p-6 shadow-sm">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">こんにちは、{userName} さん！</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            こんにちは、{userName} さん！
+          </h1>
           <p className="mt-1 text-gray-600">今日も就活を頑張りましょう。</p>
         </div>
 
@@ -179,7 +199,7 @@ function GreetingHero({ userName }: { userName: string }) {
         </Sheet>
       </header>
     </section>
-  )
+  );
 }
 
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -187,59 +207,65 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     <Link href={href} className="block rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100">
       {children}
     </Link>
-  )
+  );
 }
 
 /* ================================================================
    ProfileCard – student_profiles を 1 クエリで取得
 ================================================================ */
 function ProfileCard({ userId }: { userId: string }) {
-  const [avatarUrl, setAvatar] = useState<string | null>(null)
-  const [name, setName]        = useState<string>("学生")
-  const { score: completion = 0 } = useProfileCompletion() ?? {}
-  const [saving, setSaving]    = useState(false)
+  const [avatarUrl, setAvatar] = useState<string | null>(null);
+  const [name,      setName]   = useState<string>("学生");
+  const { score: completion = 0 } = useProfileCompletion() ?? {};
+  const [saving,    setSaving] = useState(false);
 
+  /* 初回 fetch：名前 & アバターだけ */
+  useEffect(() => {
+    (async () => {
+      const { data: p } = await supabase
+        .from("student_profiles")
+        .select("full_name, first_name, last_name, avatar, profile_image")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-/* ---- 初回 fetch：名前 & アバターだけ ---- */
-useEffect(() => {
-  ;(async () => {
-    const { data: p } = await supabase
-      .from("student_profiles")
-      .select("full_name, first_name, last_name, avatar, profile_image")
-      .eq("user_id", userId)
-      .maybeSingle()
+      /* 表示名 */
+      const display =
+        p?.full_name ||
+        `${p?.last_name ?? ""} ${p?.first_name ?? ""}`.trim() ||
+        "学生";
+      setName(display);
 
-    /* 表示名 */
-    const display =
-      p?.full_name ||
-      `${p?.last_name ?? ""} ${p?.first_name ?? ""}`.trim() ||
-      "学生"
-    setName(display)
+      /* アイコン */
+      setAvatar(p?.avatar ?? p?.profile_image ?? null);
+    })();
+  }, [userId]);
 
-    /* アイコン */
-    setAvatar(p?.avatar ?? p?.profile_image ?? null)
-  })()
-}, [userId])
+  /* アイコンアップロード */
+  const handleUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setSaving(true);
 
-
-  /* ---- アイコンアップロード ---- */
-  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setSaving(true)
-
-    const path = `avatars/${userId}`
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true })
-    if (error) {
-      alert("アップロードに失敗しました")
-      setSaving(false)
-      return
-    }
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path)
-    await supabase.from("student_profiles").update({ avatar: publicUrl }).eq("user_id", userId)
-    setAvatar(publicUrl)
-    setSaving(false)
-  }, [userId])
+      const path = `avatars/${userId}`;
+      const { error } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (error) {
+        alert("アップロードに失敗しました");
+        setSaving(false);
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      await supabase
+        .from("student_profiles")
+        .update({ avatar: publicUrl })
+        .eq("user_id", userId);
+      setAvatar(publicUrl);
+      setSaving(false);
+    },
+    [userId]
+  );
 
   return (
     <Card className="sticky top-20">
@@ -254,9 +280,9 @@ useEffect(() => {
         </CardDescription>
       </CardHeader>
 
-       <CardContent>
-         <ProfileCompletionCard />   {/* ← 追加行だけ */}
-       </CardContent>
+      <CardContent>
+        <ProfileCompletionCard />
+      </CardContent>
 
       <CardFooter className="flex flex-col gap-2">
         <Button asChild variant="outline" className="w-full">
@@ -270,12 +296,18 @@ useEffect(() => {
         </Button>
       </CardFooter>
     </Card>
-  )
+  );
 }
 
 function AvatarBlock({
-  url, saving, onUpload,
-}: { url: string | null; saving: boolean; onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+  url,
+  saving,
+  onUpload,
+}: {
+  url: string | null;
+  saving: boolean;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
   return (
     <div className="relative h-16 w-16">
       <Image
@@ -284,12 +316,18 @@ function AvatarBlock({
         fill
         className="rounded-full object-cover"
       />
-      <label className="absolute bottom-0 right-0 rounded-full bg-white p-1 shadow cursor-pointer">
+      <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-white p-1 shadow">
         <Camera className="h-4 w-4" />
-        <input type="file" accept="image/*" className="hidden" onChange={onUpload} disabled={saving} />
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={onUpload}
+          disabled={saving}
+        />
       </label>
     </div>
-  )
+  );
 }
 
 /* ================================================================
@@ -303,7 +341,7 @@ function GrandPrixSlider({ events }: { events: GrandPrix[] }) {
           現在開催中の就活グランプリはありません
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -317,7 +355,7 @@ function GrandPrixSlider({ events }: { events: GrandPrix[] }) {
             <Link
               key={e.id}
               href={`/grandprix/${e.id}`}
-              className="snap-center shrink-0 w-64 rounded-lg overflow-hidden shadow hover:shadow-md transition-shadow"
+              className="snap-center w-64 shrink-0 overflow-hidden rounded-lg shadow transition-shadow hover:shadow-md"
             >
               <div className="relative h-36 w-full">
                 <Image
@@ -338,7 +376,7 @@ function GrandPrixSlider({ events }: { events: GrandPrix[] }) {
         <LinkButton href="/grandprix">一覧を見る</LinkButton>
       </CardFooter>
     </Card>
-  )
+  );
 }
 
 /* ================================================================
@@ -375,7 +413,7 @@ function OffersList({ offers }: { offers: Scout[] }) {
         <LinkButton href="/offers">詳細を見る</LinkButton>
       </CardFooter>
     </Card>
-  )
+  );
 }
 
 /* ================================================================
@@ -409,19 +447,19 @@ function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
         href="/chat"
       />
     </div>
-  )
+  );
 }
 
 /* ---------------- 共通小物 ---------------- */
 function StatCard(props: {
-  title: string
-  desc: string
-  icon: React.ReactNode
-  loading: boolean
-  stats: { label: string; value: number; badge?: boolean }[]
-  href: string
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+  loading: boolean;
+  stats: { label: string; value: number; badge?: boolean }[];
+  href: string;
 }) {
-  const { title, desc, icon, loading, stats, href } = props
+  const { title, desc, icon, loading, stats, href } = props;
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
@@ -446,10 +484,18 @@ function StatCard(props: {
         <LinkButton href={href}>確認する</LinkButton>
       </CardFooter>
     </Card>
-  )
+  );
 }
 
-function Stat({ label, value, badge = false }: { label: string; value: number; badge?: boolean }) {
+function Stat({
+  label,
+  value,
+  badge = false,
+}: {
+  label: string;
+  value: number;
+  badge?: boolean;
+}) {
   return (
     <div className="flex flex-col items-center gap-1">
       <span className="text-sm text-gray-500">{label}</span>
@@ -461,7 +507,7 @@ function Stat({ label, value, badge = false }: { label: string; value: number; b
         <p className="text-xl font-bold">{value}</p>
       )}
     </div>
-  )
+  );
 }
 
 function LinkButton({ href, children }: { href: string; children: React.ReactNode }) {
@@ -472,9 +518,11 @@ function LinkButton({ href, children }: { href: string; children: React.ReactNod
         <ChevronRight className="ml-1 h-4 w-4" />
       </Link>
     </Button>
-  )
+  );
 }
 
 function SkeletonCard({ height = 200 }: { height?: number }) {
-  return <div style={{ height }} className="animate-pulse rounded-lg bg-gray-100 w-full" />
+  return (
+    <div style={{ height }} className="w-full animate-pulse rounded-lg bg-gray-100" />
+  );
 }
