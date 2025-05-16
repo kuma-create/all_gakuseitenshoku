@@ -96,19 +96,29 @@ export default function StudentDashboard() {
       setStats({ scouts: scoutsCnt ?? 0, applications: appsCnt ?? 0, chatRooms: roomsCnt ?? 0 });
       setSL(false);
 
-      /* ---- grand prix & offers ---- */
-      setCL(true);
-      const [{ data: gpRaw }, { data: offersRaw }] = await Promise.all([
+/* ---- grand prix & offers ---- */
+      const [{ data: gpRaw }, { data: offersRaw, error: offersErr }] = await Promise.all([
         supabase.from("challenges")
           .select("id,title,deadline")
           .order("deadline", { ascending: true })
           .limit(3),
+
         supabase.from("scouts")
-          .select("id,company_id,message,is_read,created_at,companies(name,logo),jobs(title)")
+          .select(`
+            id,
+            message,
+            is_read,
+            created_at,
+            company:company_id ( id, name, logo ),
+            job:job_id         ( title )
+          `)
           .eq("student_id", studentId)
           .order("created_at", { ascending: false })
           .limit(10),
       ]);
+
+if (offersErr) console.error("scouts fetch error →", offersErr);  // ← 失敗してもツリーを壊さない
+
 
       setGP(
         (gpRaw as ChallengeRow[] | null)?.map(c => ({
