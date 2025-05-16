@@ -1,19 +1,21 @@
 /* ───────────────────────────────────────────────
-   lib/auth-context.tsx
-   - 認証コンテキスト（login は “状態更新だけ” に純化）
-   - 2025-05-16 リファクタ:
-     * ready / applySession を明確化
-     * logout 後に確実に state クリア & /login 遷移
+   lib/auth-context.tsx  – 最小限の修正版
+   2025-05-16
 ────────────────────────────────────────────── */
 "use client";
 
 import {
-  createContext, useContext, useEffect, useState, ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
-import { supabase }   from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 
 /* ---------- 型 ---------- */
@@ -34,20 +36,19 @@ export type CompanyProfile =
 export type UserProfile = StudentProfile | CompanyProfile | null;
 
 export interface AuthContextValue {
-  /* 状態 */
-  ready: boolean;            // 初回セッション取得完了
-  isLoggedIn: boolean;
+  /** 未判定＝undefined／未ログイン＝null／ログイン済み＝Session */
+  session: Session | null | undefined;
+  isLoggedIn: boolean | null; // true/false、判定前 null
   userType: UserRole;
-  session: Session | null;
   user: User;
   profile: UserProfile;
   error: string | null;
-  /* アクション */
-  login: (
-    email: string, password: string, fallbackRole: RoleOption
-  ) => Promise<boolean>;
+  login: (e: string, p: string, r: RoleOption) => Promise<boolean>;
   signup: (
-    email: string, password: string, role: RoleOption, fullName: string,
+    e: string,
+    p: string,
+    r: RoleOption,
+    n: string,
   ) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -61,130 +62,140 @@ export const useAuth = () => {
   return ctx;
 };
 
-/* =======================================================================
-   Provider
-======================================================================= */
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
+/* ---------- 公開ルート (未ログインでも見られる) ---------- */
+const PUBLIC_ROUTES = new Set([
+  "/",
+  "/login",
+  "/signup",
+  "/email-callback",
+]);
 
-  /* -- state --------------------------------------------------------- */
-  const [ready, setReady]           = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userType, setUserType]     = useState<UserRole>(null);
-  const [session, setSession]       = useState<Session | null>(null);
-  const [user, setUser]             = useState<User>(null);
-  const [profile, setProfile]       = useState<UserProfile>(null);
-  const [error, setError]           = useState<string | null>(null);
+/* ---------- Provider ---------- */
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const router   = useRouter();
+  const pathname = usePathname();
+
+  /* 状態 */
+  const [session,    setSession]    = useState<Session | null | undefined>(undefined);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [userType,   setUserType]   = useState<UserRole>(null);
+  const [user,       setUser]       = useState<User>(null);
+  const [profile,    setProfile]    = useState<UserProfile>(null);
+  const [error,      setError]      = useState<string | null>(null);
+
   const clearError = () => setError(null);
 
-  /* ------------------------------------------------------------------
-     共通: セッション適用  🔄
-  ------------------------------------------------------------------ */
-  const applySession = async (sess: Session | null) => {
-    setSession(sess);
+  /* ---- session を反映 ---- */
+  const applySession = useCallback(
+    async (sess: Session | null) => {
+      setSession(sess);
 
-    if (!sess) {
-      /* ログアウト状態 */
-      setIsLoggedIn(false);
-      setUser(null);
-      setProfile(null);
-      setUserType(null);
-      return;
-    }
+      /* 未ログイン ------------------------------------------------ */
+      if (!sess) {
+        setIsLoggedIn(false);
+        setUser(null);
+        setProfile(null);
+        setUserType(null);
 
-    setIsLoggedIn(true);
+        /* ルートガードをここで一元化 */
+        if (!PUBLIC_ROUTES.has(pathname)) router.replace("/login");
+        return;
+      }
 
-    /* role 取得（なければ student） */
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", sess.user.id)
-      .maybeSingle();
-    const role = (roleRow?.role ?? "student") as UserRole;
-    setUserType(role);
+      /* ログイン済み -------------------------------------------- */
+      setIsLoggedIn(true);
 
-    /* User オブジェクト */
-    setUser({
-      id   : sess.user.id,
-      email: sess.user.email ?? "",
-      name :
-        sess.user.user_metadata?.full_name ??
-        sess.user.email?.split("@")[0] ??
-        "ユーザー",
-      role,
-    });
-
-    /* Profile 取得 */
-    if (role === "company") {
-      const { data: comp } = await supabase
-        .from("companies")
-        .select("*")
+      /* ロール取得 */
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
         .eq("user_id", sess.user.id)
         .maybeSingle();
-      setProfile(comp ?? null);
-    } else if (role === "student") {
-      const { data: stu } = await supabase
-        .from("student_profiles")
-        .select("*")
-        .eq("user_id", sess.user.id)
-        .maybeSingle();
-      setProfile(stu ?? null);
-    } else {
-      setProfile(null); // admin
-    }
-  };
+      const role = (roleRow?.role ?? "student") as UserRole;
+      setUserType(role);
 
-  /* ------------------------------------------------------------------
-     初回セッション取得 & auth 状態監視
-  ------------------------------------------------------------------ */
+      /* user オブジェクト */
+      setUser({
+        id   : sess.user.id,
+        email: sess.user.email ?? "",
+        name :
+          sess.user.user_metadata?.full_name ??
+          sess.user.email?.split("@")[0] ??
+          "ユーザー",
+        role,
+      });
+
+      /* profile 取得 */
+      if (role === "company") {
+        const { data: comp } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("user_id", sess.user.id)
+          .maybeSingle();
+        setProfile(comp ?? null);
+      } else if (role === "student") {
+        const { data: stu } = await supabase
+          .from("student_profiles")
+          .select("*")
+          .eq("user_id", sess.user.id)
+          .maybeSingle();
+        setProfile(stu ?? null);
+      } else {
+        setProfile(null);
+      }
+
+      /* ログインページに居るならロール別ダッシュボードへ */
+      if (pathname === "/login" || pathname === "/") {
+        router.replace(
+          role === "company"
+            ? "/company-dashboard"
+            : role === "admin"
+            ? "/admin-dashboard"
+            : "/student-dashboard",
+        );
+      }
+    },
+    [pathname, router],
+  );
+
+  /* ---- 初回セッション取得＆リスナー ---- */
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       await applySession(session);
-      setReady(true);                    // ★ 取得完了
     })();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_e: AuthChangeEvent, sess) => applySession(sess),
+      (_: AuthChangeEvent, sess) => applySession(sess),
     );
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [applySession]);
 
-  /* ------------------------------------------------------------------
-     signup
-  ------------------------------------------------------------------ */
+  /* ---- 認証 API (login / signup / logout) ---- */
   const signup = async (
     email: string, password: string, role: RoleOption, fullName: string,
-  ): Promise<boolean> => {
+  ) => {
     clearError();
     try {
       const { data, error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { full_name: fullName } },
+        email, password, options: { data: { full_name: fullName } },
       });
       if (error) throw error;
-      if (!data.user) return true;          // メール認証フローのみ
+      if (!data.user) return false;
 
-      /* user_roles 挿入 */
-      await supabase
-        .from("user_roles")
-        .upsert([{ user_id: data.user.id, role }], { onConflict: "user_id" });
+      await supabase.from("user_roles").insert({
+        user_id: data.user.id, role,
+      });
 
-      /* profile 初期化 */
-      if (role === "company") {
-        await supabase.from("companies").insert({
-          user_id: data.user.id,
-          name   : fullName,
-        });
-      } else {
+      if (role === "student") {
         await supabase.from("student_profiles").insert({
-          user_id  : data.user.id,
-          full_name: fullName,
+          user_id: data.user.id, full_name: fullName,
+        });
+      } else if (role === "company") {
+        await supabase.from("companies").insert({
+          user_id: data.user.id, name: fullName, full_name: fullName,
         });
       }
-
-      /* applySession() で state 更新 */
-      await applySession(data.session);
       return true;
     } catch (e: any) {
       setError(e.message ?? "サインアップに失敗しました");
@@ -192,32 +203,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /* ------------------------------------------------------------------
-     login – 状態更新のみ（リダイレクトしない）
-  ------------------------------------------------------------------ */
-  const login = async (
-    email: string, password: string, fallbackRole: RoleOption,
-  ): Promise<boolean> => {
+  const login = async (email: string, pw: string, role: RoleOption) => {
     clearError();
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email, password,
-      });
-      if (error || !data.session) throw error ?? new Error("login failed");
-      const uid = data.user.id;
-
-      /* user_roles 無ければ fallbackRole で作成 */
-// 「無ければ挿入、あっても更新しない」 → upsert + ignoreDuplicates
-      await supabase
-        .from("user_roles")
-        .upsert(
-          { user_id: uid, role: fallbackRole },
-          { onConflict: "user_id", ignoreDuplicates: true }, // ✅ ここは upsert なら通る
-        );
-
-
-      /* state 更新 */
-      await applySession(data.session);
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+      if (error) throw error;
+      /* applySession は onAuthStateChange が呼んでくれるので何も返さない */
       return true;
     } catch (e: any) {
       setError(e.message ?? "ログインに失敗しました");
@@ -225,40 +216,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /* ------------------------------------------------------------------
-     logout – signOut → 状態クリア → /login
-  ------------------------------------------------------------------ */
   const logout = async () => {
     clearError();
     try {
       await supabase.auth.signOut();
-      await applySession(null);     // ← 明示的に state リセット
+      /* applySession が走るまで待たずに即遷移 */
       router.replace("/login");
     } catch (e: any) {
       setError(e.message ?? "ログアウトに失敗しました");
     }
   };
 
-  /* ------------------------------------------------------------------
-     Provider
-  ------------------------------------------------------------------ */
+  /* ---- Provider ---- */
   const value: AuthContextValue = {
-    ready,
-    isLoggedIn,
-    userType,
-    session,
-    user,
-    profile,
-    error,
-    login,
-    signup,
-    logout,
-    clearError,
+    session, isLoggedIn, userType, user, profile, error,
+    login, signup, logout, clearError,
   };
 
+  /** session === undefined の間だけ “認証確認中” 用の UI を出す */
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {session === undefined ? null : children}
     </AuthContext.Provider>
   );
 }

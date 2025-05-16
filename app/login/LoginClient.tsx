@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------
-   app/login/LoginClient.tsx  – next パラメータ対応・完全版
+   app/login/LoginClient.tsx  – next パラメータ対応・修正版
 ------------------------------------------------------------------ */
 "use client";
 
@@ -19,9 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription }     from "@/components/ui/alert";
 import { useAuth } from "@/lib/auth-context";
 
-/* ------------------------------------------------------------------ */
-/*                               小物                                 */
-/* ------------------------------------------------------------------ */
+/* ----- 小物 ------------------------------------------------------ */
 const IconInput = ({
   id, type, placeholder, value, onChange, icon,
 }: {
@@ -45,9 +43,7 @@ const IconInput = ({
   </div>
 );
 
-/* ------------------------------------------------------------------ */
-/*                         LoginForm sub-component                     */
-/* ------------------------------------------------------------------ */
+/* ----- LoginForm ------------------------------------------------- */
 type Role = "student" | "company";
 type FormProps = {
   role: Role; email: string; password: string;
@@ -111,15 +107,15 @@ const LoginForm = ({
   );
 };
 
-/* ------------------------------------------------------------------ */
-/*                             LoginClient                             */
-/* ------------------------------------------------------------------ */
+/* ----- LoginClient ---------------------------------------------- */
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
 
-  const { ready, isLoggedIn, user, login, error: ctxError } = useAuth();
+  /* ★ ready を直接持たず、session の有無で判定 */
+  const { session, isLoggedIn, user, login, error: ctxError } = useAuth();
+  const ready = session !== undefined;
 
   const [tab, setTab]         = useState<Role>("student");
   const [email, setEmail]     = useState("");
@@ -140,7 +136,7 @@ export default function LoginClient() {
         router.replace("/company-dashboard");
         break;
       case "admin":
-        router.replace("/admin");
+        router.replace("/admin-dashboard");
         break;
       default:
         router.replace("/student-dashboard");

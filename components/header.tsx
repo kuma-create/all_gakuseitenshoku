@@ -83,7 +83,7 @@ export default function Header() {
     <header className="sticky top-0 z-30 border-b bg-white/70 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* -------- 左ロゴ -------- */}
-        <Link href={isLoggedIn ? "/student-dashboard" : "/"} className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.png" alt="学生転職" width={120} height={32} />
         </Link>
 
