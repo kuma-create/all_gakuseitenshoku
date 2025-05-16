@@ -1,158 +1,200 @@
-/* ------------------------------------------------------------------
-   app/student/scouts/page.tsx
------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------
+   components/header.tsx
+   - 左ロゴ＋役割別ナビゲーション
+   - 2025-05-16 404 修正：/student/jobs → /jobs、/student/chat → /chat
+------------------------------------------------------------------------- */
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import Link            from "next/link";
+import Image           from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import type { Session } from "@supabase/supabase-js";
+import {
+  Bell, LayoutDashboard, User, Briefcase, Search, Mail,
+  MessageSquare, Trophy, Star, LogIn, ShieldCheck, Send,
+  LucideIcon,
+} from "lucide-react";
+
 import { supabase } from "@/lib/supabase/client";
-import { Loader2 } from "lucide-react";
-import { ScoutNotification } from "@/components/scout-notification";
+import { useAuth }  from "@/lib/auth-context";
+import { cn }       from "@/lib/utils";
+import NotificationBell from "@/components/notification-bell";
+import { Avatar }   from "@/components/avatar";
+import { Button }   from "@/components/ui/button";
 
-/* ===== UI 用の型（画面で使うぶんだけ） ===== */
-type UIScout = {
-  id: string;
-  companyName: string;
-  companyLogo: string;
-  position: string;
-  message: string;
-  createdAt: string;
-  status: "pending" | "accepted" | "declined";
-};
+/* ------------------------------------------------------------------ */
+/*                             型定義                                  */
+/* ------------------------------------------------------------------ */
+type NavItem = { href: string; label: string; icon?: LucideIcon };
 
-export default function StudentScoutsPage() {
-  const router = useRouter();
+/* ------------------------ 各ロールのリンク ------------------------- */
+/* ★ 404 対応で “/jobs /chat” はルート直下に変更 */
+const studentLinks: NavItem[] = [
+  { href: "/student-dashboard", label: "Dashboard",   icon: LayoutDashboard },
+  { href: "/student/profile",   label: "プロフィール", icon: User },
+  { href: "/student/resume",    label: "レジュメ",     icon: Briefcase },
+  { href: "/jobs",              label: "求人検索",     icon: Search },      // ← 修正
+  { href: "/student/scouts",    label: "スカウト",     icon: Mail },
+  { href: "/chat",              label: "チャット",     icon: MessageSquare }, // ← 修正
+];
 
-  const [loading, setLoading] = useState(true);
-  const [scouts, setScouts] = useState<UIScout[]>([]);
-  const [busyId, setBusyId] = useState<string | null>(null);
+/* ★ “スカウト送信用” ページは /scout（共通）に統一、
+   チャットも /chat に寄せました（company/ プレフィックス不要） */
+const companyLinks: NavItem[] = [
+  { href: "/company-dashboard", label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/company/jobs",      label: "求人管理",    icon: Briefcase },
+  { href: "/scout",             label: "スカウト送信", icon: Send },        // ← 修正
+  { href: "/chat",              label: "チャット",    icon: MessageSquare }, // ← 修正
+];
 
-  /* ================================================================
-     1. 認証ユーザー取得 → いなければ /login へ
-  ================================================================= */
+const adminLinks: NavItem[] = [
+  { href: "/admin",     label: "Admin",   icon: ShieldCheck },
+  { href: "/grandprix", label: "GP",      icon: Trophy },
+  { href: "/ranking",   label: "Ranking", icon: Star },
+];
+
+const landingLinks: NavItem[] = [
+  { href: "/#features",     label: "特徴" },
+  { href: "/#how-it-works", label: "利用の流れ" },
+  { href: "/grandprix",     label: "就活グランプリ" },
+  { href: "/#testimonials", label: "利用者の声" },
+  { href: "/#faq",          label: "よくある質問" },
+];
+
+/* ------------------------------------------------------------------ */
+/*                               Header                                */
+/* ------------------------------------------------------------------ */
+export default function Header() {
+  const pathname = usePathname();
+  const router   = useRouter();
+  const { isLoggedIn, userType, logout } = useAuth();
+
+  const [session,   setSession]  = useState<Session | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  /* ---- Supabase セッション監視 ---- */
   useEffect(() => {
-    (async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+      if (data.session) await fetchAvatar(data.session.user.id);
+    };
+    init();
 
-      if (error) {
-        console.error(error);
-        return;
-      }
+    const { data: { subscription } } =
+      supabase.auth.onAuthStateChange(async (_e, ses) => {
+        setSession(ses);
+        if (ses) await fetchAvatar(ses.user.id);
+      });
 
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
+    return () => subscription.unsubscribe();
+  }, []);
 
-      fetchScouts(user.id);
-    })();
-  }, [router]);
-
-  /* ================================================================
-     2. スカウト一覧取得（JOIN はテーブル名そのまま）
-  ================================================================= */
-  const fetchScouts = async (studentId: string) => {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("scouts")
-      .select(
-        `
-          id,
-          status,
-          message,
-          created_at,
-          companies ( name, logo ),
-          jobs      ( title )
-        `
-      )
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    /* data の型付けが面倒なので一旦 any で受ける */
-    const ui: UIScout[] = (data as any[]).map((row) => ({
-      id: row.id,
-      companyName: row.companies?.name ?? "Unknown",
-      companyLogo:
-        row.companies?.logo ?? "/images/placeholder-avatar.png",
-      position: row.jobs?.title ?? "職種未確定",
-      message: row.message ?? "",
-      createdAt: row.created_at
-        ? new Date(row.created_at).toLocaleDateString()
-        : "—",
-      status: row.status,
-    }));
-
-    setScouts(ui);
-    setLoading(false);
+  /* ------- avatar_url を student_profiles から取得 ------- */
+  const fetchAvatar = async (uid: string) => {
+    if (!uid) return;
+    const { data } = await supabase
+      .from("student_profiles")
+      .select("avatar_url")
+      .eq("user_id", uid)
+      .maybeSingle<{ avatar_url: string | null }>();
+    setAvatarUrl(data?.avatar_url ?? null);
   };
 
-  /* ================================================================
-     3. 承諾 / 辞退
-  ================================================================= */
-  const updateStatus = useCallback(
-    async (id: string, status: "accepted" | "declined") => {
-      setBusyId(id);
+  /* ---- ログアウト処理 ---- */
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("signOut error:", error);
+      return;
+    }
+    logout();
+    router.replace("/");
+  };
 
-      const { error } = await supabase
-        .from("scouts")
-        .update({ status })
-        .eq("id", id);
-
-      if (error) console.error(error);
-
-      /* ローカル状態だけ先に更新して即時反映 */
-      setScouts((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status } : s))
-      );
-
-      setBusyId(null);
-    },
-    []
-  );
-
-  /* ================================================================
-     4. UI
-  ================================================================= */
-  if (loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        ロード中…
-      </div>
-    );
+  /* ---- 役割に応じてリンク切替 ---- */
+  let navLinks: NavItem[] = landingLinks;
+  if (isLoggedIn) {
+    if (userType === "admin")        navLinks = adminLinks;
+    else if (userType === "company") navLinks = companyLinks;
+    else if (userType === "student") navLinks = studentLinks;
   }
 
-  if (!scouts.length) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <p className="text-muted-foreground">
-          まだスカウトはありません
-        </p>
-      </div>
-    );
-  }
-
+  /* ---------------- render ---------------- */
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-8">
-      {scouts.map((s) => (
-        <ScoutNotification
-          key={s.id}
-          scout={s}
-          onAccept={() => updateStatus(s.id, "accepted")}
-          onDecline={() => updateStatus(s.id, "declined")}
-          isLoading={busyId === s.id}
-        />
-      ))}
-    </div>
+    <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-zinc-200/70 bg-white/80 px-4 backdrop-blur dark:border-zinc-700/40 dark:bg-zinc-900/80 lg:px-6">
+      {/* ----- 左 : ロゴ ----- */}
+      <Link href="/" className="flex items-center space-x-2">
+        <Image src="/logo.png" alt="logo" width={120} height={120} />
+      </Link>
+
+      {/* ----- 中央 : ナビゲーション ----- */}
+      <nav className="hidden lg:block">
+        <ul className="flex flex-wrap gap-4 text-sm font-medium text-gray-700 dark:text-gray-200">
+          {navLinks.map(({ href, label, icon: Icon }) => (
+            <li key={href}>
+              <Link
+                href={href}
+                className={cn(
+                  "flex items-center gap-1",
+                  pathname.startsWith(href) && "text-red-600"
+                )}
+              >
+                {Icon && <Icon size={14} className="shrink-0" />}
+                {label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* ----- 右端 : 通知 & ユーザー ----- */}
+      <div className="flex items-center gap-4">
+        {isLoggedIn && <NotificationBell />}
+        {isLoggedIn ? (
+          <>
+            {/* Avatar */}
+            <div className="h-8 w-8 overflow-hidden rounded-full">
+              <Avatar src={avatarUrl} size={32} />
+            </div>
+            {/* ログアウト */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-gray-600"
+            >
+              ログアウト
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button asChild variant="ghost" size="sm" className="text-gray-600">
+              <Link href="/login">
+                <LogIn className="mr-1 h-4 w-4" />
+                ログイン
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="sm"
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              <Link href="/signup">新規登録</Link>
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* ナビ折返し防止 */}
+      <style jsx global>{`
+        @media (min-width: 1024px) {
+          header nav ul {
+            flex-wrap: nowrap;
+          }
+        }
+      `}</style>
+    </header>
   );
 }

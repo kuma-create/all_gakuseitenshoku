@@ -1,6 +1,8 @@
 /* ------------------------------------------------------------------------
    components/header.tsx
    - 左ロゴ＋役割別ナビゲーション
+   - 2025-05-16 404 修正 : /student/jobs → /jobs, /student/chat → /chat
+                           /company/scout → /scout, /company/chat → /chat
 ------------------------------------------------------------------------- */
 "use client"
 
@@ -28,20 +30,22 @@ import { Button }   from "@/components/ui/button"
 type NavItem = { href: string; label: string; icon?: LucideIcon }
 
 /* ------------------------ 各ロールのリンク ------------------------- */
+/* ★ 404 対応：/student/jobs・/student/chat → ルート直下に統一        */
 const studentLinks: NavItem[] = [
   { href: "/student-dashboard", label: "Dashboard",     icon: LayoutDashboard },
   { href: "/student/profile",   label: "プロフィール",   icon: User },
   { href: "/student/resume",    label: "レジュメ",       icon: Briefcase },
-  { href: "/student/jobs",      label: "求人検索",       icon: Search },
+  { href: "/jobs",              label: "求人検索",       icon: Search },        // ← 修正
   { href: "/student/scouts",    label: "スカウト",       icon: Mail },
-  { href: "/student/chat",      label: "チャット",       icon: MessageSquare },
+  { href: "/chat",              label: "チャット",       icon: MessageSquare }, // ← 修正
 ]
 
+/* ★ company 側もチャットを /chat に寄せ、スカウト送信は /scout に統一 */
 const companyLinks: NavItem[] = [
   { href: "/company-dashboard", label: "Dashboard",  icon: LayoutDashboard },
   { href: "/company/jobs",      label: "求人管理",    icon: Briefcase },
-  { href: "/company/scout",     label: "スカウト送信", icon: Send },
-  { href: "/company/chat",      label: "チャット",    icon: MessageSquare },
+  { href: "/scout",             label: "スカウト送信", icon: Send },            // ← 修正
+  { href: "/chat",              label: "チャット",    icon: MessageSquare },   // ← 修正
 ]
 
 const adminLinks: NavItem[] = [
@@ -167,7 +171,7 @@ export function Header() {
         ) : (
           <>
             <Button asChild variant="ghost" size="sm" className="text-gray-600">
-            <Link href="/login">
+              <Link href="/login">
                 <LogIn className="mr-1 h-4 w-4" />
                 ログイン
               </Link>
