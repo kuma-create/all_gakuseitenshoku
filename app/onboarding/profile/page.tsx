@@ -1,9 +1,9 @@
 /* ------------------------------------------------------------------
    app/(onboarding)/onboarding-profile/page.tsx
-   - 4 ステップ・プロフィール登録
-   - 2025-05-16 修正版
+   - 4 ステップ・プロフィール登録（ドラフト保存対応版）
+   - 2025‑05‑16 修正版
      * Storage 400 対応（/ を含むパス & contentType）
-     * ステップ数のズレ修正 (4 step)
+     * ステップごとに部分 upsert（ドラフト保存）
 ------------------------------------------------------------------ */
 "use client";
 export const dynamic = "force-dynamic";
@@ -19,10 +19,12 @@ import {
   Alert, AlertDescription, Textarea,
 } from "@/components/ui";
 
-/* ---------------------- util: 画像アップロード ----------------------- */
+/* ------------------------------------------------------------
+   util: 画像アップロード
+------------------------------------------------------------ */
 async function uploadAvatar(userId: string, file: File): Promise<string> {
   const ext  = file.name.split(".").pop()?.toLowerCase() || "png";
-  const path = `${userId}/${crypto.randomUUID()}.${ext}`; // ← “/” を含む！
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
 
   const { error } = await supabase.storage
     .from("avatars")
@@ -34,6 +36,19 @@ async function uploadAvatar(userId: string, file: File): Promise<string> {
   if (error) throw error;
 
   return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+}
+
+/* ------------------------------------------------------------
+   部分 upsert ヘルパー  (ドラフト保存用)
+------------------------------------------------------------ */
+async function savePartial(data: Partial<FormState>) {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) throw new Error("認証が失効しました");
+
+  const { error: upErr } = await supabase
+    .from("student_profiles")
+    .upsert({ user_id: user.id, ...data });
+  if (upErr) throw upErr;
 }
 
 /* ---------------- 共通イベント型 ---------------- */
@@ -63,20 +78,23 @@ type Step1 = {
   first_name_kana: string;
   phone: string;
   gender: string;
-  birth_date: string;
+  birth_date: string; // yyyy-mm-dd
 };
+
 type Step2 = {
   postal_code: string;
   prefecture: string;
   city: string;
   address_line: string;
 };
+
 type Step3 = {
   university: string;
   faculty: string;
   department: string;
   join_ipo: boolean;
 };
+
 type Step4 = {
   work_summary: string;
   company1: string;
@@ -85,6 +103,7 @@ type Step4 = {
   skill_text: string;
   qualification_text: string;
 };
+
 type FormState = Step1 & Step2 & Step3 & Step4;
 
 /* ---------------- 初期値 ---------------- */
@@ -131,6 +150,8 @@ export default function OnboardingProfile() {
         prefecture: address1,
         city: `${address2}${address3}`,
       }));
+      // 住所だけ即保存（失敗は無視）
+      savePartial({ prefecture: address1, city: `${address2}${address3}` }).catch(() => {});
     } catch (err: any) {
       console.error(err); setZipError(err.message);
     } finally {
@@ -165,18 +186,54 @@ export default function OnboardingProfile() {
     })();
   }, []);
 
-  /* ---------------- 送信 --------------- */
+  /* ---------------- 次へ（途中保存） --------------- */
+  const handleNextStep = async () => {
+    try {
+      if (step === 1) {
+        await savePartial({
+          last_name: form.last_name,
+          first_name: form.first_name,
+          last_name_kana: form.last_name_kana,
+          first_name_kana: form.first_name_kana,
+          phone: form.phone,
+          gender: form.gender,
+          birth_date: form.birth_date,
+        });
+      }
+      if (step === 2) {
+        await savePartial({
+          postal_code: form.postal_code,
+          prefecture: form.prefecture,
+          city: form.city,
+          address_line: form.address_line,
+        });
+      }
+      if (step === 3) {
+        await savePartial({
+          university: form.university,
+          faculty: form.faculty,
+          department: form.department,
+          join_ipo: form.join_ipo,
+        });
+      }
+      setStep((s) => (s + 1) as typeof step);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: any) {
+      setError(err.message ?? "一時保存に失敗しました");
+    }
+  };
+
+  /* ---------------- 完全送信 ---------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    /* 途中ステップなら次へ */
+    /* 途中ステップならドラフト保存して次へ */
     if (step < 4) {
-      setStep((s) => (s + 1) as typeof step);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      handleNextStep();
       return;
     }
 
-    /* === 最終ステップ：保存 === */
+    /* === 最終ステップ：保存 + 完了フラグ === */
     setLoading(true); setError(null);
 
     try {
@@ -194,26 +251,13 @@ export default function OnboardingProfile() {
         }
       }
 
-      /* 2. プロフィール upsert */
+      /* 2. 最終 upsert (行が無い場合は作成／ある場合は上書き) */
       const { error: dbErr } = await supabase.from("student_profiles").upsert({
         user_id: user.id,
-        last_name: form.last_name,
-        first_name: form.first_name,
-        last_name_kana: form.last_name_kana,
-        first_name_kana: form.first_name_kana,
-        phone: form.phone,
-        gender: form.gender,
-        birth_date: form.birth_date || null,
-        postal_code: form.postal_code,
+        ...form,
         address: `${form.prefecture}${form.city}${form.address_line}`,
-        university: form.university,
-        faculty: form.faculty,
-        department: form.department,
-        join_ipo: form.join_ipo,
-        pr_text: form.work_summary,
-        qualification_text: form.qualification_text,
-        skill_text: form.skill_text,
         avatar_url: avatarUrl,
+        is_completed: true,
         experience: [
           { order: 1, text: form.company1 },
           { order: 2, text: form.company2 },
@@ -246,6 +290,7 @@ export default function OnboardingProfile() {
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-8">
+            {/* ---- ステップ入力 ---- */}
             {step === 1 && (
               <Step1Inputs
                 form={form}
@@ -265,6 +310,7 @@ export default function OnboardingProfile() {
             {step === 3 && <Step3Inputs form={form} onChange={handleChange} />}
             {step === 4 && <Step4Inputs form={form} onChange={handleChange} />}
 
+            {/* エラー表示 */}
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>

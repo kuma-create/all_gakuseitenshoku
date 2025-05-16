@@ -1,170 +1,164 @@
 /* ------------------------------------------------------------------------
-   components/header.tsx
-   - 左ロゴ＋役割別ナビゲーション
-   - 2025-05-16 404 修正 : /student/jobs → /jobs, /student/chat → /chat
-                           /company/scout → /scout, /company/chat → /chat
+   components/header.tsx – 完全版
+   - 「Dashboard」→「マイページ」
+   - プロフィール／レジュメはドロップダウンへ
+   - モバイルはハンバーガー＋ドロワー
 ------------------------------------------------------------------------- */
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link            from "next/link"
-import Image           from "next/image"
-import { usePathname, useRouter } from "next/navigation"   // ← ★ useRouter 追加
-import type { Session } from "@supabase/supabase-js"
+import { useState, useEffect, useCallback } from "react";
+import Link              from "next/link";
+import Image             from "next/image";
+import { usePathname }   from "next/navigation";
+import type { Session }  from "@supabase/supabase-js";
 import {
-  Bell, LayoutDashboard, User, Briefcase, Search, Mail,
-  MessageSquare, Trophy, Star, LogIn, ShieldCheck, Send,
-  LucideIcon,
-} from "lucide-react"
+  LayoutDashboard, Briefcase, Search, Mail, MessageSquare,
+  LogIn, ShieldCheck, Send, Menu, X, User, FileText,
+} from "lucide-react";
 
-import { supabase } from "@/lib/supabase/client"
-import { useAuth }  from "@/lib/auth-context"
-import { cn }       from "@/lib/utils"
-import NotificationBell from "@/components/notification-bell"
-import { Avatar }   from "@/components/avatar"
-import { Button }   from "@/components/ui/button"
+import { supabase } from "@/lib/supabase/client";
+import { useAuth }  from "@/lib/auth-context";
+import { cn }       from "@/lib/utils";
+import NotificationBell from "@/components/notification-bell";
+import { Avatar }   from "@/components/avatar";
+import { Button }   from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet, SheetTrigger, SheetContent, SheetClose,
+} from "@/components/ui/sheet";
 
-/* ------------------------------------------------------------------ */
-/*                             型定義                                  */
-/* ------------------------------------------------------------------ */
-type NavItem = { href: string; label: string; icon?: LucideIcon }
+/* -------------------------------------------------- */
+type IconType = React.ComponentType<{ size?: number }>;
+interface NavItem { href: string; label: string; icon?: IconType }
 
-/* ------------------------ 各ロールのリンク ------------------------- */
-/* ★ 404 対応：/student/jobs・/student/chat → ルート直下に統一        */
+/* ----- ナビ定義 ----- */
 const studentLinks: NavItem[] = [
-  { href: "/student-dashboard", label: "Dashboard",     icon: LayoutDashboard },
-  { href: "/student/profile",   label: "プロフィール",   icon: User },
-  { href: "/student/resume",    label: "レジュメ",       icon: Briefcase },
-  { href: "/jobs",              label: "求人検索",       icon: Search },        // ← 修正
-  { href: "/student/scouts",    label: "スカウト",       icon: Mail },
-  { href: "/chat",              label: "チャット",       icon: MessageSquare }, // ← 修正
-]
+  { href: "/mypage",         label: "マイページ", icon: LayoutDashboard },
+  { href: "/student/jobs",   label: "求人検索",   icon: Search          },
+  { href: "/student/scouts", label: "スカウト",   icon: Mail            },
+  { href: "/student/chat",   label: "チャット",   icon: MessageSquare   },
+];
 
-/* ★ company 側もチャットを /chat に寄せ、スカウト送信は /scout に統一 */
+const mypageSub: NavItem[] = [
+  { href: "/student/profile", label: "プロフィール", icon: User     },
+  { href: "/student/resume",  label: "レジュメ",     icon: FileText },
+];
+
 const companyLinks: NavItem[] = [
-  { href: "/company-dashboard", label: "Dashboard",  icon: LayoutDashboard },
-  { href: "/company/jobs",      label: "求人管理",    icon: Briefcase },
-  { href: "/scout",             label: "スカウト送信", icon: Send },            // ← 修正
-  { href: "/chat",              label: "チャット",    icon: MessageSquare },   // ← 修正
-]
+  { href: "/company-dashboard", label: "ダッシュボード", icon: LayoutDashboard },
+  { href: "/company/jobs",      label: "求人管理",       icon: Briefcase       },
+  { href: "/company/scout",     label: "スカウト送信",   icon: Send            },
+  { href: "/company/chat",      label: "チャット",       icon: MessageSquare   },
+];
 
 const adminLinks: NavItem[] = [
-  { href: "/admin",     label: "Admin",    icon: ShieldCheck },
-  { href: "/grandprix", label: "GP",       icon: Trophy },
-  { href: "/ranking",   label: "Ranking",  icon: Star },
-]
+  { href: "/admin", label: "Admin", icon: ShieldCheck },
+];
 
 const landingLinks: NavItem[] = [
-  { href: "/#features",     label: "特徴" },
+  { href: "/#features",     label: "特徴"       },
   { href: "/#how-it-works", label: "利用の流れ" },
-  { href: "/grandprix",     label: "就活グランプリ" },
-  { href: "/#testimonials", label: "利用者の声" },
-  { href: "/#faq",          label: "よくある質問" },
-]
+  { href: "/grandprix",     label: "就活GP"    },
+  { href: "/#faq",          label: "FAQ"       },
+];
 
-/* ------------------------------------------------------------------ */
-/*                               Header                                */
-/* ------------------------------------------------------------------ */
+/* ================================================== */
 export function Header() {
-  const pathname = usePathname()
-  const router   = useRouter()
-  const { isLoggedIn, userType, logout } = useAuth()
+  const pathname = usePathname();
+  const { isLoggedIn, userType, logout } = useAuth();
 
-  const [session,   setSession]  = useState<Session | null>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [session,   setSession]   = useState<Session | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  /* ---- Supabase セッション監視 ---- */
-  useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getSession()
-      setSession(data.session)
-      if (data.session) await fetchAvatar(data.session.user.id)
-    }
-    init()
-
-    const { data: { subscription } } =
-      supabase.auth.onAuthStateChange(async (_e, ses) => {
-        setSession(ses)
-        if (ses) await fetchAvatar(ses.user.id)
-      })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  /* ------- avatar_url を student_profiles から取得 ------- */
-  const fetchAvatar = async (uid: string) => {
-    if (!uid) return;
+  /* ---- session / avatar ---- */
+  const fetchAvatar = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from("student_profiles")
       .select("avatar_url")
       .eq("user_id", uid)
-      .maybeSingle<{ avatar_url: string | null }>()
-    setAvatarUrl(data?.avatar_url ?? null)
-  }
+      .maybeSingle<{ avatar_url: string | null }>();
+    setAvatarUrl(data?.avatar_url ?? null);
+  }, []);
 
-  /* ---- ログアウト処理 ---- */
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      console.error("signOut error:", error)
-      return
-    }
-    logout()
-    router.replace("/")
-  }
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+      if (data.session) fetchAvatar(data.session.user.id);
+    })();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, ses) => {
+      setSession(ses);
+      if (ses) fetchAvatar(ses.user.id);
+    });
+    return () => subscription.unsubscribe();
+  }, [fetchAvatar]);
 
-  /* ---- 役割に応じてリンク切替 ---- */
-  let navLinks: NavItem[] = landingLinks
+  /* ---- nav pick ---- */
+  let navLinks: NavItem[] = landingLinks;
   if (isLoggedIn) {
-    if (userType === "admin")        navLinks = adminLinks
-    else if (userType === "company") navLinks = companyLinks
-    else if (userType === "student") navLinks = studentLinks
+    if (userType === "admin")        navLinks = adminLinks;
+    else if (userType === "company") navLinks = companyLinks;
+    else if (userType === "student") navLinks = studentLinks;
   }
 
-  /* ---------------- render ---------------- */
+  /* -------------- render -------------- */
   return (
     <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-zinc-200/70 bg-white/80 px-4 backdrop-blur dark:border-zinc-700/40 dark:bg-zinc-900/80 lg:px-6">
-      {/* ----- 左 : ロゴ ----- */}
+      {/* logo */}
       <Link href="/" className="flex items-center space-x-2">
-        <Image src="/logo.png" alt="logo" width={120} height={120} />
+        <Image src="/logo.png" alt="学生転職ロゴ" width={120} height={120} />
       </Link>
 
-      {/* ----- 中央 : ナビゲーション ----- */}
+      {/* ----------- desktop nav ----------- */}
       <nav className="hidden lg:block">
-        <ul className="flex flex-wrap gap-4 text-sm font-medium text-gray-700 dark:text-gray-200">
+        <ul className="flex gap-6 text-sm font-medium text-gray-700 dark:text-gray-200">
           {navLinks.map(({ href, label, icon: Icon }) => (
             <li key={href}>
-              <Link
-                href={href}
-                className={cn(
-                  "flex items-center gap-1",
-                  pathname.startsWith(href) && "text-red-600",
-                )}
-              >
-                {Icon && <Icon size={14} className="shrink-0" />}
-                {label}
-              </Link>
+              {label === "マイページ" && userType === "student" ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Link
+                      href={href}
+                      className={cn("flex items-center gap-1", pathname.startsWith(href) && "text-red-600")}
+                    >
+                      {Icon && <Icon size={14} />} {label}
+                    </Link>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-44">
+                    {mypageSub.map(({ href: sub, label: lab, icon: SubIcon }) => (
+                      <DropdownMenuItem key={sub} asChild>
+                        <Link href={sub} className="flex items-center gap-2">
+                          {SubIcon && <SubIcon size={14} />}
+                          {lab}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link
+                  href={href}
+                  className={cn("flex items-center gap-1", pathname.startsWith(href) && "text-red-600")}
+                >
+                  {Icon && <Icon size={14} />} {label}
+                </Link>
+              )}
             </li>
           ))}
         </ul>
       </nav>
 
-      {/* ----- 右端 : 通知 & ユーザー ----- */}
-      <div className="flex items-center gap-4">
+      {/* ----------- desktop right ----------- */}
+      <div className="hidden items-center gap-4 lg:flex">
         {isLoggedIn && <NotificationBell />}
         {isLoggedIn ? (
           <>
-            {/* Avatar */}
             <div className="h-8 w-8 overflow-hidden rounded-full">
               <Avatar src={avatarUrl} size={32} />
             </div>
-            {/* ログアウト */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-gray-600"
-            >
+            <Button variant="ghost" size="sm" onClick={logout} className="text-gray-600">
               ログアウト
             </Button>
           </>
@@ -183,12 +177,82 @@ export function Header() {
         )}
       </div>
 
-      {/* ナビ折返し防止 */}
-      <style jsx global>{`
-        @media (min-width: 1024px) {
-          header nav ul { flex-wrap: nowrap; }
-        }
-      `}</style>
+      {/* ----------- mobile ----------- */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <button className="lg:hidden" aria-label="open menu">
+            <Menu />
+          </button>
+        </SheetTrigger>
+
+        <SheetContent side="right" className="w-72 pt-10">
+          <div className="flex items-center justify-between mb-6">
+            {isLoggedIn ? (
+              <div className="flex items-center gap-3">
+                <Avatar src={avatarUrl} size={40} />
+                <span className="text-sm font-medium">{session?.user.email}</span>
+              </div>
+            ) : (
+              <span className="text-sm font-medium">メニュー</span>
+            )}
+            <SheetClose asChild>
+              <button aria-label="close menu"><X /></button>
+            </SheetClose>
+          </div>
+
+          <ul className="space-y-4 text-sm">
+            {navLinks.map(({ href, label, icon: Icon }) => (
+              <li key={href}>
+                {label === "マイページ" && userType === "student" ? (
+                  <>
+                    <Link
+                      href={href}
+                      className="flex items-center gap-2 font-medium"
+                      onClick={() => document.body.click()} /* close */
+                    >
+                      {Icon && <Icon size={16} />} {label}
+                    </Link>
+                    <ul className="ml-6 mt-2 space-y-3">
+                      {mypageSub.map(({ href: sub, label: lab, icon: SubIcon }) => (
+                        <li key={sub}>
+                          <Link
+                            href={sub}
+                            className="flex items-center gap-2 text-gray-600"
+                            onClick={() => document.body.click()}
+                          >
+                            {SubIcon && <SubIcon size={14} />}
+                            {lab}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <Link
+                    href={href}
+                    className="flex items-center gap-2 font-medium"
+                    onClick={() => document.body.click()}
+                  >
+                    {Icon && <Icon size={16} />} {label}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-8">
+            {isLoggedIn ? (
+              <Button variant="outline" className="w-full" onClick={logout}>
+                ログアウト
+              </Button>
+            ) : (
+              <Button asChild className="w-full bg-red-600 hover:bg-red-700">
+                <Link href="/login">ログイン / 新規登録</Link>
+              </Button>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </header>
-  )
+  );
 }
