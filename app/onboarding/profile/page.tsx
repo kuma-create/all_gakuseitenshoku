@@ -1,29 +1,48 @@
+/* ------------------------------------------------------------------
+   app/(onboarding)/onboarding-profile/page.tsx
+   - 4 ステップ・プロフィール登録
+   - 2025-05-16 修正版
+     * Storage 400 対応（/ を含むパス & contentType）
+     * ステップ数のズレ修正 (4 step)
+------------------------------------------------------------------ */
 "use client";
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+
+/* shadcn/ui を barrel export している想定 */
 import {
-  Button,
-  Input,
-  Label,
-  Checkbox,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Alert,
-  AlertDescription,
-  Textarea,
-} from "@/components/ui"; // shadcn/ui を barrels している想定
+  Button, Input, Label, Checkbox,
+  Card, CardHeader, CardTitle, CardContent,
+  Alert, AlertDescription, Textarea,
+} from "@/components/ui";
 
+/* ---------------------- util: 画像アップロード ----------------------- */
+async function uploadAvatar(userId: string, file: File): Promise<string> {
+  const ext  = file.name.split(".").pop()?.toLowerCase() || "png";
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`; // ← “/” を含む！
 
- /* --------------- 共通イベント型 --------------- */
+  const { error } = await supabase.storage
+    .from("avatars")
+    .upload(path, file, {
+      upsert: true,
+      cacheControl: "3600",
+      contentType: file.type,
+    });
+  if (error) throw error;
+
+  return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+}
+
+/* ---------------- 共通イベント型 ---------------- */
 type InputChange =
-    React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>;
+  React.ChangeEvent<
+    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  >;
 
-/* ─────── マスタデータ ─────── */
+/* ---------------- マスタ ---------------- */
 const genderOptions = ["男性", "女性", "回答しない"] as const;
 const prefectures = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -36,8 +55,7 @@ const prefectures = [
   "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県",
 ];
 
-
-/* ステップごとのフォーム型 ------------------------------------------------ */
+/* ---------------- 型定義 ---------------- */
 type Step1 = {
   last_name: string;
   first_name: string;
@@ -45,23 +63,20 @@ type Step1 = {
   first_name_kana: string;
   phone: string;
   gender: string;
-  birth_date: string; // yyyy-mm-dd
+  birth_date: string;
 };
-
 type Step2 = {
   postal_code: string;
   prefecture: string;
   city: string;
   address_line: string;
 };
-
 type Step3 = {
   university: string;
   faculty: string;
   department: string;
   join_ipo: boolean;
 };
-
 type Step4 = {
   work_summary: string;
   company1: string;
@@ -70,169 +85,117 @@ type Step4 = {
   skill_text: string;
   qualification_text: string;
 };
-
 type FormState = Step1 & Step2 & Step3 & Step4;
 
-
+/* ---------------- 初期値 ---------------- */
 const initialState: FormState = {
-  /* step1 */
-  last_name: "",
-  first_name: "",
-  last_name_kana: "",
-  first_name_kana: "",
-  phone: "",
-  gender: genderOptions[0],
-  birth_date: "",
-  /* step2 */
-  postal_code: "",
-  prefecture: "",
-  city: "",
-  address_line: "",
-  /* step3 */
-  university: "",
-  faculty: "",
-  department: "",
-  join_ipo: false,
-  /* step4 */
-  work_summary: "",
-  company1: "",
-  company2: "",
-  company3: "",
-  skill_text: "",
-  qualification_text: "",
+  last_name: "", first_name: "",
+  last_name_kana: "", first_name_kana: "",
+  phone: "", gender: genderOptions[0], birth_date: "",
+  postal_code: "", prefecture: "", city: "", address_line: "",
+  university: "", faculty: "", department: "", join_ipo: false,
+  work_summary: "", company1: "", company2: "", company3: "",
+  skill_text: "", qualification_text: "",
 };
 
+/* ******************************************************************* */
 export default function OnboardingProfile() {
+/* ******************************************************************* */
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [form, setForm] = useState<FormState>(initialState);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error,   setError]   = useState<string | null>(null);
 
+  /* 住所検索 */
   const [zipLoading, setZipLoading] = useState(false);
   const [zipError,   setZipError]   = useState<string | null>(null);
 
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);  // ←ここ！
+  /* アバター */
+  const [avatarFile,      setAvatarFile]      = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarError,     setAvatarError]     = useState<string | null>(null);
 
-
+  /* ---------------- 郵便番号 → 住所検索 --------------- */
   const fetchAddress = async (zipcode: string) => {
-    setZipLoading(true);
-    setZipError(null);
-  
+    setZipLoading(true); setZipError(null);
     try {
-      const res = await fetch(
-        `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zipcode}`
-      );
+      const res  = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zipcode}`);
       const json = await res.json();
-  
       if (json.status !== 200 || !json.results?.length) {
         throw new Error(json.message || "住所が見つかりませんでした");
       }
-  
       const { address1, address2, address3 } = json.results[0];
-  
       setForm((p) => ({
         ...p,
-        prefecture : address1,          // 東京都など
-        city       : `${address2}${address3}`, // 千代田区千代田 など
-        // address_line は番地以降を手入力してもらう
+        prefecture: address1,
+        city: `${address2}${address3}`,
       }));
     } catch (err: any) {
-      console.error(err);
-      setZipError(err.message);
+      console.error(err); setZipError(err.message);
     } finally {
       setZipLoading(false);
     }
   };
-  
 
+  /* ---------------- フォーム入力 --------------- */
   const handleChange = (e: InputChange) => {
-    const target = e.target;
-    const { id, value } = target;
-  
-    /* checkbox / radio だけ checked を見る */
-    if (target instanceof HTMLInputElement && target.type === "checkbox") {
-           setForm((p) => ({ ...p, [id]: target.checked }));
-         } else {
-           // radio / text / select などは value をそのまま入れる
-           setForm((p) => ({ ...p, [id]: value }));
-         }
-
-    /* ② 郵便番号が 7 桁揃ったら自動検索 */
-    if (id === "postal_code") {
-        const digits = value.replace(/\D/g, "");   // 数字だけ
-        if (digits.length === 7) fetchAddress(digits);
+    const tgt = e.target;
+    const { id, value } = tgt as HTMLInputElement;
+    if (tgt instanceof HTMLInputElement && tgt.type === "checkbox") {
+      setForm((p) => ({ ...p, [id]: tgt.checked }));
+    } else {
+      setForm((p) => ({ ...p, [id]: value }));
     }
-
+    if (id === "postal_code") {
+      const digits = value.replace(/\D/g, "");
+      if (digits.length === 7) fetchAddress(digits);
+    }
   };
 
-    useEffect(() => {
-         (async () => {
-           const { data: { user } } = await supabase.auth.getUser();
-           if (!user) return;
-    
-           const meta = user.user_metadata as {
-             last_name?: string;
-             first_name?: string;
-             full_name?: string;
-           };
-    
-           /* ① 個別キー優先 */
-           let ln = meta.last_name  ?? "";
-           let fn = meta.first_name ?? "";
-    
-           /* ② 無ければ full_name を全角/半角スペースで分割 */
-           if (!ln && !fn && meta.full_name) {
-             [ln = "", fn = ""] = meta.full_name.split(/\s+/);
-           }
-    
-           setForm((p) => ({ ...p, last_name: ln, first_name: fn }));
-         })();
-       }, []);
+  /* ---------------- ユーザーメタ → 氏名補完 --------------- */
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const meta = user.user_metadata as { last_name?: string; first_name?: string; full_name?: string };
+      let ln = meta.last_name ?? "", fn = meta.first_name ?? "";
+      if (!ln && !fn && meta.full_name) [ln="", fn=""] = meta.full_name.split(/\s+/);
+      setForm((p) => ({ ...p, last_name: ln, first_name: fn }));
+    })();
+  }, []);
 
-  /* ---------------- 送信 ---------------- */
+  /* ---------------- 送信 --------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    /* 途中ステップなら次へ */
     if (step < 4) {
       setStep((s) => (s + 1) as typeof step);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
-    let avatarUrl: string | null = null;
-    if (avatarFile) {
-    setAvatarUploading(true);
-    const ext = avatarFile.name.split(".").pop();
-    const filePath = `${crypto.randomUUID()}.${ext}`;
-
-    const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, avatarFile, { upsert: false });
-
-    if (upErr) {
-        setAvatarError("画像をアップロードできませんでした");
-        setAvatarUploading(false);
-        return;
-    }
-    avatarUrl = supabase.storage.from("avatars").getPublicUrl(filePath).data.publicUrl;
-    setAvatarUploading(false);
-    }
-
-
-    // 最終ステップ → DB へ保存
-    setLoading(true);
-    setError(null);
+    /* === 最終ステップ：保存 === */
+    setLoading(true); setError(null);
 
     try {
-      const {
-        data: { user },
-        error: uErr,
-      } = await supabase.auth.getUser();
-      if (uErr || !user) throw new Error("認証が失効しました。再度ログインしてください。");
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) throw new Error("認証が失効しました。ログインし直してください。");
 
-      const { error: insErr } = await supabase.from("student_profiles").upsert({
+      /* 1. アバターがあればアップロード */
+      let avatarUrl: string | null = null;
+      if (avatarFile) {
+        try {
+          setAvatarUploading(true);
+          avatarUrl = await uploadAvatar(user.id, avatarFile);
+        } finally {
+          setAvatarUploading(false);
+        }
+      }
+
+      /* 2. プロフィール upsert */
+      const { error: dbErr } = await supabase.from("student_profiles").upsert({
         user_id: user.id,
         last_name: form.last_name,
         first_name: form.first_name,
@@ -251,14 +214,13 @@ export default function OnboardingProfile() {
         qualification_text: form.qualification_text,
         skill_text: form.skill_text,
         avatar_url: avatarUrl,
-        /* 任意: company1～3 は experience JSON に格納する例 */
         experience: [
           { order: 1, text: form.company1 },
           { order: 2, text: form.company2 },
           { order: 3, text: form.company3 },
         ],
       });
-      if (insErr) throw insErr;
+      if (dbErr) throw dbErr;
 
       router.replace("/student-dashboard");
     } catch (err: any) {
@@ -274,33 +236,35 @@ export default function OnboardingProfile() {
     <div className="flex min-h-screen justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-3xl">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">ユーザー登録</CardTitle>
-          <p className="mt-2 text-center text-blue-700 font-semibold">
-            {step < 5 ? `残り${5 - step}ステップで完了` : "入力内容を確認して登録"}
+          <CardTitle className="text-center text-2xl font-bold">
+            ユーザー登録
+          </CardTitle>
+          <p className="mt-2 text-center font-semibold text-blue-700">
+            {step < 4 ? `残り${4 - step}ステップで完了` : "入力内容を確認して登録"}
           </p>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-8">
-          {step === 1 && (
-            <Step1Inputs
-              form={form}
-              onChange={handleChange}
-              setAvatarFile={setAvatarFile}
-              avatarError={avatarError}
-            />
-          )}
+            {step === 1 && (
+              <Step1Inputs
+                form={form}
+                onChange={handleChange}
+                setAvatarFile={setAvatarFile}
+                avatarError={avatarError}
+              />
+            )}
             {step === 2 && (
-                <Step2Inputs
-                    form={form}
-                    onChange={handleChange}
-                    zipLoading={zipLoading}
-                    zipError={zipError}
-                />
-                )}
-
+              <Step2Inputs
+                form={form}
+                onChange={handleChange}
+                zipLoading={zipLoading}
+                zipError={zipError}
+              />
+            )}
             {step === 3 && <Step3Inputs form={form} onChange={handleChange} />}
             {step === 4 && <Step4Inputs form={form} onChange={handleChange} />}
+
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -317,8 +281,16 @@ export default function OnboardingProfile() {
                   戻る
                 </Button>
               )}
-              <Button type="submit" disabled={loading} className="ml-auto">
-                {loading ? "保存中..." : step < 5 ? "保存して次へ" : "登録する"}
+              <Button
+                type="submit"
+                disabled={loading || avatarUploading}
+                className="ml-auto"
+              >
+                {loading
+                  ? "保存中..."
+                  : step < 4
+                  ? "保存して次へ"
+                  : "登録する"}
               </Button>
             </div>
           </form>
@@ -328,12 +300,9 @@ export default function OnboardingProfile() {
   );
 }
 
-/* ────── ステップ別入力コンポーネント ────── */
+/* ================= ステップ別コンポーネント ================= */
 function Step1Inputs({
-  form,
-  onChange,
-  setAvatarFile,
-  avatarError,
+  form, onChange, setAvatarFile, avatarError,
 }: {
   form: FormState;
   onChange: (e: InputChange) => void;
@@ -342,17 +311,14 @@ function Step1Inputs({
 }) {
   return (
     <div className="space-y-6">
-      {/* 氏名 */}
       <TwoCol>
-        <Field id="last_name" label="苗字" value={form.last_name} onChange={onChange} required />
-        <Field id="first_name" label="名前" value={form.first_name} onChange={onChange} required />
+        <Field id="last_name"  label="苗字"   value={form.last_name}  onChange={onChange} required />
+        <Field id="first_name" label="名前"   value={form.first_name} onChange={onChange} required />
       </TwoCol>
-      {/* ふりがな */}
       <TwoCol>
-        <Field id="last_name_kana" label="みょうじ" value={form.last_name_kana} onChange={onChange} required />
-        <Field id="first_name_kana" label="なまえ" value={form.first_name_kana} onChange={onChange} required />
+        <Field id="last_name_kana"  label="みょうじ" value={form.last_name_kana}  onChange={onChange} required />
+        <Field id="first_name_kana" label="なまえ"   value={form.first_name_kana} onChange={onChange} required />
       </TwoCol>
-      {/* 電話 */}
       <Field id="phone" label="電話番号" value={form.phone} onChange={onChange} required />
 
       {/* 性別 */}
@@ -366,8 +332,9 @@ function Step1Inputs({
                 name="gender"
                 value={g}
                 checked={form.gender === g}
-                onChange={(e) => onChange({ ...e, target: { ...e.target, id: "gender" } } as InputChange)
-            }
+                onChange={(e) =>
+                  onChange({ ...e, target: { ...e.target, id: "gender" } } as InputChange)
+                }
               />
               {g}
             </label>
@@ -375,98 +342,74 @@ function Step1Inputs({
         </div>
       </div>
 
-      {/* 生年月日 */}
-      <Field id="birth_date" label="生年月日" type="date" value={form.birth_date} onChange={onChange} required />
+      <Field
+        id="birth_date"
+        label="生年月日"
+        type="date"
+        value={form.birth_date}
+        onChange={onChange}
+        required
+      />
 
-      {/* 顔写真（任意） */}
-    <div className="grid gap-2">
-    <Label htmlFor="avatar">顔写真</Label>
-    <Input
-      id="avatar"
-      type="file"
-      accept="image/*"
-      onChange={(e) => {
-        const f = e.target.files?.[0] ?? null;
-        setAvatarFile(f);
-      }}
-    />
-    {avatarError && <p className="text-xs text-red-600">{avatarError}</p>}
-    </div>
-
+      {/* 顔写真 */}
+      <div className="grid gap-2">
+        <Label htmlFor="avatar">顔写真</Label>
+        <Input
+          id="avatar"
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setAvatarFile(f);
+          }}
+        />
+        {avatarError && (
+          <p className="text-xs text-red-600">{avatarError}</p>
+        )}
+      </div>
     </div>
   );
 }
 
 function Step2Inputs({
-    form,
-    onChange,
-    zipLoading,
-    zipError,
-  }: {
-    form: FormState;
-    onChange: (e: InputChange) => void;
-    zipLoading: boolean;
-    zipError: string | null;
-  }) {
-    return (
-      /* ←── ルートはこの 1 つだけ */
-      <div className="space-y-6">
-        {/* ① 郵便番号 */}
-        <div className="grid gap-2">
-          <Label htmlFor="postal_code">郵便番号</Label>
-          <Input
-            id="postal_code"
-            value={form.postal_code}
-            onChange={onChange}
-            placeholder="例）1000001"
-            pattern="\d{3}-?\d{4}"
-            maxLength={8}          /* 7 桁＋ハイフン許容 */
-            required
-          />
-          {zipLoading && (
-            <p className="text-xs text-gray-500">住所検索中…</p>
-          )}
-          {zipError && (
-            <p className="text-xs text-red-600">{zipError}</p>
-          )}
-        </div>
-  
-        {/* ② 都道府県 / 市区町村 / 番地 */}
-        <SelectField
-          id="prefecture"
-          label="都道府県"
-          value={form.prefecture}
+  form, onChange, zipLoading, zipError,
+}: {
+  form: FormState; onChange: (e: InputChange) => void;
+  zipLoading: boolean; zipError: string | null;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-2">
+        <Label htmlFor="postal_code">郵便番号</Label>
+        <Input
+          id="postal_code"
+          value={form.postal_code}
           onChange={onChange}
-          options={prefectures}
+          placeholder="例）1000001"
+          pattern="\d{3}-?\d{4}"
+          maxLength={8}
           required
         />
-        <Field
-          id="city"
-          label="市区町村"
-          value={form.city}
-          onChange={onChange}
-          required
-        />
-        <Field
-          id="address_line"
-          label="それ以降の住所"
-          value={form.address_line}
-          onChange={onChange}
-          placeholder="番地・建物名など"
-        />
+        {zipLoading && <p className="text-xs text-gray-500">住所検索中…</p>}
+        {zipError   && <p className="text-xs text-red-600">{zipError}</p>}
       </div>
-    );
-  }
-  
 
-function Step3Inputs({
-  form,
-  onChange,
-}: { form: FormState; onChange: (e: InputChange) => void }) {
+      <SelectField
+        id="prefecture" label="都道府県"
+        value={form.prefecture} onChange={onChange}
+        options={prefectures} required
+      />
+      <Field id="city"         label="市区町村" value={form.city} onChange={onChange} required />
+      <Field id="address_line" label="それ以降の住所" value={form.address_line} onChange={onChange} placeholder="番地・建物名など" />
+    </div>
+  );
+}
+
+function Step3Inputs({ form, onChange }: { form: FormState; onChange: (e: InputChange) => void }) {
   return (
     <div className="space-y-6">
       <Field id="university" label="大学名" value={form.university} onChange={onChange} required />
-      <Field id="faculty" label="学部名" value={form.faculty} onChange={onChange} required />
+      <Field id="faculty"    label="学部名" value={form.faculty}    onChange={onChange} required />
       <Field id="department" label="学科名" value={form.department} onChange={onChange} required />
       <div className="flex items-center gap-2">
         <input
@@ -481,10 +424,7 @@ function Step3Inputs({
   );
 }
 
-function Step4Inputs({
-  form,
-  onChange,
-}: { form: FormState; onChange: (e: InputChange) => void }) {
+function Step4Inputs({ form, onChange }: { form: FormState; onChange: (e: InputChange) => void }) {
   return (
     <div className="space-y-6">
       <TextField id="work_summary" label="職務経歴概要" value={form.work_summary} onChange={onChange} required />
@@ -500,17 +440,16 @@ function Step4Inputs({
         />
       ))}
 
-      <TextField id="skill_text" label="スキル" value={form.skill_text} onChange={onChange} />
+      <TextField id="skill_text"        label="スキル" value={form.skill_text}        onChange={onChange} />
       <TextField id="qualification_text" label="資格" value={form.qualification_text} onChange={onChange} />
     </div>
   );
 }
 
-/* ───────── 汎用小コンポーネント ───────── */
-function Field(
-  { id, label, ...rest }:
-  React.InputHTMLAttributes<HTMLInputElement> & { id: string; label: string }
-) {
+/* ================= 汎用パーツ ================= */
+function Field({
+  id, label, ...rest
+}: React.InputHTMLAttributes<HTMLInputElement> & { id: string; label: string }) {
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
@@ -519,10 +458,9 @@ function Field(
   );
 }
 
-function TextField(
-  { id, label, ...rest }:
-  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { id: string; label: string }
-) {
+function TextField({
+  id, label, ...rest
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { id: string; label: string }) {
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
@@ -532,14 +470,9 @@ function TextField(
 }
 
 function SelectField({
-  id,
-  label,
-  options,
-  ...rest
+  id, label, options, ...rest
 }: React.SelectHTMLAttributes<HTMLSelectElement> & {
-  id: string;
-  label: string;
-  options: readonly string[];
+  id: string; label: string; options: readonly string[];
 }) {
   return (
     <div className="grid gap-2">
