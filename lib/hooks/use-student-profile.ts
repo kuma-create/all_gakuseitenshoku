@@ -1,46 +1,69 @@
 /* ────────────────────────────────────────────
    lib/hooks/use-student-profile.ts
-   - __editing を除外して upsert
+   “学生プロフィール” を取得／編集／保存する共通フック
 ─────────────────────────────────────────── */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 
 /* ---------- 型 ---------- */
 type Row    = Database["public"]["Tables"]["student_profiles"]["Row"];
 type Insert = Database["public"]["Tables"]["student_profiles"]["Insert"];
-
-// Row に UI 用フラグを追加したローカル型
 type Local  = Partial<Row> & { __editing?: boolean };
+
+/* ---------- ユーティリティ ---------- */
+function normalize(record: Local): Insert {
+  // supabase へ送る直前に：
+  //   ""  → null
+  //   空配列 → null
+  //   number 列に NaN → null
+  // へ変換して 400 を防ぐ
+  const cleaned: any = {};
+  Object.entries(record).forEach(([k, v]) => {
+    // 空文字 → null
+    if (v === "") {
+      cleaned[k] = null;
+    // 空配列 → null
+    } else if (Array.isArray(v) && v.length === 0) {
+      cleaned[k] = null;
+    // NaN → null
+    } else if (typeof v === "number" && Number.isNaN(v)) {
+      cleaned[k] = null;
+    } else {
+      cleaned[k] = v;
+    }
+  });
+  return cleaned as Insert;
+}
 
 /* ===================================================================== */
 export function useStudentProfile() {
-  /* ---------------- state ---------------- */
+  /* state -------------------------------------------------------------- */
   const [data,    setData]    = useState<Local>({});
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState<Error | null>(null);
 
-  /* ---------------- fetch ---------------- */
+  /* fetch -------------------------------------------------------------- */
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("認証エラー (未ログイン)");
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) throw new Error("認証エラー: ユーザー情報を取得できません");
 
-      const { data: row, error } = await supabase
+      const { data: profile, error: selErr } = await supabase
         .from("student_profiles")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle<Row>();
-      if (error) throw error;
 
-      // 新規ユーザーは編集モードで開始
-      setData(row ?? { user_id: user.id, __editing: true });
+      if (selErr) throw selErr;
+
+      // まだレコードが無い場合は「空のローカル状態」で OK
+      setData(profile ?? {});
     } catch (e: any) {
       setError(e);
     } finally {
@@ -50,49 +73,52 @@ export function useStudentProfile() {
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
-  /* ---------------- local update ---------------- */
-  const updateLocal = useCallback(
-    (patch: Partial<Local>) => setData((p) => ({ ...p, ...patch })),
-    [],
-  );
+  /* ローカル編集用 ----------------------------------------------------- */
+  const updateLocal = (patch: Partial<Local>) =>
+    setData((d) => ({ ...d, ...patch }));
 
-  const resetLocal = fetchProfile;
+  const resetLocal  = () => setData((d) => {
+    // __editing だけ false に戻す
+    const { __editing, ...rest } = d as Local;
+    return rest;
+  });
 
-  /* ---------------- save ---------------- */
-  const save = useCallback(async () => {
-    setSaving(true);
-    setError(null);
-
+  /* save --------------------------------------------------------------- */
+  const save = async () => {
+    if (!data.__editing) return; // 編集モードでない場合は何もしない
+    setSaving(true); setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("認証エラー (未ログイン)");
+      if (!user) throw new Error("認証情報がありません");
 
-      /** __editing を除外して payload を作成 */
-      const { __editing, ...rest } = data;
-      const payload: Insert = { ...(rest as Insert), user_id: user.id };
+      const payload: Insert = normalize({
+        ...data,
+        user_id: user.id,       // upsert の衝突キー
+      });
 
-      const { error } = await supabase
+      const { error: upErr } = await supabase
         .from("student_profiles")
         .upsert(payload, { onConflict: "user_id" });
 
-      if (error) throw error;
+      if (upErr) throw upErr;
 
-      // 保存後は閲覧モードへ
-      setData((p) => ({ ...p, __editing: false }));
+      // 保存成功 → 編集モード解除 & 再フェッチ
+      await fetchProfile();
     } catch (e: any) {
       setError(e);
+      throw e;                 // 呼び出し側 (handleSave) で捕捉
     } finally {
       setSaving(false);
     }
-  }, [data]);
+  };
 
-  /* ---------------- return ---------------- */
+  /* return ------------------------------------------------------------- */
   return {
-    data:     data as Row & { __editing?: boolean },
+    data,
     loading,
-    error,
     saving,
-    editing: !!data.__editing,
+    error,
+    editing: Boolean(data.__editing),
     updateLocal,
     resetLocal,
     save,

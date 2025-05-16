@@ -1,6 +1,6 @@
-/* ───────────────────────────────────────────────
-   lib/use-auth-guard.tsx – admin 対応 & 型安全版
-────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────
+   lib/use-auth-guard.tsx  –  optional モード追加
+──────────────────────────────────────────────── */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,29 +8,36 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 
 export type RequiredRole = "student" | "company" | "admin" | "any";
+export type GuardMode    = "required" | "optional";   // ★追加
 
-export function useAuthGuard(requiredRole: RequiredRole = "any") {
+export function useAuthGuard(
+  requiredRole: RequiredRole = "any",
+  mode: GuardMode = "required",                      // ★追加
+) {
   const router   = useRouter();
   const pathname = usePathname();
   const { ready: authReady, isLoggedIn, user } = useAuth();
 
-  /* true になればページ側で描画開始 */
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    /* ① Provider の初期判定が終わるまで待つ */
-    if (!authReady) return;
+    if (!authReady) return;               // ① Provider 初期化待ち
 
-    /* ② 未ログイン → /login */
+    /* ② 未ログイン */
     if (!isLoggedIn) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      if (mode === "required") {
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        return;
+      }
+      /* optional ⇒ ゲスト閲覧を許可 */
+      setReady(true);
       return;
     }
 
     /* ③ ロール判定 */
     const currentRole = (user?.role ?? "student") as RequiredRole;
-
     if (requiredRole !== "any" && currentRole !== requiredRole) {
+      /* 権限違い ⇒ 自分のダッシュボードへ */
       const dest =
         currentRole === "company"
           ? "/company-dashboard"
@@ -44,14 +51,7 @@ export function useAuthGuard(requiredRole: RequiredRole = "any") {
 
     /* ④ 通過 */
     setReady(true);
-  }, [
-    authReady,
-    isLoggedIn,
-    user?.role,
-    requiredRole,
-    pathname,
-    router,
-  ]);
+  }, [authReady, isLoggedIn, user?.role, requiredRole, mode, pathname, router]);
 
   return ready;
 }
