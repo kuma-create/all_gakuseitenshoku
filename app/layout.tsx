@@ -1,35 +1,34 @@
-/* --------------------------------------------------------------------------
-   app/layout.tsx
-   - グローバル共通レイアウト（ヘッダー / モバイルナビ）
--------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------
+   app/layout.tsx – global layout
+------------------------------------------------------------------*/
 import type { ReactNode } from "react";
 import type { Metadata }  from "next";
 import { Inter }          from "next/font/google";
 import "./globals.css";
 
 import { Providers }        from "./providers";
-import Header               from "@/components/header";          // ★ default import に変更
+import Header               from "@/components/header";
 import { MobileNavigation } from "@/components/mobile-navigation";
 
 const inter = Inter({ subsets: ["latin"] });
 
-/* ---- metadata: viewport は除外する ---- */
 export const metadata: Metadata = {
   title      : "学生就活ダッシュボード",
   description: "学生のための就活支援ダッシュボード",
+  openGraph  : { images: ["/ogp.png"] },
 };
 
-/* ---- viewport は専用エクスポートで宣言 ---- */
 export const viewport = {
-  width        : "device-width",
-  initialScale : 1,
-  maximumScale : 1,
+  width         : "device-width",
+  initialScale  : 1,
+  maximumScale  : 1,
+  viewportFit   : "cover",          // iOS safe-area
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ja">
-      <body className={`${inter.className} overflow-x-hidden`}>
+    <html lang="ja" className="scroll-smooth antialiased">
+      <body className={`${inter.className} overflow-x-hidden bg-background text-foreground`}>
         <Providers>
           <div className="flex min-h-screen flex-col">
             <Header />

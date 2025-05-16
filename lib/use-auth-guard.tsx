@@ -1,50 +1,57 @@
-/* lib/use-auth-guard.tsx */
+/* ───────────────────────────────────────────────
+   lib/use-auth-guard.tsx – admin 対応 & 型安全版
+────────────────────────────────────────────── */
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "./auth-context";
+import { useAuth } from "@/lib/auth-context";
 
-export type RequiredRole = "student" | "company" | "any";
+export type RequiredRole = "student" | "company" | "admin" | "any";
 
-/**
- * ページ側は
- *   const ready = useAuthGuard("student")
- * のように使うだけ。
- * ready === false の間はローディング UI を表示しておく。
- */
-export function useAuthGuard(role: RequiredRole = "any") {
+export function useAuthGuard(requiredRole: RequiredRole = "any") {
   const router   = useRouter();
   const pathname = usePathname();
-  const { isLoggedIn, user } = useAuth();
+  const { ready: authReady, isLoggedIn, user } = useAuth();
 
-  /** 判定が終わったら true になる */
+  /* true になればページ側で描画開始 */
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    /* まだ Supabase がセッションを返していない */
-    if (isLoggedIn === null) return;
+    /* ① Provider の初期判定が終わるまで待つ */
+    if (!authReady) return;
 
-    /* ───────── 未ログイン ───────── */
+    /* ② 未ログイン → /login */
     if (!isLoggedIn) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
       return;
     }
 
-    /* この時点で user は非 null */
-    const currentRole = user?.role;          // "student" | "company" | null
+    /* ③ ロール判定 */
+    const currentRole = (user?.role ?? "student") as RequiredRole;
 
-    /* ───────── ロール不一致 ───────── */
-    if (role !== "any" && currentRole !== role) {
+    if (requiredRole !== "any" && currentRole !== requiredRole) {
       const dest =
-        currentRole === "company" ? "/company-dashboard" : "/student-dashboard";
-      router.replace(dest);
+        currentRole === "company"
+          ? "/company-dashboard"
+          : currentRole === "admin"
+          ? "/admin-dashboard"
+          : "/student-dashboard";
+
+      if (pathname !== dest) router.replace(dest);
       return;
     }
 
-    /* ───────── OK ───────── */
+    /* ④ 通過 */
     setReady(true);
-  }, [isLoggedIn, user?.role, role, router, pathname]);
+  }, [
+    authReady,
+    isLoggedIn,
+    user?.role,
+    requiredRole,
+    pathname,
+    router,
+  ]);
 
   return ready;
 }

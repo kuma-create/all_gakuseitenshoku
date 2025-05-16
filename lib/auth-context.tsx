@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────
-   lib/auth-context.tsx  – 最小限の修正版
+   lib/auth-context.tsx – 最小限の修正版（ready 復活版）
    2025-05-16
 ────────────────────────────────────────────── */
 "use client";
@@ -38,7 +38,10 @@ export type UserProfile = StudentProfile | CompanyProfile | null;
 export interface AuthContextValue {
   /** 未判定＝undefined／未ログイン＝null／ログイン済み＝Session */
   session: Session | null | undefined;
-  isLoggedIn: boolean | null; // true/false、判定前 null
+  /** true / false／まだ判定前(null) */
+  isLoggedIn: boolean | null;
+  /** “初期判定が終わったか” */
+  ready: boolean;
   userType: UserRole;
   user: User;
   profile: UserProfile;
@@ -62,7 +65,7 @@ export const useAuth = () => {
   return ctx;
 };
 
-/* ---------- 公開ルート (未ログインでも見られる) ---------- */
+/* ---------- 公開ルート ---------- */
 const PUBLIC_ROUTES = new Set([
   "/",
   "/login",
@@ -78,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /* 状態 */
   const [session,    setSession]    = useState<Session | null | undefined>(undefined);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [ready,      setReady]      = useState(false);           // ★ 追加
   const [userType,   setUserType]   = useState<UserRole>(null);
   const [user,       setUser]       = useState<User>(null);
   const [profile,    setProfile]    = useState<UserProfile>(null);
@@ -96,8 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setProfile(null);
         setUserType(null);
-
-        /* ルートガードをここで一元化 */
+        setReady(true);                              // ← 判定完了
         if (!PUBLIC_ROUTES.has(pathname)) router.replace("/login");
         return;
       }
@@ -144,6 +147,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       }
 
+      setReady(true);                                // ← 判定完了
+
       /* ログインページに居るならロール別ダッシュボードへ */
       if (pathname === "/login" || pathname === "/") {
         router.replace(
@@ -171,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, [applySession]);
 
-  /* ---- 認証 API (login / signup / logout) ---- */
+  /* ---- 認証 API ---- */
   const signup = async (
     email: string, password: string, role: RoleOption, fullName: string,
   ) => {
@@ -208,7 +213,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
       if (error) throw error;
-      /* applySession は onAuthStateChange が呼んでくれるので何も返さない */
       return true;
     } catch (e: any) {
       setError(e.message ?? "ログインに失敗しました");
@@ -220,8 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearError();
     try {
       await supabase.auth.signOut();
-      /* applySession が走るまで待たずに即遷移 */
-      router.replace("/login");
+      router.replace("/login");        // applySession が走る前に遷移
     } catch (e: any) {
       setError(e.message ?? "ログアウトに失敗しました");
     }
@@ -229,7 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* ---- Provider ---- */
   const value: AuthContextValue = {
-    session, isLoggedIn, userType, user, profile, error,
+    session, isLoggedIn, ready,       // ★ 追加
+    userType, user, profile, error,
     login, signup, logout, clearError,
   };
 
