@@ -1,77 +1,92 @@
 /* ────────────────────────────────────────────────
-   app/student/profile/page.tsx  – 完成度ウィジェット統合版 (Hook 順序修正版)
-─────────────────────────────────────────────── */
-"use client";
+   app/student/profile/page.tsx  – v2
+   - 既存 UI を維持しつつ zod で入力検証
+─────────────────────────────────────────── */
+"use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect } from "react"
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
-  ChevronUp, Info, Loader2,
-} from "lucide-react";
-import { z } from "zod";
-import { toast } from "@/components/ui/use-toast";
+  GraduationCap, Code, ChevronUp, Info,
+} from "lucide-react"
+import { z } from "zod"
+import { toast } from "@/components/ui/use-toast"
 
-/* ---------- hooks ---------- */
-import { useAuthGuard }      from "@/lib/use-auth-guard";
-import { useStudentProfile } from "@/lib/hooks/use-student-profile";
-import { useCompletion }     from "@/lib/use-completion";
+import { useAuthGuard }      from "@/lib/use-auth-guard"
+import { useStudentProfile } from "@/lib/hooks/use-student-profile"
+import { useProfileCompletion } from "@/lib/hooks/useProfileCompletion"; 
 
-/* ---------- UI ---------- */
 import {
-  Card, CardContent, CardHeader, CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Button }   from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge }    from "@/components/ui/badge";
-import { Input }    from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label }    from "@/components/ui/label";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+  Card, CardContent, CardHeader, CardTitle, CardDescription,
+} from "@/components/ui/card"
+import {
+  Tabs, TabsList, TabsTrigger, TabsContent,
+} from "@/components/ui/tabs"
+import {
+  Collapsible, CollapsibleTrigger, CollapsibleContent,
+} from "@/components/ui/collapsible"
+import { Button }   from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { Badge }    from "@/components/ui/badge"
+import { Input }    from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label }    from "@/components/ui/label"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 
-/* ── zod Schema ────────────────────────────────────────────────────────── */
+/* ── zod Schema (必須 & 文字数チェック) ────────────────── */
 const schema = z.object({
-  last_name : z.string().min(1, "姓は必須です"),
+  last_name:  z.string().min(1, "姓は必須です"),
   first_name: z.string().min(1, "名は必須です"),
   university: z.string().min(1, "大学名は必須です"),
-  faculty   : z.string().min(1, "学部は必須です"),
-  pr_text   : z.string().max(800, "自己PRは800文字以内"),
-});
+  faculty:    z.string().min(1, "学部は必須です"),
+  pr_text:    z.string().max(800, "自己PRは800文字以内"),
+})
 
-/* ---------- mini-components (FieldInput / FieldTextarea) 省略せず記載 ---------- */
+/* reusable mini-components ------------------------------------------------ */
 type FieldInputProps = {
-  id: string; label: string; value: string | number;
-  type?: React.HTMLInputTypeAttribute;
-  disabled: boolean; placeholder?: string;
-  onChange: (v: string) => void;
-  required?: boolean; error?: string;
-};
+  id: string
+  label: string
+  type?: React.HTMLInputTypeAttribute
+  value: string | number
+  disabled: boolean
+  placeholder?: string
+  onChange: (v: string) => void
+  required?: boolean
+  error?: string
+}
 const FieldInput = ({
-  id, label, value, disabled, onChange,
-  type = "text", placeholder, required, error,
+  id, label, type = "text", value, disabled, placeholder, onChange, required, error,
 }: FieldInputProps) => (
   <div className="space-y-1">
     <Label htmlFor={id} className="text-xs sm:text-sm">
       {label}{required && <span className="text-red-500">*</span>}
     </Label>
     <Input
-      id={id} type={type} disabled={disabled}
-      placeholder={placeholder} value={value}
+      id={id}
+      type={type}
+      disabled={disabled}
+      placeholder={placeholder}
+      value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`h-8 text-xs sm:h-10 sm:text-sm ${error && "border-red-500"}`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
-);
+)
 
 type FieldTextareaProps = {
-  id: string; label: string; value: string;
-  rows?: number; disabled: boolean; max?: number;
-  placeholder?: string; onChange: (v: string) => void; error?: string;
-};
+  id: string
+  label: string
+  value: string
+  rows?: number
+  disabled: boolean
+  max?: number
+  placeholder?: string
+  onChange: (v: string) => void
+  error?: string
+}
 const FieldTextarea = ({
-  id, label, value, disabled, onChange,
-  rows = 4, max, placeholder, error,
+  id, label, value, rows = 4, disabled, max, placeholder, onChange, error,
 }: FieldTextareaProps) => (
   <div className="space-y-1">
     <div className="flex items-center justify-between">
@@ -83,96 +98,99 @@ const FieldTextarea = ({
       )}
     </div>
     <Textarea
-      id={id} rows={rows} disabled={disabled} maxLength={max}
-      placeholder={placeholder} value={value}
+      id={id}
+      rows={rows}
+      placeholder={placeholder}
+      disabled={disabled}
+      value={value}
+      maxLength={max}
       onChange={(e) => onChange(e.target.value)}
       className={`text-xs sm:text-sm ${error && "border-red-500"}`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
-);
+)
+/* ------------------------------------------------------------------------- */
 
-/* ---------- 型 ---------- */
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<typeof schema>
 
-/* ====================================================================== */
 export default function StudentProfilePage() {
-  /* ----- ① すべてのフックを無条件に呼び出す ---------- */
-  const ready = useAuthGuard("student");               // 認証ガード
+  /* 1) auth guard --------------------------------------------------------- */
+  const ready = useAuthGuard("student")
+
+  /* 2) profile hook ------------------------------------------------------- */
   const {
-    data: profile, loading, error, saving,
-    editing, updateLocal, resetLocal, save,
-  } = useStudentProfile();                             // プロフィール
-  const { score } = useCompletion("profile");          // 完成度
+    data       : profile,
+    loading,
+    error,
+    saving,
+    editing,
+    updateLocal,
+    save,
+    resetLocal,
+  } = useStudentProfile()
 
-  /* ----- ② 以降は通常のロジック ---------- */
-  const [tab, setTab]     = useState<"basic" | "pr" | "pref">("basic");
-  const [errors, setFieldErrs] = useState<Partial<Record<keyof FormValues, string>>>({});
-  const [savedToast, setSavedToast] = useState(false);
+  /* 3) UI state ----------------------------------------------------------- */
+  const [tab, setTab]       = useState<"basic" | "pr" | "pref">("basic")
+  const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({})
+  const [savedToast, setSavedToast] = useState(false)
 
-  /* toast timer */
-  useEffect(() => {
-    if (savedToast) {
-      const t = setTimeout(() => setSavedToast(false), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [savedToast]);
-
-  const getBarColor = (pct: number) =>
-    pct < 30 ? "bg-red-500" : pct < 70 ? "bg-yellow-500" : "bg-green-500";
-
-  const Status = ({ pct }: { pct: number }) =>
-    pct === 100
-      ? <CheckCircle2 size={14} className="text-green-600" />
-      : <AlertCircle size={14} className={pct ? "text-yellow-600" : "text-red-600"} />;
-
-  /* ---------- save ---------- */
-  const handleSave = async () => {
-    const parsed = schema.safeParse(profile);
-    if (!parsed.success) {
-      const errs: typeof errors = {};
-      parsed.error.errors.forEach((e) => {
-        const k = e.path[0] as keyof FormValues;
-        errs[k] = e.message;
-      });
-      setFieldErrs(errs);
-      toast({ title: "入力エラーがあります", variant: "destructive" });
-      return;
-    }
-    setFieldErrs({});
-    await save();
-    setSavedToast(true);
-  };
-
-  /* ---------- 条件付きレンダー ---------- */
-  if (!ready || loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        読み込み中…
-      </div>
-    );
-  }
-  if (error) {
-    return <div className="p-4 text-center text-red-600">{error.message}</div>;
-  }
-
-  /* ---------- 完成度 & セクション状態 ---------- */
-  const completion = score ?? 0;
+  /* 4) completion --------------------------------------------------------- */
   const isFilled = (v: unknown) =>
-    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
+    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
+
+    const completion = useProfileCompletion();     
 
   const sectionDone = {
     basic: isFilled(profile.last_name) && isFilled(profile.first_name),
     pr   : isFilled(profile.pr_text),
     pref : isFilled(profile.desired_industries) && isFilled(profile.work_style),
-  };
+  }
+  const completionRate =
+    Math.round((Number(sectionDone.basic) + Number(sectionDone.pr) + Number(sectionDone.pref)) / 3 * 100)
 
-  /* ================= RENDER (本体) ===================================== */
+  /* toast timer */
+  useEffect(() => {
+    if (savedToast) {
+      const t = setTimeout(() => setSavedToast(false), 2500)
+      return () => clearTimeout(t)
+    }
+  }, [savedToast])
+
+  /* helper UI */
+  const getBarColor = (pct: number) =>
+    pct < 30 ? "bg-red-500" : pct < 70 ? "bg-yellow-500" : "bg-green-500"
+
+  const Status = ({ pct }: { pct: number }) =>
+    pct === 100
+      ? <CheckCircle2 size={14} className="text-green-600" />
+      : <AlertCircle   size={14} className={pct ? "text-yellow-600" : "text-red-600"} />
+
+  /* save ----------------------------------------------------------------- */
+  const handleSave = async () => {
+    /* zod 検証 */
+    const parse = schema.safeParse(profile)
+    if (!parse.success) {
+      const fieldErr: typeof errors = {}
+      parse.error.errors.forEach(e => {
+        const k = e.path[0] as keyof FormValues
+        fieldErr[k] = e.message
+      })
+      setErrors(fieldErr)
+      toast({ title: "入力エラーがあります", variant: "destructive" })
+      return
+    }
+
+    setErrors({})
+    await save()
+    setSavedToast(true)
+  }
+  /* ================= RENDER ============================================ */
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8">
-      {/* --- header ----------------------------------------------------- */}
+      {/* --- header ------------------------------------------------------- */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
+        {/* row */}
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold sm:text-2xl">マイプロフィール</h1>
@@ -181,6 +199,7 @@ export default function StudentProfilePage() {
             </p>
           </div>
 
+          {/* action buttons */}
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" className="h-8 sm:h-10" onClick={resetLocal}>
@@ -189,7 +208,7 @@ export default function StudentProfilePage() {
               <Button className="h-8 sm:h-10" disabled={saving} onClick={handleSave}>
                 {saving ? (
                   <>
-                    <span className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
                     保存中…
                   </>
                 ) : (
@@ -209,18 +228,18 @@ export default function StudentProfilePage() {
         {/* progress bar */}
         <div className="mb-2 flex items-center justify-between text-sm">
           <span>プロフィール完成度</span>
-          <span className="font-semibold">{completion}%</span>
+          <span className="font-semibold">{completionRate}%</span>
         </div>
-        <Progress value={completion} className={`h-2 ${getBarColor(completion)}`} />
+        <Progress value={completionRate} className={`h-2 ${getBarColor(completionRate)}`} />
 
         {/* section chips */}
         <div className="mt-4 grid grid-cols-3 gap-2">
           {(['basic', 'pr', 'pref'] as const).map((s) => {
-            const pct = sectionDone[s] ? 100 : 0;
-            const names = { basic: '基本情報', pr: '自己PR', pref: '希望条件' };
+            const pct = sectionDone[s] ? 100 : 0
+            const names = { basic: '基本情報', pr: '自己PR', pref: '希望条件' }
             const icons = {
               basic: <User size={14} />, pr: <FileText size={14} />, pref: <Target size={14} />,
-            };
+            }
             return (
               <button
                 key={s}
@@ -233,103 +252,303 @@ export default function StudentProfilePage() {
                   {icons[s]} {names[s]}
                 </span>
                 <span className="flex items-center gap-1">
-                  {pct}% <Status pct={pct} />
+                  {pct}%
+                  <Status pct={pct} />
                 </span>
               </button>
-            );
+            )
           })}
         </div>
       </div>
 
       {/* --- tabs --------------------------------------------------------- */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList className="hidden" />
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="space-y-6">
+        <TabsList className="hidden" /> {/* トリガは上で自作したので隠す */}
 
-        {/* ---------- 基本情報 ---------- */}
-        <TabsContent value="basic" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">基本情報</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <FieldInput
-                id="last_name" label="姓" required error={errors.last_name}
-                value={profile.last_name ?? ""} disabled={!editing}
-                onChange={(v) => updateLocal({ last_name: v })}
-              />
-              <FieldInput
-                id="first_name" label="名" required error={errors.first_name}
-                value={profile.first_name ?? ""} disabled={!editing}
-                onChange={(v) => updateLocal({ first_name: v })}
-              />
-              <FieldInput
-                id="university" label="大学名" required error={errors.university}
-                value={profile.university ?? ""} disabled={!editing}
-                onChange={(v) => updateLocal({ university: v })}
-              />
-              <FieldInput
-                id="faculty" label="学部" required error={errors.faculty}
-                value={profile.faculty ?? ""} disabled={!editing}
-                onChange={(v) => updateLocal({ faculty: v })}
-              />
-            </CardContent>
-          </Card>
+        {/* BASIC ========================================================= */}
+        <TabsContent value="basic" className="space-y-4">
+          {/* ============ 基本情報 ============= */}
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger asChild>
+              <SectionHeader icon={User} title="基本情報" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="animate-accordion-down">
+              <Card className="border-t-0">
+                <CardContent className="space-y-4 p-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <FieldInput
+                      id="last_name"
+                      label="姓"
+                      required
+                      value={profile.last_name ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ last_name: v })}
+                    />
+                    <FieldInput
+                      id="first_name"
+                      label="名"
+                      required
+                      value={profile.first_name ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ first_name: v })}
+                    />
+                    <FieldInput
+                      id="last_name_kana"
+                      label="セイ"
+                      value={profile.last_name_kana ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ last_name_kana: v })}
+                    />
+                    <FieldInput
+                      id="first_name_kana"
+                      label="メイ"
+                      value={profile.first_name_kana ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ first_name_kana: v })}
+                    />
+                  </div>
+
+                  <FieldInput
+                    id="phone"
+                    label="電話番号"
+                    value={profile.phone ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ phone: v })}
+                  />
+                  <FieldInput
+                    id="address"
+                    label="住所"
+                    value={profile.address ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ address: v })}
+                  />
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* ============ 学歴 =============== */}
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger asChild>
+              <SectionHeader icon={GraduationCap} title="学歴" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="animate-accordion-down">
+              <Card className="border-t-0">
+                <CardContent className="space-y-4 p-4">
+                  <FieldInput
+                    id="university"
+                    label="大学名"
+                    value={profile.university ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ university: v })}
+                  />
+                  <FieldInput
+                    id="faculty"
+                    label="学部"
+                    value={profile.faculty ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ faculty: v })}
+                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FieldInput
+                      id="admission_month"
+                      type="month"
+                      label="入学年月"
+                      value={profile.admission_month ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ admission_month: v })}
+                    />
+                    <FieldInput
+                      id="graduation_year"
+                      type="number"
+                      label="卒業予定年"
+                      value={profile.graduation_year ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ graduation_year: Number(v) || null })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* ============ スキル =============== */}
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger asChild>
+              <SectionHeader icon={Code} title="スキル" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="animate-accordion-down">
+              <Card className="border-t-0">
+                <CardContent className="space-y-4 p-4">
+                  <FieldTextarea
+                    id="skill_text"
+                    label="スキル"
+                    rows={3}
+                    value={profile.skill_text ?? ''}
+                    disabled={!editing}
+                    max={500}
+                    placeholder="例: Java, Python, AWS, Figma..."
+                    onChange={(v) => updateLocal({ skill_text: v })}
+                  />
+                  {profile.skill_text && (
+                    <TagPreview items={profile.skill_text.split(',')} color="blue" />
+                  )}
+
+                  <FieldTextarea
+                    id="qualification_text"
+                    label="資格"
+                    rows={3}
+                    value={profile.qualification_text ?? ''}
+                    disabled={!editing}
+                    max={500}
+                    onChange={(v) => updateLocal({ qualification_text: v })}
+                  />
+                  <FieldTextarea
+                    id="language_skill"
+                    label="語学力"
+                    rows={2}
+                    value={profile.language_skill ?? ''}
+                    disabled={!editing}
+                    max={300}
+                    onChange={(v) => updateLocal({ language_skill: v })}
+                  />
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
         </TabsContent>
 
-        {/* ---------- 自己PR ---------- */}
-        <TabsContent value="pr" className="space-y-6">
+        {/* PR ============================================================ */}
+        <TabsContent value="pr">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">自己PR</CardTitle>
+            <CardHeader className="flex gap-2 p-4">
+              <FileText className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle>自己PR</CardTitle>
+                <CardDescription>あなたの強みをアピールしましょう</CardDescription>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-4">
               <FieldTextarea
-                id="pr_text" label="自己PR" max={800}
-                value={profile.pr_text ?? ""} disabled={!editing}
+                id="pr_text"
+                label="自己PR"
+                rows={8}
+                max={800}
+                value={profile.pr_text ?? ''}
+                disabled={!editing}
+                placeholder="具体的なエピソードや成果を数字で示すと効果的です"
                 onChange={(v) => updateLocal({ pr_text: v })}
-                error={errors.pr_text}
               />
+
+              {/* 強み 3 つ */}
+              <div className="space-y-1">
+                <Label className="text-xs sm:text-sm">強み（最大3つ）</Label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <FieldInput
+                      key={i}
+                      id={`strength_${i}`}
+                      label={`強み${i}`}
+                      value={(profile as any)[`strength_${i}`] ?? ''}
+                      disabled={!editing}
+                      placeholder="例: 問題解決力"
+                      onChange={(v) => updateLocal({ [`strength_${i}`]: v })}
+                    />
+                  ))}
+                </div>
+              </div>
+
               <TipBox />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ---------- 希望条件 ---------- */}
-        <TabsContent value="pref" className="space-y-6">
+        {/* PREF ========================================================== */}
+        <TabsContent value="pref">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">希望条件</CardTitle>
+            <CardHeader className="flex gap-2 p-4">
+              <Target className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle>希望条件</CardTitle>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-4">
               <FieldInput
-                id="work_style" label="希望する働き方" placeholder="例）リモート可 / フレックス"
-                value={profile.work_style ?? ""} disabled={!editing}
+                id="work_style"
+                label="希望勤務形態"
+                value={profile.work_style ?? ''}
+                disabled={!editing}
+                placeholder="正社員 / インターン など"
                 onChange={(v) => updateLocal({ work_style: v })}
               />
               <FieldInput
-                id="desired_industries" label="興味のある業界 (カンマ区切り)"
-                placeholder="例）IT,コンサル,メーカー"
-                value={(profile.desired_industries ?? []).join(",")}
+                id="salary_range"
+                label="希望年収"
+                value={profile.salary_range ?? ''}
+                disabled={!editing}
+                placeholder="400万〜500万"
+                onChange={(v) => updateLocal({ salary_range: v })}
+              />
+
+              {/* industries */}
+              <FieldInput
+                id="desired_industries"
+                label="希望業界（カンマ区切り）"
+                value={(profile.desired_industries ?? []).join(', ')}
                 disabled={!editing}
                 onChange={(v) =>
-                  updateLocal({ desired_industries: v.split(",").map((s) => s.trim()) })
+                  updateLocal({
+                    desired_industries: v
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  })
                 }
               />
-              {Array.isArray(profile.desired_industries) &&
-                <TagPreview items={profile.desired_industries} color="blue" />
-              }
+              {profile.desired_industries?.length ? (
+                <TagPreview items={profile.desired_industries} color="green" />
+              ) : null}
+
+              {/* locations */}
+              <FieldInput
+                id="desired_locations"
+                label="希望勤務地（カンマ区切り）"
+                value={(profile.desired_locations ?? []).join(', ')}
+                disabled={!editing}
+                onChange={(v) =>
+                  updateLocal({
+                    desired_locations: v
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  })
+                }
+              />
+              {profile.desired_locations?.length ? (
+                <TagPreview items={profile.desired_locations} color="purple" />
+              ) : null}
+
+              <FieldTextarea
+                id="preference_note"
+                label="備考"
+                rows={4}
+                max={500}
+                value={profile.preference_note ?? ''}
+                disabled={!editing}
+                onChange={(v) => updateLocal({ preference_note: v })}
+              />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* --- sticky save -------------------------------------------------- */}
+      {/* sticky save ------------------------------------------------------ */}
       {editing && (
         <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Progress value={completion} className={`h-2 w-24 ${getBarColor(completion)}`} />
-              <span className="text-xs sm:text-sm">{completion}% 完了</span>
+              <Progress value={completionRate} className={`h-2 w-24 ${getBarColor(completionRate)}`} />
+              <span className="text-xs sm:text-sm">{completionRate}% 完了</span>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={resetLocal} className="h-8 sm:h-10">
@@ -338,7 +557,7 @@ export default function StudentProfilePage() {
               <Button onClick={handleSave} disabled={saving} className="h-8 sm:h-10">
                 {saving ? (
                   <>
-                    <span className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
                     保存中
                   </>
                 ) : (
@@ -352,14 +571,14 @@ export default function StudentProfilePage() {
         </footer>
       )}
 
-      {/* --- toast -------------------------------------------------------- */}
+      {/* toast ------------------------------------------------------------ */}
       {savedToast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded bg-green-600 px-3 py-2 text-xs text-white shadow-md">
           保存しました
         </div>
       )}
     </div>
-  );
+  )
 }
 
 /* ===== helper presentational ============================================ */
@@ -370,11 +589,11 @@ function SectionHeader({ icon: Icon, title }: { icon: typeof User; title: string
       <CardTitle className="text-base font-medium">{title}</CardTitle>
       <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground transition-transform data-[state=closed]:rotate-180" />
     </div>
-  );
+  )
 }
 
-function TagPreview({ items, color }: { items: string[]; color: "blue" | "green" | "purple" }) {
-  const bg = { blue: "bg-blue-50", green: "bg-green-50", purple: "bg-purple-50" }[color];
+function TagPreview({ items, color }: { items: string[]; color: 'blue' | 'green' | 'purple' }) {
+  const bg = { blue: 'bg-blue-50', green: 'bg-green-50', purple: 'bg-purple-50' }[color]
   return (
     <div className="mt-2 flex flex-wrap gap-1">
       {items.map((t, i) => (
@@ -383,7 +602,7 @@ function TagPreview({ items, color }: { items: string[]; color: "blue" | "green"
         </Badge>
       ))}
     </div>
-  );
+  )
 }
 
 function TipBox() {
@@ -391,10 +610,10 @@ function TipBox() {
     <Alert className="bg-blue-50">
       <Info className="h-4 w-4 text-blue-500" />
       <AlertTitle className="text-sm font-medium text-blue-800">自己PRのコツ</AlertTitle>
-      <AlertDescription className="space-y-1 text-xs text-blue-700">
+      <AlertDescription className="text-xs text-blue-700 space-y-1">
         <p>・数字や結果を用いて具体性を出す</p>
         <p>・役割だけでなく、課題⇢行動⇢成果 を示す</p>
       </AlertDescription>
     </Alert>
-  );
+  )
 }
