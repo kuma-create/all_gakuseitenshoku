@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------------
    components/header.tsx
    - 左ロゴ + 役割別ナビゲーション（レスポンシブ対応版）
-   - 2025-05-16 リファクタ: Dashboard → マイページ / アイテム整理
+   - 2025-05-16: AuthContext 連携 / logout 修正
 ------------------------------------------------------------------------- */
 "use client";
 
@@ -21,22 +21,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase/client";
-import type { Session } from "@supabase/supabase-js";
 
 /* --------------------- NavItem 型 --------------------- */
 type NavItem = { href: string; label: string; icon: React.ElementType };
 
 /* --------------------- 役割別メニュー ------------------ */
 const studentMain: NavItem[] = [
-  { href: "/student-dashboard",        label: "マイページ", icon: LayoutDashboard },
-  { href: "/jobs",          label: "求人",       icon: Search },
-  { href: "/student/scouts",label: "スカウト",   icon: Mail },
-  { href: "/chat",          label: "チャット",   icon: MessageSquare },
+  { href: "/mypage",           label: "マイページ", icon: LayoutDashboard },
+  { href: "/jobs",             label: "求人",       icon: Search },
+  { href: "/student/scouts",   label: "スカウト",   icon: Mail },
+  { href: "/chat",             label: "チャット",   icon: MessageSquare },
 ];
 const studentSub: NavItem[] = [
-  { href: "/student/profile", label: "プロフィール", icon: User },
-  { href: "/student/resume",  label: "レジュメ",     icon: Briefcase },
+  { href: "/student/profile",  label: "プロフィール", icon: User },
+  { href: "/resume",           label: "レジュメ",     icon: Briefcase },
 ];
 
 const companyMain: NavItem[] = [
@@ -45,7 +45,7 @@ const companyMain: NavItem[] = [
   { href: "/scout",             label: "スカウト",   icon: Mail },
   { href: "/chat",              label: "チャット",   icon: MessageSquare },
 ];
-const companySub: NavItem[] = []; // 今後追加あればここへ
+const companySub: NavItem[] = [];
 
 const adminMain: NavItem[] = [
   { href: "/admin", label: "Admin", icon: LayoutDashboard },
@@ -53,42 +53,31 @@ const adminMain: NavItem[] = [
 
 /* --------------------- Header ------------------------- */
 export default function Header() {
-  const pathname          = usePathname();
-  const [session, setSes] = useState<Session | null>(null);
+  const pathname = usePathname();
+  const { isLoggedIn, userType, user, logout } = useAuth();   // ← Context だけを見る
   const [avatar, setAvatar] = useState<string | null>(null);
 
-  /* 初期化 */
+  /* Avatar 取得（student のみ） */
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSes(session);
-      if (session) await fetchAvatar(session.user.id);
-    };
-    init();
+    if (!user || userType !== "student") {
+      setAvatar(null);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("avatar")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setAvatar(data?.avatar ?? null);
+    })();
+  }, [user?.id, userType]);
 
-    const { data: { subscription } } = supabase.auth
-      .onAuthStateChange((_e, s) => {
-        setSes(s);
-        if (s) fetchAvatar(s.user.id);
-      });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchAvatar = async (uid: string) => {
-    const { data } = await supabase
-      .from("student_profiles")
-      .select("avatar_url")
-      .eq("user_id", uid)
-      .maybeSingle();
-    setAvatar(data?.avatar_url ?? null);
-  };
-
-  /* 役割解決（簡易版） */
-  const role = session?.user.user_metadata.role ?? "guest";
-  const main  = role === "company" ? companyMain
-             : role === "admin"   ? adminMain
+  /* 役割別メニュー */
+  const main = userType === "company" ? companyMain
+             : userType === "admin"   ? adminMain
              : studentMain;
-  const sub   = role === "company" ? companySub : studentSub;
+  const sub  = userType === "company" ? companySub : studentSub;
 
   /* ---------------- JSX ---------------- */
   return (
@@ -96,13 +85,7 @@ export default function Header() {
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* ---------- 左：ロゴ ---------- */}
         <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo.png"
-            alt="Make Culture"
-            width={120}
-            height={120}
-            className="rounded-md"
-          />
+          <Image src="/logo.png" alt="学生転職" width={120} height={32} />
         </Link>
 
         {/* ---------- PC：ナビ ---------- */}
@@ -112,8 +95,7 @@ export default function Header() {
               key={href}
               href={href}
               className={`flex items-center gap-1 text-sm
-                ${pathname.startsWith(href) ? "font-semibold" : "text-gray-600"}`
-              }
+                ${pathname.startsWith(href) ? "font-semibold" : "text-gray-600"}`}
             >
               <Icon size={16} />
               {label}
@@ -123,7 +105,7 @@ export default function Header() {
 
         {/* ---------- PC：アバター or ログイン ---------- */}
         <div className="hidden md:block">
-          {session ? (
+          {isLoggedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
@@ -147,7 +129,7 @@ export default function Header() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuItem
-                  onClick={() => supabase.auth.signOut()}
+                  onClick={logout}   
                   className="text-red-600 focus:bg-red-50"
                 >
                   <LogOut size={16} className="mr-2" /> ログアウト
@@ -173,13 +155,7 @@ export default function Header() {
           </SheetTrigger>
           <SheetContent side="left" className="w-64">
             <div className="mb-6 flex items-center gap-2">
-              <Image
-                src="/logo.svg"
-                alt="Make Culture"
-                width={24}
-                height={24}
-                className="rounded-md"
-              />
+              <Image src="/logo.png" alt="学生転職" width={24} height={24} />
               <span className="font-bold">学生転職</span>
             </div>
             <nav className="space-y-2">
@@ -193,21 +169,20 @@ export default function Header() {
                   {label}
                 </Link>
               ))}
-              {session && (
+              {isLoggedIn && (
                 <>
                   <hr className="my-3" />
                   {sub.map(({ href, label }) => (
                     <Link
                       key={href}
                       href={href}
-                      className="block rounded-md px-3 py-2 text-sm
-                                 hover:bg-gray-100"
+                      className="block rounded-md px-3 py-2 text-sm hover:bg-gray-100"
                     >
                       {label}
                     </Link>
                   ))}
                   <button
-                    onClick={() => supabase.auth.signOut()}
+                    onClick={logout}
                     className="mt-2 flex w-full items-center gap-2 rounded-md px-3 py-2
                                text-sm text-red-600 hover:bg-red-50"
                   >
