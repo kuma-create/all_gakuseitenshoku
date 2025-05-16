@@ -46,7 +46,7 @@ const IconInput = ({
 );
 
 /* ---------- 専用フォーム ---------- */
-type Role = "student" | "company";
+type Role = "student" | "company" | "admin";
 
 const LoginForm = ({
   role, email, password, showPW, loading, error,
@@ -154,9 +154,18 @@ export default function LoginClient() {
     e.preventDefault();
     clearError();
     setLoading(true);
-    const ok = !!(await login(email, password, tab)); // boolean 化
-    if (!ok) setLoading(false);  // 失敗→スピナー停止
-    // 成功時は AuthContext 側でリダイレクト
+
+    const ok = await login(email, password, tab);   // ← login が true / false を返す
+    setLoading(false);
+
+    if (ok) {
+      const dest =
+        nextPath ? nextPath :
+        tab === "company" ? "/company-dashboard" :
+        tab === "admin"   ? "/admin-dashboard"   :
+                            "/student-dashboard";
+      router.replace(dest);
+    }
   };
 
   /* ----- JSX ----- */
