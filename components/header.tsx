@@ -99,8 +99,8 @@ export default function Header() {
           <Image
             src="/logo.png"
             alt="Make Culture"
-            width={24}
-            height={24}
+            width={120}
+            height={120}
             className="rounded-md"
           />
         </Link>
