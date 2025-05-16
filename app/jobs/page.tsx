@@ -31,6 +31,7 @@ import {
 import { supabase } from "@/lib/supabase/client"
 import { useAuth } from "@/lib/auth-context"
 import { useJobInterest } from "@/lib/hooks/use-job-interest"
+import { toast } from "@/components/ui/use-toast";
 
 import type { Database } from "@/lib/supabase/types"
 type JobRow     = Database["public"]["Tables"]["jobs"]["Row"]
@@ -323,32 +324,35 @@ function ApplySection({
   jobId,
   hasApplied,
 }: {
-  jobId: string
-  hasApplied: boolean
+  jobId: string;
+  hasApplied: boolean;
 }) {
-  const [posting, setPosting] = useState(false)
+  const [posting, setPosting] = useState(false);
 
   const handleApply = async () => {
-    if (hasApplied) return
-    setPosting(true)
+    if (hasApplied || posting) return;
+    setPosting(true);
 
     const { error } = await supabase.from("applications").insert({
       job_id: jobId,
-    })
+    });
+
+    setPosting(false);
 
     if (error) {
-      alert("応募に失敗しました")
+      toast({ title: "応募に失敗しました", variant: "destructive" });
     } else {
-      alert("応募が完了しました！")
+      toast({ title: "応募が完了しました！" });
+      // 画面を最新状態に
+      window.location.reload();
     }
-    setPosting(false)
-  }
+  };
 
   return (
     <div className="mt-6">
       <button
         className={`flex w-full items-center justify-center gap-2 rounded-md px-6 py-3 text-white transition ${
-          hasApplied
+          hasApplied || posting
             ? "cursor-not-allowed bg-gray-400"
             : "bg-primary hover:bg-primary/90"
         }`}
@@ -366,7 +370,7 @@ function ApplySection({
         )}
       </button>
     </div>
-  )
+  );
 }
 
 /* -------- 会社情報の行 -------- */
