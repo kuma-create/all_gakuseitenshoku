@@ -1,58 +1,58 @@
 /* ────────────────────────────────────────────────
-   app/student/profile/page.tsx – v3.1 (completionScore 連携版)
+   app/student/profile/page.tsx – v3.2 (hook順完全修正版)
 ─────────────────────────────────────────────── */
-"use client";
+"use client"
 
-import { useState, useEffect, HTMLInputTypeAttribute } from "react";
+import { useState, useEffect, HTMLInputTypeAttribute } from "react"
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
   GraduationCap, Code, ChevronUp, Info, Loader2,
-} from "lucide-react";
-import { z } from "zod";
-import { toast } from "@/components/ui/use-toast";
+} from "lucide-react"
+import { z } from "zod"
+import { toast } from "@/components/ui/use-toast"
 
 /* ---------- hooks ---------- */
-import { useAuthGuard }       from "@/lib/use-auth-guard";
-import { useStudentProfile }  from "@/lib/hooks/use-student-profile";
-import { useProfileCompletion } from "@/lib/hooks/useProfileCompletion";
+import { useAuthGuard }        from "@/lib/use-auth-guard"
+import { useStudentProfile }   from "@/lib/hooks/use-student-profile"
+import { useProfileCompletion } from "@/lib/hooks/useProfileCompletion"
 
 /* ---------- UI ---------- */
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
-} from "@/components/ui/card";
-import { Tabs, TabsList, TabsContent } from "@/components/ui/tabs";
+} from "@/components/ui/card"
+import { Tabs, TabsList, TabsContent } from "@/components/ui/tabs"
 import {
   Collapsible, CollapsibleTrigger, CollapsibleContent,
-} from "@/components/ui/collapsible";
-import { Button }   from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge }    from "@/components/ui/badge";
-import { Input }    from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label }    from "@/components/ui/label";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+} from "@/components/ui/collapsible"
+import { Button }   from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { Badge }    from "@/components/ui/badge"
+import { Input }    from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label }    from "@/components/ui/label"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 
-/* ── zod Schema ───────────────────────────────── */
+/* ── zod Schema ─────────────────────────────── */
 const schema = z.object({
-  last_name  : z.string().min(1, "姓は必須です"),
-  first_name : z.string().min(1, "名は必須です"),
-  university : z.string().min(1, "大学名は必須です"),
-  faculty    : z.string().min(1, "学部は必須です"),
-  pr_text    : z.string().max(800, "自己PRは800文字以内"),
-});
+  last_name : z.string().min(1, "姓は必須です"),
+  first_name: z.string().min(1, "名は必須です"),
+  university: z.string().min(1, "大学名は必須です"),
+  faculty   : z.string().min(1, "学部は必須です"),
+  pr_text   : z.string().max(800, "自己PRは800文字以内"),
+})
 
-/* ── mini components ───────────────────────────────── */
+/* ── reusable field components ─────────────── */
 type FieldInputProps = {
-  id: string;
-  label: string;
-  value: string | number;
-  disabled: boolean;
-  onChange: (v: string) => void;
-  type?: HTMLInputTypeAttribute;
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-};
+  id: string
+  label: string
+  value: string | number
+  disabled: boolean
+  onChange: (v: string) => void
+  type?: HTMLInputTypeAttribute
+  placeholder?: string
+  required?: boolean
+  error?: string
+}
 const FieldInput = ({
   id, label, value, disabled, onChange,
   type = "text", placeholder, required, error,
@@ -69,13 +69,13 @@ const FieldInput = ({
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
-);
+)
 
 type FieldTextareaProps = {
-  id: string; label: string; value: string;
-  disabled: boolean; onChange: (v: string) => void;
-  rows?: number; max?: number; placeholder?: string; error?: string;
-};
+  id: string; label: string; value: string
+  disabled: boolean; onChange: (v: string) => void
+  rows?: number; max?: number; placeholder?: string; error?: string
+}
 const FieldTextarea = ({
   id, label, value, disabled, onChange,
   rows = 4, max, placeholder, error,
@@ -83,106 +83,98 @@ const FieldTextarea = ({
   <div className="space-y-1">
     <div className="flex items-center justify-between">
       <Label htmlFor={id} className="text-xs sm:text-sm">{label}</Label>
-      {max && (
-        <span className="text-xs text-gray-500">
-          {value.length}/{max}文字
-        </span>
-      )}
+      {max && <span className="text-xs text-gray-500">{value.length}/{max}文字</span>}
     </div>
     <Textarea
-      id={id} rows={rows} disabled={disabled} maxLength={max}
+      id={id} rows={rows} maxLength={max} disabled={disabled}
       placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`text-xs sm:text-sm ${error && "border-red-500"}`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
-);
+)
 
 /* ---------- 型 ---------- */
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<typeof schema>
 
 /* ====================================================================== */
 export default function StudentProfilePage() {
-  /* ① フック呼び出し */
-  const ready = useAuthGuard("student");
+  /* 🚩 1) すべてのフックを **無条件で先頭** で呼ぶ */
+  const ready = useAuthGuard("student")
   const {
     data: profile, loading, error, saving,
     editing, updateLocal, resetLocal, save,
-  } = useStudentProfile();
-  const completionObj = useProfileCompletion();          // ← ★ null か {score, …}
+  } = useStudentProfile()
+  const completionObj = useProfileCompletion()               // null | { score: number }
 
-  /* ② ロード / エラー ガード */
+  /* ↓ ローカル UI 用フックも guard の前に置く ↓ */
+  const [tab, setTab] = useState<"basic" | "pr" | "pref">("basic")
+  const [fieldErrs, setFieldErrs] =
+    useState<Partial<Record<keyof FormValues, string>>>({})
+  const [savedToast, setSavedToast] = useState(false)
+
+  /* saved toast timer */
+  useEffect(() => {
+    if (!savedToast) return
+    const t = setTimeout(() => setSavedToast(false), 2500)
+    return () => clearTimeout(t)
+  }, [savedToast])
+
+  /* 🚩 2) guard はフック呼び出しの **後ろ** なので常に同数のフック */
   if (!ready || loading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" />
         読み込み中…
       </div>
-    );
+    )
   }
   if (error) {
     return (
       <div className="flex h-full w-full items-center justify-center text-red-600">
         {error.message}
       </div>
-    );
+    )
   }
 
-  /* ③ ローカル state */
-  const [tab, setTab] = useState<"basic" | "pr" | "pref">("basic");
-  const [fieldErrs, setFieldErrs] =
-    useState<Partial<Record<keyof FormValues, string>>>({});
-  const [savedToast, setSavedToast] = useState(false);
+  /* 3) 完成度などの派生値 */
+  const completionScore = completionObj?.score ?? 0
 
-  useEffect(() => {
-    if (savedToast) {
-      const t = setTimeout(() => setSavedToast(false), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [savedToast]);
-
-  /* ④ 完成度（fallback あり） */
-  const completionScore = completionObj?.score ?? 0;     // SQL 計算 (0–100)
-
-  /* ④-B セクションごとの入力有無 (UI 用) */
   const isFilled = (v: unknown) =>
-    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
+    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
 
   const sectionDone = {
     basic: isFilled(profile.last_name) && isFilled(profile.first_name),
     pr   : isFilled(profile.pr_text),
     pref : isFilled(profile.desired_industries) && isFilled(profile.work_style),
-  };
+  }
 
-  /* ⑤ ユーティリティ */
+  /* 4) helpers */
   const getBarColor = (pct: number) =>
     pct < 30 ? "bg-red-500"
     : pct < 70 ? "bg-yellow-500"
-    :            "bg-green-500";
+    :            "bg-green-500"
 
   const Status = ({ pct }: { pct: number }) =>
     pct === 100
       ? <CheckCircle2 size={14} className="text-green-600" />
-      : <AlertCircle size={14} className={pct ? "text-yellow-600" : "text-red-600"} />;
+      : <AlertCircle size={14} className={pct ? "text-yellow-600" : "text-red-600"} />
 
-  /* ⑥ 保存 */
+  /* 5) 保存 */
   const handleSave = async () => {
-    const parsed = schema.safeParse(profile);
+    const parsed = schema.safeParse(profile)
     if (!parsed.success) {
-      const obj: typeof fieldErrs = {};
-      parsed.error.errors.forEach(e => {
-        const k = e.path[0] as keyof FormValues;
-        obj[k] = e.message;
-      });
-      setFieldErrs(obj);
-      toast({ title: "入力エラーがあります", variant: "destructive" });
-      return;
+      const obj: typeof fieldErrs = {}
+      parsed.error.errors.forEach(e => { obj[e.path[0] as keyof FormValues] = e.message })
+      setFieldErrs(obj)
+      toast({ title: "入力エラーがあります", variant: "destructive" })
+      return
     }
-    setFieldErrs({});
-    await save();
-    setSavedToast(true);
-  };
+    setFieldErrs({})
+    await save()
+    setSavedToast(true)
+  }
 
 
   /* ================= RENDER ========================================== */
