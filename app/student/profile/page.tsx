@@ -1,92 +1,84 @@
 /* ────────────────────────────────────────────────
-   app/student/profile/page.tsx  – v2
-   - 既存 UI を維持しつつ zod で入力検証
-─────────────────────────────────────────── */
-"use client"
+   app/student/profile/page.tsx – v3.1 (completionScore 連携版)
+─────────────────────────────────────────────── */
+"use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, HTMLInputTypeAttribute } from "react";
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
-  GraduationCap, Code, ChevronUp, Info,
-} from "lucide-react"
-import { z } from "zod"
-import { toast } from "@/components/ui/use-toast"
+  GraduationCap, Code, ChevronUp, Info, Loader2,
+} from "lucide-react";
+import { z } from "zod";
+import { toast } from "@/components/ui/use-toast";
 
-import { useAuthGuard }      from "@/lib/use-auth-guard"
-import { useStudentProfile } from "@/lib/hooks/use-student-profile"
-import { useProfileCompletion } from "@/lib/hooks/useProfileCompletion"; 
+/* ---------- hooks ---------- */
+import { useAuthGuard }       from "@/lib/use-auth-guard";
+import { useStudentProfile }  from "@/lib/hooks/use-student-profile";
+import { useProfileCompletion } from "@/lib/hooks/useProfileCompletion";
 
+/* ---------- UI ---------- */
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
-} from "@/components/ui/card"
-import {
-  Tabs, TabsList, TabsTrigger, TabsContent,
-} from "@/components/ui/tabs"
+} from "@/components/ui/card";
+import { Tabs, TabsList, TabsContent } from "@/components/ui/tabs";
 import {
   Collapsible, CollapsibleTrigger, CollapsibleContent,
-} from "@/components/ui/collapsible"
-import { Button }   from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { Badge }    from "@/components/ui/badge"
-import { Input }    from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label }    from "@/components/ui/label"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+} from "@/components/ui/collapsible";
+import { Button }   from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge }    from "@/components/ui/badge";
+import { Input }    from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label }    from "@/components/ui/label";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-/* ── zod Schema (必須 & 文字数チェック) ────────────────── */
+/* ── zod Schema ───────────────────────────────── */
 const schema = z.object({
-  last_name:  z.string().min(1, "姓は必須です"),
-  first_name: z.string().min(1, "名は必須です"),
-  university: z.string().min(1, "大学名は必須です"),
-  faculty:    z.string().min(1, "学部は必須です"),
-  pr_text:    z.string().max(800, "自己PRは800文字以内"),
-})
+  last_name  : z.string().min(1, "姓は必須です"),
+  first_name : z.string().min(1, "名は必須です"),
+  university : z.string().min(1, "大学名は必須です"),
+  faculty    : z.string().min(1, "学部は必須です"),
+  pr_text    : z.string().max(800, "自己PRは800文字以内"),
+});
 
-/* reusable mini-components ------------------------------------------------ */
+/* ── mini components ───────────────────────────────── */
 type FieldInputProps = {
-  id: string
-  label: string
-  type?: React.HTMLInputTypeAttribute
-  value: string | number
-  disabled: boolean
-  placeholder?: string
-  onChange: (v: string) => void
-  required?: boolean
-  error?: string
-}
+  id: string;
+  label: string;
+  value: string | number;
+  disabled: boolean;
+  onChange: (v: string) => void;
+  type?: HTMLInputTypeAttribute;
+  placeholder?: string;
+  required?: boolean;
+  error?: string;
+};
 const FieldInput = ({
-  id, label, type = "text", value, disabled, placeholder, onChange, required, error,
+  id, label, value, disabled, onChange,
+  type = "text", placeholder, required, error,
 }: FieldInputProps) => (
   <div className="space-y-1">
     <Label htmlFor={id} className="text-xs sm:text-sm">
       {label}{required && <span className="text-red-500">*</span>}
     </Label>
     <Input
-      id={id}
-      type={type}
-      disabled={disabled}
-      placeholder={placeholder}
-      value={value}
+      id={id} type={type} disabled={disabled}
+      placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`h-8 text-xs sm:h-10 sm:text-sm ${error && "border-red-500"}`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
-)
+);
 
 type FieldTextareaProps = {
-  id: string
-  label: string
-  value: string
-  rows?: number
-  disabled: boolean
-  max?: number
-  placeholder?: string
-  onChange: (v: string) => void
-  error?: string
-}
+  id: string; label: string; value: string;
+  disabled: boolean; onChange: (v: string) => void;
+  rows?: number; max?: number; placeholder?: string; error?: string;
+};
 const FieldTextarea = ({
-  id, label, value, rows = 4, disabled, max, placeholder, onChange, error,
+  id, label, value, disabled, onChange,
+  rows = 4, max, placeholder, error,
 }: FieldTextareaProps) => (
   <div className="space-y-1">
     <div className="flex items-center justify-between">
@@ -98,99 +90,106 @@ const FieldTextarea = ({
       )}
     </div>
     <Textarea
-      id={id}
-      rows={rows}
-      placeholder={placeholder}
-      disabled={disabled}
-      value={value}
-      maxLength={max}
+      id={id} rows={rows} disabled={disabled} maxLength={max}
+      placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`text-xs sm:text-sm ${error && "border-red-500"}`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
-)
-/* ------------------------------------------------------------------------- */
+);
 
-type FormValues = z.infer<typeof schema>
+/* ---------- 型 ---------- */
+type FormValues = z.infer<typeof schema>;
 
+/* ====================================================================== */
 export default function StudentProfilePage() {
-  /* 1) auth guard --------------------------------------------------------- */
-  const ready = useAuthGuard("student")
-
-  /* 2) profile hook ------------------------------------------------------- */
+  /* ① フック呼び出し */
+  const ready = useAuthGuard("student");
   const {
-    data       : profile,
-    loading,
-    error,
-    saving,
-    editing,
-    updateLocal,
-    save,
-    resetLocal,
-  } = useStudentProfile()
+    data: profile, loading, error, saving,
+    editing, updateLocal, resetLocal, save,
+  } = useStudentProfile();
+  const completionObj = useProfileCompletion();          // ← ★ null か {score, …}
 
-  /* 3) UI state ----------------------------------------------------------- */
-  const [tab, setTab]       = useState<"basic" | "pr" | "pref">("basic")
-  const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({})
-  const [savedToast, setSavedToast] = useState(false)
+  /* ② ロード / エラー ガード */
+  if (!ready || loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" />
+        読み込み中…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-red-600">
+        {error.message}
+      </div>
+    );
+  }
 
-  /* 4) completion --------------------------------------------------------- */
+  /* ③ ローカル state */
+  const [tab, setTab] = useState<"basic" | "pr" | "pref">("basic");
+  const [fieldErrs, setFieldErrs] =
+    useState<Partial<Record<keyof FormValues, string>>>({});
+  const [savedToast, setSavedToast] = useState(false);
+
+  useEffect(() => {
+    if (savedToast) {
+      const t = setTimeout(() => setSavedToast(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [savedToast]);
+
+  /* ④ 完成度（fallback あり） */
+  const completionScore = completionObj?.score ?? 0;     // SQL 計算 (0–100)
+
+  /* ④-B セクションごとの入力有無 (UI 用) */
   const isFilled = (v: unknown) =>
-    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
-
-    const completion = useProfileCompletion();     
+    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
 
   const sectionDone = {
     basic: isFilled(profile.last_name) && isFilled(profile.first_name),
     pr   : isFilled(profile.pr_text),
     pref : isFilled(profile.desired_industries) && isFilled(profile.work_style),
-  }
-  const completionRate =
-    Math.round((Number(sectionDone.basic) + Number(sectionDone.pr) + Number(sectionDone.pref)) / 3 * 100)
+  };
 
-  /* toast timer */
-  useEffect(() => {
-    if (savedToast) {
-      const t = setTimeout(() => setSavedToast(false), 2500)
-      return () => clearTimeout(t)
-    }
-  }, [savedToast])
-
-  /* helper UI */
+  /* ⑤ ユーティリティ */
   const getBarColor = (pct: number) =>
-    pct < 30 ? "bg-red-500" : pct < 70 ? "bg-yellow-500" : "bg-green-500"
+    pct < 30 ? "bg-red-500"
+    : pct < 70 ? "bg-yellow-500"
+    :            "bg-green-500";
 
   const Status = ({ pct }: { pct: number }) =>
     pct === 100
       ? <CheckCircle2 size={14} className="text-green-600" />
-      : <AlertCircle   size={14} className={pct ? "text-yellow-600" : "text-red-600"} />
+      : <AlertCircle size={14} className={pct ? "text-yellow-600" : "text-red-600"} />;
 
-  /* save ----------------------------------------------------------------- */
+  /* ⑥ 保存 */
   const handleSave = async () => {
-    /* zod 検証 */
-    const parse = schema.safeParse(profile)
-    if (!parse.success) {
-      const fieldErr: typeof errors = {}
-      parse.error.errors.forEach(e => {
-        const k = e.path[0] as keyof FormValues
-        fieldErr[k] = e.message
-      })
-      setErrors(fieldErr)
-      toast({ title: "入力エラーがあります", variant: "destructive" })
-      return
+    const parsed = schema.safeParse(profile);
+    if (!parsed.success) {
+      const obj: typeof fieldErrs = {};
+      parsed.error.errors.forEach(e => {
+        const k = e.path[0] as keyof FormValues;
+        obj[k] = e.message;
+      });
+      setFieldErrs(obj);
+      toast({ title: "入力エラーがあります", variant: "destructive" });
+      return;
     }
+    setFieldErrs({});
+    await save();
+    setSavedToast(true);
+  };
 
-    setErrors({})
-    await save()
-    setSavedToast(true)
-  }
-  /* ================= RENDER ============================================ */
+
+  /* ================= RENDER ========================================== */
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8">
-      {/* --- header ------------------------------------------------------- */}
+      {/* ---------- header ---------- */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
-        {/* row */}
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold sm:text-2xl">マイプロフィール</h1>
@@ -199,7 +198,6 @@ export default function StudentProfilePage() {
             </p>
           </div>
 
-          {/* action buttons */}
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" className="h-8 sm:h-10" onClick={resetLocal}>
@@ -208,7 +206,7 @@ export default function StudentProfilePage() {
               <Button className="h-8 sm:h-10" disabled={saving} onClick={handleSave}>
                 {saving ? (
                   <>
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
+                    <span className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     保存中…
                   </>
                 ) : (
@@ -225,21 +223,21 @@ export default function StudentProfilePage() {
           )}
         </div>
 
-        {/* progress bar */}
+        {/* progress */}
         <div className="mb-2 flex items-center justify-between text-sm">
           <span>プロフィール完成度</span>
-          <span className="font-semibold">{completionRate}%</span>
+          <span className="font-semibold">{completionScore}%</span>
         </div>
-        <Progress value={completionRate} className={`h-2 ${getBarColor(completionRate)}`} />
+        <Progress value={completionScore} className={`h-2 ${getBarColor(completionScore)}`} />
 
         {/* section chips */}
         <div className="mt-4 grid grid-cols-3 gap-2">
           {(['basic', 'pr', 'pref'] as const).map((s) => {
-            const pct = sectionDone[s] ? 100 : 0
-            const names = { basic: '基本情報', pr: '自己PR', pref: '希望条件' }
+            const pct = sectionDone[s] ? 100 : 0;
+            const names = { basic: '基本情報', pr: '自己PR', pref: '希望条件' };
             const icons = {
               basic: <User size={14} />, pr: <FileText size={14} />, pref: <Target size={14} />,
-            }
+            };
             return (
               <button
                 key={s}
@@ -252,16 +250,15 @@ export default function StudentProfilePage() {
                   {icons[s]} {names[s]}
                 </span>
                 <span className="flex items-center gap-1">
-                  {pct}%
-                  <Status pct={pct} />
+                  {pct}% <Status pct={pct} />
                 </span>
               </button>
-            )
+            );
           })}
         </div>
       </div>
 
-      {/* --- tabs --------------------------------------------------------- */}
+      {/* ---------- tabs ---------- */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="space-y-6">
         <TabsList className="hidden" /> {/* トリガは上で自作したので隠す */}
 
@@ -547,8 +544,8 @@ export default function StudentProfilePage() {
         <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Progress value={completionRate} className={`h-2 w-24 ${getBarColor(completionRate)}`} />
-              <span className="text-xs sm:text-sm">{completionRate}% 完了</span>
+            <Progress value={completionScore} className={`h-2 w-24 ${getBarColor(completionScore)}`} />
+            <span className="text-xs sm:text-sm">{completionScore}% 完了</span>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={resetLocal} className="h-8 sm:h-10">
