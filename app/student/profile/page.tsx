@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
-  GraduationCap, Code, ChevronUp, Info,
+  GraduationCap, Code, ChevronUp, Info, Loader2,
 } from "lucide-react";
 import { z } from "zod";
 import { toast } from "@/components/ui/use-toast";
@@ -41,31 +41,25 @@ const schema = z.object({
   pr_text:    z.string().max(800, "自己PRは800文字以内"),
 });
 
-/* reusable mini-components ------------------------------------------------ */
+/* ---------------- mini-components ---------------- */
 type FieldInputProps = {
-  id: string;
-  label: string;
+  id: string; label: string; value: string | number;
   type?: React.HTMLInputTypeAttribute;
-  value: string | number;
-  disabled: boolean;
-  placeholder?: string;
+  disabled: boolean; placeholder?: string;
   onChange: (v: string) => void;
-  required?: boolean;
-  error?: string;
+  required?: boolean; error?: string;
 };
 const FieldInput = ({
-  id, label, type = "text", value, disabled, placeholder, onChange, required, error,
+  id, label, type = "text", value, disabled,
+  placeholder, onChange, required, error,
 }: FieldInputProps) => (
   <div className="space-y-1">
     <Label htmlFor={id} className="text-xs sm:text-sm">
       {label}{required && <span className="text-red-500">*</span>}
     </Label>
     <Input
-      id={id}
-      type={type}
-      disabled={disabled}
-      placeholder={placeholder}
-      value={value}
+      id={id} type={type} disabled={disabled}
+      placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`h-8 text-xs sm:h-10 sm:text-sm ${error && "border-red-500"}`}
     />
@@ -74,18 +68,13 @@ const FieldInput = ({
 );
 
 type FieldTextareaProps = {
-  id: string;
-  label: string;
-  value: string;
-  rows?: number;
-  disabled: boolean;
-  max?: number;
-  placeholder?: string;
-  onChange: (v: string) => void;
-  error?: string;
+  id: string; label: string; value: string;
+  rows?: number; disabled: boolean; max?: number;
+  placeholder?: string; onChange: (v: string) => void; error?: string;
 };
 const FieldTextarea = ({
-  id, label, value, rows = 4, disabled, max, placeholder, onChange, error,
+  id, label, value, rows = 4, disabled,
+  max, placeholder, onChange, error,
 }: FieldTextareaProps) => (
   <div className="space-y-1">
     <div className="flex items-center justify-between">
@@ -97,30 +86,27 @@ const FieldTextarea = ({
       )}
     </div>
     <Textarea
-      id={id}
-      rows={rows}
-      placeholder={placeholder}
-      disabled={disabled}
-      value={value}
-      maxLength={max}
+      id={id} rows={rows} disabled={disabled} maxLength={max}
+      placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`text-xs sm:text-sm ${error && "border-red-500"}`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
 );
-/* ------------------------------------------------------------------------- */
 
+/* ---------------- 型 ---------------- */
 type FormValues = z.infer<typeof schema>;
 
+/* ====================================================================== */
 export default function StudentProfilePage() {
-  /* 1) auth guard --------------------------------------------------------- */
+  /* 1) 認証ガード */
   const ready = useAuthGuard("student");
-  if (!ready) return null; // ガードが通るまで描画しない
+  if (!ready) return null;
 
-  /* 2) profile hook ------------------------------------------------------- */
+  /* 2) プロフィール取得フック */
   const {
-    data       : profile,
+    data: profile,
     loading,
     error,
     saving,
@@ -130,16 +116,33 @@ export default function StudentProfilePage() {
     resetLocal,
   } = useStudentProfile();
 
-  /* 3) UI state ----------------------------------------------------------- */
+  /* --- ローディング / エラーを早期 return --------------------------------- */
+  if (loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        読み込み中…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="p-4 text-center text-red-600">
+        {error.message}
+      </div>
+    );
+  }
+
+  /* 3) 画面内状態 */
   const [tab, setTab]       = useState<"basic" | "pr" | "pref">("basic");
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [savedToast, setSavedToast] = useState(false);
 
-  /* 4) completion (SQL 由来 0–100) ---------------------------------------- */
-  const { score } = useCompletion("profile");       // <- そのまま受け取る
-  const completion = score ?? 0;                    // ★ null を 0 に丸める
+  /* 4) 完成度 (null → 0 に丸め) */
+  const { score } = useCompletion("profile");
+  const completion = score ?? 0;
 
-  /* chips 用の “入力済みチェック” ----------------------------------------- */
+  /* chips 用入力済み判定 */
   const isFilled = (v: unknown) =>
     Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
 
@@ -157,22 +160,23 @@ export default function StudentProfilePage() {
     }
   }, [savedToast]);
 
-  /* helper UI */
+  /* 色ヘルパー */
   const getBarColor = (pct: number) =>
-    pct < 30 ? "bg-red-500" : pct < 70 ? "bg-yellow-500" : "bg-green-500";
+    pct < 30 ? "bg-red-500"
+    : pct < 70 ? "bg-yellow-500"
+    :            "bg-green-500";
 
   const Status = ({ pct }: { pct: number }) =>
     pct === 100
       ? <CheckCircle2 size={14} className="text-green-600" />
-      : <AlertCircle   size={14} className={pct ? "text-yellow-600" : "text-red-600"} />;
+      : <AlertCircle size={14} className={pct ? "text-yellow-600" : "text-red-600"} />;
 
-  /* save ----------------------------------------------------------------- */
+  /* save */
   const handleSave = async () => {
-    /* zod 検証 */
     const parse = schema.safeParse(profile);
     if (!parse.success) {
       const fieldErr: typeof errors = {};
-      parse.error.errors.forEach(e => {
+      parse.error.errors.forEach((e) => {
         const k = e.path[0] as keyof FormValues;
         fieldErr[k] = e.message;
       });
@@ -191,7 +195,6 @@ export default function StudentProfilePage() {
     <div className="container mx-auto px-4 py-6 sm:py-8">
       {/* --- header ------------------------------------------------------- */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
-        {/* row */}
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold sm:text-2xl">マイプロフィール</h1>
@@ -200,7 +203,6 @@ export default function StudentProfilePage() {
             </p>
           </div>
 
-          {/* action buttons */}
           {editing ? (
             <div className="flex gap-2">
               <Button variant="outline" className="h-8 sm:h-10" onClick={resetLocal}>
@@ -263,10 +265,88 @@ export default function StudentProfilePage() {
       </div>
 
       {/* --- tabs --------------------------------------------------------- */}
-      {/* 以下、元の実装と同じなので省略せず残しています */}
-      {/* BASIC / PR / PREF … (👆 変更なし) */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <TabsList className="hidden" />
 
-      {/* sticky save ------------------------------------------------------ */}
+        {/* ---------- 基本情報 ---------- */}
+        <TabsContent value="basic" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">基本情報</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <FieldInput
+                id="last_name" label="姓" required error={errors.last_name}
+                value={profile.last_name ?? ""} disabled={!editing}
+                onChange={(v) => updateLocal({ last_name: v })}
+              />
+              <FieldInput
+                id="first_name" label="名" required error={errors.first_name}
+                value={profile.first_name ?? ""} disabled={!editing}
+                onChange={(v) => updateLocal({ first_name: v })}
+              />
+              <FieldInput
+                id="university" label="大学名" required error={errors.university}
+                value={profile.university ?? ""} disabled={!editing}
+                onChange={(v) => updateLocal({ university: v })}
+              />
+              <FieldInput
+                id="faculty" label="学部" required error={errors.faculty}
+                value={profile.faculty ?? ""} disabled={!editing}
+                onChange={(v) => updateLocal({ faculty: v })}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------- 自己PR ---------- */}
+        <TabsContent value="pr" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">自己PR</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FieldTextarea
+                id="pr_text" label="自己PR" max={800}
+                value={profile.pr_text ?? ""} disabled={!editing}
+                onChange={(v) => updateLocal({ pr_text: v })}
+                error={errors.pr_text}
+              />
+              <TipBox />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------- 希望条件 ---------- */}
+        <TabsContent value="pref" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">希望条件</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FieldInput
+                id="work_style" label="希望する働き方" placeholder="例）リモート可 / フレックス"
+                value={profile.work_style ?? ""} disabled={!editing}
+                onChange={(v) => updateLocal({ work_style: v })}
+              />
+              <FieldInput
+                id="desired_industries" label="興味のある業界 (カンマ区切り)"
+                placeholder="例）IT,コンサル,メーカー"
+                value={(profile.desired_industries ?? []).join(",")}
+                disabled={!editing}
+                onChange={(v) =>
+                  updateLocal({ desired_industries: v.split(",").map((s) => s.trim()) })
+                }
+              />
+              {Array.isArray(profile.desired_industries) &&
+                <TagPreview items={profile.desired_industries} color="blue" />
+              }
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* --- sticky save -------------------------------------------------- */}
       {editing && (
         <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
           <div className="container mx-auto flex items-center justify-between">
@@ -295,7 +375,7 @@ export default function StudentProfilePage() {
         </footer>
       )}
 
-      {/* toast ------------------------------------------------------------ */}
+      {/* --- toast -------------------------------------------------------- */}
       {savedToast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded bg-green-600 px-3 py-2 text-xs text-white shadow-md">
           保存しました
