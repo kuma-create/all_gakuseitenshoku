@@ -203,8 +203,15 @@ export default function LoginClient() {
     setLoading(true);
     console.log("[handleLogin] called");
 
-    const ok = await login(email, password, tab);
-    console.log("[handleLogin] login() returned", ok);
+    const ok = await login(email, password, tab)
+      .then((v) => {
+        console.log("[handleLogin] resolved", v);
+        return v;
+      })
+      .catch((e) => {
+        console.error("[handleLogin] rejected", e);
+        return false;
+      });
     setLoading(false);
 
     if (ok) {
