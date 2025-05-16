@@ -8,7 +8,7 @@ import { Inter }          from "next/font/google";
 import "./globals.css";
 
 import { Providers }        from "./providers";
-import { Header }           from "@/components/header";
+import Header               from "@/components/header";          // ★ default import に変更
 import { MobileNavigation } from "@/components/mobile-navigation";
 
 const inter = Inter({ subsets: ["latin"] });
