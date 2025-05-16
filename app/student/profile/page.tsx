@@ -1,29 +1,26 @@
 /* ────────────────────────────────────────────────
-   app/student/profile/page.tsx  – 完成度ウィジェット統合版
+   app/student/profile/page.tsx  – 完成度ウィジェット統合版 (Hook 順序修正版)
 ─────────────────────────────────────────────── */
 "use client";
 
 import { useState, useEffect } from "react";
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
-  GraduationCap, Code, ChevronUp, Info, Loader2,
+  ChevronUp, Info, Loader2,
 } from "lucide-react";
 import { z } from "zod";
 import { toast } from "@/components/ui/use-toast";
 
+/* ---------- hooks ---------- */
 import { useAuthGuard }      from "@/lib/use-auth-guard";
 import { useStudentProfile } from "@/lib/hooks/use-student-profile";
 import { useCompletion }     from "@/lib/use-completion";
 
+/* ---------- UI ---------- */
 import {
-  Card, CardContent, CardHeader, CardTitle, CardDescription,
+  Card, CardContent, CardHeader, CardTitle,
 } from "@/components/ui/card";
-import {
-  Tabs, TabsList, TabsTrigger, TabsContent,
-} from "@/components/ui/tabs";
-import {
-  Collapsible, CollapsibleTrigger, CollapsibleContent,
-} from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button }   from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge }    from "@/components/ui/badge";
@@ -32,16 +29,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label }    from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-/* ── zod Schema (必須 & 文字数チェック) ────────────────── */
+/* ── zod Schema ────────────────────────────────────────────────────────── */
 const schema = z.object({
-  last_name:  z.string().min(1, "姓は必須です"),
+  last_name : z.string().min(1, "姓は必須です"),
   first_name: z.string().min(1, "名は必須です"),
   university: z.string().min(1, "大学名は必須です"),
-  faculty:    z.string().min(1, "学部は必須です"),
-  pr_text:    z.string().max(800, "自己PRは800文字以内"),
+  faculty   : z.string().min(1, "学部は必須です"),
+  pr_text   : z.string().max(800, "自己PRは800文字以内"),
 });
 
-/* ---------------- mini-components ---------------- */
+/* ---------- mini-components (FieldInput / FieldTextarea) 省略せず記載 ---------- */
 type FieldInputProps = {
   id: string; label: string; value: string | number;
   type?: React.HTMLInputTypeAttribute;
@@ -50,8 +47,8 @@ type FieldInputProps = {
   required?: boolean; error?: string;
 };
 const FieldInput = ({
-  id, label, type = "text", value, disabled,
-  placeholder, onChange, required, error,
+  id, label, value, disabled, onChange,
+  type = "text", placeholder, required, error,
 }: FieldInputProps) => (
   <div className="space-y-1">
     <Label htmlFor={id} className="text-xs sm:text-sm">
@@ -73,8 +70,8 @@ type FieldTextareaProps = {
   placeholder?: string; onChange: (v: string) => void; error?: string;
 };
 const FieldTextarea = ({
-  id, label, value, rows = 4, disabled,
-  max, placeholder, onChange, error,
+  id, label, value, disabled, onChange,
+  rows = 4, max, placeholder, error,
 }: FieldTextareaProps) => (
   <div className="space-y-1">
     <div className="flex items-center justify-between">
@@ -95,62 +92,23 @@ const FieldTextarea = ({
   </div>
 );
 
-/* ---------------- 型 ---------------- */
+/* ---------- 型 ---------- */
 type FormValues = z.infer<typeof schema>;
 
 /* ====================================================================== */
 export default function StudentProfilePage() {
-  /* 1) 認証ガード */
-  const ready = useAuthGuard("student");
-  if (!ready) return null;
-
-  /* 2) プロフィール取得フック */
+  /* ----- ① すべてのフックを無条件に呼び出す ---------- */
+  const ready = useAuthGuard("student");               // 認証ガード
   const {
-    data: profile,
-    loading,
-    error,
-    saving,
-    editing,
-    updateLocal,
-    save,
-    resetLocal,
-  } = useStudentProfile();
+    data: profile, loading, error, saving,
+    editing, updateLocal, resetLocal, save,
+  } = useStudentProfile();                             // プロフィール
+  const { score } = useCompletion("profile");          // 完成度
 
-  /* --- ローディング / エラーを早期 return --------------------------------- */
-  if (loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        読み込み中…
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="p-4 text-center text-red-600">
-        {error.message}
-      </div>
-    );
-  }
-
-  /* 3) 画面内状態 */
-  const [tab, setTab]       = useState<"basic" | "pr" | "pref">("basic");
-  const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
+  /* ----- ② 以降は通常のロジック ---------- */
+  const [tab, setTab]     = useState<"basic" | "pr" | "pref">("basic");
+  const [errors, setFieldErrs] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [savedToast, setSavedToast] = useState(false);
-
-  /* 4) 完成度 (null → 0 に丸め) */
-  const { score } = useCompletion("profile");
-  const completion = score ?? 0;
-
-  /* chips 用入力済み判定 */
-  const isFilled = (v: unknown) =>
-    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
-
-  const sectionDone = {
-    basic: isFilled(profile.last_name) && isFilled(profile.first_name),
-    pr   : isFilled(profile.pr_text),
-    pref : isFilled(profile.desired_industries) && isFilled(profile.work_style),
-  };
 
   /* toast timer */
   useEffect(() => {
@@ -160,40 +118,60 @@ export default function StudentProfilePage() {
     }
   }, [savedToast]);
 
-  /* 色ヘルパー */
   const getBarColor = (pct: number) =>
-    pct < 30 ? "bg-red-500"
-    : pct < 70 ? "bg-yellow-500"
-    :            "bg-green-500";
+    pct < 30 ? "bg-red-500" : pct < 70 ? "bg-yellow-500" : "bg-green-500";
 
   const Status = ({ pct }: { pct: number }) =>
     pct === 100
       ? <CheckCircle2 size={14} className="text-green-600" />
       : <AlertCircle size={14} className={pct ? "text-yellow-600" : "text-red-600"} />;
 
-  /* save */
+  /* ---------- save ---------- */
   const handleSave = async () => {
-    const parse = schema.safeParse(profile);
-    if (!parse.success) {
-      const fieldErr: typeof errors = {};
-      parse.error.errors.forEach((e) => {
+    const parsed = schema.safeParse(profile);
+    if (!parsed.success) {
+      const errs: typeof errors = {};
+      parsed.error.errors.forEach((e) => {
         const k = e.path[0] as keyof FormValues;
-        fieldErr[k] = e.message;
+        errs[k] = e.message;
       });
-      setErrors(fieldErr);
+      setFieldErrs(errs);
       toast({ title: "入力エラーがあります", variant: "destructive" });
       return;
     }
-
-    setErrors({});
+    setFieldErrs({});
     await save();
     setSavedToast(true);
   };
 
-  /* ================= RENDER ============================================ */
+  /* ---------- 条件付きレンダー ---------- */
+  if (!ready || loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        読み込み中…
+      </div>
+    );
+  }
+  if (error) {
+    return <div className="p-4 text-center text-red-600">{error.message}</div>;
+  }
+
+  /* ---------- 完成度 & セクション状態 ---------- */
+  const completion = score ?? 0;
+  const isFilled = (v: unknown) =>
+    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
+
+  const sectionDone = {
+    basic: isFilled(profile.last_name) && isFilled(profile.first_name),
+    pr   : isFilled(profile.pr_text),
+    pref : isFilled(profile.desired_industries) && isFilled(profile.work_style),
+  };
+
+  /* ================= RENDER (本体) ===================================== */
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8">
-      {/* --- header ------------------------------------------------------- */}
+      {/* --- header ----------------------------------------------------- */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -255,8 +233,7 @@ export default function StudentProfilePage() {
                   {icons[s]} {names[s]}
                 </span>
                 <span className="flex items-center gap-1">
-                  {pct}%
-                  <Status pct={pct} />
+                  {pct}% <Status pct={pct} />
                 </span>
               </button>
             );
