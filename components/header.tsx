@@ -122,7 +122,7 @@ export function Header() {
     <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-zinc-200/70 bg-white/80 px-4 backdrop-blur dark:border-zinc-700/40 dark:bg-zinc-900/80 lg:px-6">
       {/* ----- 左 : ロゴ ----- */}
       <Link href="/" className="flex items-center space-x-2">
-        <Image src="/logo.svg" alt="logo" width={24} height={24} />
+        <Image src="/logo.png" alt="logo" width={120} height={120} />
       </Link>
 
       {/* ----- 中央 : ナビゲーション ----- */}
@@ -167,7 +167,7 @@ export function Header() {
         ) : (
           <>
             <Button asChild variant="ghost" size="sm" className="text-gray-600">
-              <Link href="/login">
+            <Link href="/login">
                 <LogIn className="mr-1 h-4 w-4" />
                 ログイン
               </Link>

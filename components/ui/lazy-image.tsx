@@ -1,18 +1,30 @@
-// src/components/ui/lazy-image.tsx
-import Image, { ImageProps } from "next/image"
+/* src/components/ui/lazy-image.tsx */
+"use client";
 
-/**
- * すべての画像を “遅延 + ブラー” で表示する共通ラッパー
- * - loading="lazy" でビューポート外ロードを後回し
- * - sizes は画面幅ごとの適正サイズを指定（要調整）
- */
-export function LazyImage(props: ImageProps) {
+import Image, { ImageProps } from "next/image";
+
+export function LazyImage({
+  priority,
+  placeholder = "blur",
+  blurDataURL,
+  ...rest
+}: ImageProps) {
+  // priority が無い場合だけ loading="lazy"
+  const loadingAttr =
+    priority || rest.loading ? {} : { loading: "lazy" as const };
+
+  // blurDataURL が無い blur 指定はエラーになるので empty へ
+  const safePlaceholder =
+    placeholder === "blur" && !blurDataURL ? "empty" : placeholder;
+
   return (
     <Image
-      loading="lazy"
-      placeholder="blur"
+      {...rest}
+      priority={priority}
+      placeholder={safePlaceholder as "blur" | "empty" | undefined}
+      blurDataURL={blurDataURL}
       sizes="(max-width:768px) 50vw, 33vw"
-      {...props}
+      {...loadingAttr}
     />
-  )
+  );
 }

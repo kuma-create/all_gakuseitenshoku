@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /* --- ✅ 開発時のデバッグを楽にする ---------------- */
+  productionBrowserSourceMaps: true,  // ←★ 追加
+
+  /* --- 既存設定 ----------------------------------- */
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -16,5 +20,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-
-

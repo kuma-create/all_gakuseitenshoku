@@ -1,29 +1,27 @@
-/* ────────────────────────────────────────────────
-   app/student-dashboard/page.tsx  – 完全版（Null ガード + 早期リダイレクト）
-──────────────────────────────────────────────── */
+/* ------------------------------------------------------------------
+   app/student-dashboard/page.tsx  – フック順が変わらない最終版
+------------------------------------------------------------------ */
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import Image          from "next/image";
-import Link           from "next/link";
-import { useRouter }  from "next/navigation";
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
+import Link  from "next/link";
+import { useRouter } from "next/navigation";
 
-import { supabase }        from "@/lib/supabase/client";
-import { useAuth }         from "@/lib/auth-context";
-import { useAuthGuard }    from "@/lib/use-auth-guard";
-import type { Database }   from "@/lib/supabase/types";
+import { supabase }      from "@/lib/supabase/client";
+import { useAuth }       from "@/lib/auth-context";
+import { useAuthGuard }  from "@/lib/use-auth-guard";
+import type { Database } from "@/lib/supabase/types";
 
 import {
-  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
+  Card, CardContent, CardDescription, CardFooter,
+  CardHeader, CardTitle,
 } from "@/components/ui/card";
-import { Button }  from "@/components/ui/button";
-import { Badge }   from "@/components/ui/badge";
-import {
-  Sheet, SheetContent, SheetTrigger,
-} from "@/components/ui/sheet";
+import { Button }   from "@/components/ui/button";
+import { Badge }    from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProfileCompletionCard } from "@/components/ProfileCompletionCard";
 import { useProfileCompletion }  from "@/lib/hooks/useProfileCompletion";
-
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
   Edit, Camera, BellDot, Menu,
@@ -32,131 +30,123 @@ import {
 /* ---------- 型 ---------- */
 type Stats = { scouts: number; applications: number; chatRooms: number };
 type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"];
-
 type GrandPrix = { id: string; title: string; banner_url?: string | null };
-
 type Scout = {
-  id: string;
-  company_id: string;
-  company_name: string | null;
-  created_at: string;
-  is_read: boolean;
+  id: string; company_id: string; company_name: string | null;
+  created_at: string; is_read: boolean;
 };
 
 /* ===============================================================
    メインページ
 ================================================================ */
 export default function StudentDashboard() {
-  /* 0) 認証関連 ------------------------------------------------ */
-  const authChecked = useAuthGuard("student"); // RLS が student 以外なら弾く
-  const { user } = useAuth();                  // null になる可能性あり
-  const router   = useRouter();
+  /* ---- ① 認証関連 & 基本フック ------------------------------ */
+  const router       = useRouter();
+  const { user }     = useAuth();
+  const authChecked  = useAuthGuard("student");
 
-  /* 1) user がいないときは /login へ移動して描画を打ち切り ---------- */
-  if (authChecked && !user) {
-    router.replace("/login");
-    return null;
-  }
-
-  /* 2) 状態 ---------------------------------------------------- */
+  /* ---- ② ここで **すべての useState / useEffect** を宣言 ---- */
+  /* state */
   const [stats,     setStats]  = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 });
   const [statsLoad, setSL]     = useState(true);
   const [grandPrix, setGP]     = useState<GrandPrix[]>([]);
   const [offers,    setOffers] = useState<Scout[]>([]);
   const [cardsLoad, setCL]     = useState(true);
 
-  /* 3) Supabase fetch ------------------------------------------ */
+  /* 未ログインなら副作用でリダイレクト */
   useEffect(() => {
-    if (!user?.id) return;               // ← ここでも null ガード
+    if (authChecked && !user) router.replace("/login");
+  }, [authChecked, user, router]);
+
+  /* Supabase fetch（user.id がある時だけ動く） */
+  useEffect(() => {
+    if (!user?.id) return;
     const studentId = user.id;
 
     (async () => {
-      /* ---- ① Stats ---- */
+      /* stats */
       setSL(true);
       const [
         { count: scoutsCnt },
         { count: appsCnt },
         { count: roomsCnt },
       ] = await Promise.all([
-        supabase.from("scouts")       .select("id", { head: true, count: "exact" }).eq("student_id", studentId),
-        supabase.from("applications") .select("id", { head: true, count: "exact" }).eq("student_id", studentId),
-        supabase.from("chat_rooms")   .select("id", { head: true, count: "exact" }).eq("student_id", studentId),
+        supabase.from("scouts").select("id", { head: true, count: "exact" }).eq("student_id", studentId),
+        supabase.from("applications").select("id", { head: true, count: "exact" }).eq("student_id", studentId),
+        supabase.from("chat_rooms").select("id", { head: true, count: "exact" }).eq("student_id", studentId),
       ]);
-      setStats({
-        scouts: scoutsCnt ?? 0,
-        applications: appsCnt ?? 0,
-        chatRooms: roomsCnt ?? 0,
-      });
+      setStats({ scouts: scoutsCnt ?? 0, applications: appsCnt ?? 0, chatRooms: roomsCnt ?? 0 });
       setSL(false);
 
-      /* ---- ② GrandPrix & Offers ---- */
+      /* grand prix & offers */
       setCL(true);
-      const [{ data: gpRaw }, { data: offerRaw }] = await Promise.all([
-        supabase
-          .from("challenges")
-          .select("id,title,deadline")       // ★ alias 不使用なので 400 は出ない
-          .order("deadline", { ascending: true })
-          .limit(3),
-        supabase
-          .from("scouts")
-          .select("id,company_id,is_read,created_at,companies(name)")
-          .eq("student_id", studentId)
-          .order("created_at", { ascending: false })
-          .limit(5),
+      const [{ data: gpRaw }, { data: offersRaw }] = await Promise.all([
+        supabase.from("challenges")
+                .select("id,title,deadline")
+                .order("deadline", { ascending: true })
+                .limit(3),
+        supabase.from("scouts")
+                .select("id,company_id,is_read,created_at,companies(name)")
+                .eq("student_id", studentId)
+                .order("created_at", { ascending: false })
+                .limit(5),
       ]);
 
-      const gpData: GrandPrix[] = (gpRaw as ChallengeRow[] | null)?.map((c) => ({
-        id:    c.id,
-        title: c.title,
-        banner_url: null,              // バナーは別フェッチ前提
-      })) ?? [];
+      setGP(
+        (gpRaw as ChallengeRow[] | null)?.map(c => ({
+          id: c.id, title: c.title, banner_url: null,
+        })) ?? [],
+      );
 
-      const offersData: Scout[] = (offerRaw as any[] | null)?.map((r) => ({
-        id:            r.id,
-        company_id:    r.company_id,
-        company_name:  r.companies?.name ?? null,
-        created_at:    r.created_at,
-        is_read:       r.is_read,
-      })) ?? [];
-
-      setGP(gpData);
-      setOffers(offersData);
+      setOffers(
+        (offersRaw as any[] | null)?.map(r => ({
+          id: r.id,
+          company_id  : r.company_id,
+          company_name: r.companies?.name ?? null,
+          created_at  : r.created_at,
+          is_read     : r.is_read,
+        })) ?? [],
+      );
       setCL(false);
     })();
   }, [user?.id]);
 
-  /* 4) 戻ったときに再フェッチ（Next.js の router.refresh）------ */
+  /* 戻ったときに再フェッチ */
   useEffect(() => router.refresh(), [router]);
 
-  /* 5) 認証チェック中ローディング ------------------------------- */
-  if (!authChecked) {
+  /* ---- ③ 認証チェック中・未ログイン時のプレースホルダ -------- */
+  if (!authChecked || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-red-600 border-t-transparent" />
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full
+                          border-4 border-red-600 border-t-transparent" />
           <p>認証確認中…</p>
         </div>
       </div>
     );
   }
 
-  /* 6) 画面描画 ------------------------------------------------- */
+  /* ---- ④ ここから下は “ログイン済み” 専用 UI -------------- */
   return (
     <main className="container mx-auto space-y-10 px-4 py-8">
-      <GreetingHero userName={user?.name ?? "学生"} />
+      <GreetingHero userName={user.name ?? "学生"} />
 
-      {/* 3 カラム */}
       <section className="grid gap-6 md:grid-cols-12">
         <div className="md:col-span-3">
-          {user && <ProfileCard userId={user.id} />}
+          <ProfileCard userId={user.id} />
         </div>
 
         <div className="md:col-span-6">
-          {cardsLoad ? <SkeletonCard height={260} /> : <GrandPrixSlider events={grandPrix} />}
+          {cardsLoad
+            ? <SkeletonCard height={260} />
+            : <GrandPrixSlider events={grandPrix} />}
         </div>
 
         <div className="md:col-span-3">
-          {cardsLoad ? <SkeletonCard height={260} /> : <OffersList offers={offers} />}
+          {cardsLoad
+            ? <SkeletonCard height={260} />
+            : <OffersList offers={offers} />}
         </div>
       </section>
 
