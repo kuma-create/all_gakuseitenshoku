@@ -52,7 +52,7 @@ const adminMain: NavItem[] = [
 ];
 
 /* --------------------- Header ------------------------- */
-export default function header() {
+export default function Header() {
   const pathname          = usePathname();
   const [session, setSes] = useState<Session | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
