@@ -1,12 +1,14 @@
 /* ------------------------------------------------------------------
-   app/student-dashboard/page.tsx  – フック順が変わらない最終版
+   app/student-dashboard/page.tsx  – v0 レイアウト反映版
 ------------------------------------------------------------------ */
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
-import Link  from "next/link";
+import Image       from "next/image";
+import Link        from "next/link";
 import { useRouter } from "next/navigation";
+import { format }  from "date-fns";
+import { ja }      from "date-fns/locale";
 
 import { supabase }      from "@/lib/supabase/client";
 import { useAuth }       from "@/lib/auth-context";
@@ -29,11 +31,19 @@ import {
 
 /* ---------- 型 ---------- */
 type Stats = { scouts: number; applications: number; chatRooms: number };
+
 type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"];
 type GrandPrix = { id: string; title: string; banner_url?: string | null };
+
 type Scout = {
-  id: string; company_id: string; company_name: string | null;
-  created_at: string; is_read: boolean;
+  id: string;
+  company_id: string;
+  company_name: string | null;
+  company_logo: string | null;
+  position: string | null;
+  message: string | null;
+  created_at: string;
+  is_read: boolean;
 };
 
 /* ===============================================================
@@ -45,76 +55,87 @@ export default function StudentDashboard() {
   const { user }     = useAuth();
   const authChecked  = useAuthGuard("student");
 
-  /* ---- ② ここで **すべての useState / useEffect** を宣言 ---- */
-  /* state */
-  const [stats,     setStats]  = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 });
-  const [statsLoad, setSL]     = useState(true);
-  const [grandPrix, setGP]     = useState<GrandPrix[]>([]);
+  /* ---- ② state ------------------------------------------------ */
+  const [stats,  setStats]  = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 });
+  const [statsLoad, setSL]  = useState(true);
+
+  const [grandPrix, setGP]  = useState<GrandPrix[]>([]);
   const [offers,    setOffers] = useState<Scout[]>([]);
   const [cardsLoad, setCL]     = useState(true);
 
-  /* 未ログインなら副作用でリダイレクト */
+  /* ---- ③ 未ログインならリダイレクト -------------------------- */
   useEffect(() => {
     if (authChecked && !user) router.replace("/login");
   }, [authChecked, user, router]);
 
-  /* Supabase fetch（user.id がある時だけ動く） */
+  /* ---- ④ Supabase fetch -------------------------------------- */
   useEffect(() => {
     if (!user?.id) return;
     const studentId = user.id;
 
     (async () => {
-      /* stats */
+      /* ---- stats ---- */
       setSL(true);
       const [
         { count: scoutsCnt },
         { count: appsCnt },
         { count: roomsCnt },
       ] = await Promise.all([
-        supabase.from("scouts").select("id", { head: true, count: "exact" }).eq("student_id", studentId),
-        supabase.from("applications").select("id", { head: true, count: "exact" }).eq("student_id", studentId),
-        supabase.from("chat_rooms").select("id", { head: true, count: "exact" }).eq("student_id", studentId),
+        supabase.from("scouts")
+          .select("id", { head: true, count: "exact" })
+          .eq("student_id", studentId),
+        supabase.from("applications")
+          .select("id", { head: true, count: "exact" })
+          .eq("student_id", studentId),
+        supabase.from("chat_rooms")
+          .select("id", { head: true, count: "exact" })
+          .eq("student_id", studentId),
       ]);
       setStats({ scouts: scoutsCnt ?? 0, applications: appsCnt ?? 0, chatRooms: roomsCnt ?? 0 });
       setSL(false);
 
-      /* grand prix & offers */
+      /* ---- grand prix & offers ---- */
       setCL(true);
       const [{ data: gpRaw }, { data: offersRaw }] = await Promise.all([
         supabase.from("challenges")
-                .select("id,title,deadline")
-                .order("deadline", { ascending: true })
-                .limit(3),
+          .select("id,title,deadline")
+          .order("deadline", { ascending: true })
+          .limit(3),
         supabase.from("scouts")
-                .select("id,company_id,is_read,created_at,companies(name)")
-                .eq("student_id", studentId)
-                .order("created_at", { ascending: false })
-                .limit(5),
+          .select("id,company_id,message,is_read,created_at,companies(name,logo),jobs(title)")
+          .eq("student_id", studentId)
+          .order("created_at", { ascending: false })
+          .limit(10),
       ]);
 
       setGP(
         (gpRaw as ChallengeRow[] | null)?.map(c => ({
-          id: c.id, title: c.title, banner_url: null,
+          id: c.id,
+          title: c.title,
+          banner_url: null,
         })) ?? [],
       );
 
       setOffers(
         (offersRaw as any[] | null)?.map(r => ({
           id: r.id,
-          company_id  : r.company_id,
-          company_name: r.companies?.name ?? null,
-          created_at  : r.created_at,
-          is_read     : r.is_read,
+          company_id    : r.company_id,
+          company_name  : r.companies?.name ?? null,
+          company_logo  : r.companies?.logo ?? null,
+          position      : r.jobs?.title ?? null,
+          message       : r.message ?? null,
+          created_at    : r.created_at,
+          is_read       : r.is_read,
         })) ?? [],
       );
       setCL(false);
     })();
   }, [user?.id]);
 
-  /* 戻ったときに再フェッチ */
+  /* ---- ⑤ 戻ったら再フェッチ ---------------------------------- */
   useEffect(() => router.refresh(), [router]);
 
-  /* ---- ③ 認証チェック中・未ログイン時のプレースホルダ -------- */
+  /* ---- ⑥ 認証判定中／未ログイン ------------------------------ */
   if (!authChecked || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -127,30 +148,30 @@ export default function StudentDashboard() {
     );
   }
 
-  /* ---- ④ ここから下は “ログイン済み” 専用 UI -------------- */
+  /* ---- ⑦ 画面 ------------------------------------------------ */
   return (
     <main className="container mx-auto space-y-10 px-4 py-8">
+      {/* ---- Greeting ---- */}
       <GreetingHero userName={user.name ?? "学生"} />
 
-      <section className="grid gap-6 md:grid-cols-12">
-        <div className="md:col-span-3">
+      {/* ---- 1:2 レイアウト ---- */}
+      <section className="grid gap-8 md:grid-cols-3">
+        {/* ---------- 左 1/3 ---------- */}
+        <div className="space-y-6">
           <ProfileCard userId={user.id} />
-        </div>
-
-        <div className="md:col-span-6">
           {cardsLoad
             ? <SkeletonCard height={260} />
-            : <GrandPrixSlider events={grandPrix} />}
+            : <GrandPrixCard events={grandPrix} />}
         </div>
 
-        <div className="md:col-span-3">
+        {/* ---------- 右 2/3 ---------- */}
+        <div className="md:col-span-2 space-y-6">
           {cardsLoad
-            ? <SkeletonCard height={260} />
-            : <OffersList offers={offers} />}
+            ? <SkeletonCard height={420} />
+            : <OffersCard offers={offers} />}
+          <StatCards stats={stats} loading={statsLoad} />
         </div>
       </section>
-
-      <StatCards stats={stats} loading={statsLoad} />
     </main>
   );
 }
@@ -209,7 +230,7 @@ function ProfileCard({ userId }: { userId: string }) {
   const { score: completion = 0 } = useProfileCompletion() ?? {};
   const [saving,    setSaving] = useState(false);
 
-  /* 初回 fetch：名前 & アバターだけ */
+  /* 初回 fetch：名前 & アイコン */
   useEffect(() => {
     (async () => {
       const { data: p } = await supabase
@@ -218,14 +239,11 @@ function ProfileCard({ userId }: { userId: string }) {
         .eq("user_id", userId)
         .maybeSingle();
 
-      /* 表示名 */
       const display =
         p?.full_name ||
         `${p?.last_name ?? ""} ${p?.first_name ?? ""}`.trim() ||
         "学生";
       setName(display);
-
-      /* アイコン */
       setAvatar(p?.avatar ?? p?.profile_image ?? null);
     })();
   }, [userId]);
@@ -254,7 +272,7 @@ function ProfileCard({ userId }: { userId: string }) {
       setAvatar(publicUrl);
       setSaving(false);
     },
-    [userId]
+    [userId],
   );
 
   return (
@@ -290,9 +308,7 @@ function ProfileCard({ userId }: { userId: string }) {
 }
 
 function AvatarBlock({
-  url,
-  saving,
-  onUpload,
+  url, saving, onUpload,
 }: {
   url: string | null;
   saving: boolean;
@@ -321,46 +337,38 @@ function AvatarBlock({
 }
 
 /* ================================================================
-   GrandPrixSlider – 3 件横スライド
+   GrandPrixCard – 左カラム用シンプルカード
 ================================================================ */
-function GrandPrixSlider({ events }: { events: GrandPrix[] }) {
-  if (!events.length) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center text-gray-600">
-          現在開催中の就活グランプリはありません
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
+function GrandPrixCard({ events }: { events: GrandPrix[] }) {
+  return events.length === 0 ? (
+    <Card>
+      <CardContent className="p-6 text-center text-gray-600">
+        現在開催中の就活グランプリはありません
+      </CardContent>
+    </Card>
+  ) : (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">開催中の就活グランプリ</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex snap-x gap-4 overflow-x-auto pb-2">
-          {events.map((e) => (
-            <Link
-              key={e.id}
-              href={`/grandprix/${e.id}`}
-              className="snap-center w-64 shrink-0 overflow-hidden rounded-lg shadow transition-shadow hover:shadow-md"
-            >
-              <div className="relative h-36 w-full">
-                <Image
-                  src={e.banner_url ?? "/placeholder-banner.jpg"}
-                  alt={e.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="p-3">
-                <h3 className="line-clamp-2 font-semibold">{e.title}</h3>
-              </div>
-            </Link>
-          ))}
-        </div>
+      <CardContent className="space-y-3">
+        {events.map((e) => (
+          <Link
+            key={e.id}
+            href={`/grandprix/${e.id}`}
+            className="flex items-center gap-3 rounded-md p-2 hover:bg-gray-50"
+          >
+            <div className="relative h-10 w-16 flex-shrink-0 overflow-hidden rounded">
+              <Image
+                src={e.banner_url ?? "/placeholder-banner.jpg"}
+                alt={e.title}
+                fill
+                className="object-cover"
+              />
+            </div>
+            <span className="line-clamp-2 text-sm font-medium">{e.title}</span>
+          </Link>
+        ))}
       </CardContent>
       <CardFooter className="justify-end bg-gray-50">
         <LinkButton href="/grandprix">一覧を見る</LinkButton>
@@ -370,37 +378,92 @@ function GrandPrixSlider({ events }: { events: GrandPrix[] }) {
 }
 
 /* ================================================================
-   OffersList – 最新オファー
+   OffersCard – 右 2/3 カラムのメインカード
 ================================================================ */
-function OffersList({ offers }: { offers: Scout[] }) {
+function OffersCard({ offers }: { offers: Scout[] }) {
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg">最新のオファー</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle className="text-xl font-bold">最新のオファー</CardTitle>
+          <CardDescription>企業からのオファーが届いています</CardDescription>
+        </div>
+        {offers.filter(o => !o.is_read).length > 0 && (
+          <div className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-600">
+            {offers.filter(o => !o.is_read).length}件の新着
+          </div>
+        )}
       </CardHeader>
-      <CardContent className="space-y-3">
+
+      <CardContent className="space-y-4">
         {offers.length === 0 && (
           <p className="text-sm text-gray-600">まだオファーは届いていません</p>
         )}
-        {offers.map((o) => (
+
+        {offers.map((offer) => (
           <Link
-            key={o.id}
-            href={`/offers/${o.company_id}`}
-            className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-gray-50"
+            key={offer.id}
+            href={`/offers/${offer.company_id}`}
+            className="relative flex gap-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
           >
-            <span className="truncate text-sm">
-              {o.company_name ?? "名称未設定の企業"}
-            </span>
-            {o.is_read ? (
-              <ChevronRight className="h-4 w-4 text-gray-400" />
-            ) : (
-              <BellDot className="h-4 w-4 text-red-600" />
+            {!offer.is_read && (
+              <div className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-500" />
             )}
+
+            <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+              <Image
+                src={offer.company_logo ?? "/placeholder.svg"}
+                alt={`${offer.company_name ?? "企業"}のロゴ`}
+                width={48}
+                height={48}
+                className="h-full w-full object-cover"
+              />
+            </div>
+
+            <div className="flex-1">
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="font-bold text-gray-900">
+                  {offer.company_name ?? "名称未設定の企業"}
+                </h3>
+                {offer.position && (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    {offer.position}
+                  </span>
+                )}
+              </div>
+
+              {offer.message && (
+                <p className="text-sm font-medium text-gray-700 line-clamp-2">
+                  {offer.message}
+                </p>
+              )}
+
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-gray-500">
+                  {format(new Date(offer.created_at), "yyyy年M月d日", { locale: ja })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-red-600 hover:text-red-700"
+                >
+                  詳細を見る
+                </Button>
+              </div>
+            </div>
           </Link>
         ))}
       </CardContent>
-      <CardFooter className="justify-end bg-gray-50">
-        <LinkButton href="/offers">詳細を見る</LinkButton>
+
+      <CardFooter>
+        <Link href="/offers" className="w-full">
+          <Button
+            variant="outline"
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            全てのオファーを見る
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );
@@ -478,14 +541,8 @@ function StatCard(props: {
 }
 
 function Stat({
-  label,
-  value,
-  badge = false,
-}: {
-  label: string;
-  value: number;
-  badge?: boolean;
-}) {
+  label, value, badge = false,
+}: { label: string; value: number; badge?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-1">
       <span className="text-sm text-gray-500">{label}</span>
