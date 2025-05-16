@@ -29,7 +29,7 @@ type NavItem = { href: string; label: string; icon: React.ElementType };
 
 /* --------------------- 役割別メニュー ------------------ */
 const studentMain: NavItem[] = [
-  { href: "/mypage",        label: "マイページ", icon: LayoutDashboard },
+  { href: "/student-dashboard",        label: "マイページ", icon: LayoutDashboard },
   { href: "/jobs",          label: "求人",       icon: Search },
   { href: "/student/scouts",label: "スカウト",   icon: Mail },
   { href: "/chat",          label: "チャット",   icon: MessageSquare },
@@ -97,13 +97,12 @@ export default function Header() {
         {/* ---------- 左：ロゴ ---------- */}
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="Make Culture"
             width={24}
             height={24}
             className="rounded-md"
           />
-          <span className="font-bold">学生転職</span>
         </Link>
 
         {/* ---------- PC：ナビ ---------- */}
