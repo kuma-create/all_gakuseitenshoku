@@ -211,8 +211,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, pw: string, role: RoleOption) => {
     clearError();
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+      /* --- Supabase サインイン --- */
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: pw,
+      });
+
+      console.log("[login result]", { data, error }); // ← 追加デバッグ出力
+
       if (error) throw error;
+      /* data.session が null でも listener が applySession を呼ぶので OK */
       return true;
     } catch (e: any) {
       setError(e.message ?? "ログインに失敗しました");
