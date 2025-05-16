@@ -1,27 +1,41 @@
 /* ------------------------------------------------------------------
    components/header.tsx
    – 2025-05-16: 未ログイン時はパブリックヘッダーのみ表示
+   – 2025-05-16: student マイページをホバーで開き、クリックで遷移
+   – 2025-05-18: DropdownMenuContent の portalled エラー修正
 ------------------------------------------------------------------*/
 "use client";
 
 import { useEffect, useState } from "react";
 import Image      from "next/image";
 import Link       from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Search, Mail, MessageSquare, LogIn,
-  Menu, User, Briefcase, LogOut, ChevronDown,
+  LayoutDashboard,
+  Search,
+  Mail,
+  MessageSquare,
+  LogIn,
+  Menu,
+  User,
+  Briefcase,
+  LogOut,
+  ChevronDown,
 } from "lucide-react";
 import {
-  Sheet, SheetContent, SheetTrigger,
+  Sheet,
+  SheetContent,
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu,
   DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase/client";
+import { Button }    from "@/components/ui/button";
+import { useAuth }   from "@/lib/auth-context";
+import { supabase }  from "@/lib/supabase/client";
 
 /* ---------- 型 ---------- */
 type NavItem = { href: string; label: string; icon: React.ElementType };
@@ -51,9 +65,11 @@ const adminMain: NavItem[] = [
 
 /* ===================================================================== */
 export default function Header() {
-  const pathname = usePathname();
+  const pathname    = usePathname();
+  const router      = useRouter();
   const { ready, isLoggedIn, userType, user, logout } = useAuth();
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatar, setAvatar]  = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   /* Avatar 取得（student のみ・ログイン時のみ） */
   useEffect(() => {
@@ -75,16 +91,15 @@ export default function Header() {
   const main =
     userType === "company" ? companyMain
     : userType === "admin"   ? adminMain
-    : studentMain; // student or null の場合
+    : studentMain; // student もしくは null
 
-  /* ---------- Provider の判定が終わるまではプレースホルダだけ ---------- */
+  /* Provider の判定が終わるまではプレースホルダだけ */
   if (!ready) {
     return (
       <header className="sticky top-0 z-30 h-14 border-b bg-white/70 backdrop-blur" />
     );
   }
 
-  /* =================================================================== */
   return (
     <header className="sticky top-0 z-30 border-b bg-white/70 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
@@ -96,45 +111,70 @@ export default function Header() {
         {/* -------- PC ナビ（ログイン時のみ） -------- */}
         {isLoggedIn && (
           <nav className="hidden gap-6 md:flex">
-            {main.map(({ href, label, icon: Icon }) =>
-              label === "マイページ" && userType === "student" ? (
-                /* ▼ マイページはドロップダウン */
-                <DropdownMenu key="mypage">
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={`flex items-center gap-1 text-sm
-                        ${pathname.startsWith("/student-dashboard")
-                          ? "font-semibold"
-                          : "text-gray-600 hover:text-gray-900"}`}
+            {main.map(({ href, label, icon: Icon }) => {
+              // --- student の「マイページ」だけドロップダウン化 ---
+              if (label === "マイページ" && userType === "student") {
+                return (
+                  <DropdownMenu
+                    key="mypage"
+                    open={menuOpen}
+                    onOpenChange={setMenuOpen}
+                  >
+                    <div
+                      onMouseEnter={() => setMenuOpen(true)}
+                      onMouseLeave={() => setMenuOpen(false)}
+                      className="relative"
                     >
-                      <Icon size={16} />
-                      {label}
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {studentSub.map(({ href, label }) => (
-                      <DropdownMenuItem asChild key={href}>
-                        <Link href={href}>{label}</Link>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                /* ▼ 通常リンク */
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={() => router.push("/student-dashboard")}
+                          className={`flex items-center gap-1 text-sm ${
+                            pathname.startsWith("/student-dashboard")
+                              ? "font-semibold"
+                              : "text-gray-600 hover:text-gray-900"
+                          }`}
+                        >
+                          <Icon size={16} />
+                          {label}
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </DropdownMenuTrigger>
+
+                      {/* portalled プロパティは shadcn ラッパーに存在しないため削除。
+                         forceMount で常時 DOM に残し、軽微なフリッカーを抑制 */}
+                      <DropdownMenuContent
+                        forceMount
+                        sideOffset={4}
+                        align="start"
+                        className="mt-1"
+                      >
+                        {studentSub.map(({ href, label }) => (
+                          <DropdownMenuItem asChild key={href}>
+                            <Link href={href}>{label}</Link>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </div>
+                  </DropdownMenu>
+                );
+              }
+
+              // --- それ以外は通常リンク ---
+              return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-1 text-sm
-                    ${pathname.startsWith(href)
+                  className={`flex items-center gap-1 text-sm ${
+                    pathname.startsWith(href)
                       ? "font-semibold"
-                      : "text-gray-600 hover:text-gray-900"}`}
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
                 >
                   <Icon size={16} />
                   {label}
                 </Link>
-              )
-            )}
+              );
+            })}
           </nav>
         )}
 
@@ -183,14 +223,12 @@ export default function Header() {
               <Menu />
             </Button>
           </SheetTrigger>
-
           <SheetContent side="left" className="w-64">
             <div className="mb-6 flex items-center gap-2">
               <Image src="/logo.png" alt="学生転職" width={24} height={24} />
               <span className="font-bold">学生転職</span>
             </div>
 
-            {/* 未ログイン時はメインメニューを出さずに終了 */}
             {!isLoggedIn ? (
               <div className="space-y-4">
                 <Link
@@ -212,9 +250,7 @@ export default function Header() {
                   {main.map(({ href, label }) =>
                     label === "マイページ" && userType === "student" ? (
                       <div key="sp-mypage" className="space-y-1">
-                        <p className="px-3 py-2 text-sm font-semibold">
-                          マイページ
-                        </p>
+                        <p className="px-3 py-2 text-sm font-semibold">マイページ</p>
                         {studentSub.map(({ href, label }) => (
                           <Link
                             key={href}
@@ -236,8 +272,6 @@ export default function Header() {
                     )
                   )}
                 </nav>
-
-                {/* SP ログアウト */}
                 <hr className="my-3" />
                 <button
                   onClick={logout}

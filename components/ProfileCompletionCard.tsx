@@ -92,7 +92,7 @@ export function ProfileCompletionCard() {
             size="sm"
             className="mt-4 bg-red-600 hover:bg-red-700"
           >
-            <Link href="/onboarding/profile?step=1">プロフィールを編集</Link>
+            <Link href="/student/profile">プロフィールを編集</Link>
           </Button>
         </>
       ) : (

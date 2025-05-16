@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------
-   app/student-dashboard/page.tsx  – v0 レイアウト反映版
+   app/student-dashboard/page.tsx  – 完成度ウィジェット統合版
 ------------------------------------------------------------------ */
 "use client";
 
@@ -22,8 +22,10 @@ import {
 import { Button }   from "@/components/ui/button";
 import { Badge }    from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ProfileCompletionCard } from "@/components/ProfileCompletionCard";
-import { useProfileCompletion }  from "@/lib/hooks/useProfileCompletion";
+
+import { CompletionWidget }         from "@/components/completion-widget";
+import { useCompletion }            from "@/lib/use-completion";
+
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
   Edit, Camera, BellDot, Menu,
@@ -154,6 +156,9 @@ export default function StudentDashboard() {
       {/* ---- Greeting ---- */}
       <GreetingHero userName={user.name ?? "学生"} />
 
+      {/* ---- 統合完成度ウィジェット ---- */}
+      <CompletionWidget scope="overall" />
+
       {/* ---- 1:2 レイアウト ---- */}
       <section className="grid gap-8 md:grid-cols-3">
         {/* ---------- 左 1/3 ---------- */}
@@ -227,7 +232,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 function ProfileCard({ userId }: { userId: string }) {
   const [avatarUrl, setAvatar] = useState<string | null>(null);
   const [name,      setName]   = useState<string>("学生");
-  const { score: completion = 0 } = useProfileCompletion() ?? {};
+  const { score: completion = 0 } = useCompletion("profile");
   const [saving,    setSaving] = useState(false);
 
   /* 初回 fetch：名前 & アイコン */
@@ -289,7 +294,7 @@ function ProfileCard({ userId }: { userId: string }) {
       </CardHeader>
 
       <CardContent>
-        <ProfileCompletionCard />
+        <CompletionWidget scope="profile" />
       </CardContent>
 
       <CardFooter className="flex flex-col gap-2">
