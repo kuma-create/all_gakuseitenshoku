@@ -25,12 +25,8 @@ function initSupabase(req: NextRequest, res: NextResponse) {
 /* ---------- 設定 ---------- */
 const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
 
-/** “ログイン必須” にしたい Grandprix サブパス */
-const LOGIN_REQUIRED_PREFIXES = [
-  "/grandprix/business",
-  "/grandprix/webtest",
-  "/grandprix/case",
-];
+/** 現状 “ログイン必須” にするサブパスはなし */
+const LOGIN_REQUIRED_PREFIXES: string[] = []; // グランプリ系ページも公開扱いにする
 
 /** 誰でも見られるパス（静的 LP など）*/
 const PUBLIC_PREFIXES = [
