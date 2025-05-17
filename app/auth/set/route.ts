@@ -17,7 +17,10 @@ export const revalidate = 0;
  */
 export async function POST(req: NextRequest) {
   /* ---------- Supabase client (Edge) ---------- */
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient<Database>({
+    cookies: () => cookieStore,
+  });
 
   /* ---------- Body ---------- */
   const session = (await req.json()) as
