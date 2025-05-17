@@ -1,8 +1,3 @@
-/* ------------------------------------------------------------------
-   app/email-callback/page.tsx
-   - メールリンクのコールバック
-   - 2025-05-16 fix: exchangeCodeForSession を追加して無限ローディングを解消
------------------------------------------------------------------- */
 "use client";
 export const dynamic = "force-dynamic";
 
@@ -18,15 +13,17 @@ export default function EmailCallbackPage() {
     useState<"loading" | "success" | "error">("loading");
 
   /* -------------------------------------------------------------
-     1. URL に含まれるコードをセッションに交換（必須！！）
+     1. URL に含まれる code をセッションに交換（必須！！）
   ------------------------------------------------------------- */
   useEffect(() => {
     (async () => {
-      /* window.location.href 全体を渡す */
-      const { error } = await supabase.auth.exchangeCodeForSession(
-        window.location.href,
-      );
+      const code = search.get("code");
+      if (!code) {
+        setStatus("error");
+        return;
+      }
 
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (error) {
         console.error("exchangeCodeForSession error:", error);
         setStatus("error");
@@ -34,14 +31,21 @@ export default function EmailCallbackPage() {
       }
 
       /* --------------------------------------------------------
-         2. プロフィール有無でダッシュボード or オンボーディングへ
+         2. next パラメータがあればそこへ、無ければプロフィール判定
       -------------------------------------------------------- */
+      const nextPath = search.get("next");
+      if (nextPath) {
+        router.replace(nextPath);
+        return;
+      }
+
       const {
         data: { user },
+        error: userErr,
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        // 交換は成功したが user を取得できない ⇒ 何かおかしい
+      if (userErr || !user) {
+        console.error("getUser error:", userErr);
         setStatus("error");
         return;
       }
