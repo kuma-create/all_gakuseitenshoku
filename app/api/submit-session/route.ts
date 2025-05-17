@@ -1,3 +1,6 @@
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 // app/api/submit-session/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient }   from "@supabase/auth-helpers-nextjs"
