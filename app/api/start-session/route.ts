@@ -6,6 +6,10 @@ import type { Database } from "@/lib/supabase/types";
 export const runtime = "edge"; // (任意) edge で動かす場合
 
 export async function POST(req: Request) {
+    console.log("Cookie:", req.headers.get("cookie")?.slice(0, 120));
+    const supabase = createRouteHandlerClient<Database>({ cookies });
+    const { data: { user }, error } = await supabase.auth.getUser();
+    console.log("Supabase user:", user, "error:", error);
   try {
     // 受信 JSON を型アサートで取得 (json() は型引数を取らない)
     const { challengeId } = (await req.json()) as { challengeId: string };
