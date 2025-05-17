@@ -19,7 +19,7 @@ export default function Providers({ children }: { children: ReactNode }) {
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session }),
+          body: JSON.stringify({ session }),   // null も送る
         });
       }
     );
