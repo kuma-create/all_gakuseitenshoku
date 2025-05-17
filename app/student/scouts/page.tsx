@@ -64,7 +64,7 @@ export default function ScoutsPage() {
         `
           *,
           companies:companies!scouts_company_id_fkey(name, logo),
-          jobs:jobs(title)
+          jobs:jobs!scouts_job_id_fkey(title)
         `,
       )
       .order("created_at", { ascending: false })
