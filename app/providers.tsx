@@ -13,7 +13,7 @@ export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        fetch("/auth/set", {
+        fetch("/set", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",   // Cookie を受け取る
