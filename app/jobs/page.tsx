@@ -1,31 +1,92 @@
 /* ────────────────────────────────────────────────
    app/jobs/page.tsx  ― 公開中求人一覧 (Client Component)
+   2025‑05‑17 UI/UX overhaul — search / filter / grid‑list toggle
 ──────────────────────────────────────────────── */
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  Briefcase,
+  Building,
+  Calendar,
+  Filter,
+  Heart,
+  MapPin,
+  Search,
+  Star,
+} from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 
-type JobRow = Pick<
-  Database["public"]["Tables"]["jobs"]["Row"],
-  "id" | "title"
->;
+/**
+ * Supabase の `jobs` テーブルには列名の差分があるため、
+ * 必要なフィールドを “optional” で拡張した型を定義して扱う。
+ * これにより TypeScript エラーを抑止しつつ UI 側の項目を
+ * そのまま参照できる。
+ */
+type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
+  companies: { name: string; logo: string | null } | null;
 
+  /** UI で参照している追加カラム（実テーブルに無い場合は undefined） */
+  industry?: string | null;       // 業界
+  job_type?: string | null;       // 職種
+  is_featured?: boolean | null;   // おすすめフラグ
+  tags?: string[] | null;         // タグ配列
+  cover_image_url?: string | null; // カバー画像
+};
+
+const SALARY_MIN = 200;
+const SALARY_MAX = 1200;
+
+/* ────────────────────────────────────────── */
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<JobRow[]>([]);
+  /* ---------------- state ---------------- */
   const [loading, setLoading] = useState(true);
+  const [jobs, setJobs] = useState<JobRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  /* UI filter states */
+  const [search, setSearch] = useState("");
+  const [industry, setIndustry] = useState("all");
+  const [jobType, setJobType] = useState("all");
+  const [salary, setSalary] = useState<[number, number]>([SALARY_MIN, SALARY_MAX]);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  /* ---------------- fetch ----------------- */
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
         .from("jobs")
-        .select("id, title")
+        .select(
+          `
+          id, title, description, created_at,
+          industry, job_type, is_featured, tags,
+          salary_min, salary_max, location, cover_image_url,
+          companies(name,logo)
+        `
+        )
         .eq("published", true)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .returns<JobRow[]>();
 
       if (error) {
         console.error("jobs fetch error", error);
@@ -37,16 +98,76 @@ export default function JobsPage() {
     })();
   }, []);
 
-  /* ------- UI ------- */
+  /* ------------- derived options ---------- */
+  const industries = useMemo(() => {
+    const set = new Set(jobs.map((j) => j.industry).filter(Boolean));
+    return ["all", ...Array.from(set)] as string[];
+  }, [jobs]);
+
+  const jobTypes = useMemo(() => {
+    const set = new Set(jobs.map((j) => j.job_type).filter(Boolean));
+    return ["all", ...Array.from(set)] as string[];
+  }, [jobs]);
+
+  /* ------------- filter logic ------------- */
+  const displayed = useMemo(() => {
+    return jobs.filter((j) => {
+      const q = search.toLowerCase();
+      const matchesQ =
+        q === "" ||
+        j.title?.toLowerCase().includes(q) ||
+        j.companies?.name?.toLowerCase().includes(q) ||
+        j.description?.toLowerCase().includes(q);
+
+      const matchesInd =
+        industry === "all" ||
+        (j.industry ?? "").toLowerCase().includes(industry.toLowerCase());
+
+      const matchesJob =
+        jobType === "all" ||
+        (j.job_type ?? "").toLowerCase().includes(jobType.toLowerCase());
+
+      const min = j.salary_min ?? SALARY_MIN;
+      const max = j.salary_max ?? SALARY_MAX;
+      const matchesSalary = max >= salary[0] && min <= salary[1];
+
+      return matchesQ && matchesInd && matchesJob && matchesSalary;
+    });
+  }, [jobs, search, industry, jobType, salary]);
+
+  /* ------------- helpers ------------------ */
+  const toggleSave = (id: string) =>
+    setSaved((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const tagColor = (tag: string) =>
+    "bg-gray-100 text-gray-800"; // simplified
+
+  /* ------------- UI ----------------------- */
   if (loading) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-3">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <svg
+          className="h-6 w-6 animate-spin text-primary"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+            fill="none"
+            strokeDasharray="60"
+          />
+        </svg>
         読み込み中…
       </div>
     );
   }
-
   if (error) {
     return (
       <main className="container py-8">
@@ -55,29 +176,368 @@ export default function JobsPage() {
     );
   }
 
-  if (!jobs.length) {
-    return (
-      <main className="container py-8">
-        <p>現在公開中の求人はありません。</p>
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* hero */}
+      <header className="bg-gradient-to-r from-red-500 to-red-700 py-8">
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-bold text-white">求人一覧</h1>
+          <p className="text-white/90">
+            あなたにぴったりの求人を探しましょう
+          </p>
+
+          <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative w-full md:max-w-md">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="企業名、職種などで検索"
+                className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            {/* filter toggle (mobile) */}
+            <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 md:hidden"
+                >
+                  <Filter size={16} />
+                  フィルター
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
+                <FilterPanel
+                  industries={industries}
+                  jobTypes={jobTypes}
+                  industry={industry}
+                  setIndustry={setIndustry}
+                  jobType={jobType}
+                  setJobType={setJobType}
+                  salary={salary}
+                  setSalary={setSalary}
+                />
+              </SheetContent>
+            </Sheet>
+
+            {/* grid/list toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={view === "grid" ? "default" : "outline"}
+                size="icon"
+                onClick={() => setView("grid")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  fill="none"
+                >
+                  <rect x="1" y="1" width="6" height="6" />
+                  <rect x="9" y="1" width="6" height="6" />
+                  <rect x="1" y="9" width="6" height="6" />
+                  <rect x="9" y="9" width="6" height="6" />
+                </svg>
+              </Button>
+              <Button
+                variant={view === "list" ? "default" : "outline"}
+                size="icon"
+                onClick={() => setView("list")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  fill="none"
+                >
+                  <line x1="4" y1="4" x2="15" y2="4" />
+                  <line x1="4" y1="8" x2="15" y2="8" />
+                  <line x1="4" y1="12" x2="15" y2="12" />
+                  <circle cx="2" cy="4" r="1" />
+                  <circle cx="2" cy="8" r="1" />
+                  <circle cx="2" cy="12" r="1" />
+                </svg>
+              </Button>
+            </div>
+          </div>
+
+          {/* desktop inline filters */}
+          <div className="mt-4 hidden flex-wrap gap-3 md:flex">
+            <Select value={industry} onValueChange={setIndustry}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="業界" />
+              </SelectTrigger>
+              <SelectContent>
+                {industries.map((i) => (
+                  <SelectItem key={i} value={i}>
+                    {i === "all" ? "すべての業界" : i}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={jobType} onValueChange={setJobType}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="職種" />
+              </SelectTrigger>
+              <SelectContent>
+                {jobTypes.map((j) => (
+                  <SelectItem key={j} value={j}>
+                    {j === "all" ? "すべての職種" : j}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="flex items-center gap-2 text-white">
+              年収
+              <Slider
+                value={salary}
+                onValueChange={(v) => setSalary(v as [number, number])}
+                min={SALARY_MIN}
+                max={SALARY_MAX}
+                step={50}
+                className="w-40"
+              />
+              <span className="text-sm">
+                {salary[0]}万 – {salary[1]}万
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* content */}
+      <main className="container mx-auto px-4 py-8">
+        <Tabs defaultValue="all">
+          <TabsList className="mb-6 grid max-w-md grid-cols-3">
+            <TabsTrigger value="all">すべて</TabsTrigger>
+            <TabsTrigger value="saved">保存済み</TabsTrigger>
+            <TabsTrigger value="new">新着</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="mt-0">
+            <JobGrid
+              jobs={displayed}
+              view={view}
+              saved={saved}
+              toggleSave={toggleSave}
+              tagColor={tagColor}
+            />
+          </TabsContent>
+
+          <TabsContent value="saved" className="mt-0">
+            <JobGrid
+              jobs={displayed.filter((j) => saved.has(j.id))}
+              view={view}
+              saved={saved}
+              toggleSave={toggleSave}
+              tagColor={tagColor}
+            />
+          </TabsContent>
+
+          <TabsContent value="new" className="mt-0">
+            <JobGrid
+              jobs={displayed.filter((j) => {
+                const diff =
+                  (Date.now() - new Date(j.created_at!).getTime()) / 86400000;
+                return diff < 7;
+              })}
+              view={view}
+              saved={saved}
+              toggleSave={toggleSave}
+              tagColor={tagColor}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
+    </div>
+  );
+}
+
+/* =============== components ================ */
+function FilterPanel({
+  industries,
+  jobTypes,
+  industry,
+  setIndustry,
+  jobType,
+  setJobType,
+  salary,
+  setSalary,
+}: {
+  industries: string[];
+  jobTypes: string[];
+  industry: string;
+  setIndustry: (v: string) => void;
+  jobType: string;
+  setJobType: (v: string) => void;
+  salary: [number, number];
+  setSalary: (v: [number, number]) => void;
+}) {
+  return (
+    <div className="space-y-4 py-4">
+      <Select value={industry} onValueChange={setIndustry}>
+        <SelectTrigger>
+          <SelectValue placeholder="業界" />
+        </SelectTrigger>
+        <SelectContent>
+          {industries.map((i) => (
+            <SelectItem key={i} value={i}>
+              {i === "all" ? "すべての業界" : i}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={jobType} onValueChange={setJobType}>
+        <SelectTrigger>
+          <SelectValue placeholder="職種" />
+        </SelectTrigger>
+        <SelectContent>
+          {jobTypes.map((j) => (
+            <SelectItem key={j} value={j}>
+              {j === "all" ? "すべての職種" : j}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <div>
+        <p className="mb-2 text-sm">年収 ({salary[0]}万 – {salary[1]}万)</p>
+        <Slider
+          value={salary}
+          onValueChange={(v) => setSalary(v as [number, number])}
+          min={SALARY_MIN}
+          max={SALARY_MAX}
+          step={50}
+        />
+      </div>
+    </div>
+  );
+}
+
+function JobGrid({
+  jobs,
+  view,
+  saved,
+  toggleSave,
+  tagColor,
+}: {
+  jobs: JobRow[];
+  view: "grid" | "list";
+  saved: Set<string>;
+  toggleSave: (id: string) => void;
+  tagColor: (t: string) => string;
+}) {
+  if (!jobs.length) {
+    return <p className="text-center text-gray-500">該当する求人がありません</p>;
+  }
+
+  if (view === "list") {
+    return (
+      <div className="flex flex-col gap-4">
+        {jobs.map((j) => (
+          <Card key={j.id} className="flex overflow-hidden">
+            {j.cover_image_url && (
+              <Image
+                src={j.cover_image_url}
+                alt="cover"
+                width={160}
+                height={120}
+                className="h-auto w-40 object-cover"
+              />
+            )}
+            <div className="flex flex-1 flex-col gap-2 p-4">
+              <h3 className="text-lg font-bold">{j.title}</h3>
+              <p className="text-sm text-gray-600">
+                {j.companies?.name ?? "-"} / {j.location}
+              </p>
+              <div className="flex gap-1 text-xs text-gray-500">
+                <MapPin size={12} />
+                <span>{j.location}</span>
+                <Briefcase size={12} />
+                <span>
+                  {j.salary_min}万 – {j.salary_max ?? "応相談"}万
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleSave(j.id)}
+            >
+              <Heart
+                className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""}
+              />
+            </Button>
+          </Card>
+        ))}
+      </div>
     );
   }
 
   return (
-    <main className="container py-8 space-y-4">
-      <h1 className="text-2xl font-bold">求人一覧</h1>
-      <ul className="space-y-3">
-        {jobs.map((j) => (
-          <li key={j.id}>
-            <Link
-              href={`/jobs/${j.id}`}
-              className="block rounded border p-4 hover:bg-muted/50"
-            >
-              {j.title}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </main>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {jobs.map((j) => (
+        <Card key={j.id} className="group overflow-hidden">
+          {j.cover_image_url && (
+            <div className="relative h-32 w-full overflow-hidden">
+              <Image
+                src={j.cover_image_url}
+                alt="cover"
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+              {j.is_featured && (
+                <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
+                  <Star size={12} />
+                  おすすめ
+                </div>
+              )}
+            </div>
+          )}
+          <div className="p-4">
+            <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
+            <p className="line-clamp-1 text-sm text-gray-600">
+              {j.companies?.name ?? "-"}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(j.tags ?? [])
+                .slice(0, 3)
+                .map((t) => (
+                  <Badge key={t} className={tagColor(t)}>
+                    {t}
+                  </Badge>
+                ))}
+            </div>
+
+            <div className="mt-3 flex justify-between">
+              <div className="text-xs text-gray-500">
+                {j.salary_min}万 – {j.salary_max ?? "応相談"}万
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => toggleSave(j.id)}
+              >
+                <Heart
+                  size={18}
+                  className={
+                    saved.has(j.id) ? "fill-red-500 text-red-500" : ""
+                  }
+                />
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
   );
 }
