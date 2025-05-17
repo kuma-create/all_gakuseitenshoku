@@ -16,15 +16,15 @@ export async function POST(req: Request) {
     /* ---------- Supabase サーバークライアント ---------- */
     const supabase = createRouteHandlerClient<Database>({ cookies });
 
-    /* ---------- 認証チェック ---------- */
+    /* ---------- 認証チェック (getUser で確実に取得) ---------- */
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!session)
+    if (!user)
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-    const studentId = session.user.id;
+    const studentId = user.id;
 
     /* ---------- challenge_sessions に INSERT ---------- */
     const { data, error } = await supabase
