@@ -20,6 +20,13 @@ export async function POST(req: Request) {
   if (authErr || !user)
     return NextResponse.json({ error: "not signed in" }, { status: 401 });
 
+  /* ---------- プロフィール行を確保（FK 対策） ---------- */
+  // student_profiles 側に行が無いと FK で insert が失敗するため、
+  // 存在しなければ空レコードを upsert しておく
+  await supabase
+    .from("student_profiles")
+    .upsert({ id: user.id }, { onConflict: "id", ignoreDuplicates: true });
+
   /* ---------- セッション作成 ---------- */
   const { data: session, error } = await supabase
     .from("challenge_sessions")
