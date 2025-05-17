@@ -25,21 +25,30 @@ export async function POST(req: Request) {
     .from("challenge_sessions")
     .insert({
       challenge_id: challengeId,
-      student_id:   user.id,
+      student_id:   user.id,   // ← テーブル列名に合わせて修正
       started_at:   new Date().toISOString(),
     })
     .select("id")
     .single();
 
-  if (error)
+  if (error) {
+    // Vercel / Supabase Logs 用デバッグ
+    console.error("start-session insert error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   /* ---------- 空の回答行を準備 ---------- */
   // ↑ Supabase 側に `prepare_session_answers(p_session_id uuid)` RPC を
   //    置いている前提。なければ insert 文をループで書いても OK
   // 型定義にまだ RPC が反映されていないため一時的に無視
-  // @ts-expect-error prepare_session_answers は手動 RPC
-  await supabase.rpc("prepare_session_answers", { p_session_id: session.id });
+  const { error: rpcErr } =
+    // @ts-expect-error prepare_session_answers は手動 RPC
+    await supabase.rpc("prepare_session_answers", { p_session_id: session.id });
+
+  if (rpcErr) {
+    // ログだけ残して先に進む（セッション生成は成功しているため）
+    console.error("prepare_session_answers error:", rpcErr);
+  }
 
   return NextResponse.json({ sessionId: session.id });
 }
