@@ -69,13 +69,14 @@ export default function WebTestConfirmPage() {
       setStarting(true)
       const res = await fetch("/api/start-session", {
         method: "POST",
-        credentials: "include", // ensure auth cookie is sent
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengeId }), // challenge_id でも許容される
+        body: JSON.stringify({ challengeId }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "failed to start")
-      router.replace(`/grandprix/${category}/${json.sessionId}/test`)
+      const sessionId = json.session?.id ?? json.sessionId
+      if (!sessionId) throw new Error("session not returned")
+      router.replace(`/grandprix/${category}/${sessionId}/test`)
     } catch (e: any) {
       toast({ description: e.message })
     } finally {
