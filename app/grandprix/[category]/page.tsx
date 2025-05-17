@@ -26,13 +26,18 @@ import { useToast } from "@/components/ui/use-toast"
  * - Supabase から該当カテゴリの challenges を取得してカード表示
  * - 過去結果タブ: challenge_sessions から本人の履歴を20件
  */
+// 画面で使う最小限の列だけを表す型
+type ChallengeCard = Pick<
+  Database["public"]["Tables"]["challenges"]["Row"],
+  "id" | "title" | "description" | "company" | "time_limit_min" | "question_count"
+>;
+
 export default function GrandPrixCategoryPage() {
   const { category } = useParams<{ category: string }>()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
-  const [challenges, setChallenges] =
-    useState<Database["public"]["Tables"]["challenges"]["Row"][]>([])
+  const [challenges, setChallenges] = useState<ChallengeCard[]>([])
   const [results, setResults] = useState<any[]>([])
 
   /* --------------- データ取得 --------------- */
@@ -40,15 +45,25 @@ export default function GrandPrixCategoryPage() {
     ;(async () => {
       setLoading(true)
 
+      const isoNow = new Date().toISOString();
+
       /* 1. 挑戦可能チャレンジ */
       const { data, error } = await supabase
         .from("challenges")
-        .select("*")
+        .select(
+          `id, title, description, company,
+           time_limit_min, question_count`
+        )
         .eq("category", category)
-        .order("created_at", { ascending: false })
+        .lte("start_date", isoNow)                         // 公開開始済み
+        .or(`deadline.is.null,deadline.gte.${isoNow}`)     // 締切が無い or 未来
+        .order("created_at", { ascending: false });
 
       if (error) toast({ description: error.message })
-      else setChallenges(data)
+      else setChallenges(data as ChallengeCard[])
+
+      // ここでこのカテゴリに属する challenge_id を配列で控える
+      const challengeIds = (data ?? []).map((c) => c.id);
 
       /* 2. 過去の結果（ログイン済みユーザーのみ） */
       const {
@@ -58,13 +73,11 @@ export default function GrandPrixCategoryPage() {
       if (user) {
         const { data: res, error: resErr } = await supabase
           .from("challenge_sessions")
-          .select(
-            "id, score, elapsed_sec, created_at, challenge:challenges(title)"
-          )
+          .select("id, challenge_id, score, elapsed_sec, created_at")
           .eq("student_id", user.id)
-          .eq("challenge.category", category)
+          .in("challenge_id", challengeIds.length ? challengeIds : ['00000000-0000-0000-0000-000000000000'])
           .order("created_at", { ascending: false })
-          .limit(20)
+          .limit(20);
 
         if (!resErr) setResults(res as any[])
       }
@@ -92,11 +105,11 @@ export default function GrandPrixCategoryPage() {
         <div className="mb-8 flex flex-col items-start gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-bold">
-              {category === "webtest"
-                ? "Web テスト"
-                : category === "business"
-                ? "ビジネス診断"
-                : "ケース診断"}
+              {{
+                webtest: "Web テスト",
+                business: "ビジネス診断",
+                case: "ケース診断",
+              }[category] ?? category}
             </h1>
             <p className="text-sm text-gray-500">
               挑戦できる大会を選択してください
@@ -143,7 +156,7 @@ export default function GrandPrixCategoryPage() {
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 line-clamp-3">
-                        {(c.description ?? "").slice(0, 60)}…
+                        {c.description}
                       </p>
                     </CardContent>
 
@@ -175,7 +188,10 @@ export default function GrandPrixCategoryPage() {
                   <Card key={r.id}>
                     <CardContent className="flex items-center justify-between p-4">
                       <div>
-                        <p className="font-medium">{r.challenge.title}</p>
+                        <p className="font-medium">
+                          {challenges.find((c) => c.id === r.challenge_id)?.title ??
+                            "（タイトル不明）"}
+                        </p>
                         <p className="text-xs text-gray-500">
                           {new Date(r.created_at).toLocaleDateString()}
                         </p>
