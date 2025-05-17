@@ -3,64 +3,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/types";
 
-export const dynamic  = "force-dynamic";   // ← cookies() を同期取得するため
-export const revalidate = 0;               // ISR 無効
-
 export async function POST(req: NextRequest) {
-  /* ------------------------------------------------------------
-   * 1) Supabase クライアントを “リクエストに紐づいた Cookie” で生成
-   * ---------------------------------------------------------- */
-  const res = NextResponse.next();         // ← ここに Cookie を付与して返す
+  const res = NextResponse.json({ ok: true });      // ← 先にレスポンス生成
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () =>
-          req.cookies.getAll().map(({ name, value }) => ({ name, value })),
-        setAll: (cs) => cs.forEach((c) => res.cookies.set(c)),
+        getAll: () => req.cookies.getAll().map(c => ({ name: c.name, value: c.value })),
+        setAll: cs => cs.forEach(c => res.cookies.set(c)),
       },
     },
   );
 
-  /* ------------------------------------------------------------
-   * 2) 認証チェック
-   * ---------------------------------------------------------- */
+  // セッション取得
   const {
     data: { user },
-    error: authErr,
   } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
-  if (authErr || !user) {
-    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  }
+  // challenge_sessions へ insert
+  const body = await req.json();
+  const { data, error } = await supabase.from("challenge_sessions").insert({
+    challenge_id: body.challenge_id,
+    student_id:   user.id,
+  }).select().single();
 
-  /* ------------------------------------------------------------
-   * 3) challenge_sessions へ開始レコードを挿入
-   * ---------------------------------------------------------- */
-  const { challenge_id } = await req.json() as { challenge_id: string };
-
-  const { data, error } = await supabase
-    .from("challenge_sessions")
-    .insert({
-      challenge_id,
-      student_id: user.id,
-      started_at: new Date().toISOString(), // ← 開始時刻を残す
-    })
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  /* ------------------------------------------------------------
-   * 4) フロントにセッション ID を返す
-   * ---------------------------------------------------------- */
-  return NextResponse.json({ session: data }, { status: 201, headers: res.headers });
-}
-
-/* 他メソッドは 405 */
-export function GET() {
-  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ session: data });
 }
