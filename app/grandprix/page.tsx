@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Trophy, Users, Gift } from "lucide-react"
 
@@ -74,16 +73,6 @@ export default function GrandPrixPage() {
       <section id="leaderboard" className="mt-12">
         <h2 className="mb-6 text-2xl font-bold text-gray-900">リーダーボード</h2>
         <GrandPrixLeaderboard />
-      </section>
-
-      {/* 月間チャレンジ */}
-      <section id="monthly-challenge" className="mt-12">
-        <h2 className="mb-6 text-2xl font-bold text-gray-900">今月のチャレンジ</h2>
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
-          <Link href="/grandprix/monthly-challenge">
-            <Button className="bg-red-600 hover:bg-red-700">月間チャレンジを見る</Button>
-          </Link>
-        </div>
       </section>
     </div>
   )
