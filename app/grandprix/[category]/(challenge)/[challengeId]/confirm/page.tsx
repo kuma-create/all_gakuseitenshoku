@@ -14,6 +14,17 @@ import type { Database } from "@/lib/supabase/types"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 
+// 取り扱う列だけを抜き出したチャレンジ型
+type ChallengeDetail = Pick<
+  Database["public"]["Tables"]["challenges"]["Row"],
+  | "id"
+  | "title"
+  | "description"
+  | "company"
+  | "time_limit_min"
+  | "question_count"
+>;
+
 /**
  * /grandprix/webtest/[id]/confirm
  * - id = challengeId
@@ -29,7 +40,7 @@ export default function WebTestConfirmPage() {
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
-  const [challenge, setChallenge] = useState<Database["public"]["Tables"]["challenges"]["Row"] | null>(null)
+  const [challenge, setChallenge] = useState<ChallengeDetail | null>(null)
   const [agreed, setAgreed] = useState(false)
   const [starting, setStarting] = useState(false)
 
@@ -39,11 +50,14 @@ export default function WebTestConfirmPage() {
       setLoading(true)
       const { data, error } = await supabase
         .from("challenges")
-        .select("*")
+        .select(
+          `id, title, description,
+           company, time_limit_min, question_count`
+        )
         .eq("id", challengeId)
-        .maybeSingle()
+        .single()
       if (error) toast({ description: error.message })
-      else setChallenge(data)
+      else setChallenge(data as ChallengeDetail)
       setLoading(false)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
