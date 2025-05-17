@@ -24,7 +24,7 @@ export default function JobsPage() {
       const { data, error } = await supabase
         .from("jobs")
         .select("id, title")
-        .eq("is_active", true)
+        .eq("published", true)
         .order("created_at", { ascending: false });
 
       if (error) {

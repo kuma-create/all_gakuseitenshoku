@@ -50,11 +50,68 @@ const adminMain: NavItem[] = [
 ];
 
 /* ===================================================================== */
+/* ---------- Notification Bell ---------- */
+function NotificationBell({ userId }: { userId: string }) {
+  const [unread, setUnread] = useState<number>(0);
+  const router = useRouter();
+
+  /* 初期未読数 */
+  useEffect(() => {
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error custom RPC not in generated Supabase types
+      const { data, error } = await supabase.rpc<number>("count_unread", {
+        _uid: userId,
+      });
+      if (!error) setUnread(Number(data) || 0);
+    })();
+  }, [userId]);
+
+  /* Realtime 追加 & 既読更新 */
+  useEffect(() => {
+    const channel = supabase
+      .channel("notifications")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        () => setUnread((c) => c + 1),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          if (payload.new.is_read && !payload.old.is_read) {
+            setUnread((c) => Math.max(0, c - 1));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  return (
+    <button
+      className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted"
+      onClick={() => router.push("/notifications")}
+    >
+      <Bell size={20} />
+      {unread > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs text-white">
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function Header() {
   const pathname              = usePathname();
   const router                = useRouter();
   const {
-    ready, isLoggedIn, userType, user, logout,
+    ready, isLoggedIn, session, userType, user, logout,
   }                           = useAuth();
 
   /* ---------- Avatar 取得（student のみ） ---------- */
@@ -138,10 +195,8 @@ export default function Header() {
 
         {/* ===== PC: Notifications + Avatar / Login ===== */}
         <div className="hidden md:flex items-center gap-4">
-          {ready && isLoggedIn && (
-            <Button variant="ghost" size="icon">
-              <Bell size={20} />
-            </Button>
+          {ready && isLoggedIn && session?.user && (
+            <NotificationBell userId={session.user.id} />
           )}
 
           {ready && isLoggedIn ? (
