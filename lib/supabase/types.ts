@@ -226,40 +226,43 @@ export type Database = {
           category: string
           company: string | null
           created_at: string
-          deadline: string
-          description: string
+          deadline: string | null
+          description: string | null
           id: string
           question_count: number
+          start_date: string
           time_limit_min: number
           title: string
           updated_at: string
-          word_limit: number
+          word_limit: number | null
         }
         Insert: {
           category?: string
           company?: string | null
           created_at?: string
-          deadline: string
-          description: string
+          deadline?: string | null
+          description?: string | null
           id?: string
           question_count?: number
+          start_date?: string
           time_limit_min?: number
           title: string
           updated_at?: string
-          word_limit: number
+          word_limit?: number | null
         }
         Update: {
           category?: string
           company?: string | null
           created_at?: string
-          deadline?: string
-          description?: string
+          deadline?: string | null
+          description?: string | null
           id?: string
           question_count?: number
+          start_date?: string
           time_limit_min?: number
           title?: string
           updated_at?: string
-          word_limit?: number
+          word_limit?: number | null
         }
         Relationships: []
       }
