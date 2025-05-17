@@ -71,7 +71,7 @@ export default function GrandPrixCategoryPage() {
         .eq("category", category)
         .lte("start_date", isoNow)
         .or(`deadline.is.null,deadline.gte.${isoNow}`)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
 
       if (error) {
         toast({ description: error.message });
