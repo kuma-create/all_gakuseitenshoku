@@ -1,6 +1,7 @@
 /* ------------------------------------------------------------------
    middleware.ts  – 画像等はスルーしつつ
-   /grandprix/{business|webtest|case}(/**) は学生ログイン必須
+   /grandprix/{business|webtest|case}(/**) は「ログイン必須」に変更
+   ※ ロール判定は当面外す
 ------------------------------------------------------------------ */
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient }            from "@supabase/ssr";
@@ -24,8 +25,8 @@ function initSupabase(req: NextRequest, res: NextResponse) {
 /* ---------- 設定 ---------- */
 const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
 
-/** “学生だけ” にしたい Grandprix サブパス */
-const STUDENT_ONLY_PREFIXES = [
+/** “ログイン必須” にしたい Grandprix サブパス */
+const LOGIN_REQUIRED_PREFIXES = [
   "/grandprix/business",
   "/grandprix/webtest",
   "/grandprix/case",
@@ -34,7 +35,7 @@ const STUDENT_ONLY_PREFIXES = [
 /** 誰でも見られるパス（静的 LP など）*/
 const PUBLIC_PREFIXES = [
   "/",                 // トップ
-  "/grandprix",        // グランプリ一覧・通常詳細
+  "/grandprix",        // グランプリ一覧ページ
   "/api",
   "/auth/reset",
 ];
@@ -48,17 +49,14 @@ export async function middleware(req: NextRequest) {
   /* ---------- ① 静的アセットは即通過 ---------- */
   if (STATIC_RE.test(pathname)) return res;
 
-  /* ---------- ② 学生専用ページ判定 ---------- */
-  const isStudentOnly = STUDENT_ONLY_PREFIXES
+  /* ---------- ② 「ログイン必須」ページ判定 ---------- */
+  const needsLogin = LOGIN_REQUIRED_PREFIXES
     .some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-  if (isStudentOnly) {
-    const isStudent = session?.user.user_metadata?.role === "student";
-    if (!session || !isStudent) {
-      const login = new URL("/login", req.url);
-      login.searchParams.set("next", pathname);
-      return NextResponse.redirect(login, { status: 302 });
-    }
+  if (needsLogin && !session) {
+    const login = new URL("/login", req.url);
+    login.searchParams.set("next", pathname);
+    return NextResponse.redirect(login, { status: 302 });
   }
 
   /* ---------- ③ 公開ページかどうか ---------- */
@@ -74,7 +72,9 @@ export async function middleware(req: NextRequest) {
 
   /* ログイン済みで /login へ来たらロール別ダッシュボードへ */
   if (session && isLoginPage) {
-    const role = session.user.user_metadata?.role;
+    const role =
+      session.user.user_metadata?.role ??
+      (session.user.app_metadata as any)?.role;
     const dest =
       role === "company" ? "/company-dashboard" :
       role === "admin"   ? "/admin"              :
