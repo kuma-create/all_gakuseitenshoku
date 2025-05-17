@@ -9,7 +9,7 @@ import Image from "next/image";
 import Link  from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Search, Mail, MessageSquare,
+  LayoutDashboard, Search, Mail, MessageSquare, Bell,
   LogIn, Menu, User, Briefcase, LogOut, ChevronDown,
 } from "lucide-react";
 import {
@@ -136,8 +136,14 @@ export default function Header() {
           </nav>
         )}
 
-        {/* ===== PC: Avatar / Login ===== */}
-        <div className="hidden md:block">
+        {/* ===== PC: Notifications + Avatar / Login ===== */}
+        <div className="hidden md:flex items-center gap-4">
+          {ready && isLoggedIn && (
+            <Button variant="ghost" size="icon">
+              <Bell size={20} />
+            </Button>
+          )}
+
           {ready && isLoggedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -148,7 +154,7 @@ export default function Header() {
                       alt="avatar"
                       width={32}
                       height={32}
-                      className="rounded-full object-cover"
+                      className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (
                     <User size={20} />

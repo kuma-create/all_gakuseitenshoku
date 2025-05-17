@@ -1,7 +1,6 @@
 /* ───────────────────────────────────────────────
-   lib/auth-context.tsx – 最小限の修正版（ready 復活版）
-   2025-05-16
-────────────────────────────────────────────── */
+   lib/auth-context.tsx – セッション維持 & 完全ログアウト対応版
+──────────────────────────────────────────────── */
 "use client";
 
 import {
@@ -14,7 +13,6 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { AuthChangeEvent, Session } from "@supabase/supabase-js";
-
 import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 
@@ -22,12 +20,14 @@ import type { Database } from "@/lib/supabase/types";
 export type UserRole = "student" | "company" | "admin" | null;
 export type RoleOption = Exclude<UserRole, null>;
 
-export type User = {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-} | null;
+export type User =
+  | {
+      id: string;
+      email: string;
+      name: string;
+      role: UserRole;
+    }
+  | null;
 
 export type StudentProfile =
   Database["public"]["Tables"]["student_profiles"]["Row"];
@@ -36,11 +36,8 @@ export type CompanyProfile =
 export type UserProfile = StudentProfile | CompanyProfile | null;
 
 export interface AuthContextValue {
-  /** 未判定＝undefined／未ログイン＝null／ログイン済み＝Session */
   session: Session | null | undefined;
-  /** true / false／まだ判定前(null) */
   isLoggedIn: boolean | null;
-  /** “初期判定が終わったか” */
   ready: boolean;
   userType: UserRole;
   user: User;
@@ -66,46 +63,43 @@ export const useAuth = () => {
 };
 
 /* ---------- 公開ルート ---------- */
-const PUBLIC_ROUTES = new Set([
-  "/",
-  "/login",
-  "/signup",
-  "/email-callback",
-]);
+const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/email-callback"]);
 
-/* ---------- Provider ---------- */
+/* ====================================================================== */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const router   = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
 
-  /* 状態 */
-  const [session,    setSession]    = useState<Session | null | undefined>(undefined);
+  /* 状態 ---------------------------------------------------------------- */
+  const [session, setSession] = useState<Session | null | undefined>(
+    undefined,
+  );
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const [ready,      setReady]      = useState(false);           // ★ 追加
-  const [userType,   setUserType]   = useState<UserRole>(null);
-  const [user,       setUser]       = useState<User>(null);
-  const [profile,    setProfile]    = useState<UserProfile>(null);
-  const [error,      setError]      = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [userType, setUserType] = useState<UserRole>(null);
+  const [user, setUser] = useState<User>(null);
+  const [profile, setProfile] = useState<UserProfile>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const clearError = () => setError(null);
 
-  /* ---- session を反映 ---- */
+  /* ---- session を反映 ------------------------------------------------- */
   const applySession = useCallback(
     async (sess: Session | null) => {
       setSession(sess);
 
-      /* 未ログイン ------------------------------------------------ */
+      /* 未ログイン ------------------------------------------------------ */
       if (!sess) {
         setIsLoggedIn(false);
         setUser(null);
         setProfile(null);
         setUserType(null);
-        setReady(true);                              // ← 判定完了
+        setReady(true);
         if (!PUBLIC_ROUTES.has(pathname)) router.replace("/login");
         return;
       }
 
-      /* ログイン済み -------------------------------------------- */
+      /* ログイン済み ---------------------------------------------------- */
       setIsLoggedIn(true);
 
       /* ロール取得 */
@@ -119,9 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       /* user オブジェクト */
       setUser({
-        id   : sess.user.id,
+        id: sess.user.id,
         email: sess.user.email ?? "",
-        name :
+        name:
           sess.user.user_metadata?.full_name ??
           sess.user.email?.split("@")[0] ??
           "ユーザー",
@@ -147,9 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       }
 
-      setReady(true);                                // ← 判定完了
+      setReady(true);
 
-      /* ログインページに居るならロール別ダッシュボードへ */
+      /* ダッシュボードリダイレクト */
       if (pathname === "/login" || pathname === "/") {
         router.replace(
           role === "company"
@@ -163,42 +157,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [pathname, router],
   );
 
-  /* ---- 初回セッション取得＆リスナー ---- */
+  /* ---- 初回セッション取得 & リスナー --------------------------------- */
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      /* ❶ ローカルセッション取得 */
+      let {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      /* ❷ 失効していたら手動リフレッシュ */
+      if (!session) {
+        const { data: ref } = await supabase.auth.refreshSession();
+        session = ref.session ?? null;
+      }
+
       await applySession(session);
     })();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_: AuthChangeEvent, sess) => applySession(sess),
+      (event: AuthChangeEvent, sess) => {
+        if (event === "TOKEN_REFRESHED") {
+          console.log("[Auth] TOKEN_REFRESHED");
+          applySession(sess);
+        }
+        if (event === "SIGNED_OUT") {
+          console.log("[Auth] SIGNED_OUT");
+          applySession(null);
+        }
+        if (event === "SIGNED_IN") {
+          applySession(sess);
+        }
+      },
     );
     return () => listener.subscription.unsubscribe();
   }, [applySession]);
 
-  /* ---- 認証 API ---- */
+  /* ---- アイドル時自動リフレッシュ (失効 5 分前) ---------------------- */
+  useEffect(() => {
+    if (!session) return;
+    const ttl = session.expires_at! * 1000 - Date.now();
+    const timer = setTimeout(async () => {
+      console.log("[Auth] auto refresh");
+      await supabase.auth.refreshSession();
+    }, Math.max(ttl - 5 * 60 * 1000, 0));
+    return () => clearTimeout(timer);
+  }, [session]);
+
+  /* ---- 認証 API ------------------------------------------------------- */
   const signup = async (
-    email: string, password: string, role: RoleOption, fullName: string,
+    email: string,
+    password: string,
+    role: RoleOption,
+    fullName: string,
   ) => {
     clearError();
     try {
       const { data, error } = await supabase.auth.signUp({
-        email, password, options: { data: { full_name: fullName } },
+        email,
+        password,
+        options: { data: { full_name: fullName } },
       });
       if (error) throw error;
       if (!data.user) return false;
 
       await supabase.from("user_roles").insert({
-        user_id: data.user.id, role,
+        user_id: data.user.id,
+        role,
       });
 
       if (role === "student") {
         await supabase.from("student_profiles").insert({
-          user_id: data.user.id, full_name: fullName,
+          user_id: data.user.id,
+          full_name: fullName,
         });
       } else if (role === "company") {
         await supabase.from("companies").insert({
-          user_id: data.user.id, name: fullName, full_name: fullName,
+          user_id: data.user.id,
+          name: fullName,
+          full_name: fullName,
         });
       }
       return true;
@@ -211,16 +247,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, pw: string, role: RoleOption) => {
     clearError();
     try {
-      /* --- Supabase サインイン --- */
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: pw,
       });
 
-      console.log("[login result]", { data, error }); // ← 追加デバッグ出力
-
+      console.log("[login result]", { data, error });
       if (error) throw error;
-      /* data.session が null でも listener が applySession を呼ぶので OK */
+
+      /* session が null → メール未確認 or 設定異常 */
+      if (!data.session) {
+        setError("メール確認が完了していません。リンクを確認してください。");
+        return false;
+      }
       return true;
     } catch (e: any) {
       setError(e.message ?? "ログインに失敗しました");
@@ -231,21 +270,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     clearError();
     try {
-      await supabase.auth.signOut();
-      router.replace("/login");        // applySession が走る前に遷移
-    } catch (e: any) {
-      setError(e.message ?? "ログアウトに失敗しました");
+      const { error } = await supabase.auth.signOut();
+      if (error) console.error("[logout error]", error);
+    } finally {
+      await applySession(null); // 状態リセットを保証
+      router.replace("/login");
     }
   };
 
-  /* ---- Provider ---- */
+  /* ---- Provider ------------------------------------------------------- */
   const value: AuthContextValue = {
-    session, isLoggedIn, ready,       // ★ 追加
-    userType, user, profile, error,
-    login, signup, logout, clearError,
+    session,
+    isLoggedIn,
+    ready,
+    userType,
+    user,
+    profile,
+    error,
+    login,
+    signup,
+    logout,
+    clearError,
   };
 
-  /** session === undefined の間だけ “認証確認中” 用の UI を出す */
   return (
     <AuthContext.Provider value={value}>
       {session === undefined ? null : children}
