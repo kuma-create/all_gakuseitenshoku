@@ -20,12 +20,20 @@ export async function POST(req: Request) {
   if (authErr || !user)
     return NextResponse.json({ error: "not signed in" }, { status: 401 });
 
-  /* ---------- プロフィール行を確保（FK 対策） ---------- */
-  // student_profiles 側に行が無いと FK で insert が失敗するため、
-  // 存在しなければ空レコードを upsert しておく
-  await supabase
+  /* ---------- プロフィール存在チェック（FK 対策） ---------- */
+  const { data: profile, error: profileErr } = await supabase
     .from("student_profiles")
-    .upsert({ id: user.id }, { onConflict: "id", ignoreDuplicates: true });
+    .select("id")
+    .eq("id", user.id)
+    .single();
+
+  if (profileErr || !profile) {
+    // プロフィールが未作成だと FK 制約で challenge_sessions に書き込めない
+    return NextResponse.json(
+      { error: "profile_not_found" },
+      { status: 400 },
+    );
+  }
 
   /* ---------- セッション作成 ---------- */
   const { data: session, error } = await supabase
