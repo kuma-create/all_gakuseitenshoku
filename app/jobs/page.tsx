@@ -42,14 +42,15 @@ import type { Database } from "@/lib/supabase/types";
  * そのまま参照できる。
  */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
-  companies: { name: string; logo: string | null } | null;
+  companies: { name: string; logo: string | null; industry?: string | null } | null;
 
-  /** UI で参照している追加カラム（実テーブルに無い場合は undefined） */
-  industry?: string | null;       // 業界
+  /** 業界 (companies.industry から alias) */
+  industry?: string | null;
   job_type?: string | null;       // 職種
   is_featured?: boolean | null;   // おすすめフラグ
   tags?: string[] | null;         // タグ配列
   cover_image_url?: string | null; // カバー画像
+  job_tags?: { tag: string }[] | null;   // ← add this
 };
 
 const SALARY_MIN = 200;
@@ -79,9 +80,11 @@ export default function JobsPage() {
         .select(
           `
           id, title, description, created_at,
-          industry, job_type, is_featured, tags,
+          work_type           as job_type,
+          is_recommended      as is_featured,
           salary_min, salary_max, location, cover_image_url,
-          companies(name,logo)
+          companies(name, industry, logo),
+          job_tags(tag)
         `
         )
         .eq("published", true)
@@ -92,7 +95,19 @@ export default function JobsPage() {
         console.error("jobs fetch error", error);
         setError("求人取得に失敗しました");
       } else {
-        setJobs(data ?? []);
+        // setJobs(data ?? []);
+        if (data) {
+          const normalized = data.map((row: any) => ({
+            ...row,
+            // companies.industry を industry に昇格
+            industry: row.industry ?? row.companies?.industry ?? null,
+            // job_tags -> tags の文字列配列へ
+            tags: (row.job_tags ?? []).map((t: { tag: string }) => t.tag),
+          }));
+          setJobs(normalized);
+        } else {
+          setJobs([]);
+        }
       }
       setLoading(false);
     })();
@@ -100,12 +115,12 @@ export default function JobsPage() {
 
   /* ------------- derived options ---------- */
   const industries = useMemo(() => {
-    const set = new Set(jobs.map((j) => j.industry).filter(Boolean));
+    const set = new Set(jobs.map((j) => j.industry ?? "").filter(Boolean));
     return ["all", ...Array.from(set)] as string[];
   }, [jobs]);
 
   const jobTypes = useMemo(() => {
-    const set = new Set(jobs.map((j) => j.job_type).filter(Boolean));
+    const set = new Set(jobs.map((j) => j.job_type ?? "").filter(Boolean));
     return ["all", ...Array.from(set)] as string[];
   }, [jobs]);
 

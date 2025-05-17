@@ -10,7 +10,7 @@ import Link  from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Search, Mail, MessageSquare, Bell,
-  LogIn, Menu, User, Briefcase, LogOut, ChevronDown,
+  LogIn, Menu, User, Briefcase, LogOut, ChevronDown, Trophy,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetTrigger,
@@ -32,6 +32,7 @@ const studentMain: NavItem[] = [
   { href: "/jobs",              label: "求人",       icon: Search },
   { href: "/student/scouts",    label: "スカウト",   icon: Mail },
   { href: "/chat",              label: "チャット",   icon: MessageSquare },
+  { href: "/grandprix",         label: "就活GP",    icon: Trophy },
 ];
 /* ---------- マイページ配下 ---------- */
 const studentSub: NavItem[] = [
@@ -145,6 +146,14 @@ export default function Header() {
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.png" alt="学生転職" width={120} height={32} priority />
         </Link>
+        {/* 就活グランプリ – 未ログインでも常に表示 */}
+        <Link
+          href="/grandprix"
+          className="hidden items-center gap-1 text-sm font-semibold text-gray-700 hover:text-gray-900 md:flex"
+        >
+          <Trophy size={16} />
+          就活グランプリ
+        </Link>
 
         {/* ===== PC ナビ ===== */}
         {ready && isLoggedIn && (
@@ -248,6 +257,14 @@ export default function Header() {
               <Image src="/logo.png" alt="学生転職" width={24} height={24} />
               <span className="font-bold">学生転職</span>
             </div>
+            {/* === グランプリ (always) === */}
+            <Link
+              href="/grandprix"
+              className="mb-4 flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+            >
+              <Trophy size={16} />
+              就活グランプリ
+            </Link>
 
             {/* ---- 未ログイン ---- */}
             {!ready || !isLoggedIn ? (
