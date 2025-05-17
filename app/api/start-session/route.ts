@@ -7,9 +7,16 @@ export const runtime = "edge"; // (任意) edge で動かす場合
 
 export async function POST(req: Request) {
     console.log("Cookie:", req.headers.get("cookie")?.slice(0, 120));
+
+    // 共通の supabase クライアント（後段でも再利用）
     const supabase = createRouteHandlerClient<Database>({ cookies });
-    const { data: { user }, error } = await supabase.auth.getUser();
-    console.log("Supabase user:", user, "error:", error);
+
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
+
+    console.log("Supabase user:", user, "error:", userErr);
   try {
     // 受信 JSON を型アサートで取得 (json() は型引数を取らない)
     const { challengeId } = (await req.json()) as { challengeId: string };
@@ -17,14 +24,7 @@ export async function POST(req: Request) {
     if (!challengeId)
       return NextResponse.json({ error: "challengeId required" }, { status: 400 });
 
-    /* ---------- Supabase サーバークライアント ---------- */
-    const supabase = createRouteHandlerClient<Database>({ cookies });
-
-    /* ---------- 認証チェック (getUser で確実に取得) ---------- */
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    // 認証チェックは POST ハンドラ冒頭で取得した user を使う
     if (!user)
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 

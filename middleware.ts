@@ -4,23 +4,8 @@
    ※ ロール判定は当面外す
 ------------------------------------------------------------------ */
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient }            from "@supabase/ssr";
+import { createMiddlewareClient }        from "@supabase/auth-helpers-nextjs";
 import type { Database }                 from "@/lib/supabase/types";
-
-/* ---------- Supabase init (SSR/MW 用) ---------- */
-function initSupabase(req: NextRequest, res: NextResponse) {
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => req.cookies.getAll().map(({ name, value }) => ({ name, value })),
-        setAll: (cs) => cs.forEach(({ name, value, options }) =>
-          res.cookies.set({ name, value, ...options })),
-      },
-    },
-  );
-}
 
 /* ---------- 設定 ---------- */
 const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
@@ -38,7 +23,7 @@ const PUBLIC_PREFIXES = [
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: req });
-  const supabase = initSupabase(req, res);
+  const supabase = createMiddlewareClient<Database>({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = req.nextUrl;
 
