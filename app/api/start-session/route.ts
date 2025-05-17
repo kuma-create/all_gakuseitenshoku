@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "edge"; // (任意) edge で動かす場合
@@ -13,16 +14,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "challengeId required" }, { status: 400 });
 
     /* ---------- Supabase サーバークライアント ---------- */
-    const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => [],
-          setAll: () => {},
-        },
-      }
-    );
+    const supabase = createRouteHandlerClient<Database>({ cookies });
 
     /* ---------- 認証チェック ---------- */
     const {
