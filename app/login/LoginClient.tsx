@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase/client";
 
 /* ---------- 共通小物 ---------- */
 const IconInput = ({
@@ -120,6 +121,7 @@ const LoginForm = ({
           </Label>
           <Link
             href="/forgot-password"
+            prefetch={false}
             className="text-xs text-red-600 hover:underline"
           >
             パスワードをお忘れ？
@@ -211,6 +213,7 @@ export default function LoginClient() {
     setLoading(false);
 
     if (ok) {
+      await supabase.auth.refreshSession();
       const dest = nextPath
         ? nextPath
         : tab === "company"
@@ -304,6 +307,7 @@ export default function LoginClient() {
             href={`/signup${
               nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""
             }`}
+            prefetch={false}
             className="ml-1 font-medium text-red-600 hover:underline"
           >
             新規登録
