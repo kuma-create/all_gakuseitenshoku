@@ -69,8 +69,9 @@ export default function WebTestConfirmPage() {
       setStarting(true)
       const res = await fetch("/api/start-session", {
         method: "POST",
+        credentials: "include", // ensure auth cookie is sent
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengeId }),
+        body: JSON.stringify({ challengeId }), // challenge_id でも許容される
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "failed to start")
