@@ -64,25 +64,24 @@ export default function WebTestConfirmPage() {
   }, [challengeId])
 
   /* ----------------------- start session ----------------------- */
-  const handleStart = useCallback(async () => {
+  const handleStart = async () => {
+    setStarting(true);
     try {
-      setStarting(true)
-      const res = await fetch("/api/start-session", {
-        method: "POST",
+      const res  = await fetch("/api/start-session", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengeId }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || "failed to start")
-      const sessionId = json.session?.id ?? json.sessionId
-      if (!sessionId) throw new Error("session not returned")
-      router.replace(`/grandprix/${category}/${sessionId}/test`)
+        body:    JSON.stringify({ challengeId }),   // ← confirm 画面の param
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+  
+      router.push(`/grandprix/${category}/${json.sessionId}/test`);
     } catch (e: any) {
-      toast({ description: e.message })
+      toast({ description: e.message });
     } finally {
-      setStarting(false)
+      setStarting(false);
     }
-  }, [challengeId, router, toast])
+  };
 
   /* --------------------------- UI --------------------------- */
   if (loading) {
@@ -219,12 +218,11 @@ export default function WebTestConfirmPage() {
                   </Button>
                 </Link>
                 <Button
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-600"
                   onClick={handleStart}
-                  disabled={!agreed || starting}
+                  disabled={starting}
+                  className="bg-emerald-500 hover:bg-emerald-600"
                 >
-                  {starting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  テストを開始する
+                  {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : "テストを開始する"}
                 </Button>
               </div>
             </CardFooter>
