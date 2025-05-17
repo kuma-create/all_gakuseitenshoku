@@ -63,7 +63,7 @@ export default function ScoutsPage() {
       .select(
         `
           *,
-          companies:companies(name, logo),
+          companies:companies!scouts_company_id_fkey(name, logo),
           jobs:jobs(title)
         `,
       )

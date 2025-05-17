@@ -399,13 +399,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "company_members_company_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "company_members_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -748,6 +741,50 @@ export type Database = {
         }
         Relationships: []
       }
+      resumes: {
+        Row: {
+          created_at: string | null
+          desired_job_title: string | null
+          educations: Json | null
+          experiences: Json | null
+          id: string
+          skills: Json | null
+          summary: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          desired_job_title?: string | null
+          educations?: Json | null
+          experiences?: Json | null
+          id?: string
+          skills?: Json | null
+          summary?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          desired_job_title?: string | null
+          educations?: Json | null
+          experiences?: Json | null
+          id?: string
+          skills?: Json | null
+          summary?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resumes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scout_templates: {
         Row: {
           company_id: string
@@ -785,6 +822,7 @@ export type Database = {
           company_id: string
           created_at: string | null
           id: string
+          is_read: boolean
           job_id: string | null
           message: string
           status: string | null
@@ -795,6 +833,7 @@ export type Database = {
           company_id: string
           created_at?: string | null
           id?: string
+          is_read?: boolean
           job_id?: string | null
           message: string
           status?: string | null
@@ -805,6 +844,7 @@ export type Database = {
           company_id?: string
           created_at?: string | null
           id?: string
+          is_read?: boolean
           job_id?: string | null
           message?: string
           status?: string | null
@@ -1165,7 +1205,21 @@ export type Database = {
       }
       calculate_profile_completion: {
         Args: { p_user_id: string }
-        Returns: Json
+        Returns: {
+          score: number
+          missing: string[]
+        }[]
+      }
+      calculate_resume_completion: {
+        Args: { p_user_id: string }
+        Returns: {
+          score: number
+          missing: string[]
+        }[]
+      }
+      count_unread: {
+        Args: { _uid: string }
+        Returns: number
       }
       get_leaderboard: {
         Args: { p_limit?: number }

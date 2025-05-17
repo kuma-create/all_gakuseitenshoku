@@ -79,12 +79,24 @@ export default function JobsPage() {
         .from("jobs")
         .select(
           `
-          id, title, description, created_at,
-          work_type           as job_type,
-          is_recommended      as is_featured,
-          salary_min, salary_max, location, cover_image_url,
-          companies(name, industry, logo),
-          job_tags(tag)
+          id,
+          title,
+          description,
+          created_at,
+          work_type         as job_type,
+          is_recommended    as is_featured,
+          salary_min,
+          salary_max,
+          location,
+          cover_image_url,
+          companies!jobs_company_id_fkey (
+            name,
+            industry,
+            logo
+          ),
+          job_tags!job_tags_job_id_fkey (
+            tag
+          )
         `
         )
         .eq("published", true)
