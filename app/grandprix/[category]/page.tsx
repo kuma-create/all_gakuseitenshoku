@@ -162,7 +162,7 @@ export default function GrandPrixCategoryPage() {
 
                     <CardFooter>
                       <Link
-                        href={`/grandprix/${category}/${c.id}/confirm`}
+                        href={`/grandprix/${category}/challenge/${c.id}/confirm`}
                         className="w-full"
                       >
                         <Button className="w-full bg-emerald-500 hover:bg-emerald-600">
