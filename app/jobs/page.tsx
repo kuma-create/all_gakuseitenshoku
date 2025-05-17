@@ -79,25 +79,25 @@ export default function JobsPage() {
         .from("jobs")
         .select(
           `
-          id,
-          title,
-          description,
-          created_at,
-          work_type         as job_type,
-          is_recommended    as is_featured,
-          salary_min,
-          salary_max,
-          location,
-          cover_image_url,
-          companies!jobs_company_id_fkey (
-            name,
-            industry,
-            logo
-          ),
-          job_tags!job_tags_job_id_fkey (
-            tag
-          )
-        `
+id,
+title,
+description,
+created_at,
+work_type as job_type,
+is_recommended as is_featured,
+salary_min,
+salary_max,
+location,
+cover_image_url,
+companies!jobs_company_id_fkey (
+  name,
+  industry,
+  logo
+),
+job_tags!job_tags_job_id_fkey (
+  tag
+)
+`
         )
         .eq("published", true)
         .order("created_at", { ascending: false })
@@ -112,7 +112,7 @@ export default function JobsPage() {
           const normalized = data.map((row: any) => ({
             ...row,
             // companies.industry を industry に昇格
-            industry: row.industry ?? row.companies?.industry ?? null,
+            industry: row.companies?.industry ?? null,
             // job_tags -> tags の文字列配列へ
             tags: (row.job_tags ?? []).map((t: { tag: string }) => t.tag),
           }));

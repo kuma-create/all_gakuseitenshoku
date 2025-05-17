@@ -146,14 +146,16 @@ export default function Header() {
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.png" alt="学生転職" width={120} height={32} priority />
         </Link>
-        {/* 就活グランプリ – 未ログインでも常に表示 */}
-        <Link
-          href="/grandprix"
-          className="hidden items-center gap-1 text-sm font-semibold text-gray-700 hover:text-gray-900 md:flex"
-        >
-          <Trophy size={16} />
-          就活グランプリ
-        </Link>
+        {/* 就活グランプリ – 未ログインのみ表示 */}
+        {ready && !isLoggedIn && (
+          <Link
+            href="/grandprix"
+            className="hidden items-center gap-1 text-sm font-semibold text-gray-700 hover:text-gray-900 md:flex"
+          >
+            <Trophy size={16} />
+            就活GP
+          </Link>
+        )}
 
         {/* ===== PC ナビ ===== */}
         {ready && isLoggedIn && (
@@ -257,14 +259,16 @@ export default function Header() {
               <Image src="/logo.png" alt="学生転職" width={24} height={24} />
               <span className="font-bold">学生転職</span>
             </div>
-            {/* === グランプリ (always) === */}
-            <Link
-              href="/grandprix"
-              className="mb-4 flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
-            >
-              <Trophy size={16} />
-              就活グランプリ
-            </Link>
+            {/* === 就活グランプリ（未ログインのみ） === */}
+            {(!ready || !isLoggedIn) && (
+              <Link
+                href="/grandprix"
+                className="mb-4 flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+              >
+                <Trophy size={16} />
+                就活グランプリ
+              </Link>
+            )}
 
             {/* ---- 未ログイン ---- */}
             {!ready || !isLoggedIn ? (
