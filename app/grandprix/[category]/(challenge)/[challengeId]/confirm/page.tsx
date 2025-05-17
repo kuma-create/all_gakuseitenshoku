@@ -102,7 +102,7 @@ export default function WebTestConfirmPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center gap-2">
           <Link
-            href="/grandprix/webtest"
+            href={`/grandprix/${category}`}
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -119,15 +119,18 @@ export default function WebTestConfirmPage() {
                   {challenge.company && <CardDescription>{challenge.company}</CardDescription>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="bg-gray-100">
+                  <Badge variant="outline" className="bg-gray-100 flex items-center">
                     <Clock className="mr-1 h-3 w-3" />
-                    40分
+                    {challenge.time_limit_min ?? "--"}分
                   </Badge>
+
+                  {/* difficulty があれば使い、無ければ「標準」 */}
                   <Badge variant="outline" className="bg-emerald-100 text-emerald-700">
-                    標準
+                    {("difficulty" in challenge && (challenge as any).difficulty) || "標準"}
                   </Badge>
+
                   <Badge variant="outline" className="bg-gray-100">
-                    問題数: 40問
+                    問題数: {challenge.question_count ?? "--"}問
                   </Badge>
                 </div>
               </div>
