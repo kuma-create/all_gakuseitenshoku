@@ -72,13 +72,28 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ログイン済みで /login へ来たらロール別ダッシュボードへ */
+  /* ログイン済みで /login へ来たらロール別ダッシュボードへ
+     ただし「学生専用ページへの next パラメータ付き」で
+     かつ学生以外がアクセスしてきた場合は /login をそのまま表示
+     （⇒ 学生アカウントでログインし直してもらう）           */
   if (session && isLoginPage) {
-    const role = session.user.user_metadata?.role;
+    const nextParam = req.nextUrl.searchParams.get("next") ?? "";
+    const nextIsStudentOnly = STUDENT_ONLY_PREFIXES
+      .some((p) => nextParam === p || nextParam.startsWith(`${p}/`));
+
+    const role = session.user.user_metadata?.role as string | undefined;
+
+    /* 学生専用ページへ行こうとしているのに学生ではない → /login にとどまる */
+    if (nextIsStudentOnly && role !== "student") {
+      return res;          // /login をそのまま描画
+    }
+
+    /* それ以外は従来どおりダッシュボードへリダイレクト */
     const dest =
       role === "company" ? "/company-dashboard" :
       role === "admin"   ? "/admin"              :
                            "/student-dashboard";
+
     return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
   }
 
