@@ -45,6 +45,12 @@ const PUBLIC_PREFIXES = [
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: req });
+
+  /* ---------- 0. ナビゲーション以外の HTTP メソッドはスルー ---------- */
+  if (req.method !== "GET") {
+    return res;
+  }
+
   const supabase = initSupabase(req, res);
   const {
     data: { session },
