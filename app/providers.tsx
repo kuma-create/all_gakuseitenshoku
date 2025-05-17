@@ -1,22 +1,35 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import type { Database } from "@/lib/supabase/types";
+'use client';
 
-export const runtime = "edge";
+import { ReactNode, useEffect } from "react";
+import { supabase } from "@/lib/supabase/client";
+import { AuthProvider } from "@/lib/auth-context";
+import { Toaster } from "@/components/ui/sonner";
 
-// POST /auth/set
-export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient<Database>({ cookies });
-  const { session } = await req.json();
+/**
+ * Global React providers (Supabase auth listener + Sonner toaster UI)
+ */
+export default function Providers({ children }: { children: ReactNode }) {
+  /* -------------------------------------------------------------
+     Supabase token → HttpOnly cookie 同期
+  ------------------------------------------------------------- */
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        fetch("/auth/set", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session }),
+        });
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
-  // session が null の場合は signOut と同義
-  await supabase.auth.setSession(session);
-
-  return NextResponse.json({ success: true });
-}
-
-// GET など他メソッドは 405
-export function GET() {
-  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+  return (
+    <AuthProvider>
+      {children}
+      <Toaster />
+    </AuthProvider>
+  );
 }
