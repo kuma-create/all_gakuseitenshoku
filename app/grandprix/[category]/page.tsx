@@ -1,96 +1,120 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { ArrowLeft, Clock, Loader2 } from "lucide-react"
-import Link from "next/link"
-import { useParams } from "next/navigation"
-import { supabase } from "@/lib/supabase/client"
-import type { Database } from "@/lib/supabase/types"
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Clock,
+  Loader2,
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
+import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types";
+import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/components/ui/use-toast"
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
 
-/**
- * /grandprix/[category]
- * - category = webtest | business | case …
- * - Supabase から該当カテゴリの challenges を取得してカード表示
- * - 過去結果タブ: challenge_sessions から本人の履歴を20件
- */
-// 画面で使う最小限の列だけを表す型
+/* 型 ------------------------------------------------------------------ */
+type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"];
 type ChallengeCard = Pick<
-  Database["public"]["Tables"]["challenges"]["Row"],
-  "id" | "title" | "description" | "company" | "time_limit_min" | "question_count"
+  ChallengeRow,
+  | "id"
+  | "title"
+  | "description"
+  | "company"
+  | "time_limit_min"
+  | "question_count"
 >;
 
 export default function GrandPrixCategoryPage() {
-  const { category } = useParams<{ category: string }>()
-  const { toast } = useToast()
+  const router = useRouter();
+  const { category } = useParams<{ category: string }>();
+  const { toast } = useToast();
 
-  const [loading, setLoading] = useState(true)
-  const [challenges, setChallenges] = useState<ChallengeCard[]>([])
-  const [results, setResults] = useState<any[]>([])
+  const [loading, setLoading] = useState(true);
+  const [challenges, setChallenges] = useState<ChallengeCard[]>([]);
+  const [results, setResults] = useState<any[]>([]);
 
-  /* --------------- データ取得 --------------- */
+  /* ------------------------------------------------------------ */
+  /* データ取得 */
+  /* ------------------------------------------------------------ */
   useEffect(() => {
-    ;(async () => {
-      setLoading(true)
+    (async () => {
+      setLoading(true);
 
       const isoNow = new Date().toISOString();
 
-      /* 1. 挑戦可能チャレンジ */
+      /* 1. 公開中チャレンジ */
       const { data, error } = await supabase
         .from("challenges")
         .select(
-          `id, title, description, company,
-           time_limit_min, question_count`
+          `
+          id, title, description, company,
+          time_limit_min, question_count
+        `
         )
         .eq("category", category)
-        .lte("start_date", isoNow)                         // 公開開始済み
-        .or(`deadline.is.null,deadline.gte.${isoNow}`)     // 締切が無い or 未来
+        .lte("start_date", isoNow)
+        .or(`deadline.is.null,deadline.gte.${isoNow}`)
         .order("created_at", { ascending: false });
 
-      if (error) toast({ description: error.message })
-      else setChallenges(data as ChallengeCard[])
+      if (error) {
+        toast({ description: error.message });
+      } else {
+        setChallenges(data as ChallengeCard[]);
+      }
 
-      // ここでこのカテゴリに属する challenge_id を配列で控える
-      const challengeIds = (data ?? []).map((c) => c.id);
-
-      /* 2. 過去の結果（ログイン済みユーザーのみ） */
+      /* 2. 過去結果（ログインユーザーのみ） */
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await supabase.auth.getUser();
 
-      if (user) {
+      if (user && data?.length) {
+        const challengeIds = data.map((c) => c.id);
         const { data: res, error: resErr } = await supabase
           .from("challenge_sessions")
-          .select("id, challenge_id, score, elapsed_sec, created_at")
+          .select(
+            "id, challenge_id, score, elapsed_sec, created_at"
+          )
           .eq("student_id", user.id)
-          .in("challenge_id", challengeIds.length ? challengeIds : ['00000000-0000-0000-0000-000000000000'])
+          .in(
+            "challenge_id",
+            challengeIds.length
+              ? challengeIds
+              : ["00000000-0000-0000-0000-000000000000"]
+          )
           .order("created_at", { ascending: false })
           .limit(20);
 
-        if (!resErr) setResults(res as any[])
+        if (!resErr) setResults(res ?? []);
       }
 
-      setLoading(false)
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category])
+      setLoading(false);
+    })();
+  }, [category, toast]);
 
+  /* ------------------------------------------------------------ */
+  /* 画面 */
+  /* ------------------------------------------------------------ */
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <main className="container mx-auto px-4 py-8">
-        {/* 戻るリンク */}
+        {/* 戻る */}
         <div className="mb-6 flex items-center gap-2">
           <Link
             href="/grandprix"
@@ -102,19 +126,17 @@ export default function GrandPrixCategoryPage() {
         </div>
 
         {/* 見出し */}
-        <div className="mb-8 flex flex-col items-start gap-4 md:flex-row md:items-center">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {{
-                webtest: "Web テスト",
-                business: "ビジネス診断",
-                case: "ケース診断",
-              }[category] ?? category}
-            </h1>
-            <p className="text-sm text-gray-500">
-              挑戦できる大会を選択してください
-            </p>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold">
+            {{
+              webtest: "Web テスト",
+              business: "ビジネス診断",
+              case: "ケース診断",
+            }[category] ?? category}
+          </h1>
+          <p className="text-sm text-gray-500">
+            挑戦できる大会を選択してください
+          </p>
         </div>
 
         {/* タブ */}
@@ -124,7 +146,7 @@ export default function GrandPrixCategoryPage() {
             <TabsTrigger value="results">過去の結果</TabsTrigger>
           </TabsList>
 
-          {/* ---------- 挑戦可能 ---------- */}
+          {/* ---- 挑戦可能 ---- */}
           <TabsContent value="available">
             {loading ? (
               <div className="flex justify-center py-20">
@@ -176,7 +198,7 @@ export default function GrandPrixCategoryPage() {
             )}
           </TabsContent>
 
-          {/* ---------- 過去の結果 ---------- */}
+          {/* ---- 過去の結果 ---- */}
           <TabsContent value="results">
             {results.length === 0 ? (
               <p className="text-center text-sm text-gray-500">
@@ -189,8 +211,11 @@ export default function GrandPrixCategoryPage() {
                     <CardContent className="flex items-center justify-between p-4">
                       <div>
                         <p className="font-medium">
-                          {challenges.find((c) => c.id === r.challenge_id)?.title ??
-                            "（タイトル不明）"}
+                          {
+                            challenges.find(
+                              (c) => c.id === r.challenge_id
+                            )?.title ?? "（タイトル不明）"
+                          }
                         </p>
                         <p className="text-xs text-gray-500">
                           {new Date(r.created_at).toLocaleDateString()}
@@ -213,5 +238,5 @@ export default function GrandPrixCategoryPage() {
         </Tabs>
       </main>
     </div>
-  )
+  );
 }
