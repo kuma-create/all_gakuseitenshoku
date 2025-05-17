@@ -13,20 +13,16 @@ function initSupabase(req: NextRequest, res: NextResponse) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () =>
-          req.cookies.getAll().map(({ name, value }) => ({ name, value })),
-        setAll: (cs) =>
-          cs.forEach(({ name, value, options }) =>
-            res.cookies.set({ name, value, ...options }),
-          ),
+        getAll: () => req.cookies.getAll().map(({ name, value }) => ({ name, value })),
+        setAll: (cs) => cs.forEach(({ name, value, options }) =>
+          res.cookies.set({ name, value, ...options })),
       },
     },
   );
 }
 
 /* ---------- 設定 ---------- */
-const STATIC_RE =
-  /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
+const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
 
 /** “学生だけ” にしたい Grandprix サブパス */
 const STUDENT_ONLY_PREFIXES = [
@@ -38,47 +34,26 @@ const STUDENT_ONLY_PREFIXES = [
 /** 誰でも見られるパス（静的 LP など）*/
 const PUBLIC_PREFIXES = [
   "/",                 // トップ
-  "/grandprix",        // グランプリ一覧（**直下のみ**）
+  "/grandprix",        // グランプリ一覧・通常詳細
   "/api",
   "/auth/reset",
 ];
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: req });
-
-  /* ---------- 0. ナビゲーション以外の HTTP メソッドはスルー ---------- */
-  if (req.method !== "GET") {
-    return res;
-  }
-
   const supabase = initSupabase(req, res);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = req.nextUrl;
 
   /* ---------- ① 静的アセットは即通過 ---------- */
   if (STATIC_RE.test(pathname)) return res;
 
   /* ---------- ② 学生専用ページ判定 ---------- */
-  const isStudentOnly = STUDENT_ONLY_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
-
-  let role: string | undefined = session?.user.user_metadata?.role;
-
-  /* user_metadata.role が無ければ user_roles テーブルから補完 --------- */
-  if (!role && session) {
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .maybeSingle();
-    role = roleRow?.role;
-  }
+  const isStudentOnly = STUDENT_ONLY_PREFIXES
+    .some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (isStudentOnly) {
-    const isStudent = role === "student";
+    const isStudent = session?.user.user_metadata?.role === "student";
     if (!session || !isStudent) {
       const login = new URL("/login", req.url);
       login.searchParams.set("next", pathname);
@@ -88,13 +63,7 @@ export async function middleware(req: NextRequest) {
 
   /* ---------- ③ 公開ページかどうか ---------- */
   const isLoginPage = pathname === "/login";
-
-  // 「/grandprix」直下だけ公開にしたいので厳密判定
-  const isPublic = PUBLIC_PREFIXES.some((p) =>
-    p === "/grandprix"
-      ? pathname === "/grandprix" || pathname === "/grandprix/"
-      : pathname === p || pathname.startsWith(`${p}/`),
-  );
+  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 
   /* 未ログインで非公開ページ → /login?next=... */
   if (!session && !isPublic && !isLoginPage) {
@@ -103,28 +72,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ログイン済みで /login へ来たらロール別ダッシュボードへ
-     ただし「学生専用ページへの next パラメータ付き」で
-     かつ学生以外がアクセスしてきた場合は /login をそのまま表示 */
+  /* ログイン済みで /login へ来たらロール別ダッシュボードへ */
   if (session && isLoginPage) {
-    const nextParam = req.nextUrl.searchParams.get("next") ?? "";
-    const nextIsStudentOnly = STUDENT_ONLY_PREFIXES.some(
-      (p) => nextParam === p || nextParam.startsWith(`${p}/`),
-    );
-
-    /* 学生専用ページへ行こうとしているのに学生ではない → /login にとどまる */
-    if (nextIsStudentOnly && role !== "student") {
-      return res; // /login をそのまま描画
-    }
-
-    /* それ以外はダッシュボードへリダイレクト */
+    const role = session.user.user_metadata?.role;
     const dest =
-      role === "company"
-        ? "/company-dashboard"
-        : role === "admin"
-        ? "/admin"
-        : "/student-dashboard";
-
+      role === "company" ? "/company-dashboard" :
+      role === "admin"   ? "/admin"              :
+                           "/student-dashboard";
     return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
   }
 
