@@ -17,10 +17,10 @@ export default function Providers({ children }: { children: ReactNode }) {
       (_event, session) => {
         fetch("/auth/set", {
           method: "POST",
-          credentials: "same-origin",
+          credentials: "include",              // ← same-origin でも可だが include が確実
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session }),   // null も送る
-        });
+          body: JSON.stringify(session),        // ← 直接 session を送る
+        }).catch(console.error);
       }
     );
     return () => subscription.unsubscribe();
