@@ -9,8 +9,8 @@ import { supabase } from "@/lib/supabase/client";
 import {
   Card, CardHeader, CardTitle, CardContent, CardFooter,
 } from "@/components/ui/card";
-import { Input }    from "@/components/ui/input";
-import { Button }   from "@/components/ui/button";
+import { Input }  from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 
 export default function AdminLogin() {
@@ -27,7 +27,7 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true); setErr(null);
 
-    /* Supabase Auth – email & pw */
+    /* Supabase Auth -------------- */
     const { data, error } = await supabase.auth.signInWithPassword({
       email, password,
     });
@@ -37,7 +37,7 @@ export default function AdminLogin() {
       return;
     }
 
-    /* ロール確認 (public.users.role) ---------------------- */
+    /* ロール確認 ------------------ */
     const { data: roleRow, error: roleErr } = await supabase
       .from("users")
       .select("role")

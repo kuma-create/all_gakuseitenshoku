@@ -1,16 +1,20 @@
 /* ------------------------------------------------------------------
-   app/admin/layout.tsx  –  共通レイアウト & Admin ガード
+   app/admin/layout.tsx  –  管理エリア共通レイアウト & ガード
 ------------------------------------------------------------------ */
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import type { Database }      from "@/lib/supabase/types";
+import { cookies }  from "next/headers";
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import type { Database } from "@/lib/supabase/types";
 
-export const dynamic = "force-dynamic";   // ← Edge/Middleware と同じ挙動
+export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({
   children,
 }: { children: React.ReactNode }) {
+  /* ---- Supabase (Server Component) ---- */
+  const supabase = createServerComponentClient<Database>({
+    cookies: () => cookies(),   // ✅ headers は不要
+  });
 
   const {
     data: { session },
@@ -18,27 +22,22 @@ export default async function AdminLayout({
 
   /* 未ログイン → /admin/login */
   if (!session) {
-    redirect(`/admin/login?next=${encodeURIComponent("/admin")}`);
+    redirect("/admin/login?next=/admin");
   }
 
-  /* role = admin か確認 */
+  /* role = admin 必須 */
   const { data: roleRow } = await supabase
     .from("users")
     .select("role")
-    .eq("id", session.user.id)
-    .single();
+    .eq("id" as never, session.user.id)   // 型エラー回避
+    .maybeSingle();
 
-  if (roleRow?.role !== "admin") {
-    // セッションはあるが admin ではない → 強制ログアウト & /login
+  const role = (roleRow as any)?.role;    // 型エラー回避
+
+  if (role !== "admin") {
     await supabase.auth.signOut();
     redirect("/login");
   }
 
-  /* -------- ここから管理画面 -------- */
-  return (
-    <div className="flex min-h-screen">
-      {/* ここでサイドバー等を表示しても良い */}
-      <main className="flex-1">{children}</main>
-    </div>
-  );
+  return <>{children}</>;
 }
