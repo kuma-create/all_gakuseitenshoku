@@ -19,6 +19,7 @@ const PUBLIC_PREFIXES = [
   "/grandprix",        // グランプリ一覧ページ
   "/api",
   "/auth/reset",
+  "/admin/login",      // ←★ 管理者ログインページを追加
 ];
 
 export async function middleware(req: NextRequest) {
