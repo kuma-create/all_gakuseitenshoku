@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 /* ------------------------------------------------------------------
    Grand Prix – テスト進行ページ
@@ -13,15 +13,15 @@ import {
   Loader2,
   Timer,
   AlertCircle,
-} from "lucide-react"
-import { useParams, useRouter } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import { supabase } from "@/lib/supabase/client"
-import type { Database } from "@/lib/supabase/types"
+} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types";
 
-import { LazyImage } from "@/components/ui/lazy-image"
-import { Button } from "@/components/ui/button"
+import { LazyImage } from "@/components/ui/lazy-image";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardHeader,
@@ -29,101 +29,103 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-} from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import { useToast } from "@/components/ui/use-toast"
-import { QuestionCard } from "@/components/question-card"
+} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/components/ui/use-toast";
+import { QuestionCard } from "@/components/question-card";
 
 /* ---------- 型定義 ---------- */
 type SessionAnswerRow =
-  Database["public"]["Tables"]["session_answers"]["Row"]
-type QuestionRow = Database["public"]["Tables"]["question_bank"]["Row"]
+  Database["public"]["Tables"]["session_answers"]["Row"];
+type QuestionRow = Database["public"]["Tables"]["question_bank"]["Row"];
 
 interface AnswerRow extends SessionAnswerRow {
-  question: QuestionRow
+  question: QuestionRow | null; // ← null 許容に変更
 }
 
 export default function WebTestPage() {
   const { category, sessionId } = useParams<{
-    category: string
-    sessionId: string
-  }>()
-  const router = useRouter()
-  const { toast } = useToast()
+    category: string;
+    sessionId: string;
+  }>();
+  const router = useRouter();
+  const { toast } = useToast();
 
   /* ---------------- state ---------------- */
-  const [loading, setLoading] = useState(true)
-  const [answers, setAnswers] = useState<AnswerRow[]>([])
-  const [current, setCurrent] = useState(0)
-  const total = answers.length
-  const [deadline, setDeadline] = useState<Date | null>(null)
-  const [remaining, setRemaining] = useState(0)
+  const [loading, setLoading] = useState(true);
+  const [answers, setAnswers] = useState<AnswerRow[]>([]);
+  const [current, setCurrent] = useState(0);
+  const total = answers.length;
+  const [deadline, setDeadline] = useState<Date | null>(null);
+  const [remaining, setRemaining] = useState(0);
 
   /* ---------------- fetch ---------------- */
   useEffect(() => {
-    ;(async () => {
-      setLoading(true)
+    (async () => {
+      setLoading(true);
 
-      /* すべての回答 + 問題文 */
+      /* すべての回答 + 問題文を取得 */
       const { data, error } = await supabase
         .from("session_answers")
         .select("*, question:question_bank(*)")
         .eq("session_id", sessionId)
-        .order("question_id")
+        .order("question_id", { ascending: true, nullsFirst: false });
 
       if (error) {
-        toast({ description: error.message })
+        toast({ description: error.message });
       } else {
-        setAnswers(data as AnswerRow[])
+        /* question が null の行を除外しておく -------------- */
+        const filtered = (data as AnswerRow[]).filter(
+          (row) => row.question !== null
+        );
+        setAnswers(filtered);
       }
 
-      /* セッション開始時刻 → デッドライン算出 */
+      /* セッション開始時刻 → デッドライン算出（40 分固定） */
       const { data: sess, error: sessErr } = await supabase
         .from("challenge_sessions")
         .select("started_at")
         .eq("id", sessionId)
-        .maybeSingle()
+        .maybeSingle();
 
-      if (sessErr) toast({ description: sessErr.message })
+      if (sessErr) toast({ description: sessErr.message });
       else if (sess?.started_at) {
         setDeadline(
           new Date(new Date(sess.started_at).getTime() + 40 * 60 * 1000)
-        )
+        );
       }
 
-      setLoading(false)
-    })()
+      setLoading(false);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [sessionId]);
 
   /* ---------------- timer ---------------- */
   useEffect(() => {
-    if (!deadline) return
+    if (!deadline) return;
     const id = setInterval(() => {
-      const sec = Math.max(
-        0,
-        Math.floor((deadline.getTime() - Date.now()) / 1000)
-      )
-      setRemaining(sec)
+      const sec = Math.max(0, Math.floor((deadline.getTime() - Date.now()) / 1000));
+      setRemaining(sec);
       if (sec === 0) {
-        clearInterval(id)
-        handleSubmit()
+        clearInterval(id);
+        handleSubmit();
       }
-    }, 1000)
-    return () => clearInterval(id)
-  }, [deadline]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deadline]);
 
   /* ---------------- derived ---------------- */
-  const currentAnswer = answers[current]
-  const progressPct = useMemo(
-    () => ((current + 1) / total) * 100,
-    [current, total]
-  )
-  const remainStr = `${String(Math.floor(remaining / 60)).padStart(
-    2,
-    "0"
-  )}:${String(remaining % 60).padStart(2, "0")}`
+  const currentAnswer = answers[current];
+  const progressPct = useMemo(() => {
+    if (total === 0) return 0;
+    return ((current + 1) / total) * 100;
+  }, [current, total]);
+
+  const remainStr = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(
+    remaining % 60
+  ).padStart(2, "0")}`;
 
   /* ---------------- submit ---------------- */
   const handleSubmit = useCallback(async () => {
@@ -132,14 +134,14 @@ export default function WebTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
-      router.replace(`/grandprix/${category}/${sessionId}/result`)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      router.replace(`/grandprix/${category}/${sessionId}/result`);
     } catch (e: any) {
-      toast({ description: e.message })
+      toast({ description: e.message });
     }
-  }, [router, sessionId, category, toast])
+  }, [router, sessionId, category, toast]);
 
   /* ---------------- UI ---------------- */
   if (loading) {
@@ -147,11 +149,12 @@ export default function WebTestPage() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
       </div>
-    )
+    );
   }
 
-  if (!currentAnswer) {
-    return <p className="p-4">問題が見つかりません</p>
+  /* question が null の場合は弾いているが、念のためチェック */
+  if (!currentAnswer || !currentAnswer.question) {
+    return <p className="p-4">問題が見つかりません</p>;
   }
 
   return (
@@ -204,11 +207,10 @@ export default function WebTestPage() {
                 <Timer className="h-4 w-4" />
                 <span>
                   経過時間:{" "}
-                  {`${String(
-                    Math.floor((40 * 60 - remaining) / 60)
-                  ).padStart(2, "0")}:${String(
-                    (40 * 60 - remaining) % 60
-                  ).padStart(2, "0")}`}
+                  {`${String(Math.floor((40 * 60 - remaining) / 60)).padStart(
+                    2,
+                    "0"
+                  )}:${String((40 * 60 - remaining) % 60).padStart(2, "0")}`}
                 </span>
               </div>
             </div>
@@ -283,11 +285,17 @@ export default function WebTestPage() {
                 <Button
                   key={idx}
                   variant={
-                    idx === current ? "default" : idx < current ? "secondary" : "outline"
+                    idx === current
+                      ? "default"
+                      : idx < current
+                      ? "secondary"
+                      : "outline"
                   }
                   size="sm"
                   className={
-                    idx === current ? "bg-emerald-500 hover:bg-emerald-600" : ""
+                    idx === current
+                      ? "bg-emerald-500 hover:bg-emerald-600"
+                      : ""
                   }
                   onClick={() => setCurrent(idx)}
                 >
@@ -306,5 +314,5 @@ export default function WebTestPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }
