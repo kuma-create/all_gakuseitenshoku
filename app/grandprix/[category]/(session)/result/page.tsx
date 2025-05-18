@@ -8,67 +8,65 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
 import {
-  ArrowLeft,
-  ArrowRight,
-  Trophy,
-  Loader2,
-  CheckCircle,
-  XCircle,
+  ArrowLeft, ArrowRight, Trophy, Loader2,
+  CheckCircle, XCircle,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 import { LazyImage } from "@/components/ui/lazy-image"
-import { Button } from "@/components/ui/button"
+import { Button }    from "@/components/ui/button"
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
+  Card, CardHeader, CardTitle, CardDescription,
+  CardContent, CardFooter,
 } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { useToast } from "@/components/ui/use-toast"
+import { Progress }   from "@/components/ui/progress"
+import { useToast }   from "@/components/ui/use-toast"
 
 /* ---------- 型定義 ---------- */
-type SessionAnswerRow =
-  Database["public"]["Tables"]["session_answers"]["Row"]
-type QuestionRow = Database["public"]["Tables"]["question_bank"]["Row"]
+type SessionAnswerRow   = Database["public"]["Tables"]["session_answers"]["Row"]
+type QuestionRow        = Database["public"]["Tables"]["question_bank"]["Row"]
 type ChallengeSessionRow =
   Database["public"]["Tables"]["challenge_sessions"]["Row"]
 
 interface AnswerRow extends SessionAnswerRow {
-  question: QuestionRow
+  question: QuestionRow | null            // ← null 許容
 }
 
+/* ---------- util: null 安全フォーマッタ ---------- */
+const fmtScore = (n: number | null | undefined) =>
+  n != null ? n.toFixed(1) : "—"
+
 export default function WebTestResultPage() {
-  const { category, sessionId } = useParams<{
-    category: string
-    sessionId: string
-  }>()
+  const { category, sessionId } = useParams<{ category: string; sessionId: string }>()
   const router = useRouter()
   const { toast } = useToast()
 
-  const [loading, setLoading] = useState(true)
-  const [answers, setAnswers] = useState<AnswerRow[]>([])
-  const [session, setSession] = useState<ChallengeSessionRow | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [answers, setAnswers]   = useState<AnswerRow[]>([])
+  const [session, setSession]   = useState<ChallengeSessionRow | null>(null)
 
   /* ---------------- fetch ---------------- */
   useEffect(() => {
     ;(async () => {
       setLoading(true)
 
-      /* 回答 + 問題情報 */
+      /* 回答 + 問題情報 ------------------------------------- */
       const { data: ans, error } = await supabase
         .from("session_answers")
         .select("*, question:question_bank(*)")
         .eq("session_id", sessionId)
 
-      if (error) toast({ description: error.message })
-      else setAnswers(ans as AnswerRow[])
+      if (error) {
+        toast({ description: error.message })
+      } else {
+        /* question === null を除外してセット */
+        setAnswers(
+          (ans as AnswerRow[]).filter((a) => a.question !== null),
+        )
+      }
 
-      /* セッション集計値 */
+      /* セッション集計値 ------------------------------------ */
       const { data: sess, error: sessErr } = await supabase
         .from("challenge_sessions")
         .select("score, elapsed_sec")
@@ -86,24 +84,23 @@ export default function WebTestResultPage() {
   /* ---------------- 集計 ---------------- */
   const correctCount = useMemo(
     () => answers.filter((a) => a.is_correct).length,
-    [answers]
+    [answers],
   )
-  const total = answers.length
-  const percentage = total ? Math.round((correctCount / total) * 100) : 0
+  const total       = answers.length
+  const percentage  = total ? Math.round((correctCount / total) * 100) : 0
 
   /* ---------------- ローディング ---------------- */
-  if (loading) {
+  if (loading)
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
       </div>
     )
-  }
 
   /* ---------------- UI ---------------- */
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* ヘッダー */}
+      {/* ---- ヘッダー ---- */}
       <header className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="container mx-auto flex h-16 items-center px-4">
           <LazyImage
@@ -127,18 +124,17 @@ export default function WebTestResultPage() {
                 結果発表
               </CardTitle>
               <CardDescription>
-                あなたの{" "}
-                {category === "webtest" ? "Web テスト" : "診断"} 結果
+                あなたの {category === "webtest" ? "Web テスト" : "診断"} 結果
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6 p-6">
               <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
-                {/* 合計得点 */}
+                {/* 総得点 */}
                 <div className="text-center md:text-left">
                   <p className="text-sm text-gray-500">総得点</p>
                   <p className="text-4xl font-bold text-emerald-600">
-                    {session?.score?.toFixed(1)}
+                    {fmtScore(session?.score)}
                   </p>
                 </div>
 
@@ -186,8 +182,13 @@ export default function WebTestResultPage() {
                     <p className="font-medium">問題 {idx + 1}</p>
                     <div
                       className="mt-1 text-sm text-gray-700"
+                      /* question が null でなければ stem の冒頭を表示 */
                       dangerouslySetInnerHTML={{
-                        __html: a.question.stem.substring(0, 120) + "…",
+                        __html:
+                          (a.question?.stem ?? "").substring(0, 120) +
+                          (a.question?.stem && a.question.stem.length > 120
+                            ? "…"
+                            : ""),
                       }}
                     />
                   </div>
