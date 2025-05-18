@@ -1,7 +1,8 @@
 /* ------------------------------------------------------------------------
    app/(auth)/signup/page.tsx
-   - STEP1: 基本情報入力（姓・名を追加）
+   - STEP1: 基本情報入力（姓・名）
    - STEP2: 確認メール送信完了
+   - 新規登録は /api/signup に POST → role は自動で student
 ------------------------------------------------------------------------- */
 "use client";
 
@@ -17,23 +18,15 @@ import {
   CheckCircle,
   Circle,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Input }  from "@/components/ui/input";
+import { Label }  from "@/components/ui/label";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-
 
 export default function SignupPage() {
   const router = useRouter();
@@ -41,22 +34,20 @@ export default function SignupPage() {
   /* ---------------- state ---------------- */
   const [step, setStep] = useState<1 | 2>(1);
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  /* ✅ 利用規約チェック */
+  const [isLoading, setIsLoading]     = useState(false);
+  const [error, setError]             = useState<string | null>(null);
   const [termsChecked, setTermsChecked] = useState(false);
 
-  /* form */
+  /* form state */
   const [formData, setFormData] = useState({
-    last_name: "",
+    last_name : "",
     first_name: "",
-    email: "",
-    password: "",
-    referral: "",
+    email     : "",
+    password  : "",
+    referral  : "",
   });
 
-  /* -------------- handlers -------------- */
+  /* handlers */
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -64,53 +55,44 @@ export default function SignupPage() {
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  /* パスワードルール */
-  const isLengthOK = formData.password.length >= 8;
-  const hasAlphaNum =
-    /[A-Za-z]/.test(formData.password) && /\d/.test(formData.password);
+  /* password validation */
+  const isLengthOK  = formData.password.length >= 8;
+  const hasAlphaNum = /[A-Za-z]/.test(formData.password) && /\d/.test(formData.password);
   const allPasswordOK = isLengthOK && hasAlphaNum;
 
-  /* -------------- signup -------------- */
+  /* ---------------- signup submit ---------------- */
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      /* ❶ メール認証付きサインアップ ---------------------------- */
-      const fullName = `${formData.last_name} ${formData.first_name}`.trim();
-      const { data, error: authErr } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            referral_source: formData.referral,
-            full_name: fullName,
-            last_name : formData.last_name,
-            first_name: formData.first_name,
-          },
-          emailRedirectTo:
-            `${location.origin}/email-callback` +
-            `?email=${encodeURIComponent(formData.email)}` +
-            `&ref=${encodeURIComponent(formData.referral)}`,
-      }});
-      if (authErr) throw authErr;
-      if (!data.user) throw new Error("ユーザー登録に失敗しました");
-      
+      const res = await fetch("/api/signup", {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({
+          email     : formData.email,
+          password  : formData.password,
+          first_name: formData.first_name,
+          last_name : formData.last_name,
+          referral  : formData.referral,
+        }),
+      });
 
-      /* ❸ 完了画面へ ------------------------------------------ */
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "登録に失敗しました");
+
+      /* 完了画面へ */
       setStep(2);
     } catch (err: any) {
       console.error(err);
-      setError(
-        err.message ?? "登録中に問題が発生しました。もう一度お試しください。",
-      );
+      setError(err.message ?? "登録中に問題が発生しました。もう一度お試しください。");
     } finally {
       setIsLoading(false);
     }
   };
 
-  /* ------- password rule icon ------- */
+  /* password rule icon */
   const Rule = ({ ok, children }: { ok: boolean; children: React.ReactNode }) => (
     <li className={`flex items-center gap-1 ${ok ? "text-emerald-600" : "text-gray-500"}`}>
       {ok ? <CheckCircle size={14} /> : <Circle size={14} />}
@@ -212,19 +194,13 @@ export default function SignupPage() {
                             className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                             onClick={() => setShowPassword((b) => !b)}
                           >
-                            {showPassword ? (
-                              <EyeOff size={16} />
-                            ) : (
-                              <Eye size={16} />
-                            )}
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                           </button>
                         </div>
 
                         {/* Password rules */}
                         <div className="text-xs space-y-1">
-                          <p className="text-gray-500">
-                            パスワードは以下を満たす必要があります：
-                          </p>
+                          <p className="text-gray-500">パスワードは以下を満たす必要があります：</p>
                           <ul className="space-y-1">
                             <Rule ok={isLengthOK}>8文字以上</Rule>
                             <Rule ok={hasAlphaNum}>英字と数字を含む</Rule>
@@ -252,7 +228,6 @@ export default function SignupPage() {
                         <option value="other">その他</option>
                       </select>
                     </div>
-                    {/* ▲ 流入経路 ▲ */}
 
                     {/* terms */}
                     <div className="flex items-center gap-2">
@@ -264,8 +239,7 @@ export default function SignupPage() {
                       />
                       <Label htmlFor="terms" className="text-sm">
                         <span className="underline">利用規約</span> と{" "}
-                        <span className="underline">プライバシーポリシー</span>
-                        に同意します
+                        <span className="underline">プライバシーポリシー</span> に同意します
                       </Label>
                     </div>
 
@@ -276,13 +250,11 @@ export default function SignupPage() {
                       </Alert>
                     )}
 
-                    {/* next btn */}
+                    {/* submit */}
                     <Button
                       type="submit"
                       className="w-full bg-red-600 hover:bg-red-700"
-                      disabled={
-                        isLoading || !allPasswordOK || !termsChecked
-                      }
+                      disabled={isLoading || !allPasswordOK || !termsChecked}
                     >
                       {isLoading ? (
                         <>
@@ -301,9 +273,7 @@ export default function SignupPage() {
               {step === 2 && (
                 <CardContent className="flex flex-col items-center space-y-6 py-12 text-center">
                   <CheckCircle className="h-12 w-12 text-green-500" />
-                  <p className="text-lg font-semibold">
-                    あと少しで登録完了です！
-                  </p>
+                  <p className="text-lg font-semibold">あと少しで登録完了です！</p>
                   <p className="max-w-sm text-gray-600">
                     ご入力いただいたメールアドレス宛に確認メールを送信しました。
                     <br />
@@ -317,10 +287,7 @@ export default function SignupPage() {
               <CardFooter className="flex flex-col items-center border-t px-6 py-4 text-center">
                 <p className="text-sm text-gray-600">
                   すでにアカウントをお持ちの方は
-                  <Link
-                    href="/login"
-                    className="ml-1 font-medium text-red-600 hover:underline"
-                  >
+                  <Link href="/login" className="ml-1 font-medium text-red-600 hover:underline">
                     ログイン
                   </Link>
                 </p>
@@ -336,28 +303,18 @@ export default function SignupPage() {
   );
 }
 
-/* ---------- サブコンポーネント（メリットカード） ---------- */
+/* ---------- メリットサイドバー ---------- */
 function BenefitsSidebar() {
   const benefits = [
-    {
-      title: "企業からのスカウト",
-      desc : "あなたのプロフィールを見た企業から直接オファーが届きます",
-    },
-    {
-      title: "職務経歴書の自動作成",
-      desc : "経験やスキルを入力するだけで、魅力的な職務経歴書が完成します",
-    },
-    {
-      title: "就活グランプリへの参加",
-      desc : "ビジネススキルを可視化し、企業からの注目度をアップできます",
-    },
+    { title: "企業からのスカウト", desc: "あなたのプロフィールを見た企業から直接オファーが届きます" },
+    { title: "職務経歴書の自動作成", desc: "経験やスキルを入力するだけで、魅力的な職務経歴書が完成します" },
+    { title: "就活グランプリへの参加", desc: "ビジネススキルを可視化し、企業からの注目度をアップできます" },
   ];
 
   return (
     <aside className="sticky top-4 md:col-span-2">
       <div className="rounded-xl border bg-white px-6 py-8 shadow-lg">
         <h3 className="mb-6 text-lg font-bold text-gray-900">登録するメリット</h3>
-
         <ul className="space-y-6">
           {benefits.map((b) => (
             <li key={b.title} className="flex gap-4">
