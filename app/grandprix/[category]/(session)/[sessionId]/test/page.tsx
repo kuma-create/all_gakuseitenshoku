@@ -1,165 +1,156 @@
-"use client";
-
 /* ------------------------------------------------------------------
-   Grand Prix – テスト進行ページ
-   /grandprix/[category]/(session)/[sessionId]/test/page.tsx
+   app/grandprix/[category]/(session)/[sessionId]/test/page.tsx
+   - started_at が NULL または期限切れの場合は今を起点に再計算
 ------------------------------------------------------------------- */
+"use client"
 
 import {
-  ArrowLeft,
-  ArrowRight,
-  Clock,
-  Save,
-  Loader2,
-  Timer,
-  AlertCircle,
-} from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabase/client";
-import type { Database } from "@/lib/supabase/types";
+  ArrowLeft, ArrowRight, Clock, Save, Loader2, Timer, AlertCircle,
+} from "lucide-react"
+import { useParams, useRouter } from "next/navigation"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { supabase } from "@/lib/supabase/client"
+import type { Database } from "@/lib/supabase/types"
 
-import { LazyImage } from "@/components/ui/lazy-image";
-import { Button } from "@/components/ui/button";
+import { LazyImage } from "@/components/ui/lazy-image"
+import { Button }    from "@/components/ui/button"
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/components/ui/use-toast";
-import { QuestionCard } from "@/components/question-card";
+  Card, CardHeader, CardTitle, CardDescription,
+  CardContent, CardFooter,
+} from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/components/ui/use-toast"
+import { QuestionCard } from "@/components/question-card"
 
-/* ---------- 型定義 ---------- */
+/* ---------- 型 ---------- */
 type SessionAnswerRow =
-  Database["public"]["Tables"]["session_answers"]["Row"];
-type QuestionRow = Database["public"]["Tables"]["question_bank"]["Row"];
+  Database["public"]["Tables"]["session_answers"]["Row"]
+type QuestionRow = Database["public"]["Tables"]["question_bank"]["Row"]
 
 interface AnswerRow extends SessionAnswerRow {
-  question: QuestionRow | null; // ← null 許容に変更
+  question: QuestionRow | null
 }
 
 export default function WebTestPage() {
-  const { category, sessionId } = useParams<{
-    category: string;
-    sessionId: string;
-  }>();
-  const router = useRouter();
-  const { toast } = useToast();
+  const { category, sessionId } = useParams<{ category: string; sessionId: string }>()
+  const router = useRouter()
+  const { toast } = useToast()
 
-  /* ---------------- state ---------------- */
-  const [loading, setLoading] = useState(true);
-  const [answers, setAnswers] = useState<AnswerRow[]>([]);
-  const [current, setCurrent] = useState(0);
-  const total = answers.length;
-  const [deadline, setDeadline] = useState<Date | null>(null);
-  const [remaining, setRemaining] = useState(0);
+  /* ---------- state ---------- */
+  const [loading,   setLoading]   = useState(true)
+  const [answers,   setAnswers]   = useState<AnswerRow[]>([])
+  const [current,   setCurrent]   = useState(0)
+  const total = answers.length
+  const [deadline,  setDeadline]  = useState<Date | null>(null)
+  const [remaining, setRemaining] = useState(0)
 
-  /* ---------------- fetch ---------------- */
+  /* ---------- fetch ---------- */
   useEffect(() => {
     (async () => {
-      setLoading(true);
+      setLoading(true)
 
-      /* すべての回答 + 問題文を取得 */
+      /* 回答 + 問題文 */
       const { data, error } = await supabase
         .from("session_answers")
         .select("*, question:question_bank(*)")
         .eq("session_id", sessionId)
-        .order("question_id", { ascending: true, nullsFirst: false });
+        .order("question_id", { ascending: true, nullsFirst: false })
 
-      if (error) {
-        toast({ description: error.message });
-      } else {
-        /* question が null の行を除外しておく -------------- */
-        const filtered = (data as AnswerRow[]).filter(
-          (row) => row.question !== null
-        );
-        setAnswers(filtered);
-      }
+      if (error) toast({ description: error.message })
+      else setAnswers((data as AnswerRow[]).filter((r) => r.question))
 
-      /* セッション開始時刻 → デッドライン算出（40 分固定） */
+      /* started_at 取得 → deadline 計算 (40 分) ------------------ */
       const { data: sess, error: sessErr } = await supabase
         .from("challenge_sessions")
         .select("started_at")
         .eq("id", sessionId)
-        .maybeSingle();
+        .maybeSingle()
 
-      if (sessErr) toast({ description: sessErr.message });
-      else if (sess?.started_at) {
-        setDeadline(
-          new Date(new Date(sess.started_at).getTime() + 40 * 60 * 1000)
-        );
+      if (sessErr) toast({ description: sessErr.message })
+
+      const now = new Date()
+      let start   = sess?.started_at ? new Date(sess.started_at) : now
+      let dl      = new Date(start.getTime() + 40 * 60 * 1000)
+
+      /* ① started_at が NULL なら DB に現在時刻を書き込む -------- */
+      if (!sess?.started_at) {
+        await supabase
+          .from("challenge_sessions")
+          .update({ started_at: now.toISOString() })
+          .eq("id", sessionId)
+        start = now
+        dl    = new Date(now.getTime() + 40 * 60 * 1000)
       }
 
-      setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+      /* ② 40 分を超えていたら強制リセット ----------------------- */
+      if (dl < now) {
+        start = now
+        dl    = new Date(now.getTime() + 40 * 60 * 1000)
+      }
 
-  /* ---------------- timer ---------------- */
+      setDeadline(dl)
+      setLoading(false)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
+
+  /* ---------- timer ---------- */
   useEffect(() => {
-    if (!deadline) return;
+    if (!deadline) return
     const id = setInterval(() => {
-      const sec = Math.max(0, Math.floor((deadline.getTime() - Date.now()) / 1000));
-      setRemaining(sec);
+      const sec = Math.max(0, Math.floor((deadline.getTime() - Date.now()) / 1000))
+      setRemaining(sec)
       if (sec === 0) {
-        clearInterval(id);
-        handleSubmit();
+        clearInterval(id)
+        handleSubmit()
       }
-    }, 1000);
-    return () => clearInterval(id);
+    }, 1000)
+    return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deadline]);
+  }, [deadline])
 
-  /* ---------------- derived ---------------- */
-  const currentAnswer = answers[current];
-  const progressPct = useMemo(() => {
-    if (total === 0) return 0;
-    return ((current + 1) / total) * 100;
-  }, [current, total]);
-
+  /* ---------- derived ---------- */
+  const currentAnswer = answers[current]
+  const progressPct = useMemo(
+    () => (total ? ((current + 1) / total) * 100 : 0),
+    [current, total],
+  )
   const remainStr = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(
-    remaining % 60
-  ).padStart(2, "0")}`;
+    remaining % 60,
+  ).padStart(2, "0")}`
 
-  /* ---------------- submit ---------------- */
+  /* ---------- submit ---------- */
   const handleSubmit = useCallback(async () => {
     try {
-      const res = await fetch("/api/submit-session", {
+      const res  = await fetch("/api/submit-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      router.replace(`/grandprix/${category}/${sessionId}/result`);
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      router.replace(`/grandprix/${category}/${sessionId}/result`)
     } catch (e: any) {
-      toast({ description: e.message });
+      toast({ description: e.message })
     }
-  }, [router, sessionId, category, toast]);
+  }, [router, sessionId, category, toast])
 
-  /* ---------------- UI ---------------- */
-  if (loading) {
+  /* ---------- UI ---------- */
+  if (loading)
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
       </div>
-    );
-  }
+    )
 
-  /* question が null の場合は弾いているが、念のためチェック */
-  if (!currentAnswer || !currentAnswer.question) {
-    return <p className="p-4">問題が見つかりません</p>;
-  }
+  if (!currentAnswer?.question)
+    return <p className="p-4">問題が見つかりません</p>
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
+      {/* ––– ヘッダー（既存のまま） ––– */}
       <header className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
