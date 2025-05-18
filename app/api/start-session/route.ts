@@ -20,19 +20,25 @@ export async function POST(req: Request) {
   if (authErr || !user)
     return NextResponse.json({ error: "not signed in" }, { status: 401 });
 
-  /* ---------- プロフィール存在チェック（FK 対策） ---------- */
-  const { data: profile, error: profileErr } = await supabase
+  /* ---------- プロフィール行を確保（FK 対策） ---------- */
+  // student_profiles には NOT NULL 列が複数あるため、
+  // 最低限の値を入れて upsert する（INSERT が RLS で失敗しないよう注意）
+  const { error: profileErr } = await supabase
     .from("student_profiles")
-    .select("id")
-    .eq("id", user.id)
-    .single();
-
-  if (profileErr || !profile) {
-    // プロフィールが未作成だと FK 制約で challenge_sessions に書き込めない
-    return NextResponse.json(
-      { error: "profile_not_found" },
-      { status: 400 },
+    .upsert(
+      {
+        id:                        user.id,
+        updated_at:                new Date().toISOString(),
+        status:                    "incomplete",
+        has_internship_experience: false,
+        interests:                 [],
+      },
+      { onConflict: "id", ignoreDuplicates: true }
     );
+
+  if (profileErr) {
+    console.error("student_profiles upsert error:", profileErr);
+    return NextResponse.json({ error: profileErr.message }, { status: 500 });
   }
 
   /* ---------- セッション作成 ---------- */
