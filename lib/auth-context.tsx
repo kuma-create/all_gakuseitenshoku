@@ -63,7 +63,7 @@ export const useAuth = () => {
 };
 
 /* ---------- 公開ルート ---------- */
-const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/email-callback"]);
+const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/email-callback","/admin/login"]);
 
 /* ====================================================================== */
 export function AuthProvider({ children }: { children: ReactNode }) {
