@@ -5,5 +5,5 @@ import { redirect } from "next/navigation";
 
 export default function AdminIndex() {
   // 実際のトップにしたい場所へ
-  redirect("/admin/(protected)/grandprix");
+  redirect("/admin/(protected)/page");
 }
