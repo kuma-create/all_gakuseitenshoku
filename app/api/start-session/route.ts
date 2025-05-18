@@ -3,6 +3,14 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
 
+/* ------------------------------------------------------------------
+   /app/api/start-session/route.ts
+   - チャレンジ受験セッションを作成し、回答行を自動生成する
+   - 2025‑05‑18 修正版
+     * cookieStore を 1 度だけ取得して渡す（Edge Runtime 対応）
+     * prepare_session_answers RPC のパラメータ名を p_session_uuid に統一
+------------------------------------------------------------------ */
+
 export const runtime  = "edge";
 export const dynamic  = "force-dynamic";
 
@@ -17,8 +25,9 @@ export async function POST(req: Request) {
   }
 
   /* ---------- Supabase Client 初期化 ---------- */
+  const cookieStore = cookies();                                     // ← 1度だけ同期取得
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookies(),
+    cookies: () => cookieStore,
   });
 
   /* ---------- 認証ユーザー ---------- */
@@ -99,16 +108,13 @@ export async function POST(req: Request) {
   }
 
   /* ---------- 空の回答行を準備 ---------- */
-  // Supabase 側に prepare_session_answers(p_session_id uuid) がある前提
-  // 型定義が未生成の場合は ts-expect-error で回避
-  const { error: rpcErr } =
-    // @ts-expect-error prepare_session_answers は手動 RPC
-    await supabase.rpc("prepare_session_answers", {
-      p_session_id: sessionId,
-    });
+  const { error: rpcErr } = await supabase.rpc(
+    "prepare_session_answers",
+    { p_session_uuid: sessionId }                      // ← パラメータ名を関数定義に合わせる
+  );
 
   if (rpcErr) {
-    // セッション自体は作成済みなのでログだけ
+    // セッション自体は作成済みなのでログだけ残す
     console.error("prepare_session_answers error:", rpcErr);
   }
 

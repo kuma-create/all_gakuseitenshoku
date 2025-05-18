@@ -230,7 +230,9 @@ export type Database = {
           description: string | null
           id: string
           question_count: number
+          score: number
           start_date: string
+          student_id: string | null
           time_limit_min: number
           title: string
           updated_at: string
@@ -244,7 +246,9 @@ export type Database = {
           description?: string | null
           id?: string
           question_count?: number
+          score?: number
           start_date?: string
+          student_id?: string | null
           time_limit_min?: number
           title: string
           updated_at?: string
@@ -258,13 +262,23 @@ export type Database = {
           description?: string | null
           id?: string
           question_count?: number
+          score?: number
           start_date?: string
+          student_id?: string | null
           time_limit_min?: number
           title?: string
           updated_at?: string
           word_limit?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "challenges_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       chat_rooms: {
         Row: {
@@ -711,6 +725,7 @@ export type Database = {
       question_bank: {
         Row: {
           category: Database["public"]["Enums"]["question_category"]
+          challenge_id: string | null
           choices: Json | null
           correct_choice: number | null
           created_at: string | null
@@ -722,6 +737,7 @@ export type Database = {
         }
         Insert: {
           category: Database["public"]["Enums"]["question_category"]
+          challenge_id?: string | null
           choices?: Json | null
           correct_choice?: number | null
           created_at?: string | null
@@ -733,6 +749,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["question_category"]
+          challenge_id?: string | null
           choices?: Json | null
           correct_choice?: number | null
           created_at?: string | null
@@ -742,7 +759,15 @@ export type Database = {
           id?: string
           stem?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       resumes: {
         Row: {
@@ -881,6 +906,7 @@ export type Database = {
       session_answers: {
         Row: {
           answer_raw: Json | null
+          created_at: string
           elapsed_sec: number | null
           is_correct: boolean | null
           question_id: string
@@ -889,6 +915,7 @@ export type Database = {
         }
         Insert: {
           answer_raw?: Json | null
+          created_at?: string
           elapsed_sec?: number | null
           is_correct?: boolean | null
           question_id: string
@@ -897,6 +924,7 @@ export type Database = {
         }
         Update: {
           answer_raw?: Json | null
+          created_at?: string
           elapsed_sec?: number | null
           is_correct?: boolean | null
           question_id?: string
@@ -1261,6 +1289,10 @@ export type Database = {
       is_student: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      prepare_session_answers: {
+        Args: { p_session_uuid: string }
+        Returns: undefined
       }
       start_webtest_session: {
         Args: { p_challenge_id: string; p_student_id: string }
