@@ -60,7 +60,8 @@ export async function middleware(req: NextRequest) {
   if (session && isLoginPage) {
     const role =
       session.user.user_metadata?.role ??
-      (session.user.app_metadata as any)?.role;
+      (session.user.app_metadata as any)?.role ??
+      (session.user as any).role;    
     const dest =
       role === "company" ? "/company-dashboard" :
       role === "admin"   ? "/admin"              :
