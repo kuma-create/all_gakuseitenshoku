@@ -1,7 +1,6 @@
 /* ------------------------------------------------------------------
    middleware.ts  – 画像等はスルーしつつ
    /grandprix/{business|webtest|case}(/**) は「ログイン必須」に変更
-   ※ ロール判定は当面外す
 ------------------------------------------------------------------ */
 import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient }        from "@supabase/auth-helpers-nextjs";
@@ -19,14 +18,19 @@ const PUBLIC_PREFIXES = [
   "/grandprix",        // グランプリ一覧ページ
   "/api",
   "/auth/reset",
-  "/admin/login",      // ←★ 管理者ログインページを追加
+  "/admin/login",      // 管理者ログインページ
 ];
 
 export async function middleware(req: NextRequest) {
+  /* ★ /admin/login は完全スルー（リダイレクト対象外） */
+  if (req.nextUrl.pathname.startsWith("/admin/login")) {
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next({ request: req });
   const supabase = createMiddlewareClient<Database>({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
-  const hasAccessCookie = req.cookies.has('sb-access-token');
+  const hasAccessCookie = req.cookies.has("sb-access-token");
   const { pathname } = req.nextUrl;
 
   /* ---------- ① 静的アセットは即通過 ---------- */
@@ -53,7 +57,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ログイン済み & Cookie もある状態で /login に来たらロール別ダッシュボードへ */
+  /* ログイン済みで /login に来たらロール別に振り分け */
   if (session && hasAccessCookie && isLoginPage) {
     const role =
       session.user.user_metadata?.role ??
