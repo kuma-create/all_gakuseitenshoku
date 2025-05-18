@@ -30,7 +30,6 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: req });
   const supabase = createMiddlewareClient<Database>({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
-  const hasAccessCookie = req.cookies.has("sb-access-token");
   const { pathname } = req.nextUrl;
 
   /* ---------- ① 静的アセットは即通過 ---------- */
@@ -40,7 +39,7 @@ export async function middleware(req: NextRequest) {
   const needsLogin = LOGIN_REQUIRED_PREFIXES
     .some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-  if (needsLogin && (!session || !hasAccessCookie)) {
+  if (needsLogin && !session) {
     const login = new URL("/login", req.url);
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login, { status: 302 });
@@ -58,7 +57,7 @@ export async function middleware(req: NextRequest) {
   }
 
   /* ログイン済みで /login に来たらロール別に振り分け */
-  if (session && hasAccessCookie && isLoginPage) {
+  if (session && isLoginPage) {
     const role =
       session.user.user_metadata?.role ??
       (session.user.app_metadata as any)?.role;
