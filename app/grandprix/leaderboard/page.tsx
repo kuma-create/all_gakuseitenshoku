@@ -1,78 +1,90 @@
+/* ------------------------------------------------------------------
+   app/grandprix/leaderboard/page.tsx
+   – ランキング表示ページ
+------------------------------------------------------------------*/
+"use client";
 
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
+import { Loader2 } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card";
 
-/**
- * POST /api/start-session
- * Body: { challenge_id: uuid }
- *
- * 1. 認証済みユーザーか確認
- * 2. 同じ challenge_id で既にセッションがあればそれを返し、
- *    無ければ insert して返す
- */
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
-export const revalidate = 0; // disable ISR
+/* ---------- 型 ---------- */
+type LeaderboardRow = {
+  student_id: string;
+  total_score: number;
+  rank: number;
+  full_name: string | null;
+  avatar: string | null;
+};
 
-export async function POST(req: NextRequest) {
-  /* ---------- Supabase client (Edge) ---------- */
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+export default function LeaderboardPage() {
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  /* ---------- 認証ユーザー取得 ---------- */
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser();
+  useEffect(() => {
+    async function fetchLeaderboard() {
+      const { data, error } = await supabase.rpc("get_leaderboard", {
+        p_limit: 100,              // ← 上限は必要に応じて変更
+      });
 
-  if (authErr || !user) {
-    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+      if (error) {
+        console.error("get_leaderboard error:", error.message);
+      } else {
+        setRows((data as unknown as LeaderboardRow[]) ?? []);
+      }
+      setLoading(false);
+    }
+    fetchLeaderboard();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
   }
 
-  /* ---------- request body ---------- */
-  const { challenge_id } = (await req.json()) as { challenge_id?: string };
-
-  if (!challenge_id) {
-    return NextResponse.json({ error: "challenge_id required" }, { status: 400 });
-  }
-
-  /* ---------- 既存セッションがあるか確認 ---------- */
-  const { data: existing, error: existsErr } = await supabase
-    .from("challenge_sessions")
-    .select("*")
-    .eq("challenge_id", challenge_id)
-    .eq("student_id", user.id)
-    .maybeSingle();
-
-  if (existsErr) {
-    return NextResponse.json({ error: existsErr.message }, { status: 500 });
-  }
-  if (existing) {
-    return NextResponse.json({ session: existing }, { status: 200 });
-  }
-
-  /* ---------- 新規 insert ---------- */
-  const { data, error } = await supabase
-    .from("challenge_sessions")
-    .insert(
-      {
-        challenge_id,
-        student_id: user.id,
-        started_at: new Date().toISOString(),
-      },
-    )
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ session: data }, { status: 201 });
-}
-
-/* Allow only POST */
-export function GET() {
-  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+  return (
+    <div className="mx-auto max-w-3xl py-10">
+      <Card>
+        <CardHeader>
+          <CardTitle>🏆 ランキング</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <table className="w-full text-sm">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="py-2 pr-4 text-left">順位</th>
+                <th className="py-2 pr-4 text-left">学生</th>
+                <th className="py-2 text-left">スコア</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.rank} className="border-t">
+                  <td className="py-2 pr-4">{r.rank}</td>
+                  <td className="py-2 pr-4 flex items-center gap-2">
+                    {r.avatar && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={r.avatar} alt="" className="h-6 w-6 rounded-full" />
+                    )}
+                    {r.full_name ?? "Anonymous"}
+                  </td>
+                  <td className="py-2">{r.total_score}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
