@@ -1,9 +1,10 @@
 /* ------------------------------------------------------------------
-   app/admin/page.tsx  –  /admin をダッシュボードへ転送
+   app/admin/(protected)/page.tsx
+   - /admin/(protected) へ直接アクセスしたとき用のダミー
+   - 好きな管理トップに転送するだけ
 ------------------------------------------------------------------ */
 import { redirect } from "next/navigation";
 
-export default function AdminIndex() {
-  // 実際のトップにしたい場所へ
-  redirect("/admin/(protected)/page");
+export default function AdminProtectedIndex() {
+  redirect("/admin/(protected)/page"); // ← 好きなパスに変更可
 }
