@@ -1,4 +1,4 @@
-export default function AdminRootLayout({
+export default function AdminLayout({
     children,
   }: {
     children: React.ReactNode;
