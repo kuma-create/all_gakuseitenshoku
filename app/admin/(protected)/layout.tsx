@@ -2,7 +2,7 @@
    app/admin/(protected)/layout.tsx  –  admin ロールで保護
 ------------------------------------------------------------------ */
 import { redirect } from "next/navigation";
-import { cookies }  from "next/headers";
+import { cookies } from "next/headers";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
 
@@ -15,6 +15,7 @@ export default async function AdminProtectedLayout({
 }) {
   const supabase = createServerComponentClient<Database>({ cookies });
 
+  /* セッション取得 */
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -23,6 +24,7 @@ export default async function AdminProtectedLayout({
     redirect("/admin/login?next=/admin");
   }
 
+  /* ロール確認 */
   const { data: roleRow } = await supabase
     .from("users")
     .select("role")
