@@ -9,10 +9,7 @@ export async function POST(req: Request) {
   const { NEXT_PUBLIC_SUPABASE_URL: url, SUPABASE_SERVICE_KEY: srk } =
     process.env;
   if (!url || !srk)
-    return NextResponse.json(
-      { error: "Supabase URL / SERVICE KEY is missing" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "env missing" }, { status: 500 });
 
   const { name, email } = await req.json();
   if (!name || !email)
@@ -21,54 +18,53 @@ export async function POST(req: Request) {
   const supabase = createClient<Database>(url, srk);
 
   try {
-    /* ---------- 既存ユーザー確認 (listUsers) ---------- */
-// 既存ユーザー確認
+    /* ── 1. 既存ユーザー確認 ─────────────────── */
     const {
-        data: { users },
-        error: listErr,
-    } = await supabase.auth.admin.listUsers();   // ← 引数なし
-    
+      data: { users },
+      error: listErr,
+    } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (listErr) throw listErr;
-    
+
     const existing = users.find(
-        u => u.email?.toLowerCase() === email.toLowerCase()
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
     );
     let uid: string;
 
-    /* ---------- 既存ならその uid、無ければ招待 ---------- */
     if (existing) {
       uid = existing.id;
+
+      /* 招待メールは送ったが未確認 → 再送 */
+      if (existing.email_confirmed_at === null) {
+        await supabase.auth.admin.inviteUserByEmail(email);
+      }
     } else {
-      const { data, error } = await supabase.auth.admin.inviteUserByEmail(
+      /* ── 2. 新規作成 (createUser) ──────────────── */
+      const { data, error } = await supabase.auth.admin.createUser({
         email,
-        {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/email-callback`,
-          data: { full_name: name },
-        }
-      );
-      if (error || !data.user) throw error ?? new Error("invite failed");
+        password: crypto.randomUUID().slice(0, 10) + "Aa?",
+        email_confirm: false,
+        user_metadata: { full_name: name },
+      });
+      if (error || !data.user) throw error ?? new Error("create failed");
       uid = data.user.id;
     }
 
-    /* ---------- user_roles upsert ---------- */
+    /* ── 3. user_roles upsert ───────────────────── */
     await supabase
       .from("user_roles")
       .upsert({ user_id: uid, role: "company" }, { onConflict: "user_id" });
 
-    /* ---------- companies upsert ---------- */
-    await supabase.from("companies").upsert(
-      { user_id: uid, name, status: "承認待ち" },
-      { onConflict: "user_id" }
-    );
+    /* ── 4. companies upsert ────────────────────── */
+    await supabase
+      .from("companies")
+      .upsert(
+        { user_id: uid, name, status: "承認待ち" },
+        { onConflict: "user_id" }
+      );
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    console.error("[add-company] error", {
-      message: e?.message,
-      details: e?.details,
-      hint: e?.hint,
-      code: e?.code,
-    });
+    console.error("[add-company] error", e);
     return NextResponse.json(
       { error: e?.message ?? String(e) },
       { status: 500 }
