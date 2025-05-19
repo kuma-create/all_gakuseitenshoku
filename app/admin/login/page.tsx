@@ -37,14 +37,13 @@ export default function AdminLogin() {
       return;
     }
 
-    /* ロール確認 ------------------ */
-    const { data: roleRow, error: roleErr } = await supabase
-      .from("user_roles")   
-      .select("role")
-      .eq("user_id", data.user.id) 
-      .maybeSingle();   
+    /* ロール確認 – JWT / app_metadata から取得（DB アクセス不要） */
+    const role =
+      data.user.user_metadata?.role ??
+      (data.user.app_metadata as any)?.role ??
+      (data.user as any).role;
 
-    if (roleErr || roleRow?.role !== "admin") {
+    if (role !== "admin") {
       setErr("管理者権限がありません");
       await supabase.auth.signOut();
       setLoading(false);
