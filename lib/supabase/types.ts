@@ -54,6 +54,27 @@ export type Database = {
         }
         Relationships: []
       }
+      admins: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          last_sign_in_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+          last_sign_in_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          last_sign_in_at?: string | null
+        }
+        Relationships: []
+      }
       applications: {
         Row: {
           created_at: string | null
@@ -1249,8 +1270,12 @@ export type Database = {
         }[]
       }
       count_unread: {
-        Args: { _uid: string }
+        Args: Record<PropertyKey, never> | { _uid: string }
         Returns: number
+      }
+      custom_access_token_hook: {
+        Args: { event: Json }
+        Returns: Json
       }
       get_leaderboard: {
         Args: { p_limit?: number }
@@ -1289,6 +1314,10 @@ export type Database = {
       is_student: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      jwt_custom_claims_hook: {
+        Args: { event: Json }
+        Returns: Json
       }
       prepare_session_answers: {
         Args: { p_session_uuid: string }
