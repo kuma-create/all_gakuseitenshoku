@@ -1,7 +1,9 @@
 // app/api/admin/add-company/route.ts
 import { NextResponse } from "next/server";
-import { createClient, AuthApiError } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+// Supabase v2 still exports AuthError via the top‑level namespace
+import { AuthError as AuthApiError } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
@@ -22,20 +24,21 @@ export async function POST(req: Request) {
     const {
       data: { users },
       error: listErr,
-    } = await supabase.auth.admin.listUsers({ page: 1, perPage: 100 });
+    } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (listErr) throw listErr;
 
     const existing = users.find(
       (u) => u.email?.toLowerCase() === email.toLowerCase()
     );
-    let uid: string;
+    // will be assigned in one of the following branches
+    let uid!: string;
 
     if (existing) {
       uid = existing.id;
 
       /* 招待メールは送ったが未確認 → 再送 */
       if (existing.email_confirmed_at === null) {
-        // resend invitation (v2: just call inviteUserByEmail again)
+        /* v2 では再招待も inviteUserByEmail で OK */
         await supabase.auth.admin.inviteUserByEmail(email);
       }
     } else {
@@ -62,21 +65,6 @@ export async function POST(req: Request) {
           /* 2) inviteUserByEmail は user を返す場合があるので優先して利用 */
           if (reinv?.user) {
             uid = reinv.user.id;
-          } else {
-            /* 3) 念のため listUsers で検索（まだユーザーが反映されていない可能性もある） */
-            const {
-              data: { users: lookedUp },
-              error: lookupErr,
-            } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-            if (lookupErr) throw lookupErr;
-
-            const found = lookedUp.find(
-              (u) => u.email?.toLowerCase() === email.toLowerCase()
-            );
-            if (!found) {
-              throw new Error("cannot fetch existing user after invite");
-            }
-            uid = found.id;
           }
         } else {
           throw crtErr;
