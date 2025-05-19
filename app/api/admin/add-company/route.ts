@@ -2,15 +2,22 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
-const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!   // service_role
-);
-
 export async function POST(req: Request) {
   const { name, email } = await req.json();
   if (!name || !email) {
     return NextResponse.json({ error: "invalid param" }, { status: 400 });
+  }
+
+  const supabaseAdmin = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY || ""
+  );
+
+  if (!process.env.SUPABASE_SERVICE_KEY) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_KEY is missing in environment variables" },
+      { status: 500 }
+    );
   }
 
   try {
