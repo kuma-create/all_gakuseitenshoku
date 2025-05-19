@@ -89,7 +89,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line no-console
     console.log("[DEBUG] applySession – raw session =", sess);
     setSession(sess);
-      setSession(sess);
 
       /* 未ログイン ------------------------------------------------------ */
       if (!sess) {
@@ -105,13 +104,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* ログイン済み ---------------------------------------------------- */
       setIsLoggedIn(true);
 
-      /* ロール取得 */
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", sess.user.id)
-        .maybeSingle();
-      const role = (roleRow?.role ?? "student") as UserRole;
+      /* ---------- ロール取得 (JWT → app_metadata → user_roles) ---------- */
+      const jwtRole =
+        (sess.user as any).role ??                               // Hook 方式
+        (sess.user.app_metadata as any)?.role ??                 // app_metadata 方式
+        null;
+
+      let role: UserRole = jwtRole as UserRole;
+
+      /* JWT に無い場合のみ user_roles でフォールバック */
+      if (!role) {
+        const { data: roleRow } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", sess.user.id)
+          .maybeSingle();
+        role = (roleRow?.role ?? "student") as UserRole;
+      }
+
       setUserType(role);
 
       /* user オブジェクト */
