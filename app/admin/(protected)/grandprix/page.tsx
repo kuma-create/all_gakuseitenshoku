@@ -83,12 +83,18 @@ export default function AdminGrandPrixPage() {
 
       setCurrentChallenge(current)
       setChallengeForm({
-        title: current.title,
-        description: current.description,
-        word_limit: current.word_limit,
-        deadline: new Date(current.deadline),
+        title: current.title ?? "",
+        description: current.description ?? "",
+        word_limit: current.word_limit ?? 0,
+        deadline: current.deadline ? new Date(current.deadline) : new Date(),
       })
-      setSelectedTime(format(new Date(current.deadline), "HH:mm", { locale: ja }))
+
+      // current.deadline が null の場合はデフォルトで 23:59 を設定
+      setSelectedTime(
+        current.deadline
+          ? format(new Date(current.deadline), "HH:mm", { locale: ja })
+          : "23:59"
+      )
 
       // 2) 提出された回答を取得
       const { data: subs, error: err2 } = await supabase
@@ -586,9 +592,9 @@ export default function AdminGrandPrixPage() {
                         className="border-b hover:bg-muted/50"
                       >
                         <td className="py-3 px-2">
-                          {format(new Date(ch.deadline), "yyyy年M月", {
-                            locale: ja,
-                          })}
+                          {ch.deadline
+                            ? format(new Date(ch.deadline), "yyyy年M月", { locale: ja })
+                            : "－"}
                         </td>
                         <td className="py-3 px-2">{ch.title}</td>
                         <td className="py-3 px-2 text-center">
@@ -621,9 +627,9 @@ export default function AdminGrandPrixPage() {
                     <CardContent className="p-4">
                       <div className="mb-2">
                         <div className="text-sm text-muted-foreground">
-                          {format(new Date(ch.deadline), "yyyy年M月", {
-                            locale: ja,
-                          })}
+                          {ch.deadline
+                            ? format(new Date(ch.deadline), "yyyy年M月", { locale: ja })
+                            : "－"}
                         </div>
                         <h3 className="font-medium">{ch.title}</h3>
                       </div>

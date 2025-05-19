@@ -162,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role === "company"
             ? "/company-dashboard"
             : role === "admin"
-            ? "/admin-dashboard"
+            ? "/admin"
             : "/student-dashboard",
         );
       }
