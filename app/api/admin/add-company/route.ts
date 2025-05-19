@@ -35,6 +35,7 @@ export async function POST(req: Request) {
 
       /* 招待メールは送ったが未確認 → 再送 */
       if (existing.email_confirmed_at === null) {
+        // resend invitation (v2: just call inviteUserByEmail again)
         await supabase.auth.admin.inviteUserByEmail(email);
       }
     } else {
@@ -48,16 +49,18 @@ export async function POST(req: Request) {
 
       if (crtErr) {
         /* createUser が "User already registered" で落ちた → 招待メール再送 */
+        // resend invitation (v2: just call inviteUserByEmail again)
         await supabase.auth.admin.inviteUserByEmail(email);
 
-        // 改めて uid を取得
+        /* 改めて uid を取得 (getUserByEmail は v2 で利用可) */
+        // v2 SDK has no getUserByEmail – look it up via listUsers
         const {
-          data: { users: reUsers },
-          error: reErr,
+          data: { users: lookedUp },
+          error: lookupErr,
         } = await supabase.auth.admin.listUsers({ page: 1, perPage: 100 });
-        if (reErr) throw reErr;
-
-        const found = reUsers.find(
+        if (lookupErr)
+          throw lookupErr;
+        const found = lookedUp.find(
           (u) => u.email?.toLowerCase() === email.toLowerCase()
         );
         if (!found) throw new Error("cannot fetch existing user after invite");
