@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase/client";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   DialogDescription, DialogTrigger
@@ -11,7 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
 
-export default function AddCompanyDialog() {
+interface AddCompanyDialogProps {
+  /** 追加完了後に呼ばれるコールバック（一覧リフレッシュ等） */
+  onAdded?: () => void | Promise<void>;
+}
+
+export default function AddCompanyDialog({ onAdded }: AddCompanyDialogProps) {
   const { toast } = useToast();
   const [open, setOpen]   = useState(false);
   const [name, setName]   = useState("");
@@ -19,44 +23,31 @@ export default function AddCompanyDialog() {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!name || !email) return;
+    if (!name.trim() || !email.trim()) return;
     setLoading(true);
     try {
-      /* ① 認証ユーザーを管理者権限で作成 */
-      const pw = crypto.randomUUID().slice(0, 10) + "Aa?";
-      const { data: userRes, error: err1 } =
-        await supabase.auth.admin.createUser({
-          email,
-          password: pw,
-          email_confirm: false,
-          user_metadata: { full_name: name },
-        });
-      if (err1 || !userRes.user) throw err1 || new Error("user create failed");
-
-      const uid = userRes.user.id;
-
-      /* ② user_roles に company 登録（RLS で使う）*/
-      const { error: err2 } = await supabase.from("user_roles").insert({
-        user_id: uid,
-        role: "company",
+      /* サーバー側 API へ POST して招待 & レコード作成 */
+      const res = await fetch("/api/admin/add-company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
       });
-      if (err2) throw err2;
 
-      /* ③ companies テーブルへレコード挿入 */
-      const { error: err3 } = await supabase.from("companies").insert({
-        user_id: uid,
-        name,
-        full_name: name,
-        status: "承認待ち",
-      });
-      if (err3) throw err3;
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error ?? "server error");
+      }
 
       toast({
         title: "企業を追加しました",
-        description: `${name} (${email})`,
+        description: `${name} (${email}) に招待メールを送信しました`,
       });
+      await onAdded?.();
+
+      /* モーダル＆フォームをリセット */
       setOpen(false);
-      setName(""); setEmail("");
+      setName("");
+      setEmail("");
     } catch (e: any) {
       toast({
         title: "追加に失敗",
