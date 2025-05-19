@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------
-   app/admin/(protected)/layout.tsx  –  admin ロールで保護
+   app/admin/(protected)/layout.tsx  –  Protect /admin with JWT role
 ------------------------------------------------------------------ */
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
@@ -15,23 +15,24 @@ export default async function AdminProtectedLayout({
 }) {
   const supabase = createServerComponentClient<Database>({ cookies });
 
-  /* セッション取得 */
+  /* ❶ セッション取得 */
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
+  /* ❷ 未ログイン → /admin/login へ */
   if (!session) {
     redirect("/admin/login?next=/admin");
   }
 
-  /* ロール確認 */
-  const { data: roleRow } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id" as any, session.user.id)
-    .maybeSingle();
+  /* ❸ JWT / app_metadata から role を取得（DB アクセス不要） */
+  const role =
+    session.user.user_metadata?.role ??
+    (session.user.app_metadata as any)?.role ??
+    (session.user as any).role;
 
-  if (!roleRow || (roleRow as any).role !== "admin") {
+  /* ❹ 管理者以外は強制ログアウト → /login */
+  if (role !== "admin") {
     await supabase.auth.signOut();
     redirect("/login");
   }

@@ -37,7 +37,7 @@ export default function AdminLogin() {
       return;
     }
 
-    /* ロール確認 – JWT / app_metadata から取得（DB アクセス不要） */
+    /* ロール確認 – JWT / app_metadata から取得（DB アクセス不git 要） */
     const role =
       data.user.user_metadata?.role ??
       (data.user.app_metadata as any)?.role ??
