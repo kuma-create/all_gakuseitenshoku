@@ -16,9 +16,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/lib/hooks/use-toast";
 
-/* ---------- props ---------- */
 interface AddCompanyDialogProps {
-  /** 保存完了後に呼ばれるコールバック（例：SWR revalidate） */
   onAdded?: () => void | Promise<void>;
 }
 
@@ -29,29 +27,23 @@ const AddCompanyDialog: React.FC<AddCompanyDialogProps> = ({ onAdded }) => {
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
 
-  /* 企業追加 -------------------------------------------------------- */
   const handleSave = async () => {
     if (!name.trim() || !email.trim()) return;
     setSaving(true);
-
     try {
-      /* 1. 担当者ユーザーを招待 (メール送信) */
       const { data: invite, error: inviteErr } =
         await supabase.auth.admin.inviteUserByEmail(email, {
           redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/email-callback`,
           data: { full_name: name },
         });
       if (inviteErr || !invite?.user) throw inviteErr;
-
       const uid = invite.user.id;
 
-      /* 2. user_roles に company 追加 */
       const { error: roleErr } = await supabase
         .from("user_roles")
         .insert({ user_id: uid, role: "company" });
       if (roleErr) throw roleErr;
 
-      /* 3. companies テーブルへ登録 */
       const { error: compErr } = await supabase.from("companies").insert({
         user_id: uid,
         name,
@@ -88,7 +80,9 @@ const AddCompanyDialog: React.FC<AddCompanyDialogProps> = ({ onAdded }) => {
       <DialogContent className="space-y-4">
         <DialogHeader>
           <DialogTitle>新しい企業アカウント</DialogTitle>
-          <DialogDescription>担当者メールと企業名を入力してください</DialogDescription>
+          <DialogDescription>
+            担当者メールと企業名を入力してください
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -101,7 +95,6 @@ const AddCompanyDialog: React.FC<AddCompanyDialogProps> = ({ onAdded }) => {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-
           <div className="space-y-1">
             <Label htmlFor="c-email">担当者メール</Label>
             <Input

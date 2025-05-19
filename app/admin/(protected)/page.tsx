@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
+import AddCompanyDialog from "@/components/admin/AddCompanyDialog";
 import {
   Users,
   Building2,
@@ -582,10 +583,7 @@ export default function AdminDashboard() {
         {/* --- 企業 --- */}
         <TabsContent value="companies">
           <div className="flex justify-end mb-2">
-            <Button>
-              <Building2 className="mr-2 h-4 w-4" />
-              企業を追加
-            </Button>
+            <AddCompanyDialog onAdded={fetchData} />
           </div>
           <Table>
             <TableHeader>
