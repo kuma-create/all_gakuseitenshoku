@@ -1,6 +1,6 @@
 // app/api/admin/add-company/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, AuthApiError } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
@@ -49,22 +49,38 @@ export async function POST(req: Request) {
 
       if (crtErr) {
         /* createUser が "User already registered" で落ちた → 招待メール再送 */
-        // resend invitation (v2: just call inviteUserByEmail again)
-        await supabase.auth.admin.inviteUserByEmail(email);
+        if (
+          crtErr instanceof AuthApiError &&
+          crtErr.status === 422 && // "User already registered"
+          /already.*registered/i.test(crtErr.message)
+        ) {
+          /* 1) まず招待メールを再送 */
+          const { data: reinv, error: reinvErr } =
+            await supabase.auth.admin.inviteUserByEmail(email);
+          if (reinvErr) throw reinvErr;
 
-        /* 改めて uid を取得 (getUserByEmail は v2 で利用可) */
-        // v2 SDK has no getUserByEmail – look it up via listUsers
-        const {
-          data: { users: lookedUp },
-          error: lookupErr,
-        } = await supabase.auth.admin.listUsers({ page: 1, perPage: 100 });
-        if (lookupErr)
-          throw lookupErr;
-        const found = lookedUp.find(
-          (u) => u.email?.toLowerCase() === email.toLowerCase()
-        );
-        if (!found) throw new Error("cannot fetch existing user after invite");
-        uid = found.id;
+          /* 2) inviteUserByEmail は user を返す場合があるので優先して利用 */
+          if (reinv?.user) {
+            uid = reinv.user.id;
+          } else {
+            /* 3) 念のため listUsers で検索（まだユーザーが反映されていない可能性もある） */
+            const {
+              data: { users: lookedUp },
+              error: lookupErr,
+            } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            if (lookupErr) throw lookupErr;
+
+            const found = lookedUp.find(
+              (u) => u.email?.toLowerCase() === email.toLowerCase()
+            );
+            if (!found) {
+              throw new Error("cannot fetch existing user after invite");
+            }
+            uid = found.id;
+          }
+        } else {
+          throw crtErr;
+        }
       } else {
         if (!data.user) throw new Error("create failed – no user returned");
         uid = data.user.id;
