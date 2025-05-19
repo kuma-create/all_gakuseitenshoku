@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
 export async function POST(req: Request) {
+　console.log("[debug] SRK =", process.env.SUPABASE_SERVICE_KEY?.slice(0, 8));
   const { name, email } = await req.json();
   if (!name || !email) {
     return NextResponse.json({ error: "invalid param" }, { status: 400 });
