@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const {
       data: { users },
       error: listErr,
-    } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    } = await supabase.auth.admin.listUsers({ page: 1, perPage: 100 });
     if (listErr) throw listErr;
 
     const existing = users.find(
@@ -39,14 +39,33 @@ export async function POST(req: Request) {
       }
     } else {
       /* ── 2. 新規作成 (createUser) ──────────────── */
-      const { data, error } = await supabase.auth.admin.createUser({
+      const { data, error: crtErr } = await supabase.auth.admin.createUser({
         email,
         password: crypto.randomUUID().slice(0, 10) + "Aa?",
         email_confirm: false,
         user_metadata: { full_name: name },
       });
-      if (error || !data.user) throw error ?? new Error("create failed");
-      uid = data.user.id;
+
+      if (crtErr) {
+        /* createUser が "User already registered" で落ちた → 招待メール再送 */
+        await supabase.auth.admin.inviteUserByEmail(email);
+
+        // 改めて uid を取得
+        const {
+          data: { users: reUsers },
+          error: reErr,
+        } = await supabase.auth.admin.listUsers({ page: 1, perPage: 100 });
+        if (reErr) throw reErr;
+
+        const found = reUsers.find(
+          (u) => u.email?.toLowerCase() === email.toLowerCase()
+        );
+        if (!found) throw new Error("cannot fetch existing user after invite");
+        uid = found.id;
+      } else {
+        if (!data.user) throw new Error("create failed – no user returned");
+        uid = data.user.id;
+      }
     }
 
     /* ── 3. user_roles upsert ───────────────────── */
