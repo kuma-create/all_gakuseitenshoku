@@ -39,10 +39,10 @@ export default function AdminLogin() {
 
     /* ロール確認 ------------------ */
     const { data: roleRow, error: roleErr } = await supabase
-      .from("users")
+      .from("user_roles")   
       .select("role")
-      .eq("id", data.user.id)
-      .single();
+      .eq("user_id", data.user.id) 
+      .maybeSingle();   
 
     if (roleErr || roleRow?.role !== "admin") {
       setErr("管理者権限がありません");

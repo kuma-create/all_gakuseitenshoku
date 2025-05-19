@@ -86,6 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /* ---- session を反映 ------------------------------------------------- */
   const applySession = useCallback(
     async (sess: Session | null) => {
+    // eslint-disable-next-line no-console
+    console.log("[DEBUG] applySession – raw session =", sess);
+    setSession(sess);
       setSession(sess);
 
       /* 未ログイン ------------------------------------------------------ */
@@ -185,6 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           applySession(null);
         }
         if (event === "SIGNED_IN") {
+          // eslint-disable-next-line no-console
+          console.log("[DEBUG] onAuthStateChange SIGNED_IN", sess);
           applySession(sess);
         }
       },
