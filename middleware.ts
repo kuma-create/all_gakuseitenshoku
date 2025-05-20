@@ -39,16 +39,29 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   /* ---------- パスワード未設定なら強制リダイレクト ---------- */
-  if (
-    session &&
-    !(session.user as any).password_updated_at &&
-    pathname !== PASSWORD_REQUIRED_PATH &&
-    !pathname.startsWith("/api")
-  ) {
-    return NextResponse.redirect(
-      new URL(PASSWORD_REQUIRED_PATH, req.url),
-      { status: 302 },
-    );
+  if (session) {
+    // ロール判定 (user_metadata → app_metadata → JWT)
+    const role =
+      (session.user.user_metadata as any)?.role ??
+      (session.user.app_metadata as any)?.role ??
+      (session.user as any).role ??
+      "student";
+
+    // company_admin / company だけパスワード必須
+    const needsPassword =
+      (role === "company_admin" || role === "company") &&
+      !(session.user as any).password_updated_at;
+
+    if (
+      needsPassword &&
+      pathname !== PASSWORD_REQUIRED_PATH &&
+      !pathname.startsWith("/api")
+    ) {
+      return NextResponse.redirect(
+        new URL(PASSWORD_REQUIRED_PATH, req.url),
+        { status: 302 },
+      );
+    }
   }
 
   /* ---------- ① 静的アセットは即通過 ---------- */
@@ -77,18 +90,21 @@ export async function middleware(req: NextRequest) {
 
   /* ログイン済みで /login に来たらロール別に振り分け */
   if (session && isLoginPage) {
-    // パスワード未設定ならまず設定ページへ
-    if (!(session.user as any).password_updated_at) {
+    const role =
+      session.user.user_metadata?.role ??
+      (session.user.app_metadata as any)?.role ??
+      (session.user as any).role;
+
+    // company ロールのみパスワードを要求
+    if (
+      (role === "company" || role === "company_admin") &&
+      !(session.user as any).password_updated_at
+    ) {
       return NextResponse.redirect(
         new URL(PASSWORD_REQUIRED_PATH, req.url),
         { status: 302 },
       );
     }
-
-    const role =
-      session.user.user_metadata?.role ??
-      (session.user.app_metadata as any)?.role ??
-      (session.user as any).role;
 
     const dest =
       role === "company" || role === "company_admin"
