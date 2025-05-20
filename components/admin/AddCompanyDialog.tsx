@@ -55,13 +55,26 @@ export default function AddCompanyDialog({ onAdded }: AddCompanyDialogProps) {
         }),
       });
 
+      // 失敗時はステータスコードに応じてトースト文言を変える
       if (!res.ok) {
         const { error } = await res.json();
-        /* 409 → 既に招待済み */
-        if (res.status === 409) {
-          throw new Error("このメールアドレスは既に登録または招待済みです");
+        let message: string;
+
+        switch (res.status) {
+          // 招待済み／既存ユーザー
+          case 400:
+          case 409:
+            message = "このメールアドレスは既に登録または招待済みです";
+            break;
+          // メール送信レートリミット
+          case 429:
+            message =
+              "メール送信の上限を超えました。1〜2 分後に再度お試しください。";
+            break;
+          default:
+            message = error?.message ?? "server error";
         }
-        throw new Error(error ?? "server error");
+        throw new Error(message);
       }
 
       toast({

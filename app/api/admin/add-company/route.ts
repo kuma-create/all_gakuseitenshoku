@@ -51,7 +51,7 @@ export async function POST(req: Request) {
             data: { full_name: name },
           });
         // status 400 = “invite already sent” or “rate‑limited” → 無視して続行
-        if (resendErr && resendErr.status !== 400) {
+        if (resendErr && resendErr.status !== 400 && resendErr.status !== 429) {
           throw resendErr;
         }
       }
