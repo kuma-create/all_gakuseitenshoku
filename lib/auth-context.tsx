@@ -17,7 +17,11 @@ import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 
 /* ---------- 型 ---------- */
-export type UserRole = "student" | "company" | "admin" | null;
+export type UserRole = "student" | "company" | "company_admin" | "admin" | null;
+
+/** company サイドのロールをまとめる */
+const COMPANY_ROLES = new Set<UserRole>(["company", "company_admin"]);
+
 export type RoleOption = Exclude<UserRole, null>;
 
 export type User =
@@ -63,7 +67,14 @@ export const useAuth = () => {
 };
 
 /* ---------- 公開ルート ---------- */
-const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/email-callback","/admin/login"]);
+const PUBLIC_ROUTES = new Set([
+  "/",
+  "/login",
+  "/signup",
+  "/email-callback",
+  "/admin/login",
+  "/company/onboarding/profile",
+]);
 
 /* ====================================================================== */
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -112,6 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let role: UserRole = jwtRole as UserRole;
 
+      // company_admin を company にマッピング
+      if (role === "company_admin") role = "company";
+
       /* JWT に無い場合のみ user_roles でフォールバック */
       if (!role) {
         const { data: roleRow } = await supabase
@@ -136,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       /* profile 取得 */
-      if (role === "company") {
+      if (COMPANY_ROLES.has(role)) {
         const { data: comp } = await supabase
           .from("companies")
           .select("*")
@@ -159,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* ダッシュボードリダイレクト */
       if (pathname === "/login" || pathname === "/") {
         router.replace(
-          role === "company"
+          COMPANY_ROLES.has(role)
             ? "/company-dashboard"
             : role === "admin"
             ? "/admin"

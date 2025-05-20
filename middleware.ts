@@ -14,11 +14,12 @@ const LOGIN_REQUIRED_PREFIXES: string[] = []; // グランプリ系ページも�
 
 /** 誰でも見られるパス（静的 LP など）*/
 const PUBLIC_PREFIXES = [
-  "/",                 // トップ
-  "/grandprix",        // グランプリ一覧ページ
+  "/",                      // トップ
+  "/grandprix",             // グランプリ一覧ページ
   "/api",
   "/auth/reset",
-  "/admin/login",      // 管理者ログインページ
+  "/admin/login",           // 管理者ログインページ
+  "/company/onboarding",    // 企業オンボーディング (招待リンク先)
 ];
 
 export async function middleware(req: NextRequest) {
@@ -63,9 +64,11 @@ export async function middleware(req: NextRequest) {
       (session.user.app_metadata as any)?.role ??
       (session.user as any).role;    
     const dest =
-      role === "company" ? "/company-dashboard" :
-      role === "admin"   ? "/admin"              :
-                           "/student-dashboard";
+      role === "company" || role === "company_admin"
+        ? "/company-dashboard"
+        : role === "admin"
+        ? "/admin"
+        : "/student-dashboard";
     return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
   }
 
