@@ -123,9 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let role: UserRole = jwtRole as UserRole;
 
-      // company_admin を company にマッピング
-      if (role === "company_admin") role = "company";
-
       /* JWT に無い場合のみ user_roles でフォールバック */
       if (!role) {
         const { data: roleRow } = await supabase
@@ -135,6 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
         role = (roleRow?.role ?? "student") as UserRole;
       }
+
+      // company_admin を company にマッピング（JWT でも DB でも）
+      if (role === "company_admin") role = "company";
 
       setUserType(role);
 
