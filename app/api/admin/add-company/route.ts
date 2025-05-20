@@ -85,7 +85,7 @@ export async function POST(req: Request) {
           await supabase.auth.admin.createUser({
             email,
             email_confirm: false,
-            user_metadata: { full_name: name },
+            user_metadata: { full_name: name, role: "company_admin" },
           });
         if (userErr || !userRes) throw userErr ?? new Error("createUser failed");
         if (!userRes.user) throw new Error("createUser returned no user");
