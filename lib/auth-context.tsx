@@ -169,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setReady(true);
+      console.log("[DEBUG role]", role, "[path]", pathname);
 
       /* ダッシュボードリダイレクト */
       if (pathname === "/login" || pathname === "/") {
