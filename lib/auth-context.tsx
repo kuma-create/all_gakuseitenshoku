@@ -117,11 +117,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       /* ---------- ロール取得 (JWT → app_metadata → user_roles) ---------- */
       const jwtRole =
-        (sess.user as any).role ??                               // Hook 方式
-        (sess.user.app_metadata as any)?.role ??                 // app_metadata 方式
+        // ① user_metadata にあれば最優先
+        (sess.user.user_metadata as any)?.role ??
+        // ② app_metadata
+        (sess.user.app_metadata as any)?.role ??
+        // ③ JWT top‑level（Hook で注入された場合）
+        (sess.user as any).role ??
         null;
 
-      let role: UserRole = jwtRole as UserRole;
+      // rawRole は JWT そのままの文字列を保持（"authenticated" など）
+      const rawRole = jwtRole as string | null;
+      let role: UserRole = (jwtRole as any) as UserRole;
+
+      /* ---------- role 補正 --------------------------------------------------
+         JWT が "authenticated" でも企業レコードがあれば company_admin とみなす。
+         逆にどちらのレコードも無ければ student 扱いに落とす。
+      ---------------------------------------------------------------------- */
+      if (rawRole === "authenticated") {
+        const { data: compRow } = await supabase
+          .from("companies")
+          .select("id")
+          .eq("user_id", sess.user.id)
+          .maybeSingle();
+
+        if (compRow) {
+          role = "company_admin";
+        } else {
+          role = "student";
+        }
+      }
 
       /* JWT に無い場合のみ user_roles でフォールバック */
       if (!role) {
@@ -132,9 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
         role = (roleRow?.role ?? "student") as UserRole;
       }
-
-      // company_admin を company にマッピング（JWT でも DB でも）
-      if (role === "company_admin") role = "company";
 
       setUserType(role);
 
@@ -173,13 +194,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       /* ダッシュボードリダイレクト */
       if (pathname === "/login" || pathname === "/") {
-        router.replace(
-          COMPANY_ROLES.has(role)
-            ? "/company-dashboard"
-            : role === "admin"
-            ? "/admin"
-            : "/student-dashboard",
-        );
+        let redirectPath: string;
+
+        if (COMPANY_ROLES.has(role)) {
+          redirectPath =
+            role === "company_admin"
+              ? "/company/onboarding/profile"
+              : "/company-dashboard";
+        } else if (role === "admin") {
+          redirectPath = "/admin";
+        } else {
+          redirectPath = "/student-dashboard";
+        }
+
+        router.replace(redirectPath);
       }
     },
     [pathname, router],
