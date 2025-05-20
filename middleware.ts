@@ -1,73 +1,76 @@
 /* ------------------------------------------------------------------
-   middleware.ts  – 画像等はスルーしつつ
-   /grandprix/{business|webtest|case}(/**) は「ログイン必須」に変更
+   middleware.ts
+   - 静的アセットや LP はスルー
+   - /grandprix/{business|webtest|case}(/**) などは「ログイン必須」にする想定
+   - 企業招待ユーザーは初回にパスワード設定へ
 ------------------------------------------------------------------ */
 import { NextResponse, type NextRequest } from "next/server";
-import { createMiddlewareClient }        from "@supabase/auth-helpers-nextjs";
-import type { Database }                 from "@/lib/supabase/types";
+import { createMiddlewareClient }          from "@supabase/auth-helpers-nextjs";
+import type { Database }                   from "@/lib/supabase/types";
 
-/* ---------- 設定 ---------- */
-/** 静的アセット拡張子の正規表現 */
+/* ---------- 定数 ---------- */
+/** 静的アセット拡張子 */
 const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
 
-/** パスワード未設定ユーザーが最初に飛ばされるページ */
+/** パスワード未設定ユーザーを誘導するページ */
 const PASSWORD_REQUIRED_PATH = "/company/set-password";
 
-/** 現状 “ログイン必須” にするサブパスはなし */
-const LOGIN_REQUIRED_PREFIXES: string[] = []; // グランプリ系ページも公開扱いにする
+/** 「ログイン必須」にしたいパス（例として空） */
+const LOGIN_REQUIRED_PREFIXES: string[] = [];
 
-/** 誰でも見られるパス（静的 LP など）*/
+/** 誰でもアクセスできるパス */
 const PUBLIC_PREFIXES = [
-  "/",                      // トップ
-  "/grandprix",             // グランプリ一覧ページ
+  "/",                    // トップ
+  "/grandprix",           // グランプリ一覧
   "/api",
   "/auth/reset",
-  "/admin/login",           // 管理者ログインページ
-  "/company/onboarding",    // 企業オンボーディング (招待リンク先)
-  "/company/set-password",  // 企業担当者が初回に設定するパスワードページ
+  "/admin/login",         // 管理者ログイン
+  "/company/onboarding",  // 企業招待リンク
+  "/company/set-password" // 企業担当者パスワード設定
 ];
 
 export async function middleware(req: NextRequest) {
-  /* ★ /admin/login は完全スルー（リダイレクト対象外） */
+  /* ★ /admin/login はスルー（判定の影響を受けない） */
   if (req.nextUrl.pathname.startsWith("/admin/login")) {
     return NextResponse.next();
   }
 
-  const res = NextResponse.next({ request: req });
-  const supabase = createMiddlewareClient<Database>({ req, res });
+  /* ---------- Supabase Session 取得 ---------- */
+  const res       = NextResponse.next({ request: req });
+  const supabase  = createMiddlewareClient<Database>({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = req.nextUrl;
 
-  /* ---------- パスワード未設定なら強制リダイレクト ---------- */
-  if (session) {
-    // ロール判定 (user_metadata → app_metadata → JWT)
-    const role =
-      (session.user.user_metadata as any)?.role ??
-      (session.user.app_metadata as any)?.role ??
-      (session.user as any).role ??
-      "student";
+  /* ---------- ロール判定を一度だけ ---------- */
+  const role = session
+    ? (
+        session.user.user_metadata?.role ??
+        (session.user.app_metadata as any)?.role ??
+        (session.user as any).role ??
+        "student"
+      )
+    : "guest";
 
-    // company_admin / company だけパスワード必須
-    const needsPassword =
-      (role === "company_admin" || role === "company") &&
-      !(session.user as any).password_updated_at;
-
-    if (
-      needsPassword &&
-      pathname !== PASSWORD_REQUIRED_PATH &&
-      !pathname.startsWith("/api")
-    ) {
-      return NextResponse.redirect(
-        new URL(PASSWORD_REQUIRED_PATH, req.url),
-        { status: 302 },
-      );
-    }
-  }
+  const isCompanyRole = role === "company_admin" || role === "company";
 
   /* ---------- ① 静的アセットは即通過 ---------- */
   if (STATIC_RE.test(pathname)) return res;
 
-  /* ---------- ② 「ログイン必須」ページ判定 ---------- */
+  /* ---------- ② パスワード未設定なら強制リダイレクト (会社ロールのみ) ---------- */
+  if (
+    session &&
+    isCompanyRole &&
+    !(session.user as any).password_updated_at &&
+    pathname !== PASSWORD_REQUIRED_PATH &&
+    !pathname.startsWith("/api")
+  ) {
+    return NextResponse.redirect(
+      new URL(PASSWORD_REQUIRED_PATH, req.url),
+      { status: 302 }
+    );
+  }
+
+  /* ---------- ③ 「ログイン必須」ページ判定 ---------- */
   const needsLogin = LOGIN_REQUIRED_PREFIXES
     .some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
@@ -77,41 +80,34 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ---------- ③ 公開ページかどうか ---------- */
+  /* ---------- ④ 公開ページかどうか ---------- */
   const isLoginPage = pathname === "/login";
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+  const isPublic    = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 
-  /* 未ログインで非公開ページ → /login?next=... */
+  /* ログインしていない & 非公開ページ → /login?next=... */
   if (!session && !isPublic && !isLoginPage) {
     const login = new URL("/login", req.url);
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ログイン済みで /login に来たらロール別に振り分け */
+  /* ---------- ⑤ /login アクセス時：ロール別にダッシュボードへ ---------- */
   if (session && isLoginPage) {
-    const role =
-      session.user.user_metadata?.role ??
-      (session.user.app_metadata as any)?.role ??
-      (session.user as any).role;
-
-    // company ロールのみパスワードを要求
+    /* 会社ロールでパスワード未設定なら設定ページへ */
     if (
-      (role === "company" || role === "company_admin") &&
+      isCompanyRole &&
       !(session.user as any).password_updated_at
     ) {
       return NextResponse.redirect(
         new URL(PASSWORD_REQUIRED_PATH, req.url),
-        { status: 302 },
+        { status: 302 }
       );
     }
 
     const dest =
-      role === "company" || role === "company_admin"
-        ? "/company-dashboard"
-        : role === "admin"
-        ? "/admin"
-        : "/student-dashboard";
+      isCompanyRole   ? "/company-dashboard"
+      : role === "admin" ? "/admin"
+      : "/student-dashboard";
 
     return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
   }
