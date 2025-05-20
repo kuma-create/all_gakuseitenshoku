@@ -43,14 +43,17 @@ export async function POST(req: Request) {
     if (existing) {
       uid = existing.id;
 
-      /* 既に招待済みで未確認の場合は招待メールを再送 */
+      /* 既に招待済みで未確認の場合は招待メールを再送（※レート制限を考慮） */
       if (existing.email_confirmed_at === null) {
         const { error: resendErr } =
           await supabase.auth.admin.inviteUserByEmail(email, {
             redirectTo: `${NEXT_PUBLIC_SITE_URL}/company/onboarding/profile`,
-            data: { full_name: name }, // pass metadata for email template
+            data: { full_name: name },
           });
-        if (resendErr) throw resendErr;
+        // status 400 = “invite already sent” or “rate‑limited” → 無視して続行
+        if (resendErr && resendErr.status !== 400) {
+          throw resendErr;
+        }
       }
     } else {
       /* ---------- 2. 新規招待 ---------- */
