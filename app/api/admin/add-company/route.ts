@@ -1,9 +1,14 @@
 // app/api/admin/add-company/route.ts
+import sgMail from "@sendgrid/mail";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+const SENDGRID_TEMPLATE_ID = "d-918aa719ed544ee6a3c3e2ad783c9670"; // Dynamic Template
+const FROM_EMAIL = "admin@gakuten.co.jp";                           // 送信元
 
 export async function POST(req: Request) {
   const {
@@ -40,34 +45,76 @@ export async function POST(req: Request) {
 
     let uid: string;
 
-    if (existing) {
-      uid = existing.id;
+      /* 既存ユーザーの場合 */
+      if (existing) {
+        uid = existing.id;
 
-      /* 既に招待済みで未確認の場合は招待メールを再送（※レート制限を考慮） */
-      if (existing.email_confirmed_at === null) {
-        const { error: resendErr } =
-          await supabase.auth.admin.inviteUserByEmail(email, {
-            redirectTo: `${NEXT_PUBLIC_SITE_URL}/company/onboarding/profile`,
-            data: { full_name: name },
+        // まだメール確認が済んでいなければ招待リンクを再生成して送信
+        if (existing.email_confirmed_at === null) {
+          const { data: link, error: linkErr } =
+            await supabase.auth.admin.generateLink({
+              type: "invite",
+              email,
+              options: {
+                redirectTo: `${NEXT_PUBLIC_SITE_URL}/company/onboarding/profile`,
+                data: { full_name: name },
+              },
+            });
+          if (linkErr) throw linkErr;
+
+          // cast because the typings don't expose action_link / email_otp
+          const { action_link: actionLink, email_otp: emailOtp } = link
+            .properties as unknown as { action_link: string; email_otp: string };
+
+          await sgMail.send({
+            to: email,
+            from: FROM_EMAIL,
+            templateId: SENDGRID_TEMPLATE_ID,
+            dynamicTemplateData: {
+              full_name: name,
+              confirmation_url: actionLink,
+              token: emailOtp,
+            },
           });
-        // status 400 = “invite already sent” or “rate‑limited” → 無視して続行
-        if (resendErr && resendErr.status !== 400 && resendErr.status !== 429) {
-          throw resendErr;
         }
-      }
-    } else {
-      /* ---------- 2. 新規招待 ---------- */
-      const { data: invite, error: inviteErr } =
-        await supabase.auth.admin.inviteUserByEmail(email, {
-          redirectTo: `${NEXT_PUBLIC_SITE_URL}/company/onboarding/profile`,
-          data: { full_name: name },
+      } else {
+        /* ---------- 2. 新規ユーザーを作成し、招待リンクを送信 ---------- */
+        const { data: userRes, error: userErr } =
+          await supabase.auth.admin.createUser({
+            email,
+            email_confirm: false,
+            user_metadata: { full_name: name },
+          });
+        if (userErr || !userRes) throw userErr ?? new Error("createUser failed");
+        if (!userRes.user) throw new Error("createUser returned no user");
+        uid = userRes.user.id;
+
+        const { data: link, error: linkErr } =
+          await supabase.auth.admin.generateLink({
+            type: "invite",
+            email,
+            options: {
+              redirectTo: `${NEXT_PUBLIC_SITE_URL}/company/onboarding/profile`,
+              data: { full_name: name },
+            },
+          });
+        if (linkErr) throw linkErr;
+
+        // cast because the typings don't expose action_link / email_otp
+        const { action_link: actionLink, email_otp: emailOtp } = link
+          .properties as unknown as { action_link: string; email_otp: string };
+
+        await sgMail.send({
+          to: email,
+          from: FROM_EMAIL,
+          templateId: SENDGRID_TEMPLATE_ID,
+          dynamicTemplateData: {
+            full_name: name,
+            confirmation_url: actionLink,
+            token: emailOtp,
+          },
         });
-      if (inviteErr) throw inviteErr;
-      if (!invite?.user) {
-        throw new Error("inviteUserByEmail returned no user");
       }
-      uid = invite.user.id;
-    }
 
     /* ---------- 3. user_roles upsert ---------- */
     const { error: roleErr } = await supabase
