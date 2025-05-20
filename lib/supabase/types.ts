@@ -1277,6 +1277,15 @@ export type Database = {
         Args: { event: Json }
         Returns: Json
       }
+      dashboard_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          students: number
+          companies: number
+          applications: number
+          scouts: number
+        }[]
+      }
       get_leaderboard: {
         Args: { p_limit?: number }
         Returns: {

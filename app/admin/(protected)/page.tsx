@@ -81,7 +81,16 @@ import type { DateRange as DayPickerRange } from "react-day-picker";
 
 
 /* ---------- 型定義 ---------- */
+
 type Overview = {
+  students: number;
+  companies: number;
+  applications: number;
+  scouts: number;
+};
+
+// RPC で返ってくる 1 行分
+type OverviewRow = {
   students: number;
   companies: number;
   applications: number;
@@ -117,7 +126,7 @@ type Application = {
   student_profiles: { full_name: string }[] | null;
   jobs: {
     title: string;
-    companies: { company_name: string }[] | null;
+    companies: { name: string }[] | null;
   }[] | null;
 };
 
@@ -131,6 +140,7 @@ type ActivityLog = {
   ip_address: string;
 };
 
+
 type Notification = {
   id: string;
   user_id: string | null;
@@ -141,6 +151,37 @@ type Notification = {
   is_read: boolean;
   created_at: string;
 };
+
+/* ---------- 共通ユーティリティ ---------- */
+/**
+ * Realtime で受け取った payload を既存リストにマージする関数
+ */
+function mergeRows<T extends { id: string }>(
+  prev: T[],
+  payload: {
+    eventType: "INSERT" | "UPDATE" | "DELETE";
+    new: T | null;
+    old: T | null;
+  }
+): T[] {
+  switch (payload.eventType) {
+    case "INSERT":
+      return payload.new ? [payload.new, ...prev] : prev;
+
+    case "UPDATE":
+      return payload.new
+        ? prev.map((r) => (r.id === payload.new!.id ? payload.new! : r))
+        : prev;
+
+    case "DELETE":
+      return payload.old
+        ? prev.filter((r) => r.id !== payload.old!.id)
+        : prev;
+
+    default:
+      return prev;
+  }
+}
 
 export default function AdminDashboard() {
   /* ---------- state ---------- */
@@ -189,24 +230,15 @@ export default function AdminDashboard() {
       setLoading(true);
       setError(null);
       try {
-        // 概要カウント
-        const [
-          { count: sCount },
-          { count: cCount },
-          { count: aCount },
-          { count: scCount },
-        ] = await Promise.all([
-          supabase.from("student_profiles").select("*", { count: "exact" }),
-          supabase.from("companies").select("*", { count: "exact" }),
-          supabase.from("applications").select("*", { count: "exact" }),
-          supabase.from("scouts").select("*", { count: "exact" }),
-        ]);
-        setOverview({
-          students: sCount || 0,
-          companies: cCount || 0,
-          applications: aCount || 0,
-          scouts: scCount || 0,
-        });
+        // --- 概要カウントを RPC で一括取得 -----------------------
+        const { data: ov, error: ovErr } = await supabase
+          .rpc("dashboard_overview")
+          .returns<OverviewRow[]>();
+        if (ovErr) throw ovErr;
+        const first = ov?.[0];
+        setOverview(
+          first ?? { students: 0, companies: 0, applications: 0, scouts: 0 }
+        );
 
         // 学生一覧
         const { data: st } = await supabase
@@ -273,7 +305,7 @@ export default function AdminDashboard() {
             student_profiles!applications_student_id_fkey(full_name),
             jobs!applications_job_id_fkey(
               title,
-              companies!jobs_company_id_fkey(company_name)
+              companies!jobs_company_id_fkey(name)
             )
           `
           )
@@ -352,9 +384,40 @@ export default function AdminDashboard() {
     ]
   );
 
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  /* ---------- realtime (companies だけ) ---------- */
+  useEffect(() => {
+    const ch = supabase
+      .channel("admin_companies")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "companies" },
+        (payload) => {
+          setCompanies((prev) => mergeRows(prev, payload as any));
+
+          // 概要カウントを同期 (INSERT +1, DELETE -1)
+          setOverview((o) => ({
+            ...o,
+            companies:
+              o.companies +
+              (payload.eventType === "INSERT"
+                ? 1
+                : payload.eventType === "DELETE"
+                ? -1
+                : 0),
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, []);
 
   // フィルタ済みログ
   const filteredLogs = logs.filter((l) => {
@@ -830,7 +893,7 @@ export default function AdminDashboard() {
                   </TableCell>
                   <TableCell>
                     {r.jobs?.[0]?.companies?.[0]
-                      ?.company_name ?? "—"}
+                      ?.name ?? "—"}
                   </TableCell>
                   <TableCell>
                     {r.created_at
