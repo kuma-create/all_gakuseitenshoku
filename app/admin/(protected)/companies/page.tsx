@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/lib/hooks/use-toast";
 
 interface AddCompanyDialogProps {
@@ -27,29 +26,22 @@ const AddCompanyDialog: React.FC<AddCompanyDialogProps> = ({ onAdded }) => {
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
 
+  /** API ルート (/api/admin/add-company) を呼び出す */
   const handleSave = async () => {
     if (!name.trim() || !email.trim()) return;
     setSaving(true);
+
     try {
-      const { data: invite, error: inviteErr } =
-        await supabase.auth.admin.inviteUserByEmail(email, {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/email-callback`,
-          data: { full_name: name },
-        });
-      if (inviteErr || !invite?.user) throw inviteErr;
-      const uid = invite.user.id;
-
-      const { error: roleErr } = await supabase
-        .from("user_roles")
-        .insert({ user_id: uid, role: "company" });
-      if (roleErr) throw roleErr;
-
-      const { error: compErr } = await supabase.from("companies").insert({
-        user_id: uid,
-        name,
-        status: "承認待ち",
+      const res = await fetch("/api/admin/add-company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email }),
       });
-      if (compErr) throw compErr;
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        throw new Error(error ?? res.statusText);
+      }
 
       toast({
         title: "企業を追加しました",
@@ -63,7 +55,7 @@ const AddCompanyDialog: React.FC<AddCompanyDialogProps> = ({ onAdded }) => {
     } catch (e: any) {
       toast({
         title: "追加に失敗しました",
-        description: e.message ?? String(e),
+        description: e?.message ?? String(e),
         variant: "destructive",
       });
     } finally {
