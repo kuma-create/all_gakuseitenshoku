@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { useToast } from "@/lib/hooks/use-toast";
 import AddCompanyDialog from "@/components/admin/AddCompanyDialog";
 import {
   Users,
@@ -224,6 +225,48 @@ export default function AdminDashboard() {
     id: null,
   });
 
+  /* ---------- toast ---------- */
+  const { toast } = useToast();
+
+    /* ---------- 会社詳細 / 編集用 ---------- */
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState("");
+  const [editCompanyStatus, setEditCompanyStatus] = useState<
+    "承認済み" | "承認待ち" | "停止"
+  >("承認待ち");
+
+  /* ---------- 会社削除 ---------- */
+  async function deleteCompany(companyId: string) {
+    if (!confirm("本当に削除しますか？")) return;
+    const { error } = await supabase.from("companies").delete().eq("id", companyId);
+    if (error) {
+      toast({ description: `削除失敗: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({ description: "削除しました" });
+      setCompanies((prev) => prev.filter((c) => c.id !== companyId));
+    }
+  }
+
+  /* ---------- DB 操作用 ---------- */
+  async function updateCompanyStatus(
+    companyId: string,
+    newStatus: "承認済み" | "承認待ち" | "停止"
+  ) {
+    const { error } = await supabase
+      .from("companies")
+      .update({ status: newStatus })
+      .eq("id", companyId);
+
+    if (error) {
+      toast({
+        description: `ステータス更新に失敗しました: ${error.message}`,
+        variant: "destructive",
+      });
+    } else {
+      toast({ description: "ステータスを更新しました" });
+      // 変更後は realtime で UI に反映される
+    }
+  }
   /* ---------- fetchData ---------- */
   const fetchData = useCallback(
     async () => {
@@ -434,8 +477,23 @@ export default function AdminDashboard() {
     return true;
   });
 
-  const openModal = (type: string, id: string) =>
+  const openModal = async (type: string, id: string) => {
     setModalState({ type, id });
+  
+    if (type === "view-company" || type === "edit-company") {
+      const { data } = await supabase
+        .from("companies")
+        .select("id,name,created_at,status")
+        .eq("id", id)
+        .single();
+      if (data) {
+        setSelectedCompany(data as Company);
+        setEditCompanyName(data.name ?? "");
+        setEditCompanyStatus((data.status as any) ?? "承認待ち");
+      }
+    }
+  };
+
   const closeModal = () =>
     setModalState({ type: "", id: null });
 
@@ -709,35 +767,20 @@ export default function AdminDashboard() {
                         </DropdownMenuItem>
                         {c.status === "承認済み" ? (
                           <DropdownMenuItem
-                            onClick={() =>
-                              openModal(
-                                "suspend-company",
-                                c.id
-                              )
-                            }
+                            onClick={() => updateCompanyStatus(c.id, "停止")}
                           >
                             <Ban /> 停止
                           </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem
-                            onClick={() =>
-                              openModal(
-                                "approve-company",
-                                c.id
-                              )
-                            }
+                            onClick={() => updateCompanyStatus(c.id, "承認済み")}
                           >
                             <CheckCircle /> 承認
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "delete-company",
-                              c.id
-                            )
-                          }
+                          onClick={() => deleteCompany(c.id)}
                           className="text-red-500"
                         >
                           <Trash2 /> 削除
@@ -1189,6 +1232,77 @@ export default function AdminDashboard() {
           </Table>
         </TabsContent>
       </Tabs>
+
+      {/* ----- 会社詳細 ----- */}
+<Dialog open={modalState.type === "view-company"} onOpenChange={closeModal}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>会社詳細</DialogTitle>
+    </DialogHeader>
+    {selectedCompany ? (
+      <div className="space-y-1">
+        <p><b>ID:</b> {selectedCompany.id}</p>
+        <p><b>企業名:</b> {selectedCompany.name}</p>
+        <p><b>登録日:</b> {format(new Date(selectedCompany.created_at),"yyyy/MM/dd")}</p>
+        <p><b>ステータス:</b> {selectedCompany.status}</p>
+      </div>
+    ) : (
+      <Skeleton className="h-24 w-full" />
+    )}
+    <DialogFooter>
+      <Button onClick={closeModal}>閉じる</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+      {/* ----- 会社編集 ----- */}
+      <Dialog open={modalState.type === "edit-company"} onOpenChange={closeModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>会社編集</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>企業名</Label>
+              <Input value={editCompanyName} onChange={(e)=>setEditCompanyName(e.target.value)} />
+            </div>
+            <div>
+              <Label>ステータス</Label>
+              <Select value={editCompanyStatus} onValueChange={(v)=>setEditCompanyStatus(v as any)}>
+                <SelectTrigger />
+                <SelectContent>
+                  <SelectItem value="承認待ち">承認待ち</SelectItem>
+                  <SelectItem value="承認済み">承認済み</SelectItem>
+                  <SelectItem value="停止">停止</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={closeModal}>キャンセル</Button>
+            <Button
+              onClick={async ()=>{
+                if(!selectedCompany) return;
+                const { error } = await supabase
+                  .from("companies")
+                  .update({ name: editCompanyName, status: editCompanyStatus })
+                  .eq("id", selectedCompany.id);
+                if(error){
+                  toast({ description:`更新失敗: ${error.message}`, variant:"destructive"});
+                }else{
+                  toast({ description:"更新しました" });
+                  closeModal();
+                  setCompanies(prev =>
+                    prev.map(c=>c.id===selectedCompany.id?{...c,name:editCompanyName,status:editCompanyStatus}:c)
+                  );
+                }
+              }}
+            >
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* モーダル例 */}
       <Dialog
