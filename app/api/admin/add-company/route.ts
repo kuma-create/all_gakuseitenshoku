@@ -48,6 +48,7 @@ export async function POST(req: Request) {
         const { error: resendErr } =
           await supabase.auth.admin.inviteUserByEmail(email, {
             redirectTo: `${NEXT_PUBLIC_SITE_URL}/company/onboarding/profile`,
+            data: { full_name: name }, // pass metadata for email template
           });
         if (resendErr) throw resendErr;
       }
