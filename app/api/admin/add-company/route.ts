@@ -48,6 +48,12 @@ export async function POST(req: Request) {
       /* 既存ユーザーの場合 */
       if (existing) {
         uid = existing.id;
+        /* user_metadata.role を company_admin に補正（JWT へ確実に載せるため） */
+        if ((existing.user_metadata as any)?.role !== "company_admin") {
+          await supabase.auth.admin.updateUserById(uid, {
+            user_metadata: { ...(existing.user_metadata ?? {}), role: "company_admin" },
+          });
+        }
 
         // まだメール確認が済んでいなければ招待リンクを再生成して送信
         if (existing.email_confirmed_at === null) {
