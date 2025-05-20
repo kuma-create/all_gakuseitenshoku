@@ -7,7 +7,11 @@ import { createMiddlewareClient }        from "@supabase/auth-helpers-nextjs";
 import type { Database }                 from "@/lib/supabase/types";
 
 /* ---------- 設定 ---------- */
+/** 静的アセット拡張子の正規表現 */
 const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
+
+/** パスワード未設定ユーザーが最初に飛ばされるページ */
+const PASSWORD_REQUIRED_PATH = "/company/set-password";
 
 /** 現状 “ログイン必須” にするサブパスはなし */
 const LOGIN_REQUIRED_PREFIXES: string[] = []; // グランプリ系ページも公開扱いにする
@@ -20,6 +24,7 @@ const PUBLIC_PREFIXES = [
   "/auth/reset",
   "/admin/login",           // 管理者ログインページ
   "/company/onboarding",    // 企業オンボーディング (招待リンク先)
+  "/company/set-password",  // 企業担当者が初回に設定するパスワードページ
 ];
 
 export async function middleware(req: NextRequest) {
@@ -32,6 +37,19 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient<Database>({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = req.nextUrl;
+
+  /* ---------- パスワード未設定なら強制リダイレクト ---------- */
+  if (
+    session &&
+    !(session.user as any).password_updated_at &&
+    pathname !== PASSWORD_REQUIRED_PATH &&
+    !pathname.startsWith("/api")
+  ) {
+    return NextResponse.redirect(
+      new URL(PASSWORD_REQUIRED_PATH, req.url),
+      { status: 302 },
+    );
+  }
 
   /* ---------- ① 静的アセットは即通過 ---------- */
   if (STATIC_RE.test(pathname)) return res;
@@ -59,16 +77,26 @@ export async function middleware(req: NextRequest) {
 
   /* ログイン済みで /login に来たらロール別に振り分け */
   if (session && isLoginPage) {
+    // パスワード未設定ならまず設定ページへ
+    if (!(session.user as any).password_updated_at) {
+      return NextResponse.redirect(
+        new URL(PASSWORD_REQUIRED_PATH, req.url),
+        { status: 302 },
+      );
+    }
+
     const role =
       session.user.user_metadata?.role ??
       (session.user.app_metadata as any)?.role ??
-      (session.user as any).role;    
+      (session.user as any).role;
+
     const dest =
       role === "company" || role === "company_admin"
         ? "/company-dashboard"
         : role === "admin"
         ? "/admin"
         : "/student-dashboard";
+
     return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
   }
 

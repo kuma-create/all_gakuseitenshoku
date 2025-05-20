@@ -99,7 +99,6 @@ export default function CompanyDashboard() {
         { data: publishedJobs },
         { data: draftJobsRows },
         { data: applRows },
-        { data: msgRows },
       ] = await Promise.all([
         supabase
           .from("jobs")
@@ -122,7 +121,21 @@ export default function CompanyDashboard() {
           `)
           .order("created_at", { ascending: false })
           .limit(5),
-        supabase
+      ])
+
+      // ②‑A まず会社のチャットルーム ID 一覧を取得
+      const { data: roomRows } = await supabase
+        .from("chat_rooms")
+        .select("id")
+        .eq("company_id", companyId)
+        .limit(50); // 上限 50
+
+      const roomIds = (roomRows ?? []).map((r) => r.id);
+      let msgRows: any[] = [];
+
+      // ②‑B ルームがあるときだけメッセージ取得
+      if (roomIds.length > 0) {
+        const { data: msgs } = await supabase
           .from("messages")
           .select(`
             id,
@@ -131,13 +144,12 @@ export default function CompanyDashboard() {
             created_at,
             sender_profiles:student_profiles!messages_sender_id_fkey ( full_name )
           `)
-          .eq(
-            "chat_room_id",
-            `in (select id from chat_rooms where company_id = '${companyId}')`,
-          )
+          .in("chat_room_id", roomIds)
           .order("created_at", { ascending: false })
-          .limit(5),
-      ])
+          .limit(5);
+
+        msgRows = msgs ?? [];
+      }
 
       /* ③ スカウト件数取得 */
       const { count: scoutCnt } = await supabase
