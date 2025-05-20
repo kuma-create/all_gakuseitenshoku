@@ -66,7 +66,7 @@ export async function POST(req: Request) {
           const { action_link: actionLink, email_otp: emailOtp } = link
             .properties as unknown as { action_link: string; email_otp: string };
 
-          await sgMail.send({
+          const [sgRes] = await sgMail.send({
             to: email,
             from: FROM_EMAIL,
             templateId: SENDGRID_TEMPLATE_ID,
@@ -74,8 +74,10 @@ export async function POST(req: Request) {
               full_name: name,
               confirmation_url: actionLink,
               token: emailOtp,
+              year: new Date().getFullYear(),
             },
           });
+          console.log("[sendgrid]", sgRes.statusCode, sgRes.body);
         }
       } else {
         /* ---------- 2. 新規ユーザーを作成し、招待リンクを送信 ---------- */
@@ -104,7 +106,7 @@ export async function POST(req: Request) {
         const { action_link: actionLink, email_otp: emailOtp } = link
           .properties as unknown as { action_link: string; email_otp: string };
 
-        await sgMail.send({
+        const [sgRes] = await sgMail.send({
           to: email,
           from: FROM_EMAIL,
           templateId: SENDGRID_TEMPLATE_ID,
@@ -112,8 +114,10 @@ export async function POST(req: Request) {
             full_name: name,
             confirmation_url: actionLink,
             token: emailOtp,
+            year: new Date().getFullYear(),
           },
         });
+        console.log("[sendgrid]", sgRes.statusCode, sgRes.body);
       }
 
     /* ---------- 3. user_roles upsert ---------- */
