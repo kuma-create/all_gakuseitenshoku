@@ -13,12 +13,24 @@ export default function SetPassword() {
 
   const save = async () => {
     if (pw !== pw2) return alert("パスワードが一致しません");
+    if (pw.length < 8)  return alert("8文字以上にしてください");
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: pw });
-    if (error) {
-      alert(error.message);
-    } else {
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) {
+        console.error("updateUser error", error);
+        alert(error.message);
+        return;
+      }
+
+      /* パスワード更新後に現在のセッションをリフレッシュし、
+         password_updated_at が反映された JWT を取得 */
+      await supabase.auth.refreshSession();
+
       router.replace("/company/onboarding/profile");
+    } finally {
+      setSaving(false);
     }
   };
 
