@@ -64,7 +64,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid param" }, { status: 400 });
   }
 
-  const supabase = createClient<Database>(url, sk);
+  // 先頭で env を検証済みなので "!" で undefined を排除
+  const supabase = createClient<Database>(url!, sk!);
   const tempPassword = generateTempPassword();
 
   try {
@@ -110,7 +111,10 @@ export async function POST(req: Request) {
     /* ── 2. user_roles upsert ──────────────────────── */
     const { error: roleErr } = await supabase
       .from("user_roles")
-      .upsert({ user_id: uid, role: "company_admin" }, { onConflict: "user_id" });
+      .upsert(
+        { user_id: uid, role: "company_admin" } as Database["public"]["Tables"]["user_roles"]["Insert"],
+        { onConflict: "user_id" },
+      );
     if (roleErr) throw roleErr;
 
     /* ── 3. companies upsert ───────────────────────── */
