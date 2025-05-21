@@ -320,17 +320,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     clearError();
-    try {
-      /* Supabase auth Cookie を完全に失効させる */
-      const { error } = await supabase.auth.signOut({ scope: "global" });
-      if (error) console.error("[logout error]", error);
 
-      /* ローカル保存している userType などもクリア */
-      localStorage.removeItem("userType");
-    } finally {
-      await applySession(null); // 状態リセットを保証
-      router.replace("/login");
-    }
+    /* -------- 1. Supabase セッション & Cookie を完全削除 -------- */
+    const { error } = await supabase.auth.signOut({ scope: "global" });
+    if (error) console.error("[logout error]", error);
+
+    /* -------- 2. クライアント側キャッシュをクリア -------- */
+    localStorage.removeItem("userType");
+    setUserType(null);
+    setSession(null);
+    setProfile(null);
+    setUser(null);
+    setIsLoggedIn(false);
+
+    /* -------- 3. ルーターをリダイレクト & キャッシュリフレッシュ -------- */
+    router.push("/login");
+    // Next.js App Router のキャッシュが残っていると旧ロールの
+    // getServerSession 結果を再利用することがあるため明示リフレッシュ
+    router.refresh();
   };
 
   /* ---- Provider ------------------------------------------------------- */
