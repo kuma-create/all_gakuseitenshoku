@@ -106,12 +106,12 @@ export default function NewJobPage() {
       /* 0) 会社プロフィール（UI 用） ------------------------------ */
       const { data: profile, error: profileErr } = await supabase
         .from("companies")
-        .select("company_name")
+        .select("name")               // ← actual column name
         .eq("user_id", user.id)
-        .single()
-    
-      if (profileErr) throw profileErr
-      if (!profile)   throw new Error("まず会社プロフィールを登録してください")
+        .maybeSingle()
+
+      if (profileErr) throw profileErr;
+      if (!profile)   throw new Error("まず会社プロフィールを登録してください");
     
       /* 1) companies.id を取得。無ければその場で作成 -------------- */
       let companyId: string | undefined
@@ -135,11 +135,11 @@ export default function NewJobPage() {
           .insert({
             user_id: user.id,
             id     : crypto.randomUUID(),
-            name   : name ?? "未設定企業名",
+            name   : "未設定企業名",
           })
           .select("id")
           .single()
-    
+
         if (insertCompErr) throw insertCompErr
         companyId = inserted.id
       }
