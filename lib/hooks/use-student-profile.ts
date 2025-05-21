@@ -25,9 +25,8 @@ function normalize(record: Local): Insert {
     // 空文字 → null
     if (v === "") {
       cleaned[k] = null;
-    // 空配列 → null
-    } else if (Array.isArray(v) && v.length === 0) {
-      cleaned[k] = null;
+    // 配列は空配列 ({}::text[]) のまま送る。
+    // NOT NULL の text[] カラムで null にすると制約違反になるため。
     // NaN → null
     } else if (typeof v === "number" && Number.isNaN(v)) {
       cleaned[k] = null;
