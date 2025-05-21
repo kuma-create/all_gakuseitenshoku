@@ -93,6 +93,8 @@ export function useStudentProfile() {
 
       // __editing は DB に存在しない列なので除去
       const { __editing: _omit, ...record } = data as Local;
+      // interests は NOT NULL 制約。null の場合は空配列に補正
+      if (record.interests == null) record.interests = [];
 
       const payload: Insert = normalize({
         ...record,          // ← __editing を含まない
