@@ -116,6 +116,11 @@ export default function Header() {
   const {
     ready, isLoggedIn, session, userType, user, logout,
   } = useAuth();
+  // Helper for logout that redirects to "/"
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
   /* ロール判定 */
   const isCompanySide = userType === "company" || userType === "company_admin";
 
@@ -233,7 +238,7 @@ export default function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="text-red-600 focus:bg-red-50"
                 >
                   <LogOut size={16} className="mr-2" /> ログアウト
@@ -321,7 +326,7 @@ export default function Header() {
                 </nav>
                 <hr className="my-3" />
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                 >
                   <LogOut size={16} /> ログアウト
