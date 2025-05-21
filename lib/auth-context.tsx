@@ -321,8 +321,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     clearError();
 
-    /* 1. signOut 全領域 (Cookie + localStorage) */
+    /* -- ① リモート & Cookie を無効化 -- */
     await supabase.auth.signOut({ scope: "global" });
+
+    /* -- ② ブラウザの localStorage トークンも確実に削除 -- */
+    await supabase.auth.signOut({ scope: "local" });
 
     /* 2. セッションが完全に消えたことを確認する */
     for (let i = 0; i < 5; i++) {
