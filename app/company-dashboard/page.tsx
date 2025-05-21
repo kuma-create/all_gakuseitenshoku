@@ -60,6 +60,7 @@ type MessageRow = {
 export default function CompanyDashboard() {
   const router                       = useRouter()
   const { isLoggedIn, userType, user } = useAuth()
+  const isCompanySide = userType === "company" || userType === "company_admin"
 
   /* --- state -------------------------------------------------------- */
   const [loading     , setLoading    ] = useState(true)
@@ -74,14 +75,17 @@ export default function CompanyDashboard() {
   /* --- 認証 --------------------------------------------------------- */
   useEffect(() => {
     if (!loading) {
-      if (!isLoggedIn)                router.push("/login")
-      else if (userType !== "company") router.push("/")
+      if (!isLoggedIn) {
+        router.push("/login")
+      } else if (!isCompanySide) {
+        router.push("/")
+      }
     }
   }, [loading, isLoggedIn, userType, router])
 
   /* --- Supabase 取得 ------------------------------------------------- */
   useEffect(() => {
-    if (!isLoggedIn || userType !== "company" || !user?.id) return
+    if (!isLoggedIn || !isCompanySide || !user?.id) return
 
     ;(async () => {
       /* ① 企業レコード取得 */
