@@ -321,8 +321,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     clearError();
     try {
-      const { error } = await supabase.auth.signOut();
+      /* Supabase auth Cookie を完全に失効させる */
+      const { error } = await supabase.auth.signOut({ scope: "global" });
       if (error) console.error("[logout error]", error);
+
+      /* ローカル保存している userType などもクリア */
+      localStorage.removeItem("userType");
     } finally {
       await applySession(null); // 状態リセットを保証
       router.replace("/login");
