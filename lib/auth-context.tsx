@@ -73,7 +73,6 @@ const PUBLIC_ROUTES = new Set([
   "/signup",
   "/email-callback",
   "/admin/login",
-  "/company/onboarding/profile",
 ]);
 
 /* ====================================================================== */
@@ -194,18 +193,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       /* ダッシュボードリダイレクト */
       if (pathname === "/login" || pathname === "/") {
-        let redirectPath: string;
-
-        if (COMPANY_ROLES.has(role)) {
-          redirectPath =
-            role === "company_admin"
-              ? "/company/onboarding/profile"
-              : "/company-dashboard";
-        } else if (role === "admin") {
-          redirectPath = "/admin";
-        } else {
-          redirectPath = "/student-dashboard";
-        }
+        const redirectPath =
+          COMPANY_ROLES.has(role)
+            ? "/company-dashboard"
+            : role === "admin"
+              ? "/admin"
+              : "/student-dashboard";
 
         router.replace(redirectPath);
       }
