@@ -12,7 +12,7 @@ import type { Database }                   from "@/lib/supabase/types";
 /** 静的アセット拡張子 */
 const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
 
-/** パスワード未設定ユーザーを誘導するページ */
+/** パスワード未設定ユーザーを誘導するページだよね、*/
 const PASSWORD_REQUIRED_PATH = "/company/set-password";
 
 /** 「ログイン必須」にしたいパス（例として空） */
