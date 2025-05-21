@@ -77,24 +77,39 @@ export type Database = {
       }
       applications: {
         Row: {
+          applied_at: string | null
           created_at: string | null
           id: string
+          interest_level: number | null
           job_id: string | null
-          status: string | null
+          last_activity: string | null
+          resume_url: string | null
+          self_pr: string | null
+          status: Database["public"]["Enums"]["application_status"] | null
           student_id: string | null
         }
         Insert: {
+          applied_at?: string | null
           created_at?: string | null
           id?: string
+          interest_level?: number | null
           job_id?: string | null
-          status?: string | null
+          last_activity?: string | null
+          resume_url?: string | null
+          self_pr?: string | null
+          status?: Database["public"]["Enums"]["application_status"] | null
           student_id?: string | null
         }
         Update: {
+          applied_at?: string | null
           created_at?: string | null
           id?: string
+          interest_level?: number | null
           job_id?: string | null
-          status?: string | null
+          last_activity?: string | null
+          resume_url?: string | null
+          self_pr?: string | null
+          status?: Database["public"]["Enums"]["application_status"] | null
           student_id?: string | null
         }
         Relationships: [
@@ -997,6 +1012,7 @@ export type Database = {
           graduation_month: string | null
           graduation_year: number | null
           has_internship_experience: boolean
+          hometown: string | null
           id: string
           interests: string[]
           join_ipo: boolean | null
@@ -1012,6 +1028,7 @@ export type Database = {
           pr_text: string | null
           pr_title: string | null
           preference_note: string | null
+          preferred_industries: Json | null
           profile_image: string | null
           qualification_text: string | null
           research_theme: string | null
@@ -1055,6 +1072,7 @@ export type Database = {
           graduation_month?: string | null
           graduation_year?: number | null
           has_internship_experience?: boolean
+          hometown?: string | null
           id?: string
           interests?: string[]
           join_ipo?: boolean | null
@@ -1070,6 +1088,7 @@ export type Database = {
           pr_text?: string | null
           pr_title?: string | null
           preference_note?: string | null
+          preferred_industries?: Json | null
           profile_image?: string | null
           qualification_text?: string | null
           research_theme?: string | null
@@ -1113,6 +1132,7 @@ export type Database = {
           graduation_month?: string | null
           graduation_year?: number | null
           has_internship_experience?: boolean
+          hometown?: string | null
           id?: string
           interests?: string[]
           join_ipo?: boolean | null
@@ -1128,6 +1148,7 @@ export type Database = {
           pr_text?: string | null
           pr_title?: string | null
           preference_note?: string | null
+          preferred_industries?: Json | null
           profile_image?: string | null
           qualification_text?: string | null
           research_theme?: string | null
@@ -1274,7 +1295,7 @@ export type Database = {
         Returns: number
       }
       custom_access_token_hook: {
-        Args: { event: Json }
+        Args: { event: Json } | { uid: string; email: string; claims: Json }
         Returns: Json
       }
       dashboard_overview: {
@@ -1325,7 +1346,7 @@ export type Database = {
         Returns: boolean
       }
       jwt_custom_claims_hook: {
-        Args: { event: Json }
+        Args: { event: Json } | { uid: string; email: string; claims: Json }
         Returns: Json
       }
       prepare_session_answers: {
@@ -1342,6 +1363,18 @@ export type Database = {
       }
     }
     Enums: {
+      application_status:
+        | "未対応"
+        | "書類選考中"
+        | "一次面接調整中"
+        | "一次面接済"
+        | "二次面接調整中"
+        | "二次面接済"
+        | "最終面接調整中"
+        | "最終面接済"
+        | "内定"
+        | "内定辞退"
+        | "不採用"
       offer_status: "pending" | "accepted" | "rejected"
       question_category: "web_lang" | "web_math" | "case" | "biz_battle"
       session_status: "in_progress" | "submitted" | "graded"
@@ -1460,6 +1493,19 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      application_status: [
+        "未対応",
+        "書類選考中",
+        "一次面接調整中",
+        "一次面接済",
+        "二次面接調整中",
+        "二次面接済",
+        "最終面接調整中",
+        "最終面接済",
+        "内定",
+        "内定辞退",
+        "不採用",
+      ],
       offer_status: ["pending", "accepted", "rejected"],
       question_category: ["web_lang", "web_math", "case", "biz_battle"],
       session_status: ["in_progress", "submitted", "graded"],

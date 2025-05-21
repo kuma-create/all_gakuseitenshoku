@@ -46,8 +46,7 @@ const companyMain: NavItem[] = [
   { href: "/company/scout",             label: "スカウト",   icon: Mail },
   { href: "/company/chat",              label: "チャット",   icon: MessageSquare },
   { href: "/company/analytics",              label: "アナリティクス",   icon: MessageSquare },
-  { href: "/company/applicants",              label: "不明",   icon: MessageSquare },
-  { href: "/company/integrations",              label: "inte",   icon: MessageSquare },
+  { href: "/company/applicants",              label: "応募者一覧",   icon: MessageSquare },
 ];
 const adminMain: NavItem[] = [
   { href: "/admin-dashboard", label: "Admin", icon: LayoutDashboard },
