@@ -7,6 +7,32 @@ import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
+/* ---------- 必須 ENV が揃っているか確認 ---------- */
+const {
+  SENDGRID_API_KEY,
+  NEXT_PUBLIC_SUPABASE_URL,
+  SUPABASE_SERVICE_KEY,
+  NEXT_PUBLIC_SITE_URL,
+} = process.env;
+
+if (!SENDGRID_API_KEY) {
+  console.error("[add-company] SENDGRID_API_KEY missing");
+}
+if (!NEXT_PUBLIC_SUPABASE_URL) {
+  console.error("[add-company] NEXT_PUBLIC_SUPABASE_URL missing");
+}
+if (!SUPABASE_SERVICE_KEY) {
+  console.error("[add-company] SUPABASE_SERVICE_KEY missing");
+}
+if (!NEXT_PUBLIC_SITE_URL) {
+  console.error("[add-company] NEXT_PUBLIC_SITE_URL missing");
+}
+
+/* これらのどれかが欠けている場合は 500 を即返す */
+if (!SENDGRID_API_KEY || !NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_KEY || !NEXT_PUBLIC_SITE_URL) {
+  throw new Error("env missing");
+}
+
 /* ──────────────── SendGrid ───────────────── */
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
@@ -28,11 +54,6 @@ export async function POST(req: Request) {
     SUPABASE_SERVICE_KEY:    sk,
     NEXT_PUBLIC_SITE_URL,
   } = process.env;
-
-  /* env チェック */
-  if (!url || !sk || !NEXT_PUBLIC_SITE_URL) {
-    return NextResponse.json({ error: "env missing" }, { status: 500 });
-  }
 
   /* パラメータ取得 */
   const { name, email } = (await req.json()) as {
