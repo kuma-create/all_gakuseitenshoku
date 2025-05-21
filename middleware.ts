@@ -26,16 +26,14 @@ const PUBLIC_PREFIXES = [
 
 /* ------------------------------------------------------------------ */
 export async function middleware(req: NextRequest) {
-  /* ★ /admin/login はスルー（判定の影響を受けない） */
-  if (req.nextUrl.pathname.startsWith("/admin/login")) {
-    return NextResponse.next();
-  }
-
   /* ---------- Supabase Session 取得 ---------- */
   const res      = NextResponse.next({ request: req });
   const supabase = createMiddlewareClient<Database>({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = req.nextUrl;
+
+  const isAdminArea   = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isLoginPage   = pathname === "/login" || pathname === "/admin/login";
 
   /* ---------- ロール判定 ---------- */
   const role = session
@@ -57,23 +55,25 @@ export async function middleware(req: NextRequest) {
     .some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (needsLogin && !session) {
-    const login = new URL("/login", req.url);
+    const loginPath = isAdminArea ? "/admin/login" : "/login";
+    const login = new URL(loginPath, req.url);
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login, { status: 302 });
   }
 
   /* ---------- ③ 公開ページかどうか ---------- */
-  const isLoginPage = pathname === "/login";
+  // [removed]
   const isPublic    = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 
   /* ログインしていない & 非公開ページ → /login?next=... */
   if (!session && !isPublic && !isLoginPage) {
-    const login = new URL("/login", req.url);
+    const loginPath = isAdminArea ? "/admin/login" : "/login";
+    const login = new URL(loginPath, req.url);
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ---------- ④ /login アクセス時：ロール別にダッシュボードへ ---------- */
+  /* ---------- ④ /login or /admin/login アクセス時：ロール別ダッシュボードへ ---------- */
   if (session && isLoginPage) {
     const dest =
       isCompanyRole   ? "/company-dashboard"
