@@ -113,7 +113,9 @@ export default function Header() {
   const router                = useRouter();
   const {
     ready, isLoggedIn, session, userType, user, logout,
-  }                           = useAuth();
+  } = useAuth();
+  /* ロール判定 */
+  const isCompanySide = userType === "company" || userType === "company_admin";
 
   /* ---------- Avatar 取得（student のみ） ---------- */
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -134,7 +136,7 @@ export default function Header() {
 
   /* ---------- メインメニュー ---------- */
   const main: NavItem[] =
-    userType === "company" ? companyMain
+    isCompanySide ? companyMain
     : userType === "admin" ? adminMain
     : studentMain;
 
