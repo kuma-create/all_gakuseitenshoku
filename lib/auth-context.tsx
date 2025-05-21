@@ -336,6 +336,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await new Promise((res) => setTimeout(res, 150)); // wait 150ms
     }
 
+    /* --- 2‑b. クッキーに残る sb‑<project> トークンも明示的に失効させる --- */
+    document.cookie
+      .split(";")
+      .map((c) => c.trim().split("=")[0])
+      .filter((name) => name.startsWith("sb-"))
+      .forEach((name) => {
+        document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+      });
+
     /* 3. React / localStorage 状態をクリア */
     localStorage.removeItem("userType");
     setUserType(null);
