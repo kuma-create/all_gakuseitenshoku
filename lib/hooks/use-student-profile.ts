@@ -77,11 +77,11 @@ export function useStudentProfile() {
   const updateLocal = (patch: Partial<Local>) =>
     setData((d) => ({ ...d, ...patch }));
 
-  const resetLocal  = () => setData((d) => {
-    // __editing だけ false に戻す
-    const { __editing, ...rest } = d as Local;
-    return rest;
-  });
+  const resetLocal = () =>
+    setData((d) => {
+      const { __editing: _omit, ...rest } = d as Local;
+      return rest;
+    });
 
   /* save --------------------------------------------------------------- */
   const save = async () => {
@@ -91,9 +91,12 @@ export function useStudentProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("認証情報がありません");
 
+      // __editing は DB に存在しない列なので除去
+      const { __editing: _omit, ...record } = data as Local;
+
       const payload: Insert = normalize({
-        ...data,
-        user_id: user.id,       // upsert の衝突キー
+        ...record,          // ← __editing を含まない
+        user_id: user.id,   // upsert 衝突キー
       });
 
       const { error: upErr } = await supabase
