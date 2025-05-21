@@ -29,9 +29,7 @@ if (!NEXT_PUBLIC_SITE_URL) {
 }
 
 /* これらのどれかが欠けている場合は 500 を即返す */
-if (!SENDGRID_API_KEY || !NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_KEY || !NEXT_PUBLIC_SITE_URL) {
-  throw new Error("env missing");
-}
+// throw new Error("env missing");
 
 /* ──────────────── SendGrid ───────────────── */
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
@@ -54,6 +52,12 @@ export async function POST(req: Request) {
     SUPABASE_SERVICE_KEY:    sk,
     NEXT_PUBLIC_SITE_URL,
   } = process.env;
+
+  // ビルド時に環境変数が無い場合があるため、ここで最終チェック
+  if (!url || !sk || !NEXT_PUBLIC_SITE_URL) {
+    console.error("[add-company] env missing at runtime");
+    return NextResponse.json({ error: "env missing" }, { status: 500 });
+  }
 
   /* パラメータ取得 */
   const { name, email } = (await req.json()) as {
