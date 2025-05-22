@@ -124,18 +124,59 @@ export default function WebTestPage() {
   /* ---------- submit ---------- */
   const handleSubmit = useCallback(async () => {
     try {
-      const res  = await fetch("/api/submit-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
-      router.replace(`/grandprix/${category}/${sessionId}/result`)
+      /* ----------------------------------------------------------
+         1. answers[] から設問 UUID → 選択肢番号 のマップを生成
+      ---------------------------------------------------------- */
+      const answerMap = answers.reduce<Record<string, number>>((acc, row) => {
+        if (row.question_id && row.answer_raw !== null && row.answer_raw !== undefined) {
+          /* answer_raw は 1–4 の択一番号が入っている想定 */
+          acc[row.question_id] = Number(row.answer_raw);
+        }
+        return acc;
+      }, {});
+
+      /* 未回答がある場合は警告して中断 ------------------------- */
+      if (Object.keys(answerMap).length !== answers.length) {
+        toast({ description: "未回答の問題があります。すべて回答してください。" });
+        return;
+      }
+
+      /* ----------------------------------------------------------
+         2. challenge_id と student_id を取得
+            - challenge_id: 問題側に埋め込まれている想定
+            - student_id  : session_answers の行に保持されている想定
+      ---------------------------------------------------------- */
+      const challengeId = answers[0]?.question?.challenge_id;
+      const studentId   = (answers[0] as any)?.student_id;
+
+      if (!challengeId || !studentId) {
+        toast({ description: "必要な情報が不足しています (challengeId / studentId)" });
+        return;
+      }
+
+      /* ----------------------------------------------------------
+         3. challenge_submissions に JSONB で保存
+         ---------------------------------------------------------- */
+      const { error: insertErr } = await supabase
+        .from("challenge_submissions")
+        .insert([
+          {
+            challenge_id: challengeId,
+            student_id:   studentId,
+            answer:       "",                      // ← 非 null 文字列で埋める
+            answers:      answerMap as any,        // ← Json 型にキャスト
+            status:       "未採点",
+          },
+        ]);
+
+      if (insertErr) throw insertErr;
+
+      /* 採点トリガが走るので結果ページへ遷移 -------------------- */
+      router.replace(`/grandprix/${category}/${sessionId}/result`);
     } catch (e: any) {
-      toast({ description: e.message })
+      toast({ description: e.message ?? "送信に失敗しました" });
     }
-  }, [router, sessionId, category, toast])
+  }, [router, sessionId, category, toast, answers]);
 
   /* ---------- UI ---------- */
   if (loading)

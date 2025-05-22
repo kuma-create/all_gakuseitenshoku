@@ -129,6 +129,27 @@ export type Database = {
           },
         ]
       }
+      bizscore_questions: {
+        Row: {
+          id: string
+          order_no: number | null
+          question: string | null
+          weight: number | null
+        }
+        Insert: {
+          id?: string
+          order_no?: number | null
+          question?: string | null
+          weight?: number | null
+        }
+        Update: {
+          id?: string
+          order_no?: number | null
+          question?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
       challenge_questions: {
         Row: {
           challenge_id: string
@@ -216,33 +237,45 @@ export type Database = {
       challenge_submissions: {
         Row: {
           answer: string
+          answers: Json | null
+          auto_score: number | null
           challenge_id: string
           comment: string | null
           created_at: string
+          final_score: number | null
           id: string
           score: number | null
+          score_source: string | null
           status: string
           student_id: string
           updated_at: string
         }
         Insert: {
           answer: string
+          answers?: Json | null
+          auto_score?: number | null
           challenge_id: string
           comment?: string | null
           created_at?: string
+          final_score?: number | null
           id?: string
           score?: number | null
+          score_source?: string | null
           status?: string
           student_id: string
           updated_at?: string
         }
         Update: {
           answer?: string
+          answers?: Json | null
+          auto_score?: number | null
           challenge_id?: string
           comment?: string | null
           created_at?: string
+          final_score?: number | null
           id?: string
           score?: number | null
+          score_source?: string | null
           status?: string
           student_id?: string
           updated_at?: string
@@ -271,6 +304,7 @@ export type Database = {
           student_id: string | null
           time_limit_min: number
           title: string
+          type: Database["public"]["Enums"]["grandprix_type"]
           updated_at: string
           word_limit: number | null
         }
@@ -287,6 +321,7 @@ export type Database = {
           student_id?: string | null
           time_limit_min?: number
           title: string
+          type?: Database["public"]["Enums"]["grandprix_type"]
           updated_at?: string
           word_limit?: number | null
         }
@@ -303,6 +338,7 @@ export type Database = {
           student_id?: string | null
           time_limit_min?: number
           title?: string
+          type?: Database["public"]["Enums"]["grandprix_type"]
           updated_at?: string
           word_limit?: number | null
         }
@@ -1233,6 +1269,50 @@ export type Database = {
         }
         Relationships: []
       }
+      webtest_questions: {
+        Row: {
+          challenge_id: string | null
+          choice1: string | null
+          choice2: string | null
+          choice3: string | null
+          choice4: string | null
+          correct_choice: number | null
+          id: string
+          order_no: number | null
+          question: string | null
+        }
+        Insert: {
+          challenge_id?: string | null
+          choice1?: string | null
+          choice2?: string | null
+          choice3?: string | null
+          choice4?: string | null
+          correct_choice?: number | null
+          id?: string
+          order_no?: number | null
+          question?: string | null
+        }
+        Update: {
+          challenge_id?: string | null
+          choice1?: string | null
+          choice2?: string | null
+          choice3?: string | null
+          choice4?: string | null
+          correct_choice?: number | null
+          id?: string
+          order_no?: number | null
+          question?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webtest_questions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       gp_rank: {
@@ -1321,6 +1401,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: number
       }
+      grade_webtest: {
+        Args: { p_submission_id: string }
+        Returns: undefined
+      }
       increment_job_view: {
         Args: { _job_id: string }
         Returns: undefined
@@ -1375,6 +1459,7 @@ export type Database = {
         | "内定"
         | "内定辞退"
         | "不採用"
+      grandprix_type: "case" | "webtest" | "bizscore"
       offer_status: "pending" | "accepted" | "rejected"
       question_category: "web_lang" | "web_math" | "case" | "biz_battle"
       session_status: "in_progress" | "submitted" | "graded"
@@ -1506,6 +1591,7 @@ export const Constants = {
         "内定辞退",
         "不採用",
       ],
+      grandprix_type: ["case", "webtest", "bizscore"],
       offer_status: ["pending", "accepted", "rejected"],
       question_category: ["web_lang", "web_math", "case", "biz_battle"],
       session_status: ["in_progress", "submitted", "graded"],

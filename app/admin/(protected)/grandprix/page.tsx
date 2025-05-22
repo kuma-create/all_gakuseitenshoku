@@ -95,6 +95,8 @@ export default function AdminGrandPrixPage() {
   const { toast } = useToast()
   const router = useRouter()
 
+  /* Grand Prix 種別: case | webtest | bizscore */
+  const [grandType, setGrandType] = useState<"case" | "webtest" | "bizscore">("case");
   // ------- Data state -----------------------------------------------
   const [currentChallenge, setCurrentChallenge] =
     useState<ChallengeRow | null>(null)
@@ -153,6 +155,7 @@ export default function AdminGrandPrixPage() {
       const { data: current, error: err1 } = await supabase
         .from("challenges")
         .select("*")
+        .eq("type", grandType)
         .gt("deadline", nowIso)
         .order("deadline", { ascending: true })
         .limit(1)
@@ -205,6 +208,7 @@ export default function AdminGrandPrixPage() {
       const { data: upcoming, error: errUpcoming } = await supabase
         .from("challenges")
         .select("*")
+        .eq("type", grandType)
         .gt("deadline", nowIso)
         .order("deadline", { ascending: true })
       if (errUpcoming) throw errUpcoming
@@ -214,6 +218,7 @@ export default function AdminGrandPrixPage() {
       const { data: past, error: err3 } = await supabase
         .from("challenges")
         .select("*")
+        .eq("type", grandType)
         .lt("deadline", nowIso)
         .order("deadline", { ascending: false })
       if (err3) throw err3
@@ -255,11 +260,11 @@ export default function AdminGrandPrixPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [grandType])
 
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+  }, [fetchData, grandType])
 
   // ------------------------------------------------------------------
   // 新しいお題作成モードの開始
@@ -319,6 +324,7 @@ export default function AdminGrandPrixPage() {
             description: challengeForm.description,
             word_limit: challengeForm.word_limit,
             deadline: dateTime.toISOString(),
+            type: grandType,
           })
           .single()
         supaErr = error
@@ -534,6 +540,19 @@ export default function AdminGrandPrixPage() {
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">グランプリ管理</h1>
+      {/* 種別トグル */}
+      <div className="mb-6 flex gap-4">
+        <Select value={grandType} onValueChange={(v) => setGrandType(v as any)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Grand Prix Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="case">Case</SelectItem>
+            <SelectItem value="webtest">WebTest</SelectItem>
+            <SelectItem value="bizscore">Bizscore</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <Tabs defaultValue="challenge" className="w-full">
         <TabsList className="mb-6">
