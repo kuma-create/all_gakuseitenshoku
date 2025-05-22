@@ -108,8 +108,10 @@ export default function StudentProfilePage() {
   const ready = useAuthGuard("student")
   const {
     data: profile, loading, error, saving,
-    editing, updateLocal, resetLocal, save,
+    editing: _editing, updateLocal, resetLocal, save,
   } = useStudentProfile()
+
+  const editing = true  // always editable
   const completionObj = useProfileCompletion()               // null | { score: number }
 
   /* ↓ ローカル UI 用フックも guard の前に置く ↓ */
@@ -142,35 +144,45 @@ export default function StudentProfilePage() {
     )
   }
 
-  /* 3) 完成度などの派生値 */
-  const completionScore = completionObj?.score ?? 0
+  /* 3) 完成度などの派生値 ---------------------------------------- */
 
   const isFilled = (v: unknown) =>
     Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
 
-  const sectionDone = {
-    // 基本情報: 名前 + 住所4項目 + 生年月日 を入力済みで完了
-    basic:
-      isFilled(profile.last_name) &&
-      isFilled(profile.first_name) &&
-      isFilled(profile.postal_code) &&
-      isFilled(profile.prefecture) &&
-      isFilled(profile.city) &&
-      isFilled(profile.address_line) &&
-      isFilled(profile.birth_date),
+  /* ── section completeness ── */
+  const basicList = [
+    profile.last_name,
+    profile.first_name,
+    profile.postal_code,
+    profile.prefecture,
+    profile.city,
+    profile.address_line,
+    profile.birth_date,
+  ]
+  const prList = [
+    profile.pr_title,
+    profile.pr_text,
+    profile.about,
+  ]
+  const prefList = [
+    profile.employment_type,
+    profile.desired_positions,
+    profile.work_style,
+  ]
 
-    // 自己PR: pr_title + pr_text + about のいずれか1つ以上で完了
-    pr:
-      isFilled(profile.pr_title) ||
-      isFilled(profile.pr_text) ||
-      isFilled(profile.about),
+  const pct = (arr: unknown[]) =>
+    Math.round((arr.filter(isFilled).length / arr.length) * 100)
 
-    // 希望条件: employment_type + desired_positions + work_style が埋まれば完了
-    pref:
-      isFilled(profile.employment_type) &&
-      isFilled(profile.desired_positions) &&
-      isFilled(profile.work_style),
+  const sectionPct = {
+    basic: pct(basicList),
+    pr: pct(prList),
+    pref: pct(prefList),
   }
+
+  /* overall completion: simple average of three sections */
+  const completionScore = Math.round(
+    (sectionPct.basic + sectionPct.pr + sectionPct.pref) / 3
+  )
 
   /* 4) helpers */
   const getBarColor = (pct: number) =>
@@ -212,29 +224,23 @@ export default function StudentProfilePage() {
             </p>
           </div>
 
-          {editing ? (
-            <div className="flex gap-2">
-              <Button variant="outline" className="h-8 sm:h-10" onClick={resetLocal}>
-                <X size={14} className="mr-1" /> キャンセル
-              </Button>
-              <Button className="h-8 sm:h-10" disabled={saving} onClick={handleSave}>
-                {saving ? (
-                  <>
-                    <span className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    保存中…
-                  </>
-                ) : (
-                  <>
-                    <Save size={14} className="mr-1" /> 保存
-                  </>
-                )}
-              </Button>
-            </div>
-          ) : (
-            <Button className="h-8 sm:h-10" onClick={() => updateLocal({ __editing: true })}>
-              <Edit size={14} className="mr-1" /> 編集
+          <div className="flex gap-2">
+            <Button variant="outline" className="h-8 sm:h-10" onClick={resetLocal}>
+              <X size={14} className="mr-1" /> キャンセル
             </Button>
-          )}
+            <Button className="h-8 sm:h-10" disabled={saving} onClick={handleSave}>
+              {saving ? (
+                <>
+                  <span className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  保存中…
+                </>
+              ) : (
+                <>
+                  <Save size={14} className="mr-1" /> 保存
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* progress */}
@@ -247,7 +253,7 @@ export default function StudentProfilePage() {
         {/* section chips */}
         <div className="mt-4 grid grid-cols-3 gap-2">
           {(['basic', 'pr', 'pref'] as const).map((s) => {
-            const pct = sectionDone[s] ? 100 : 0;
+            const pct = sectionPct[s];
             const names = { basic: '基本情報', pr: '自己PR', pref: '希望条件' };
             const icons = {
               basic: <User size={14} />, pr: <FileText size={14} />, pref: <Target size={14} />,
@@ -724,7 +730,7 @@ export default function StudentProfilePage() {
       </Tabs>
 
       {/* sticky save ------------------------------------------------------ */}
-      {editing && (
+      (
         <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -750,7 +756,7 @@ export default function StudentProfilePage() {
             </div>
           </div>
         </footer>
-      )}
+      )
 
       {/* toast ------------------------------------------------------------ */}
       {savedToast && (
