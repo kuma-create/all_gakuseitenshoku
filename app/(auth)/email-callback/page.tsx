@@ -19,6 +19,15 @@ export default function EmailCallbackPage() {
   ------------------------------------------------------------- */
   useEffect(() => {
     (async () => {
+      /* ----- 0) すでにセッションがあれば即リダイレクト ----- */
+      const {
+        data: { session: initialSession },
+      } = await supabase.auth.getSession();
+      if (initialSession) {
+        const nextPath0 = search.get("next") || "/";
+        router.replace(nextPath0);
+        return;
+      }
       /* ---------- 1) ハッシュフラグメント (#access_token) ---------- */
       const hash  = window.location.hash.replace(/^#/, "");
       const hp    = new URLSearchParams(hash);
