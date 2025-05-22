@@ -47,7 +47,7 @@ async function savePartial(data: Partial<FormState>) {
 
   const { error: upErr } = await supabase
     .from("student_profiles")
-    .upsert({ user_id: user.id, ...data });
+    .upsert({ user_id: user.id, ...data }, { onConflict: "user_id" });
   if (upErr) throw upErr;
 }
 
@@ -252,18 +252,23 @@ export default function OnboardingProfile() {
       }
 
       /* 2. 最終 upsert (行が無い場合は作成／ある場合は上書き) */
-      const { error: dbErr } = await supabase.from("student_profiles").upsert({
-        user_id: user.id,
-        ...form,
-        address: `${form.prefecture}${form.city}${form.address_line}`,
-        avatar_url: avatarUrl,
-        is_completed: true,
-        experience: [
-          { order: 1, text: form.company1 },
-          { order: 2, text: form.company2 },
-          { order: 3, text: form.company3 },
-        ],
-      });
+      const { error: dbErr } = await supabase
+        .from("student_profiles")
+        .upsert(
+          {
+            user_id: user.id,
+            ...form,
+            address: `${form.prefecture}${form.city}${form.address_line}`,
+            avatar_url: avatarUrl,
+            is_completed: true,
+            experience: [
+              { order: 1, text: form.company1 },
+              { order: 2, text: form.company2 },
+              { order: 3, text: form.company3 },
+            ],
+          },
+          { onConflict: "user_id" }
+        );
       if (dbErr) throw dbErr;
 
       router.replace("/student-dashboard");
