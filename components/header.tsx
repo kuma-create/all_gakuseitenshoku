@@ -247,12 +247,20 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link
-              href="/login"
-              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-            >
-              <LogIn size={16} /> ログイン
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/login"
+                className="flex items-center gap-1 text-sm text-gray-600 transition hover:text-primary-700 hover:underline"
+              >
+                <LogIn size={16} /> ログイン
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-full bg-gradient-to-r from-primary/80 to-primary px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                新規登録
+              </Link>
+            </div>
           )}
         </div>
 
@@ -285,13 +293,13 @@ export default function Header() {
               <div className="space-y-4">
                 <Link
                   href="/login"
-                  className="block rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+                  className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100 hover:text-primary-700 hover:underline"
                 >
                   ログイン
                 </Link>
                 <Link
                   href="/signup"
-                  className="block rounded-md bg-primary/90 px-3 py-2 text-sm text-white hover:bg-primary"
+                  className="block rounded-full bg-gradient-to-r from-primary/80 to-primary px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   新規登録
                 </Link>
