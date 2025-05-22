@@ -555,7 +555,9 @@ export default function AdminGrandPrixPage() {
 
       toast({
         title: creating ? "お題を公開しました" : "お題が更新されました",
-        description: creating ? "新しいお題が正常に作成されました" : "お題の内容が更新されました",
+        description: creating
+          ? "現在公開中のお題として登録されました。"
+          : "お題の内容が更新されました",
       })
       setIsCreating(false)
       setEditingId(null)
@@ -961,8 +963,44 @@ export default function AdminGrandPrixPage() {
                 </Button>
               </form>
               {/* ===== 一覧 ===== */}
-              <div className="mt-8">
-                <h3 className="font-medium mb-2">公開中 / 予定のお題</h3>
+              {/* ---------- 現在公開中のお題 ---------- */}
+              {currentChallenge ? (
+                <div className="mb-8">
+                  <h3 className="font-medium mb-2">現在公開中のお題</h3>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-2 px-1 text-left">タイトル</th>
+                        <th className="py-2 px-1 text-left">締切</th>
+                        <th className="py-2 px-1 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b bg-muted/40">
+                        <td className="py-2 px-1">{currentChallenge.title}</td>
+                        <td className="py-2 px-1">
+                          {currentChallenge.deadline
+                            ? format(new Date(currentChallenge.deadline), "yyyy/MM/dd HH:mm")
+                            : "－"}
+                        </td>
+                        <td className="py-2 px-1 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => startEdit(currentChallenge)}
+                          >
+                            編集
+                          </Button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {/* ---------- 今後公開予定のお題 ---------- */}
+              <div>
+                <h3 className="font-medium mb-2">公開予定のお題</h3>
                 {upcomingChallenges.length === 0 ? (
                   <p className="text-sm text-muted-foreground">お題はありません</p>
                 ) : (
