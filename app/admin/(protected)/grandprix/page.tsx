@@ -89,6 +89,8 @@ export default function AdminGrandPrixPage() {
       avgScore: number
     })[]
   >([])
+  // 公開中 / 予定のお題一覧
+  const [upcomingChallenges, setUpcomingChallenges] = useState<ChallengeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -170,6 +172,15 @@ export default function AdminGrandPrixPage() {
         setSubmissions([])
       }
 
+      // 2-1) これから公開中/予定のお題を取得
+      const { data: upcoming, error: errUpcoming } = await supabase
+        .from("challenges")
+        .select("*")
+        .gt("deadline", nowIso)
+        .order("deadline", { ascending: true })
+      if (errUpcoming) throw errUpcoming
+      setUpcomingChallenges(upcoming ?? [])
+
       // 3) 過去のお題
       const { data: past, error: err3 } = await supabase
         .from("challenges")
@@ -234,6 +245,23 @@ export default function AdminGrandPrixPage() {
     })
     setSelectedTime("23:59")
     setIsCreating(true)
+  }
+
+  /** 既存お題を編集モードで開く */
+  const startEdit = (ch: ChallengeRow) => {
+    setCurrentChallenge(ch)
+    setChallengeForm({
+      title: ch.title ?? "",
+      description: ch.description ?? "",
+      word_limit: ch.word_limit ?? 0,
+      deadline: ch.deadline ? new Date(ch.deadline) : new Date(),
+    })
+    setSelectedTime(
+      ch.deadline
+        ? format(new Date(ch.deadline), "HH:mm", { locale: ja })
+        : "23:59",
+    )
+    setIsCreating(false)
   }
 
   // ------------------------------------------------------------------
@@ -559,6 +587,44 @@ export default function AdminGrandPrixPage() {
                   {isCreating ? "お題を公開する" : "お題を更新する"}
                 </Button>
               </form>
+              {/* ===== 一覧 ===== */}
+              <div className="mt-8">
+                <h3 className="font-medium mb-2">公開中 / 予定のお題</h3>
+                {upcomingChallenges.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">お題はありません</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-2 px-1 text-left">タイトル</th>
+                        <th className="py-2 px-1 text-left">締切</th>
+                        <th className="py-2 px-1 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {upcomingChallenges.map((ch) => (
+                        <tr key={ch.id} className="border-b">
+                          <td className="py-2 px-1">{ch.title}</td>
+                          <td className="py-2 px-1">
+                            {ch.deadline
+                              ? format(new Date(ch.deadline), "yyyy/MM/dd HH:mm")
+                              : "－"}
+                          </td>
+                          <td className="py-2 px-1 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEdit(ch)}
+                            >
+                              編集
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
