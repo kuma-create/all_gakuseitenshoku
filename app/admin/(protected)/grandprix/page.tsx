@@ -126,13 +126,14 @@ export default function AdminGrandPrixPage() {
   const [qModalOpen, setQModalOpen] = useState(false)
   const [editingQ, setEditingQ] =
     useState<Database["public"]["Tables"]["question_bank"]["Row"] | null>(null)
-  const [qForm, setQForm] = useState({
-    stem: "",
-    choices: ["", "", "", ""],   // for webtest
-    correct: 1,
-    order_no: 1,
-    weight: 1,
-  })
+    const [qForm, setQForm] = useState({
+      stem: "",
+      choices: ["", "", "", ""],   // webtest
+      correct: 1,                  // webtest
+      weight: 1,                   // bizscore
+      keywords: "",                // case 用
+      order_no: 1,
+    })
 
   // CSV upload input ref
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -199,10 +200,11 @@ export default function AdminGrandPrixPage() {
       setEditingQ(q)
       setQForm({
         stem: q.stem ?? "",
-        choices: Array.isArray(q.choices) ? q.choices as string[] : ["", "", "", ""],
+        choices: Array.isArray(q.choices) ? (q.choices as string[]) : ["", "", "", ""],
         correct: (q.correct_choice ?? 1),
         order_no: q.order_no ?? 1,
         weight: (q.weight as number) ?? 1,
+        keywords: Array.isArray(q.expected_kw) ? (q.expected_kw as string[]).join(",") : "",
       })
     } else {
       setEditingQ(null)
@@ -212,6 +214,7 @@ export default function AdminGrandPrixPage() {
         correct: 1,
         order_no: questions.length + 1,
         weight: 1,
+        keywords: "",
       })
     }
     setQModalOpen(true)
@@ -230,6 +233,12 @@ export default function AdminGrandPrixPage() {
       }
       if (grandType === "bizscore") {
         updates.weight = qForm.weight
+      }
+      if (grandType === "case") {
+        updates.expected_kw = qForm.keywords
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
       }
 
       const { error } = await supabase
@@ -749,7 +758,7 @@ export default function AdminGrandPrixPage() {
           <SelectContent>
             <SelectItem value="case">Case</SelectItem>
             <SelectItem value="webtest">WebTest</SelectItem>
-            <SelectItem value="bizscore">Bizscore</SelectItem>
+            <SelectItem value="bizscore">戦闘力</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1486,6 +1495,18 @@ export default function AdminGrandPrixPage() {
                   value={qForm.weight}
                   onChange={(e) => setQForm({ ...qForm, weight: +e.target.value })}
                   step="0.1"
+                />
+              </div>
+            )}
+
+            {grandType === "case" && (
+              <div>
+                <Label>想定キーワード (カンマ区切り)</Label>
+                <Textarea
+                  value={qForm.keywords}
+                  onChange={(e) => setQForm({ ...qForm, keywords: e.target.value })}
+                  className="min-h-[80px]"
+                  placeholder="例) 市場規模, 競合分析, 三段論法"
                 />
               </div>
             )}
