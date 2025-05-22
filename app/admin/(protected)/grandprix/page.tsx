@@ -110,6 +110,8 @@ export default function AdminGrandPrixPage() {
 
   // 新規お題作成モード
   const [isCreating, setIsCreating] = useState(false)
+  // 編集対象の challenge ID（ハイライト用）
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   // ------------------------------------------------------------------
   // データ取得
@@ -237,6 +239,7 @@ export default function AdminGrandPrixPage() {
   // ------------------------------------------------------------------
   const startCreate = () => {
     setCurrentChallenge(null)
+    setEditingId(null)
     setChallengeForm({
       title: "",
       description: "",
@@ -250,6 +253,7 @@ export default function AdminGrandPrixPage() {
   /** 既存お題を編集モードで開く */
   const startEdit = (ch: ChallengeRow) => {
     setCurrentChallenge(ch)
+    setEditingId(ch.id)
     setChallengeForm({
       title: ch.title ?? "",
       description: ch.description ?? "",
@@ -311,6 +315,7 @@ export default function AdminGrandPrixPage() {
         title: creating ? "お題を公開しました" : "お題が更新されました",
       })
       setIsCreating(false)
+      setEditingId(null)
       fetchData()
     } catch (e: any) {
       console.error(e)
@@ -462,16 +467,30 @@ export default function AdminGrandPrixPage() {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <CardTitle>
-                {isCreating ? "新しいお題を作成" : "今月のお題の管理"}
+                {isCreating
+                  ? "新しいお題を作成"
+                  : currentChallenge
+                  ? "お題を編集"
+                  : "今月のお題の管理"}
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={startCreate}
-                className="mt-4 sm:mt-0"
-              >
-                新しいお題を作成
-              </Button>
+              <div className="flex gap-2 mt-4 sm:mt-0">
+                {!isCreating && currentChallenge && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={startCreate}
+                  >
+                    キャンセル
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startCreate}
+                >
+                  新しいお題を作成
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <form
@@ -603,7 +622,10 @@ export default function AdminGrandPrixPage() {
                     </thead>
                     <tbody>
                       {upcomingChallenges.map((ch) => (
-                        <tr key={ch.id} className="border-b">
+                        <tr
+                          key={ch.id}
+                          className={`border-b ${editingId === ch.id ? "bg-muted/40" : ""}`}
+                        >
                           <td className="py-2 px-1">{ch.title}</td>
                           <td className="py-2 px-1">
                             {ch.deadline
