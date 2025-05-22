@@ -1,8 +1,7 @@
 // v0 version of app/admin/(protected)/grandprix/page.tsx
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -103,7 +102,9 @@ export default function AdminGrandPrixPage() {
   const [challengeForm, setChallengeForm] = useState({
     title: "",
     description: "",
-    word_limit: 0,
+    word_limit: 500,     // Case / Bizscore 用
+    num_questions: 50,   // WebTest 用
+    randomize: true,     // WebTest 用
     deadline: new Date(),
   })
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([])
@@ -133,44 +134,139 @@ export default function AdminGrandPrixPage() {
     weight: 1,
   })
 
-  const openQuestionModal = (q: Database["public"]["Tables"]["question_bank"]["Row"]) => {
-    setEditingQ(q)
-    setQForm({
-      stem: q.stem ?? "",
-      choices: Array.isArray(q.choices) ? q.choices as string[] : ["", "", "", ""],
-      correct: (q.correct_choice ?? 1),
-      order_no: q.order_no ?? 1,
-      weight: (q.weight as number) ?? 1,
+  // CSV upload input ref
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // CSV upload handler
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const text = await file.text()
+    const lines = text.split(/\r?\n/).filter(Boolean)
+    if (lines.length === 0) return
+
+    // header detection
+    const hasHeader = /stem|question/i.test(lines[0])
+    const dataLines = hasHeader ? lines.slice(1) : lines
+
+    const parseCsv = (line: string) => {
+      const cells: string[] = []
+      let cur = ""
+      let inQuote = false
+      for (const ch of line) {
+        if (ch === '"' && !inQuote) {
+          inQuote = true
+          continue
+        }
+        if (ch === '"' && inQuote) {
+          inQuote = false
+          continue
+        }
+        if (ch === "," && !inQuote) {
+          cells.push(cur.trim())
+          cur = ""
+        } else {
+          cur += ch
+        }
+      }
+      cells.push(cur.trim())
+      return cells
+    }
+
+    const rows = dataLines.map((l) => {
+      const [stem, c1, c2, c3, c4, correct] = parseCsv(l)
+      return {
+        grand_type: "webtest" as const,
+        stem,
+        choices: [c1, c2, c3, c4],
+        correct_choice: Number(correct || 1),
+      }
     })
+
+    const { error } = await supabase.from("question_bank").insert(rows)
+    if (error) {
+      toast({ title: "CSV取込エラー", description: error.message, variant: "destructive" })
+    } else {
+      toast({ title: "CSVを取り込みました", description: `${rows.length}件追加` })
+      fetchData()
+    }
+  }
+
+  // openQuestionModal now accepts q: ... | null
+  const openQuestionModal = (q: Database["public"]["Tables"]["question_bank"]["Row"] | null) => {
+    if (q) {
+      setEditingQ(q)
+      setQForm({
+        stem: q.stem ?? "",
+        choices: Array.isArray(q.choices) ? q.choices as string[] : ["", "", "", ""],
+        correct: (q.correct_choice ?? 1),
+        order_no: q.order_no ?? 1,
+        weight: (q.weight as number) ?? 1,
+      })
+    } else {
+      setEditingQ(null)
+      setQForm({
+        stem: "",
+        choices: ["", "", "", ""],
+        correct: 1,
+        order_no: questions.length + 1,
+        weight: 1,
+      })
+    }
     setQModalOpen(true)
   }
 
   const handleQuestionSave = async () => {
-    if (!editingQ) return
-    const updates: any = {
-      stem: qForm.stem,
-      order_no: qForm.order_no,
-    }
-    if (grandType === "webtest") {
-      updates.choices = qForm.choices
-      updates.correct_choice = qForm.correct
-    }
-    if (grandType === "bizscore") {
-      updates.weight = qForm.weight
-    }
+    if (editingQ) {
+      // update as before
+      const updates: any = {
+        stem: qForm.stem,
+        order_no: qForm.order_no,
+      }
+      if (grandType === "webtest") {
+        updates.choices = qForm.choices
+        updates.correct_choice = qForm.correct
+      }
+      if (grandType === "bizscore") {
+        updates.weight = qForm.weight
+      }
 
-    const { error } = await supabase
-      .from("question_bank")
-      .update(updates)
-      .eq("id", editingQ.id)
+      const { error } = await supabase
+        .from("question_bank")
+        .update(updates)
+        .eq("id", editingQ.id)
 
-    if (error) {
-      toast({ title: "保存に失敗しました", description: error.message, variant: "destructive" })
-      return
+      if (error) {
+        toast({ title: "保存に失敗しました", description: error.message, variant: "destructive" })
+        return
+      }
+      toast({ title: "問題を更新しました" })
+      setQModalOpen(false)
+      fetchData()
+    } else {
+      // insert new question
+      const insertData: any = {
+        grand_type: grandType,
+        stem: qForm.stem,
+        order_no: qForm.order_no,
+      }
+      if (grandType === "webtest") {
+        insertData.choices = qForm.choices
+        insertData.correct_choice = qForm.correct
+      }
+      if (grandType === "bizscore") {
+        insertData.weight = qForm.weight
+      }
+      const { error } = await supabase.from("question_bank").insert(insertData)
+      if (error) {
+        toast({ title: "保存に失敗しました", description: error.message, variant: "destructive" })
+        return
+      }
+      toast({ title: "新しい問題を追加しました" })
+      setQModalOpen(false)
+      fetchData()
     }
-    toast({ title: "問題を更新しました" })
-    setQModalOpen(false)
-    fetchData()
   }
 
   // ------- UI state --------------------------------------------------
@@ -223,10 +319,10 @@ export default function AdminGrandPrixPage() {
         setChallengeForm({
           title: current.title ?? "",
           description: current.description ?? "",
-          word_limit: current.word_limit ?? 0,
-          deadline: current.deadline
-            ? new Date(current.deadline)
-            : new Date(),
+          word_limit: current.word_limit ?? 500,
+          num_questions: (current as any).num_questions ?? 50,
+          randomize: (current as any).randomize ?? true,
+          deadline: current.deadline ? new Date(current.deadline) : new Date(),
         })
         setSelectedTime(
           current.deadline
@@ -257,6 +353,14 @@ export default function AdminGrandPrixPage() {
         // 現在のお題が無い場合はクリア
         setCurrentChallenge(null)
         setSubmissions([])
+        setChallengeForm({
+          title: "",
+          description: "",
+          word_limit: 500,
+          num_questions: 50,
+          randomize: true,
+          deadline: new Date(),
+        })
       }
 
       // 2-1) これから公開中/予定のお題を取得
@@ -329,6 +433,7 @@ export default function AdminGrandPrixPage() {
         .from("question_bank")
         .select("*")
         .eq("grand_type", grandType)
+        .limit(1000)
         .order("order_no", { ascending: true })
 
       if (errQB) console.error(errQB)
@@ -356,6 +461,8 @@ export default function AdminGrandPrixPage() {
       title: "",
       description: "",
       word_limit: 500,
+      num_questions: 50,
+      randomize: true,
       deadline: new Date(),
     })
     setSelectedTime("23:59")
@@ -369,7 +476,9 @@ export default function AdminGrandPrixPage() {
     setChallengeForm({
       title: ch.title ?? "",
       description: ch.description ?? "",
-      word_limit: ch.word_limit ?? 0,
+      word_limit: ch.word_limit ?? 500,
+      num_questions: (ch as any).num_questions ?? 50,
+      randomize: (ch as any).randomize ?? true,
       deadline: ch.deadline ? new Date(ch.deadline) : new Date(),
     })
     setSelectedTime(
@@ -393,31 +502,42 @@ export default function AdminGrandPrixPage() {
       const [h, m] = selectedTime.split(":").map(Number)
       dateTime.setHours(h, m)
 
+      const base = {
+        title: challengeForm.title,
+        description: challengeForm.description,
+        deadline: dateTime.toISOString(),
+        type: grandType,
+      }
+
+      const payload =
+        grandType === "webtest"
+          ? {
+              ...base,
+              num_questions: challengeForm.num_questions,
+              randomize: challengeForm.randomize,
+              word_limit: null,
+            }
+          : {
+              ...base,
+              word_limit: challengeForm.word_limit,
+              num_questions: null,
+              randomize: null,
+            }
+
       let supaErr
 
       if (creating) {
         // insert
         const { error } = await supabase
           .from("challenges")
-          .insert({
-            title: challengeForm.title,
-            description: challengeForm.description,
-            word_limit: challengeForm.word_limit,
-            deadline: dateTime.toISOString(),
-            type: grandType,
-          })
+          .insert(payload)
           .single()
         supaErr = error
       } else {
         // update
         const { error } = await supabase
           .from("challenges")
-          .update({
-            title: challengeForm.title,
-            description: challengeForm.description,
-            word_limit: challengeForm.word_limit,
-            deadline: dateTime.toISOString(),
-          })
+          .update(payload)
           .eq("id", currentChallenge!.id)
         supaErr = error
       }
@@ -713,23 +833,66 @@ export default function AdminGrandPrixPage() {
                 </div>
 
                 {/* 文字数 */}
-                <div className="space-y-2">
-                  <Label htmlFor="wordLimit">文字数制限</Label>
-                  <Input
-                    id="wordLimit"
-                    type="number"
-                    value={challengeForm.word_limit}
-                    onChange={(e) =>
-                      setChallengeForm((p) => ({
-                        ...p,
-                        word_limit: +e.target.value,
-                      }))
-                    }
-                    min={100}
-                    max={1000}
-                    required
-                  />
-                </div>
+                {grandType !== "webtest" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="wordLimit">文字数制限</Label>
+                    <Input
+                      id="wordLimit"
+                      type="number"
+                      value={challengeForm.word_limit}
+                      onChange={(e) =>
+                        setChallengeForm((p) => ({
+                          ...p,
+                          word_limit: +e.target.value,
+                        }))
+                      }
+                      min={100}
+                      max={1000}
+                      required
+                    />
+                  </div>
+                )}
+
+                {grandType === "webtest" && (
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="space-y-2 flex-1">
+                      <Label>出題数</Label>
+                      <Input
+                        type="number"
+                        min={10}
+                        max={100}
+                        value={challengeForm.num_questions}
+                        onChange={(e) =>
+                          setChallengeForm((p) => ({
+                            ...p,
+                            num_questions: +e.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <Label>ランダム出題</Label>
+                      <Select
+                        value={challengeForm.randomize ? "yes" : "no"}
+                        onValueChange={(v) =>
+                          setChallengeForm((p) => ({
+                            ...p,
+                            randomize: v === "yes",
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="ランダム出題" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">はい</SelectItem>
+                          <SelectItem value="no">いいえ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
 
                 {/* 締切 */}
                 <div className="space-y-2">
@@ -1111,8 +1274,18 @@ export default function AdminGrandPrixPage() {
         {/* --------------------------------------------------------- */}
         <TabsContent value="questions">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <CardTitle>問題バンク（{grandType}）</CardTitle>
+              <div className="flex gap-2 mt-4 sm:mt-0">
+                {grandType === "webtest" && (
+                  <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                    CSVアップロード
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => openQuestionModal(null)}>
+                  新規追加
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {questionLoading ? (
@@ -1164,6 +1337,15 @@ export default function AdminGrandPrixPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* CSV upload input (hidden) */}
+      <input
+        type="file"
+        accept=".csv"
+        ref={fileInputRef}
+        onChange={handleCsvUpload}
+        className="hidden"
+      />
 
       {/* 採点モーダル */}
       <Dialog open={scoringModalOpen} onOpenChange={setScoringModalOpen}>
@@ -1256,7 +1438,7 @@ export default function AdminGrandPrixPage() {
       <Dialog open={qModalOpen} onOpenChange={setQModalOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>問題を編集</DialogTitle>
+            <DialogTitle>{editingQ ? "問題を編集" : "新規問題を追加"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
