@@ -251,25 +251,42 @@ export default function OnboardingProfile() {
         }
       }
 
-      /* 2. 最終 upsert (行が無い場合は作成／ある場合は上書き) */
-      const { error: dbErr } = await supabase
+      /* 2‑A. student_profiles を upsert (会社名は除外) */
+      const {
+        company1, company2, company3,           // ← 除外対象
+        ...profileRest
+      } = form;
+
+      const { error: profileErr } = await supabase
         .from("student_profiles")
         .upsert(
           {
             user_id: user.id,
-            ...form,
+            ...profileRest,  // company1‑3 を含まない
             address: `${form.prefecture}${form.city}${form.address_line}`,
             avatar_url: avatarUrl,
             is_completed: true,
-            experience: [
-              { order: 1, text: form.company1 },
-              { order: 2, text: form.company2 },
-              { order: 3, text: form.company3 },
-            ],
           },
           { onConflict: "user_id" }
         );
-      if (dbErr) throw dbErr;
+      if (profileErr) throw profileErr;
+
+      /* 2‑B. experiences テーブルを上書き保存 */
+      // 旧レコードを一度削除してから挿入
+      await supabase.from("experiences").delete().eq("user_id", user.id);
+
+      const expRows = [
+        { order: 1, company_name: form.company1 },
+        { order: 2, company_name: form.company2 },
+        { order: 3, company_name: form.company3 },
+      ].filter((e) => e.company_name?.trim());
+
+      if (expRows.length) {
+        const { error: expErr } = await supabase
+          .from("experiences")
+          .insert(expRows.map((e) => ({ user_id: user.id, ...e })));
+        if (expErr) throw expErr;
+      }
 
       router.replace("/student-dashboard");
     } catch (err: any) {
