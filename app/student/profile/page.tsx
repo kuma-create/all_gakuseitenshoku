@@ -25,7 +25,6 @@ import {
   Collapsible, CollapsibleTrigger, CollapsibleContent,
 } from "@/components/ui/collapsible"
 import { Button }   from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Badge }    from "@/components/ui/badge"
 import { Input }    from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -224,23 +223,6 @@ export default function StudentProfilePage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" className="h-8 sm:h-10" onClick={resetLocal}>
-              <X size={14} className="mr-1" /> キャンセル
-            </Button>
-            <Button className="h-8 sm:h-10" disabled={saving} onClick={handleSave}>
-              {saving ? (
-                <>
-                  <span className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  保存中…
-                </>
-              ) : (
-                <>
-                  <Save size={14} className="mr-1" /> 保存
-                </>
-              )}
-            </Button>
-          </div>
         </div>
 
         {/* progress */}
@@ -248,7 +230,12 @@ export default function StudentProfilePage() {
           <span>プロフィール完成度</span>
           <span className="font-semibold">{completionScore}%</span>
         </div>
-        <Progress value={completionScore} className={`h-2 ${getBarColor(completionScore)}`} />
+        <div className="h-2 w-full rounded bg-gray-200">
+          <div
+            className={`h-full rounded ${getBarColor(completionScore)}`}
+            style={{ width: `${completionScore}%` }}
+          />
+        </div>
 
         {/* section chips */}
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -729,34 +716,6 @@ export default function StudentProfilePage() {
         </TabsContent>
       </Tabs>
 
-      {/* sticky save ------------------------------------------------------ */}
-      (
-        <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
-          <div className="container mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2">
-            <Progress value={completionScore} className={`h-2 w-24 ${getBarColor(completionScore)}`} />
-            <span className="text-xs sm:text-sm">{completionScore}% 完了</span>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={resetLocal} className="h-8 sm:h-10">
-                <X size={14} className="mr-1" /> キャンセル
-              </Button>
-              <Button onClick={handleSave} disabled={saving} className="h-8 sm:h-10">
-                {saving ? (
-                  <>
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
-                    保存中
-                  </>
-                ) : (
-                  <>
-                    <Save size={14} className="mr-1" /> 保存
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </footer>
-      )
 
       {/* toast ------------------------------------------------------------ */}
       {savedToast && (
