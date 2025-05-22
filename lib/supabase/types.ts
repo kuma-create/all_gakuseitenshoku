@@ -504,6 +504,7 @@ export type Database = {
           end_date: string | null
           id: string
           kind: string | null
+          order: number | null
           payload: Json | null
           qualification_text: string | null
           role: string | null
@@ -519,6 +520,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           kind?: string | null
+          order?: number | null
           payload?: Json | null
           qualification_text?: string | null
           role?: string | null
@@ -534,6 +536,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           kind?: string | null
+          order?: number | null
           payload?: Json | null
           qualification_text?: string | null
           role?: string | null

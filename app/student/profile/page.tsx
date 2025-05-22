@@ -118,6 +118,7 @@ export default function StudentProfilePage() {
   const [savedToast, setSavedToast] = useState(false)
 
   const handleSave = async () => {
+    /* 1) フロントバリデーション --------------------------- */
     const parsed = schema.safeParse(profile)
     if (!parsed.success) {
       const errs: typeof fieldErrs = {}
@@ -129,8 +130,20 @@ export default function StudentProfilePage() {
       return
     }
     setFieldErrs({})
-    await save()
-    setSavedToast(true)
+
+    /* 2) 保存実行 ----------------------------------------- */
+    try {
+      await save()                      // hook が throw する場合に備える
+      setSavedToast(true)
+      updateLocal({ __editing: false }) // 編集モード終了
+    } catch (err: any) {
+      toast({
+        title: "保存に失敗しました",
+        description: err?.message ?? "ネットワークまたはサーバーエラー",
+        variant: "destructive",
+      })
+      console.error("profile save error:", err)
+    }
   }
 
   /* saved toast timer */
