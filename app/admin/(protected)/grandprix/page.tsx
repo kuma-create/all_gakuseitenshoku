@@ -1,7 +1,8 @@
-// app/admin/(protected)/grandprix/page.tsx
+// v0 version of app/admin/(protected)/grandprix/page.tsx
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import type React from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -53,6 +54,27 @@ import {
 } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/lib/hooks/use-toast"
+import {
+  ArrowUpRight,
+  Calendar,
+  Check,
+  Clock,
+  Edit,
+  Eye,
+  FileText,
+  Filter,
+  Loader2,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Progress } from "@/components/ui/progress"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 
 // ---------- 型定義 ----------------------------------------------------
 type ChallengeRow =
@@ -112,6 +134,11 @@ export default function AdminGrandPrixPage() {
   const [isCreating, setIsCreating] = useState(false)
   // 編集対象の challenge ID（ハイライト用）
   const [editingId, setEditingId] = useState<string | null>(null)
+  // 削除確認モーダル
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [challengeToDelete, setChallengeToDelete] = useState<ChallengeRow | null>(null)
+  // プレビューモーダル
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
 
   // ------------------------------------------------------------------
   // データ取得
@@ -313,6 +340,7 @@ export default function AdminGrandPrixPage() {
 
       toast({
         title: creating ? "お題を公開しました" : "お題が更新されました",
+        description: creating ? "新しいお題が正常に作成されました" : "お題の内容が更新されました",
       })
       setIsCreating(false)
       setEditingId(null)
@@ -321,6 +349,42 @@ export default function AdminGrandPrixPage() {
       console.error(e)
       toast({
         title: "お題の保存に失敗しました",
+        description: e.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // お題の削除
+  // ------------------------------------------------------------------
+  const confirmDelete = (challenge: ChallengeRow) => {
+    setChallengeToDelete(challenge)
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteChallenge = async () => {
+    if (!challengeToDelete) return
+
+    try {
+      const { error } = await supabase
+        .from("challenges")
+        .delete()
+        .eq("id", challengeToDelete.id)
+
+      if (error) throw error
+
+      toast({
+        title: "お題を削除しました",
+        description: `「${challengeToDelete.title}」が削除されました`,
+      })
+      setDeleteModalOpen(false)
+      setChallengeToDelete(null)
+      fetchData()
+    } catch (e: any) {
+      console.error(e)
+      toast({
+        title: "削除に失敗しました",
         description: e.message,
         variant: "destructive",
       })
@@ -407,6 +471,24 @@ export default function AdminGrandPrixPage() {
     }
     return true
   })
+
+  // ------------------------------------------------------------------
+  // 統計情報
+  // ------------------------------------------------------------------
+  const stats = {
+    totalSubmissions: submissions.length,
+    gradedSubmissions: submissions.filter((s) => s.status === "採点済").length,
+    pendingSubmissions: submissions.filter((s) => s.status === "未採点").length,
+    averageScore:
+      submissions.filter((s) => s.score !== null).length > 0
+        ? Math.round(
+            submissions
+              .filter((s) => s.score !== null)
+              .reduce((sum, s) => sum + (s.score || 0), 0) /
+              submissions.filter((s) => s.score !== null).length,
+          )
+        : 0,
+  }
 
   // ------------------------------------------------------------------
   // ローディング
@@ -1015,3 +1097,4 @@ export default function AdminGrandPrixPage() {
     </div>
   )
 }
+
