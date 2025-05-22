@@ -124,17 +124,10 @@ export default function StudentProfilePage() {
 
   useEffect(() => {
     if (loading) return
-    // clear previous timer
+
     if (saveTimer) clearTimeout(saveTimer)
 
     const t = setTimeout(async () => {
-      /* validate with zod before saving */
-      const parsed = schema.safeParse(profile)
-      if (!parsed.success) {
-        // 入力エラー: セーブしない
-        return
-      }
-
       try {
         await save()
         setSavedToast(true)
@@ -145,7 +138,7 @@ export default function StudentProfilePage() {
           variant: "destructive",
         })
       }
-    }, 1500) // 1.5‑sec debounce
+    }, 1200) // 1.2‑sec debounce
 
     setSaveTimer(t)
     return () => clearTimeout(t)
