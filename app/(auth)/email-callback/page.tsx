@@ -13,28 +13,59 @@ export default function EmailCallbackPage() {
     useState<"loading" | "success" | "error">("loading");
 
   /* -------------------------------------------------------------
-     1. URL に含まれる code をセッションに交換（必須！！）
+     1. URL に含まれるトークンをセッションに変換
+        - #access_token=...&refresh_token=...    ← implicit / invite
+        - ?code=xxxx                             ← PKCE
   ------------------------------------------------------------- */
   useEffect(() => {
     (async () => {
-      /* 1) Supabase が URL 片 (#access_token または ?type=invite など)
-            を読み取りセッションを確立するユーティリティ */
-      const { data, error } = await supabase.auth.getSessionFromUrl();
-      if (error || !data.session) {
-        console.error("getSessionFromUrl error:", error);
-        setStatus("error");
-        return;
+      /* ---------- 1) ハッシュフラグメント (#access_token) ---------- */
+      const hash  = window.location.hash.replace(/^#/, "");
+      const hp    = new URLSearchParams(hash);
+
+      if (hp.has("access_token") && hp.has("refresh_token")) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token:  hp.get("access_token")!,
+          refresh_token: hp.get("refresh_token")!,
+        });
+        if (error || !data.session) {
+          console.error("setSession error:", error);
+          setStatus("error");
+          return;
+        }
+      } else {
+        /* ---------- 2) クエリパラメータ (?code=) → PKCE ---------- */
+        const code = search.get("code");
+        if (!code) {
+          setStatus("error");
+          return;
+        }
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error("exchangeCodeForSession error:", error);
+          setStatus("error");
+          return;
+        }
       }
 
-      /* 2) ?next=/path で指定されていれば優先リダイレクト */
+      /* ---------- 3) next パラメータがあれば優先リダイレクト ---------- */
       const nextPath = search.get("next");
       if (nextPath) {
         router.replace(nextPath);
         return;
       }
 
-      /* 3) 学生プロフィール有無でダッシュボード or オンボーディング */
-      const { user } = data.session;
+      /* ---------- 4) 学生プロフィール有無で遷移先を決定 ---------- */
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+
+      if (userErr || !user) {
+        console.error("getUser error:", userErr);
+        setStatus("error");
+        return;
+      }
 
       const { data: profile } = await supabase
         .from("student_profiles")
@@ -42,9 +73,7 @@ export default function EmailCallbackPage() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      router.replace(
-        profile ? "/student-dashboard" : "/onboarding/profile"
-      );
+      router.replace(profile ? "/student-dashboard" : "/onboarding/profile");
     })();
   }, [router, search]);
 
