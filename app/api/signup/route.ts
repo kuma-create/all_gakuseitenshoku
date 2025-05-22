@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   try {
     await sgMail.send({
       to: email,
-      from: "no-reply@gakuten.co.jp", // 認証済みドメイン
+      from: "admin@gakuten.co.jp", // 認証済みドメイン
       templateId: process.env.SENDGRID_STUDENT_INVITE_TEMPLATE_ID!,
       dynamicTemplateData: {
         ConfirmationURL: inviteUrl,
@@ -74,9 +74,17 @@ export async function POST(req: Request) {
       },
     });
   } catch (mailErr: any) {
-    console.error("SendGrid error:", mailErr?.response?.body || mailErr);
+    // SendGrid は errors 配列で詳細を返すことがある
+    const sgDetail =
+      mailErr?.response?.body?.errors?.[0]?.message ??
+      mailErr?.response?.body ??
+      mailErr?.message ??
+      "SendGrid failed";
+
+    console.error("SendGrid error:", sgDetail);
+
     return NextResponse.json(
-      { error: "mail_error", detail: mailErr?.message || "SendGrid failed" },
+      { error: "mail_error", detail: sgDetail },
       { status: 500 }
     );
   }
