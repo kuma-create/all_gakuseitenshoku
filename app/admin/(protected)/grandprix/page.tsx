@@ -518,20 +518,16 @@ export default function AdminGrandPrixPage() {
         type: grandType,
       }
 
-      const payload =
-        grandType === "webtest"
-          ? {
-              ...base,
-              num_questions: challengeForm.num_questions,
-              randomize: challengeForm.randomize,
-              word_limit: null,
-            }
-          : {
-              ...base,
-              word_limit: challengeForm.word_limit,
-              num_questions: null,
-              randomize: null,
-            }
+      // Build payload per type
+      let payload: Record<string, any> = { ...base }
+
+      if (grandType === "webtest") {
+        payload.num_questions = challengeForm.num_questions
+        payload.randomize = challengeForm.randomize
+        payload.word_limit = null
+      } else {
+        payload.word_limit = challengeForm.word_limit
+      }
 
       let supaErr
 
@@ -539,7 +535,7 @@ export default function AdminGrandPrixPage() {
         // insert
         const { error } = await supabase
           .from("challenges")
-          .insert(payload)
+          .insert([payload] as any)   // ← insert expects array
           .single()
         supaErr = error
       } else {
