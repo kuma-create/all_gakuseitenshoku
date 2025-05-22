@@ -63,15 +63,23 @@ export async function POST(req: Request) {
   /* ------------------------------------------------------------
      3. メール送信 (SendGrid)
   ------------------------------------------------------------ */
-  await sgMail.send({
-    to: email,
-    from: "no-reply@gakuten.co.jp", // 送信元ドメインを必ず認証しておく
-    templateId: process.env.SENDGRID_STUDENT_INVITE_TEMPLATE_ID!,
-    dynamicTemplateData: {
-      ConfirmationURL: inviteUrl,
-      full_name: `${last_name} ${first_name}`.trim(),
-    },
-  });
+  try {
+    await sgMail.send({
+      to: email,
+      from: "no-reply@gakuten.co.jp", // 認証済みドメイン
+      templateId: process.env.SENDGRID_STUDENT_INVITE_TEMPLATE_ID!,
+      dynamicTemplateData: {
+        ConfirmationURL: inviteUrl,
+        full_name: `${last_name} ${first_name}`.trim(),
+      },
+    });
+  } catch (mailErr: any) {
+    console.error("SendGrid error:", mailErr?.response?.body || mailErr);
+    return NextResponse.json(
+      { error: "mail_error", detail: mailErr?.message || "SendGrid failed" },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }
