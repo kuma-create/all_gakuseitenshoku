@@ -24,8 +24,8 @@ export default function EmailCallbackPage() {
         data: { session: initialSession },
       } = await supabase.auth.getSession();
       if (initialSession) {
-        const nextPath0 = search.get("next") || "/";
-        router.replace(nextPath0);
+        const nextPath0 = search.get("next");
+        router.replace(nextPath0 ?? "/onboarding/profile"); // オンボーディングを既定に
         return;
       }
       /* ---------- 1) ハッシュフラグメント (#access_token) ---------- */
