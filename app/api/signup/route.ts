@@ -1,45 +1,69 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { cookies } from "next/headers";
 
-/* この API は動的実行に固定（ビルド時に読み込まれない） */
+/* この API は毎回動的に実行（ビルド時に読み込まれない） */
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   const { email, password, first_name, last_name, referral } = await req.json();
-
-  /* ① 認証付きサインアップ -------------- */
-  const supabase = createRouteHandlerClient<Database>({ cookies });
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/email-callback`,
-      data: {
-        full_name: `${last_name} ${first_name}`,
-        referral_source: referral,
-      },
-    },
-  });
-  if (error || !data.user) {
-    return NextResponse.json({ error: error?.message }, { status: 400 });
+  if (!email?.trim()) {
+    return NextResponse.json({ error: "email required" }, { status: 400 });
   }
 
-  /* ② role を上書き (student) ----------- */
-  /* createClient を “ここで” 生成するのでビルド時は呼ばれない */
-  const supabaseAdmin = createClient<Database>(
+  const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!,   // ← Vercel にセット必須
+    process.env.SUPABASE_SERVICE_KEY!  /* ← service_role */
   );
 
+  /* ------------------------------------------------------------
+     1. ユーザーを作成 (email confirmed = false)
+        ※ password が空ならランダム文字列を設定
+  ------------------------------------------------------------ */
+  const { data: created, error: createErr } =
+    await supabase.auth.admin.createUser({
+      email,
+      password: password || crypto.randomUUID(),
+      user_metadata: {
+        full_name: `${last_name} ${first_name}`.trim(),
+        referral_source: referral ?? "",
+      },
+    });
+  if (createErr) {
+    return NextResponse.json({ error: createErr.message }, { status: 400 });
+  }
+
+  /* auth.users には public 型が無いので @ts-ignore で role を書き換え */
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore – cross‑schema table ("auth.users") is not in generated types
-  await supabaseAdmin
-    .from("auth.users")
-    .update({ role: "student" })   // 企業なら "company"
-    .eq("id", data.user.id);
+  // @ts-ignore
+  await supabase.from("auth.users").update({ role: "student" }).eq("id", created.user?.id);
+
+  /* ------------------------------------------------------------
+     2. 招待リンク (implicit flow) を生成
+        → #access_token=...&refresh_token=... が付く
+  ------------------------------------------------------------ */
+  const { data: linkData, error: linkErr } =
+    await supabase.auth.admin.generateLink({
+      email,
+      type: "invite",
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/email-callback`,
+      },
+    });
+  const inviteUrl = linkData?.properties?.action_link;
+  if (linkErr || !inviteUrl) {
+    return NextResponse.json(
+      { error: linkErr?.message ?? "failed to generate link" },
+      { status: 500 }
+    );
+  }
+
+  /* ------------------------------------------------------------
+     3. メール送信
+        - SendGrid など外部サービスで inviteUrl を埋め込む
+        - ここでは例として console.log
+  ------------------------------------------------------------ */
+  console.log("Invite URL for student:", inviteUrl);
 
   return NextResponse.json({ ok: true });
 }
