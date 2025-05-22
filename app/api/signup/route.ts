@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import sgMail from "@sendgrid/mail";
 
 /* この API は毎回動的に実行（ビルド時に読み込まれない） */
 export const dynamic = "force-dynamic";
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export async function POST(req: Request) {
   const { email, password, first_name, last_name, referral } = await req.json();
@@ -59,11 +61,17 @@ export async function POST(req: Request) {
   }
 
   /* ------------------------------------------------------------
-     3. メール送信
-        - SendGrid など外部サービスで inviteUrl を埋め込む
-        - ここでは例として console.log
+     3. メール送信 (SendGrid)
   ------------------------------------------------------------ */
-  console.log("Invite URL for student:", inviteUrl);
+  await sgMail.send({
+    to: email,
+    from: "no-reply@gakuten.co.jp", // 送信元ドメインを必ず認証しておく
+    templateId: process.env.SENDGRID_STUDENT_INVITE_TEMPLATE_ID!,
+    dynamicTemplateData: {
+      ConfirmationURL: inviteUrl,
+      full_name: `${last_name} ${first_name}`.trim(),
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }
