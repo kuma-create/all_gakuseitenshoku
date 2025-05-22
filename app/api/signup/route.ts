@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       to: email,
       from: "admin@gakuten.co.jp",  // 認証済みドメイン
       subject: "【学生転職】メールアドレス確認のお願い", // ← 追加
-      templateId: process.env.SENDGRID_STUDENT_INVITE_TEMPLATE_ID!,
+      templateId: "d-9c05d8fba26d4d14b0dbafc25076caf4",
       dynamicTemplateData: {
         ConfirmationURL: inviteUrl,
         full_name: `${last_name} ${first_name}`.trim(),
