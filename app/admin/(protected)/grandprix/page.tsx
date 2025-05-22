@@ -121,6 +121,58 @@ export default function AdminGrandPrixPage() {
   const [questions, setQuestions] = useState<Database["public"]["Tables"]["question_bank"]["Row"][]>([])
   const [questionLoading, setQuestionLoading] = useState(false)
 
+  // In-place editing for questions
+  const [qModalOpen, setQModalOpen] = useState(false)
+  const [editingQ, setEditingQ] =
+    useState<Database["public"]["Tables"]["question_bank"]["Row"] | null>(null)
+  const [qForm, setQForm] = useState({
+    stem: "",
+    choices: ["", "", "", ""],   // for webtest
+    correct: 1,
+    order_no: 1,
+    weight: 1,
+  })
+
+  const openQuestionModal = (q: Database["public"]["Tables"]["question_bank"]["Row"]) => {
+    setEditingQ(q)
+    setQForm({
+      stem: q.stem ?? "",
+      choices: Array.isArray(q.choices) ? q.choices as string[] : ["", "", "", ""],
+      correct: (q.correct_choice ?? 1),
+      order_no: q.order_no ?? 1,
+      weight: (q.weight as number) ?? 1,
+    })
+    setQModalOpen(true)
+  }
+
+  const handleQuestionSave = async () => {
+    if (!editingQ) return
+    const updates: any = {
+      stem: qForm.stem,
+      order_no: qForm.order_no,
+    }
+    if (grandType === "webtest") {
+      updates.choices = qForm.choices
+      updates.correct_choice = qForm.correct
+    }
+    if (grandType === "bizscore") {
+      updates.weight = qForm.weight
+    }
+
+    const { error } = await supabase
+      .from("question_bank")
+      .update(updates)
+      .eq("id", editingQ.id)
+
+    if (error) {
+      toast({ title: "保存に失敗しました", description: error.message, variant: "destructive" })
+      return
+    }
+    toast({ title: "問題を更新しました" })
+    setQModalOpen(false)
+    fetchData()
+  }
+
   // ------- UI state --------------------------------------------------
   const [filters, setFilters] = useState({
     status: "all",
@@ -1098,7 +1150,7 @@ export default function AdminGrandPrixPage() {
                             </td>
                           )}
                           <td className="py-2 px-1 text-right">
-                            <Button size="sm" variant="outline" disabled>
+                            <Button size="sm" variant="outline" onClick={() => openQuestionModal(q)}>
                               編集
                             </Button>
                           </td>
@@ -1198,6 +1250,81 @@ export default function AdminGrandPrixPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* Question Edit Modal */}
+      <Dialog open={qModalOpen} onOpenChange={setQModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>問題を編集</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>問題文</Label>
+              <Textarea
+                value={qForm.stem}
+                onChange={(e) => setQForm({ ...qForm, stem: e.target.value })}
+                className="min-h-[120px]"
+              />
+            </div>
+
+            {grandType === "webtest" && (
+              <div className="space-y-2">
+                <Label>選択肢</Label>
+                {qForm.choices.map((c, i) => (
+                  <Input
+                    key={i}
+                    value={c}
+                    placeholder={`選択肢 ${i + 1}`}
+                    onChange={(e) => {
+                      const arr = [...qForm.choices]
+                      arr[i] = e.target.value
+                      setQForm({ ...qForm, choices: arr })
+                    }}
+                    className="mb-2"
+                  />
+                ))}
+                <Label>正解番号 (1-4)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={4}
+                  value={qForm.correct}
+                  onChange={(e) => setQForm({ ...qForm, correct: +e.target.value })}
+                />
+              </div>
+            )}
+
+            {grandType === "bizscore" && (
+              <div>
+                <Label>重み</Label>
+                <Input
+                  type="number"
+                  value={qForm.weight}
+                  onChange={(e) => setQForm({ ...qForm, weight: +e.target.value })}
+                  step="0.1"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label>表示順</Label>
+              <Input
+                type="number"
+                value={qForm.order_no}
+                onChange={(e) => setQForm({ ...qForm, order_no: +e.target.value })}
+                min={1}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQModalOpen(false)}>
+              キャンセル
+            </Button>
+            <Button onClick={handleQuestionSave}>保存</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
