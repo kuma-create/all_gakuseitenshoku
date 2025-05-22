@@ -84,7 +84,6 @@ export function useStudentProfile() {
 
   /* save --------------------------------------------------------------- */
   const save = async () => {
-    if (!data.__editing) return; // 編集モードでない場合は何もしない
     setSaving(true); setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
