@@ -133,14 +133,18 @@ export default function StudentProfilePage() {
 
     /* 2) 保存実行 ----------------------------------------- */
     try {
-      // 先に編集モードを終了 → draft を確定
+      // 先に draft を確定
       updateLocal({ __editing: false })
 
       // DB へコミット
       await save()
+
+      // サーバーから最新を再フェッチしてローカルをリセット
+      resetLocal()
+
       setSavedToast(true)
     } catch (err: any) {
-      // 戻す
+      // 保存失敗 → 編集モードを戻す
       updateLocal({ __editing: true })
       toast({
         title: "保存に失敗しました",
