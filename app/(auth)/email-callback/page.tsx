@@ -65,6 +65,17 @@ export default function EmailCallbackPage() {
         }
       }
 
+      /* ---------- Fallback: 既にセッションがあるか確認 ---------- */
+      if (!hp.size && !search.get("token") && !search.get("code")) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          setStatus("error");
+          return;
+        }
+      }
+
       /* ---------- 3) next パラメータがあれば優先リダイレクト ---------- */
       const nextPath = search.get("next");
       if (nextPath) {
