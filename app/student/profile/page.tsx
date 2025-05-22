@@ -107,10 +107,8 @@ export default function StudentProfilePage() {
   const ready = useAuthGuard("student")
   const {
     data: profile, loading, error, saving,
-    editing: _editing, updateLocal, resetLocal, save,
+    editing, updateLocal, resetLocal, save,
   } = useStudentProfile()
-
-  const editing = true  // always editable
   const completionObj = useProfileCompletion()               // null | { score: number }
 
   /* ↓ ローカル UI 用フックも guard の前に置く ↓ */
@@ -119,30 +117,21 @@ export default function StudentProfilePage() {
     useState<Partial<Record<keyof FormValues, string>>>({})
   const [savedToast, setSavedToast] = useState(false)
 
-  /* autosave debounce */
-  const [saveTimer, setSaveTimer] = useState<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (loading) return
-
-    if (saveTimer) clearTimeout(saveTimer)
-
-    const t = setTimeout(async () => {
-      try {
-        await save()
-        setSavedToast(true)
-      } catch (e: any) {
-        toast({
-          title: "保存に失敗しました",
-          description: e?.message ?? "ネットワークエラー",
-          variant: "destructive",
-        })
-      }
-    }, 1200) // 1.2‑sec debounce
-
-    setSaveTimer(t)
-    return () => clearTimeout(t)
-  }, [profile])
+  const handleSave = async () => {
+    const parsed = schema.safeParse(profile)
+    if (!parsed.success) {
+      const errs: typeof fieldErrs = {}
+      parsed.error.errors.forEach(e => {
+        errs[e.path[0] as keyof FormValues] = e.message
+      })
+      setFieldErrs(errs)
+      toast({ title: "入力エラーがあります", variant: "destructive" })
+      return
+    }
+    setFieldErrs({})
+    await save()
+    setSavedToast(true)
+  }
 
   /* saved toast timer */
   useEffect(() => {
@@ -223,7 +212,7 @@ export default function StudentProfilePage() {
 
   /* ================= RENDER ========================================== */
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8">
+    <div className="container mx-auto px-4 py-6 sm:py-8 pb-36">
       {/* ---------- header ---------- */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
@@ -727,6 +716,44 @@ export default function StudentProfilePage() {
         </TabsContent>
       </Tabs>
 
+      {/* sticky footer -------------------------------------------------- */}
+      <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm">完成度 {completionScore}%</span>
+            <div className="h-1 w-24 rounded bg-gray-200">
+              <div
+                className={`h-full rounded ${getBarColor(completionScore)}`}
+                style={{ width: `${completionScore}%` }}
+              />
+            </div>
+          </div>
+
+          {editing ? (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={resetLocal} className="h-8 sm:h-10">
+                <X size={14} className="mr-1" /> キャンセル
+              </Button>
+              <Button onClick={handleSave} disabled={saving} className="h-8 sm:h-10">
+                {saving ? (
+                  <>
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
+                    保存中
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} className="mr-1" /> 保存
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={() => updateLocal({ __editing: true })} className="h-8 sm:h-10">
+              <Edit size={14} className="mr-1" /> 編集
+            </Button>
+          )}
+        </div>
+      </footer>
 
       {/* toast ------------------------------------------------------------ */}
       {savedToast && (
