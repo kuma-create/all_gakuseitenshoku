@@ -101,7 +101,7 @@ export default function AdminGrandPrixPage() {
         .from("challenge_submissions")
         .select("*, student_profiles(full_name, university)")
         .eq("challenge_id", current.id)
-        .order("submission_date", { ascending: false })
+        .order("created_at", { ascending: false })
       if (err2) throw err2
       setSubmissions((subs ?? []) as SubmissionRow[])
 

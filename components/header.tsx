@@ -49,7 +49,9 @@ const companyMain: NavItem[] = [
   { href: "/company/applicants",              label: "応募者一覧",   icon: MessageSquare },
 ];
 const adminMain: NavItem[] = [
-  { href: "/admin-dashboard", label: "Admin", icon: LayoutDashboard },
+  { href: "/admin", label: "Admin", icon: LayoutDashboard },
+  { href: "/admin/granprix", label: "GP", icon: LayoutDashboard },
+  { href: "/admin/granprix", label: "GP", icon: LayoutDashboard },
 ];
 
 /* ===================================================================== */
