@@ -117,6 +117,9 @@ export default function AdminGrandPrixPage() {
   const [upcomingChallenges, setUpcomingChallenges] = useState<ChallengeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // question_bank rows for the selected type
+  const [questions, setQuestions] = useState<Database["public"]["Tables"]["question_bank"]["Row"][]>([])
+  const [questionLoading, setQuestionLoading] = useState(false)
 
   // ------- UI state --------------------------------------------------
   const [filters, setFilters] = useState({
@@ -267,6 +270,18 @@ export default function AdminGrandPrixPage() {
       )
 
       setPastChallenges(pastWithStats)
+
+      // 5) question bank for selected type
+      setQuestionLoading(true)
+      const { data: qbRows, error: errQB } = await supabase
+        .from("question_bank")
+        .select("*")
+        .eq("grand_type", grandType)
+        .order("order_no", { ascending: true })
+
+      if (errQB) console.error(errQB)
+      setQuestions(qbRows ?? [])
+      setQuestionLoading(false)
     } catch (e: any) {
       console.error(e)
       setError(e.message)
@@ -572,6 +587,7 @@ export default function AdminGrandPrixPage() {
           <TabsTrigger value="challenge">お題の管理</TabsTrigger>
           <TabsTrigger value="submissions">提出された回答</TabsTrigger>
           <TabsTrigger value="past">過去のお題</TabsTrigger>
+          <TabsTrigger value="questions">問題バンク</TabsTrigger>
         </TabsList>
 
         {/* --------------------------------------------------------- */}
@@ -1034,6 +1050,64 @@ export default function AdminGrandPrixPage() {
                   </Card>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* --------------------------------------------------------- */}
+        {/* Question Bank Tab */}
+        {/* --------------------------------------------------------- */}
+        <TabsContent value="questions">
+          <Card>
+            <CardHeader>
+              <CardTitle>問題バンク（{grandType}）</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {questionLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : questions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  この種別にはまだ問題が登録されていません
+                </p>
+              ) : (
+                <ScrollArea className="max-h-[60vh]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b sticky top-0 bg-background">
+                        <th className="py-2 px-1 text-left">#</th>
+                        <th className="py-2 px-1 text-left">問題文</th>
+                        {grandType === "webtest" && (
+                          <th className="py-2 px-1 text-left">選択肢</th>
+                        )}
+                        <th className="py-2 px-1 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questions.map((q, idx) => (
+                        <tr key={q.id} className="border-b">
+                          <td className="py-2 px-1">{idx + 1}</td>
+                          <td className="py-2 px-1">
+                            {(q.stem ?? "").substring(0, 60)}
+                            {(q.stem ?? "").length > 60 && "…"}
+                          </td>
+                          {grandType === "webtest" && (
+                            <td className="py-2 px-1">
+                              {Array.isArray(q.choices)
+                                ? q.choices.join(" / ")
+                                : ""}
+                            </td>
+                          )}
+                          <td className="py-2 px-1 text-right">
+                            <Button size="sm" variant="outline" disabled>
+                              編集
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
