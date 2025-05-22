@@ -1,5 +1,7 @@
 "use client"
 
+
+import { supabase } from "@/lib/supabase/client";
 import type React from "react"
 
 import { useState, useEffect } from "react"
@@ -36,25 +38,49 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/lib/hooks/use-toast"
 
-// Mock job data - in a real app, this would come from an API
+/**
+ * Supabase から求人 1 件を取得し、フロントで使いやすい shape に整形して返す
+ */
 const fetchJob = async (id: string) => {
-  // Simulate API call
+  // 必要なカラムと、応募者数をカウントするリレーションを取得
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(
+      `
+        id,
+        title,
+        description,
+        location,
+        work_type,
+        salary_min,
+        salary_max,
+        published,
+        views,
+        company_id,
+        created_at
+      `
+    )
+    .eq("id", id)
+    .single();
+
+  if (error || !data) throw error ?? new Error("Job not found");
+
   return {
-    id,
-    title: "フロントエンドエンジニア",
-    description:
-      "当社では、ユーザー体験を向上させるためのフロントエンド開発を担当していただけるエンジニアを募集しています。React、Next.js、TypeScriptの経験がある方を歓迎します。\n\n【主な業務内容】\n・Webアプリケーションのフロントエンド開発\n・UIコンポーネントの設計と実装\n・パフォーマンス最適化\n・コードレビューとチーム開発\n\n【必須スキル】\n・JavaScript/TypeScriptの実務経験\n・React.jsを用いた開発経験\n・HTML/CSSの深い理解\n\n【歓迎スキル】\n・Next.jsの開発経験\n・状態管理ライブラリの使用経験（Redux, Recoil等）\n・UIデザインへの理解と関心",
-    department: "開発部",
-    location: "東京都渋谷区",
-    workingDays: "月曜日〜金曜日（週休2日）",
-    salary: "年収500万円〜800万円（経験・能力による）",
-    status: "公開",
-    applicants: 5,
-    views: 120,
-    companyId: "company-123",
-    createdAt: "2023-10-15",
-    updatedAt: "2023-11-01",
-  }
+    id: data.id,
+    title: data.title,
+    description: data.description ?? "",
+    department: "",                     // column無し → 空
+    location: data.location ?? "",
+    workingDays: data.work_type ?? "",  // work_type ⇄ workingDays
+    salaryMin: data.salary_min ?? "",
+    salaryMax: data.salary_max ?? "",
+    status: data.published ? "公開" : "非公開",
+    applicants: 0,
+    views: data.views ?? 0,
+    companyId: data.company_id,
+    createdAt: data.created_at,
+    updatedAt: data.created_at,
+  };
 }
 
 export default function JobEditPage({ params }: { params: { id: string } }) {
@@ -77,7 +103,8 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     department: "",
     location: "",
     workingDays: "",
-    salary: "",
+    salaryMin: "",
+    salaryMax: "",
     status: "",
   })
 
@@ -92,7 +119,8 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           department: jobData.department || "",
           location: jobData.location,
           workingDays: jobData.workingDays,
-          salary: jobData.salary,
+          salaryMin: String(jobData.salaryMin ?? ""),
+          salaryMax: String(jobData.salaryMax ?? ""),
           status: jobData.status,
         })
       } catch (error) {
@@ -142,8 +170,11 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
       newErrors.workingDays = "勤務日は必須です"
     }
 
-    if (!formData.salary.trim()) {
-      newErrors.salary = "給与は必須です"
+    if (!formData.salaryMin.trim()) {
+      newErrors.salaryMin = "最低給与は必須です"
+    }
+    if (!formData.salaryMax.trim()) {
+      newErrors.salaryMax = "最高給与は必須です"
     }
 
     setErrors(newErrors)
@@ -378,19 +409,36 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
             </div>
 
+            {/* 最低給与 */}
             <div>
-              <Label htmlFor="salary" className="flex items-center">
-                給与 <span className="text-red-500 ml-1">*</span>
+              <Label htmlFor="salaryMin" className="flex items-center">
+                最低給与 <span className="text-red-500 ml-1">*</span>
               </Label>
               <Input
-                id="salary"
-                name="salary"
-                value={formData.salary}
+                id="salaryMin"
+                name="salaryMin"
+                value={formData.salaryMin}
                 onChange={handleInputChange}
-                className={`mt-1 ${errors.salary ? "border-red-500" : ""}`}
-                placeholder="例: 年収500万円〜800万円（経験・能力による）"
+                className={`mt-1 ${errors.salaryMin ? "border-red-500" : ""}`}
+                placeholder="例: 500"
               />
-              {errors.salary && <p className="text-sm text-red-500 mt-1">{errors.salary}</p>}
+              {errors.salaryMin && <p className="text-sm text-red-500 mt-1">{errors.salaryMin}</p>}
+            </div>
+
+            {/* 最高給与 */}
+            <div>
+              <Label htmlFor="salaryMax" className="flex items-center">
+                最高給与 <span className="text-red-500 ml-1">*</span>
+              </Label>
+              <Input
+                id="salaryMax"
+                name="salaryMax"
+                value={formData.salaryMax}
+                onChange={handleInputChange}
+                className={`mt-1 ${errors.salaryMax ? "border-red-500" : ""}`}
+                placeholder="例: 800"
+              />
+              {errors.salaryMax && <p className="text-sm text-red-500 mt-1">{errors.salaryMax}</p>}
             </div>
           </CardContent>
         </Card>
@@ -467,7 +515,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               </div>
               <div>
                 <p className="text-sm text-gray-500">最終更新日</p>
-                <p>{job.updatedAt}</p>
+                <p>{job.createdAt}</p>
               </div>
             </div>
           </CardContent>
