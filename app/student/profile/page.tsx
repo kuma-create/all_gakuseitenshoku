@@ -133,10 +133,15 @@ export default function StudentProfilePage() {
 
     /* 2) 保存実行 ----------------------------------------- */
     try {
-      await save()                      // hook が throw する場合に備える
+      // 先に編集モードを終了 → draft を確定
+      updateLocal({ __editing: false })
+
+      // DB へコミット
+      await save()
       setSavedToast(true)
-      updateLocal({ __editing: false }) // 編集モード終了
     } catch (err: any) {
+      // 戻す
+      updateLocal({ __editing: true })
       toast({
         title: "保存に失敗しました",
         description: err?.message ?? "ネットワークまたはサーバーエラー",
