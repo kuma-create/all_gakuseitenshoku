@@ -503,8 +503,13 @@ export type Database = {
           created_at: string | null
           end_date: string | null
           id: string
+          kind: string | null
+          payload: Json | null
+          qualification_text: string | null
           role: string | null
+          skill_text: string | null
           start_date: string | null
+          summary_text: string | null
           user_id: string | null
         }
         Insert: {
@@ -513,8 +518,13 @@ export type Database = {
           created_at?: string | null
           end_date?: string | null
           id?: string
+          kind?: string | null
+          payload?: Json | null
+          qualification_text?: string | null
           role?: string | null
+          skill_text?: string | null
           start_date?: string | null
+          summary_text?: string | null
           user_id?: string | null
         }
         Update: {
@@ -523,8 +533,13 @@ export type Database = {
           created_at?: string | null
           end_date?: string | null
           id?: string
+          kind?: string | null
+          payload?: Json | null
+          qualification_text?: string | null
           role?: string | null
+          skill_text?: string | null
           start_date?: string | null
+          summary_text?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -1034,10 +1049,12 @@ export type Database = {
           about: string | null
           academic_year: number | null
           address: string | null
+          address_line: string | null
           admission_month: string | null
           avatar: string | null
           avatar_url: string | null
           birth_date: string | null
+          city: string | null
           created_at: string | null
           department: string | null
           desired_industries: string[] | null
@@ -1060,6 +1077,7 @@ export type Database = {
           hometown: string | null
           id: string
           interests: string[]
+          is_completed: boolean | null
           join_ipo: boolean | null
           language_skill: string | null
           last_name: string | null
@@ -1072,6 +1090,7 @@ export type Database = {
           pr_body: string | null
           pr_text: string | null
           pr_title: string | null
+          prefecture: string | null
           preference_note: string | null
           preferred_industries: Json | null
           profile_image: string | null
@@ -1094,10 +1113,12 @@ export type Database = {
           about?: string | null
           academic_year?: number | null
           address?: string | null
+          address_line?: string | null
           admission_month?: string | null
           avatar?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
           created_at?: string | null
           department?: string | null
           desired_industries?: string[] | null
@@ -1120,6 +1141,7 @@ export type Database = {
           hometown?: string | null
           id?: string
           interests?: string[]
+          is_completed?: boolean | null
           join_ipo?: boolean | null
           language_skill?: string | null
           last_name?: string | null
@@ -1132,6 +1154,7 @@ export type Database = {
           pr_body?: string | null
           pr_text?: string | null
           pr_title?: string | null
+          prefecture?: string | null
           preference_note?: string | null
           preferred_industries?: Json | null
           profile_image?: string | null
@@ -1154,10 +1177,12 @@ export type Database = {
           about?: string | null
           academic_year?: number | null
           address?: string | null
+          address_line?: string | null
           admission_month?: string | null
           avatar?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
           created_at?: string | null
           department?: string | null
           desired_industries?: string[] | null
@@ -1180,6 +1205,7 @@ export type Database = {
           hometown?: string | null
           id?: string
           interests?: string[]
+          is_completed?: boolean | null
           join_ipo?: boolean | null
           language_skill?: string | null
           last_name?: string | null
@@ -1192,6 +1218,7 @@ export type Database = {
           pr_body?: string | null
           pr_text?: string | null
           pr_title?: string | null
+          prefecture?: string | null
           preference_note?: string | null
           preferred_industries?: Json | null
           profile_image?: string | null
@@ -1471,6 +1498,7 @@ export type Database = {
       grandprix_type: "case" | "webtest" | "bizscore"
       offer_status: "pending" | "accepted" | "rejected"
       question_category: "web_lang" | "web_math" | "case" | "biz_battle"
+      role_enum: "student" | "company" | "company_admin" | "admin"
       session_status: "in_progress" | "submitted" | "graded"
     }
     CompositeTypes: {
@@ -1603,6 +1631,7 @@ export const Constants = {
       grandprix_type: ["case", "webtest", "bizscore"],
       offer_status: ["pending", "accepted", "rejected"],
       question_category: ["web_lang", "web_math", "case", "biz_battle"],
+      role_enum: ["student", "company", "company_admin", "admin"],
       session_status: ["in_progress", "submitted", "graded"],
     },
   },

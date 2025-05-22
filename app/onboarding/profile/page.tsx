@@ -271,20 +271,37 @@ export default function OnboardingProfile() {
         );
       if (profileErr) throw profileErr;
 
-      /* 2‑B. experiences テーブルを上書き保存 */
-      // 旧レコードを一度削除してから挿入
+      /* ---------- experiences テーブルを再構築 ---------- */
+      // 1) 既存行を全削除
       await supabase.from("experiences").delete().eq("user_id", user.id);
 
-      const expRows = [
-        { order: 1, company_name: form.company1 },
-        { order: 2, company_name: form.company2 },
-        { order: 3, company_name: form.company3 },
-      ].filter((e) => e.company_name?.trim());
+      // 2) 会社名 (kind='company')
+      const companyRows = [
+        { order: 1, company_name: form.company1?.trim() },
+        { order: 2, company_name: form.company2?.trim() },
+        { order: 3, company_name: form.company3?.trim() },
+      ].filter((c) => c.company_name);
 
-      if (expRows.length) {
-        const { error: expErr } = await supabase
-          .from("experiences")
-          .insert(expRows.map((e) => ({ user_id: user.id, ...e })));
+      // 3) プロフィール補足情報を kind 別に行で保存
+      const metaRows = [
+        form.work_summary?.trim()
+          ? { kind: "summary", summary_text: form.work_summary.trim() }
+          : null,
+        form.skill_text?.trim()
+          ? { kind: "skill", skill_text: form.skill_text.trim() }
+          : null,
+        form.qualification_text?.trim()
+          ? { kind: "qualification", qualification_text: form.qualification_text.trim() }
+          : null,
+      ].filter(Boolean) as Record<string, any>[];
+
+      const rows = [
+        ...companyRows.map((c) => ({ user_id: user.id, kind: "company", ...c })),
+        ...metaRows.map((m)   => ({ user_id: user.id, ...m })),
+      ];
+
+      if (rows.length) {
+        const { error: expErr } = await supabase.from("experiences").insert(rows);
         if (expErr) throw expErr;
       }
 
