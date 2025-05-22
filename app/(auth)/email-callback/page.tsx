@@ -17,38 +17,24 @@ export default function EmailCallbackPage() {
   ------------------------------------------------------------- */
   useEffect(() => {
     (async () => {
-      const code = search.get("code");
-      if (!code) {
+      /* 1) Supabase が URL 片 (#access_token または ?type=invite など)
+            を読み取りセッションを確立するユーティリティ */
+      const { data, error } = await supabase.auth.getSessionFromUrl();
+      if (error || !data.session) {
+        console.error("getSessionFromUrl error:", error);
         setStatus("error");
         return;
       }
 
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) {
-        console.error("exchangeCodeForSession error:", error);
-        setStatus("error");
-        return;
-      }
-
-      /* --------------------------------------------------------
-         2. next パラメータがあればそこへ、無ければプロフィール判定
-      -------------------------------------------------------- */
+      /* 2) ?next=/path で指定されていれば優先リダイレクト */
       const nextPath = search.get("next");
       if (nextPath) {
         router.replace(nextPath);
         return;
       }
 
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-
-      if (userErr || !user) {
-        console.error("getUser error:", userErr);
-        setStatus("error");
-        return;
-      }
+      /* 3) 学生プロフィール有無でダッシュボード or オンボーディング */
+      const { user } = data.session;
 
       const { data: profile } = await supabase
         .from("student_profiles")
@@ -56,7 +42,9 @@ export default function EmailCallbackPage() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      router.replace(profile ? "/student-dashboard" : "/onboarding/profile");
+      router.replace(
+        profile ? "/student-dashboard" : "/onboarding/profile"
+      );
     })();
   }, [router, search]);
 
