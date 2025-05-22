@@ -149,9 +149,27 @@ export default function StudentProfilePage() {
     Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ""
 
   const sectionDone = {
-    basic: isFilled(profile.last_name) && isFilled(profile.first_name),
-    pr   : isFilled(profile.pr_text),
-    pref : isFilled(profile.desired_industries) && isFilled(profile.work_style),
+    // 基本情報: 名前 + 住所4項目 + 生年月日 を入力済みで完了
+    basic:
+      isFilled(profile.last_name) &&
+      isFilled(profile.first_name) &&
+      isFilled(profile.postal_code) &&
+      isFilled(profile.prefecture) &&
+      isFilled(profile.city) &&
+      isFilled(profile.address_line) &&
+      isFilled(profile.birth_date),
+
+    // 自己PR: pr_title + pr_text + about のいずれか1つ以上で完了
+    pr:
+      isFilled(profile.pr_title) ||
+      isFilled(profile.pr_text) ||
+      isFilled(profile.about),
+
+    // 希望条件: employment_type + desired_positions + work_style が埋まれば完了
+    pref:
+      isFilled(profile.employment_type) &&
+      isFilled(profile.desired_positions) &&
+      isFilled(profile.work_style),
   }
 
   /* 4) helpers */
