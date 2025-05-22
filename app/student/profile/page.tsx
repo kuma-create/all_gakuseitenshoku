@@ -123,16 +123,33 @@ export default function StudentProfilePage() {
   const [saveTimer, setSaveTimer] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    // skip while loading initial data
     if (loading) return
+    // clear previous timer
     if (saveTimer) clearTimeout(saveTimer)
+
     const t = setTimeout(async () => {
-      await save()
-      setSavedToast(true)
-    }, 1000) // 1‑sec debounce
+      /* validate with zod before saving */
+      const parsed = schema.safeParse(profile)
+      if (!parsed.success) {
+        // 入力エラー: セーブしない
+        return
+      }
+
+      try {
+        await save()
+        setSavedToast(true)
+      } catch (e: any) {
+        toast({
+          title: "保存に失敗しました",
+          description: e?.message ?? "ネットワークエラー",
+          variant: "destructive",
+        })
+      }
+    }, 1500) // 1.5‑sec debounce
+
     setSaveTimer(t)
     return () => clearTimeout(t)
-  }, [profile]) // fire when any field changes
+  }, [profile])
 
   /* saved toast timer */
   useEffect(() => {
