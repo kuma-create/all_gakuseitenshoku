@@ -1,4 +1,4 @@
-// app/admin/grandprix/page.tsx
+// app/admin/(protected)/grandprix/page.tsx
 "use client"
 
 import React, { useState, useEffect, useCallback } from "react"
@@ -8,35 +8,74 @@ import { ja } from "date-fns/locale"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs"
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/lib/hooks/use-toast"
 
-type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"]
-type SubmissionRow = Database["public"]["Tables"]["challenge_submissions"]["Row"] & {
-  student_profiles: {
-    full_name: string
-    university: string
-  }
-}
+// ---------- 型定義 ----------------------------------------------------
+type ChallengeRow =
+  Database["public"]["Tables"]["challenges"]["Row"]
 
+type SubmissionRow =
+  Database["public"]["Tables"]["challenge_submissions"]["Row"] & {
+    student_profiles: {
+      full_name: string | null
+      university: string | null
+    } | null
+  }
+
+// =====================================================================
+// メインコンポーネント
+// =====================================================================
 export default function AdminGrandPrixPage() {
   const { toast } = useToast()
   const router = useRouter()
 
-  // Data state
-  const [currentChallenge, setCurrentChallenge] = useState<ChallengeRow | null>(null)
+  // ------- Data state -----------------------------------------------
+  const [currentChallenge, setCurrentChallenge] =
+    useState<ChallengeRow | null>(null)
   const [challengeForm, setChallengeForm] = useState({
     title: "",
     description: "",
@@ -44,34 +83,42 @@ export default function AdminGrandPrixPage() {
     deadline: new Date(),
   })
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([])
-  const [pastChallenges, setPastChallenges] = useState<(ChallengeRow & {
-    submissionsCount: number
-    avgScore: number
-  })[]>([])
+  const [pastChallenges, setPastChallenges] = useState<
+    (ChallengeRow & {
+      submissionsCount: number
+      avgScore: number
+    })[]
+  >([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // UI state
+  // ------- UI state --------------------------------------------------
   const [filters, setFilters] = useState({
     status: "all",
     scoreRange: "all",
     search: "",
   })
   const [scoringModalOpen, setScoringModalOpen] = useState(false)
-  const [scoringSubmission, setScoringSubmission] = useState<SubmissionRow | null>(null)
+  const [scoringSubmission, setScoringSubmission] =
+    useState<SubmissionRow | null>(null)
   const [score, setScore] = useState<number | null>(null)
   const [feedback, setFeedback] = useState("")
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [selectedTime, setSelectedTime] = useState("23:59")
 
-  // Fetch all data
+  // 新規お題作成モード
+  const [isCreating, setIsCreating] = useState(false)
+
+  // ------------------------------------------------------------------
+  // データ取得
+  // ------------------------------------------------------------------
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const nowIso = new Date().toISOString()
 
-      // 1) 現在のお題を取得
+      // 1) 現在のお題
       const { data: current, error: err1 } = await supabase
         .from("challenges")
         .select("*")
@@ -79,33 +126,51 @@ export default function AdminGrandPrixPage() {
         .order("deadline", { ascending: true })
         .limit(1)
         .single()
-      if (err1) throw err1
 
-      setCurrentChallenge(current)
-      setChallengeForm({
-        title: current.title ?? "",
-        description: current.description ?? "",
-        word_limit: current.word_limit ?? 0,
-        deadline: current.deadline ? new Date(current.deadline) : new Date(),
-      })
+      if (err1 && err1.code !== "PGRST116") throw err1 // 116: row not found
 
-      // current.deadline が null の場合はデフォルトで 23:59 を設定
-      setSelectedTime(
-        current.deadline
-          ? format(new Date(current.deadline), "HH:mm", { locale: ja })
-          : "23:59"
-      )
+      if (current) {
+        setCurrentChallenge(current)
+        setChallengeForm({
+          title: current.title ?? "",
+          description: current.description ?? "",
+          word_limit: current.word_limit ?? 0,
+          deadline: current.deadline
+            ? new Date(current.deadline)
+            : new Date(),
+        })
+        setSelectedTime(
+          current.deadline
+            ? format(new Date(current.deadline), "HH:mm", {
+                locale: ja,
+              })
+            : "23:59",
+        )
 
-      // 2) 提出された回答を取得
-      const { data: subs, error: err2 } = await supabase
-        .from("challenge_submissions")
-        .select("*, student_profiles(full_name, university)")
-        .eq("challenge_id", current.id)
-        .order("created_at", { ascending: false })
-      if (err2) throw err2
-      setSubmissions((subs ?? []) as SubmissionRow[])
+        // 2) 回答
+        const { data: subs, error: err2 } = await supabase
+          .from("challenge_submissions")
+          .select(
+            `
+            *,
+            student_profiles:student_id (
+              full_name,
+              university
+            )
+          `,
+          )
+          .eq("challenge_id", current.id)
+          .order("created_at", { ascending: false })
 
-      // 3) 過去のお題を取得
+        if (err2) throw err2
+        setSubmissions((subs ?? []) as SubmissionRow[])
+      } else {
+        // 現在のお題が無い場合はクリア
+        setCurrentChallenge(null)
+        setSubmissions([])
+      }
+
+      // 3) 過去のお題
       const { data: past, error: err3 } = await supabase
         .from("challenges")
         .select("*")
@@ -113,29 +178,36 @@ export default function AdminGrandPrixPage() {
         .order("deadline", { ascending: false })
       if (err3) throw err3
 
-      // 各過去お題について提出数と平均スコアを計算
+      // 4) 過去統計
       const pastWithStats = await Promise.all(
         (past || []).map(async (ch) => {
           const { count } = await supabase
             .from("challenge_submissions")
             .select("*", { count: "exact", head: true })
             .eq("challenge_id", ch.id)
+
           const { data: scoreData } = await supabase
             .from("challenge_submissions")
             .select("score")
             .eq("challenge_id", ch.id)
             .not("score", "is", null)
+
           const avg =
             scoreData && scoreData.length > 0
-              ? scoreData.reduce((sum, r) => sum + (r.score || 0), 0) / scoreData.length
+              ? scoreData.reduce(
+                  (sum, r) => sum + (r.score || 0),
+                  0,
+                ) / scoreData.length
               : 0
+
           return {
             ...ch,
             submissionsCount: count || 0,
             avgScore: Math.round(avg),
           }
-        })
+        }),
       )
+
       setPastChallenges(pastWithStats)
     } catch (e: any) {
       console.error(e)
@@ -143,49 +215,88 @@ export default function AdminGrandPrixPage() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
-  // フォーム送信：お題更新
+  // ------------------------------------------------------------------
+  // 新しいお題作成モードの開始
+  // ------------------------------------------------------------------
+  const startCreate = () => {
+    setCurrentChallenge(null)
+    setChallengeForm({
+      title: "",
+      description: "",
+      word_limit: 500,
+      deadline: new Date(),
+    })
+    setSelectedTime("23:59")
+    setIsCreating(true)
+  }
+
+  // ------------------------------------------------------------------
+  // お題の新規作成 / 更新
+  // ------------------------------------------------------------------
   const handleChallengeSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!currentChallenge) return
+
+    const creating = !currentChallenge || isCreating
 
     try {
       const dateTime = new Date(challengeForm.deadline)
       const [h, m] = selectedTime.split(":").map(Number)
       dateTime.setHours(h, m)
 
-      const { error: err } = await supabase
-        .from("challenges")
-        .update({
-          title: challengeForm.title,
-          description: challengeForm.description,
-          word_limit: challengeForm.word_limit,
-          deadline: dateTime.toISOString(),
-        })
-        .eq("id", currentChallenge.id)
-      if (err) throw err
+      let supaErr
+
+      if (creating) {
+        // insert
+        const { error } = await supabase
+          .from("challenges")
+          .insert({
+            title: challengeForm.title,
+            description: challengeForm.description,
+            word_limit: challengeForm.word_limit,
+            deadline: dateTime.toISOString(),
+          })
+          .single()
+        supaErr = error
+      } else {
+        // update
+        const { error } = await supabase
+          .from("challenges")
+          .update({
+            title: challengeForm.title,
+            description: challengeForm.description,
+            word_limit: challengeForm.word_limit,
+            deadline: dateTime.toISOString(),
+          })
+          .eq("id", currentChallenge!.id)
+        supaErr = error
+      }
+
+      if (supaErr) throw supaErr
 
       toast({
-        title: "お題が更新されました",
-        description: "新しいお題が学生に公開されました。",
+        title: creating ? "お題を公開しました" : "お題が更新されました",
       })
+      setIsCreating(false)
       fetchData()
     } catch (e: any) {
       console.error(e)
       toast({
-        title: "お題の更新に失敗しました",
+        title: "お題の保存に失敗しました",
         description: e.message,
         variant: "destructive",
       })
     }
   }
 
+  // ------------------------------------------------------------------
   // 採点保存
+  // ------------------------------------------------------------------
   const handleScoreSubmit = async () => {
     if (!scoringSubmission) return
     if (score === null || score < 0 || score > 100) {
@@ -202,11 +313,14 @@ export default function AdminGrandPrixPage() {
         .from("challenge_submissions")
         .update({ score, status: "採点済", feedback })
         .eq("id", scoringSubmission.id)
+
       if (err) throw err
 
       toast({
         title: "採点が完了しました",
-        description: `${scoringSubmission.student_profiles.full_name} の回答を採点しました。`,
+        description: `${
+          scoringSubmission.student_profiles?.full_name ?? "学生"
+        } の回答を採点しました。`,
       })
       setScoringModalOpen(false)
       fetchData()
@@ -220,7 +334,9 @@ export default function AdminGrandPrixPage() {
     }
   }
 
-  // モーダルオープン
+  // ------------------------------------------------------------------
+  // モーダル
+  // ------------------------------------------------------------------
   const openScoringModal = (sub: SubmissionRow) => {
     setScoringSubmission(sub)
     setScore(sub.score)
@@ -228,27 +344,40 @@ export default function AdminGrandPrixPage() {
     setScoringModalOpen(true)
   }
 
+  // ------------------------------------------------------------------
   // フィルタリング
+  // ------------------------------------------------------------------
   const filteredSubmissions = submissions.filter((sub) => {
-    if (filters.status !== "all" && sub.status !== filters.status) return false
+    if (filters.status !== "all" && sub.status !== filters.status)
+      return false
 
     if (filters.scoreRange !== "all" && sub.score !== null) {
       if (filters.scoreRange === "90-100" && sub.score < 90) return false
-      if (filters.scoreRange === "70-89" && (sub.score < 70 || sub.score >= 90)) return false
+      if (
+        filters.scoreRange === "70-89" &&
+        (sub.score < 70 || sub.score >= 90)
+      )
+        return false
       if (filters.scoreRange === "0-69" && sub.score >= 70) return false
     }
 
     if (
       filters.search &&
-      !sub.student_profiles.full_name.toLowerCase().includes(filters.search.toLowerCase()) &&
-      !sub.answer.toLowerCase().includes(filters.search.toLowerCase())
+      !(
+        (sub.student_profiles?.full_name ?? "")
+          .toLowerCase()
+          .includes(filters.search.toLowerCase()) ||
+        sub.answer.toLowerCase().includes(filters.search.toLowerCase())
+      )
     ) {
       return false
     }
     return true
   })
 
-  // Loading Skeleton
+  // ------------------------------------------------------------------
+  // ローディング
+  // ------------------------------------------------------------------
   if (loading) {
     return (
       <div className="space-y-6 p-4">
@@ -265,7 +394,9 @@ export default function AdminGrandPrixPage() {
     )
   }
 
-  // Error State
+  // ------------------------------------------------------------------
+  // エラー
+  // ------------------------------------------------------------------
   if (error) {
     return (
       <div className="p-4">
@@ -282,6 +413,9 @@ export default function AdminGrandPrixPage() {
     )
   }
 
+  // ===================================================================
+  // JSX
+  // ===================================================================
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">グランプリ管理</h1>
@@ -293,39 +427,63 @@ export default function AdminGrandPrixPage() {
           <TabsTrigger value="past">過去のお題</TabsTrigger>
         </TabsList>
 
+        {/* --------------------------------------------------------- */}
         {/* Challenge 管理 */}
+        {/* --------------------------------------------------------- */}
         <TabsContent value="challenge">
           <Card>
-            <CardHeader>
-              <CardTitle>今月のお題の管理</CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle>
+                {isCreating ? "新しいお題を作成" : "今月のお題の管理"}
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startCreate}
+                className="mt-4 sm:mt-0"
+              >
+                新しいお題を作成
+              </Button>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleChallengeSubmit} className="space-y-4">
+              <form
+                onSubmit={handleChallengeSubmit}
+                className="space-y-4"
+              >
+                {/* タイトル */}
                 <div className="space-y-2">
                   <Label htmlFor="title">お題のタイトル</Label>
                   <Input
                     id="title"
                     value={challengeForm.title}
                     onChange={(e) =>
-                      setChallengeForm((p) => ({ ...p, title: e.target.value }))
+                      setChallengeForm((p) => ({
+                        ...p,
+                        title: e.target.value,
+                      }))
                     }
                     required
                   />
                 </div>
 
+                {/* 質問文 */}
                 <div className="space-y-2">
                   <Label htmlFor="description">質問文</Label>
                   <Textarea
                     id="description"
                     value={challengeForm.description}
                     onChange={(e) =>
-                      setChallengeForm((p) => ({ ...p, description: e.target.value }))
+                      setChallengeForm((p) => ({
+                        ...p,
+                        description: e.target.value,
+                      }))
                     }
                     className="min-h-[100px]"
                     required
                   />
                 </div>
 
+                {/* 文字数 */}
                 <div className="space-y-2">
                   <Label htmlFor="wordLimit">文字数制限</Label>
                   <Input
@@ -333,7 +491,10 @@ export default function AdminGrandPrixPage() {
                     type="number"
                     value={challengeForm.word_limit}
                     onChange={(e) =>
-                      setChallengeForm((p) => ({ ...p, word_limit: +e.target.value }))
+                      setChallengeForm((p) => ({
+                        ...p,
+                        word_limit: +e.target.value,
+                      }))
                     }
                     min={100}
                     max={1000}
@@ -341,25 +502,37 @@ export default function AdminGrandPrixPage() {
                   />
                 </div>
 
+                {/* 締切 */}
                 <div className="space-y-2">
                   <Label>締切日時</Label>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                    <Popover
+                      open={isDatePickerOpen}
+                      onOpenChange={setIsDatePickerOpen}
+                    >
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className="w-full justify-start text-left font-normal"
                         >
-                          {format(challengeForm.deadline, "PPP", { locale: ja })}
+                          {format(challengeForm.deadline, "PPP", {
+                            locale: ja,
+                          })}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent
+                        className="w-auto p-0"
+                        align="start"
+                      >
                         <CalendarComponent
                           mode="single"
                           selected={challengeForm.deadline}
                           onSelect={(d) => {
                             if (d) {
-                              setChallengeForm((p) => ({ ...p, deadline: d }))
+                              setChallengeForm((p) => ({
+                                ...p,
+                                deadline: d,
+                              }))
                               setIsDatePickerOpen(false)
                             }
                           }}
@@ -371,21 +544,28 @@ export default function AdminGrandPrixPage() {
                     <Input
                       type="time"
                       value={selectedTime}
-                      onChange={(e) => setSelectedTime(e.target.value)}
+                      onChange={(e) =>
+                        setSelectedTime(e.target.value)
+                      }
                       className="w-full"
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full sm:w-auto">
-                  お題を公開する
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                >
+                  {isCreating ? "お題を公開する" : "お題を更新する"}
                 </Button>
               </form>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* --------------------------------------------------------- */}
         {/* Submissions Tab */}
+        {/* --------------------------------------------------------- */}
         <TabsContent value="submissions">
           <Card>
             <CardHeader>
@@ -461,10 +641,10 @@ export default function AdminGrandPrixPage() {
                         >
                           <td className="py-3 px-2">
                             <div className="font-medium">
-                              {sub.student_profiles.full_name}
+                              {sub.student_profiles?.full_name ?? "－"}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {sub.student_profiles.university}
+                              {sub.student_profiles?.university ?? ""}
                             </div>
                           </td>
                           <td className="py-3 px-2 text-sm">
@@ -519,10 +699,10 @@ export default function AdminGrandPrixPage() {
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h3 className="font-medium">
-                              {sub.student_profiles.full_name}
+                              {sub.student_profiles?.full_name ?? "－"}
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                              {sub.student_profiles.university}
+                              {sub.student_profiles?.university ?? ""}
                             </p>
                           </div>
                           <Badge
@@ -667,10 +847,10 @@ export default function AdminGrandPrixPage() {
                 <div className="flex flex-col sm:flex-row justify-between text-sm mt-2">
                   <div>
                     <span className="font-medium">
-                      {scoringSubmission.student_profiles.full_name}
+                      {scoringSubmission.student_profiles?.full_name ?? "－"}
                     </span>
                     <span className="text-muted-foreground ml-2">
-                      ({scoringSubmission.student_profiles.university})
+                      ({scoringSubmission.student_profiles?.university ?? "－"})
                     </span>
                   </div>
                   <div className="text-muted-foreground">
