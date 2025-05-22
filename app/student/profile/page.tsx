@@ -119,6 +119,21 @@ export default function StudentProfilePage() {
     useState<Partial<Record<keyof FormValues, string>>>({})
   const [savedToast, setSavedToast] = useState(false)
 
+  /* autosave debounce */
+  const [saveTimer, setSaveTimer] = useState<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    // skip while loading initial data
+    if (loading) return
+    if (saveTimer) clearTimeout(saveTimer)
+    const t = setTimeout(async () => {
+      await save()
+      setSavedToast(true)
+    }, 1000) // 1‑sec debounce
+    setSaveTimer(t)
+    return () => clearTimeout(t)
+  }, [profile]) // fire when any field changes
+
   /* saved toast timer */
   useEffect(() => {
     if (!savedToast) return
@@ -194,20 +209,6 @@ export default function StudentProfilePage() {
       ? <CheckCircle2 size={14} className="text-green-600" />
       : <AlertCircle size={14} className={pct ? "text-yellow-600" : "text-red-600"} />
 
-  /* 5) 保存 */
-  const handleSave = async () => {
-    const parsed = schema.safeParse(profile)
-    if (!parsed.success) {
-      const obj: typeof fieldErrs = {}
-      parsed.error.errors.forEach(e => { obj[e.path[0] as keyof FormValues] = e.message })
-      setFieldErrs(obj)
-      toast({ title: "入力エラーがあります", variant: "destructive" })
-      return
-    }
-    setFieldErrs({})
-    await save()
-    setSavedToast(true)
-  }
 
 
   /* ================= RENDER ========================================== */
