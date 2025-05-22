@@ -34,17 +34,34 @@ export default function EmailCallbackPage() {
           return;
         }
       } else {
-        /* ---------- 2) クエリパラメータ (?code=) → PKCE ---------- */
-        const code = search.get("code");
-        if (!code) {
-          setStatus("error");
-          return;
-        }
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error("exchangeCodeForSession error:", error);
-          setStatus("error");
-          return;
+        /* ---------- 2) token パラメータ (magiclink / signup) ---------- */
+        const token = search.get("token");
+        if (token) {
+          const tType = search.get("type");            // magiclink | signup
+          const email = search.get("email") || "";     // verifyOtp に必須
+          const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
+            email,
+            type: tType === "signup" ? "signup" : "magiclink",
+            token,
+          });
+          if (otpErr || !otpData.session) {
+            console.error("verifyOtp error:", otpErr);
+            setStatus("error");
+            return;
+          }
+        } else {
+          /* ---------- PKCE フロー (?code=) ---------- */
+          const code = search.get("code");
+          if (!code) {
+            setStatus("error");
+            return;
+          }
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error("exchangeCodeForSession error:", error);
+            setStatus("error");
+            return;
+          }
         }
       }
 
