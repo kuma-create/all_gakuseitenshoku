@@ -66,7 +66,8 @@ export async function POST(req: Request) {
   try {
     await sgMail.send({
       to: email,
-      from: "admin@gakuten.co.jp", // 認証済みドメイン
+      from: "admin@gakuten.co.jp",  // 認証済みドメイン
+      subject: "【学生転職】メールアドレス確認のお願い", // ← 追加
       templateId: process.env.SENDGRID_STUDENT_INVITE_TEMPLATE_ID!,
       dynamicTemplateData: {
         ConfirmationURL: inviteUrl,
