@@ -155,7 +155,7 @@ export default function AdminGrandPrixPage() {
       const { data: current, error: err1 } = await supabase
         .from("challenges")
         .select("*")
-        .eq("type", grandType)
+        .or(`type.is.null,type.eq.${grandType}`)
         .gt("deadline", nowIso)
         .order("deadline", { ascending: true })
         .limit(1)
@@ -205,20 +205,33 @@ export default function AdminGrandPrixPage() {
       }
 
       // 2-1) これから公開中/予定のお題を取得
-      const { data: upcoming, error: errUpcoming } = await supabase
+      const upcomingQuery = supabase
         .from("challenges")
         .select("*")
-        .eq("type", grandType)
+        .or(`type.is.null,type.eq.${grandType}`)
         .gt("deadline", nowIso)
-        .order("deadline", { ascending: true })
-      if (errUpcoming) throw errUpcoming
-      setUpcomingChallenges(upcoming ?? [])
+        .order("deadline", { ascending: true });
+
+      if (current) {
+        upcomingQuery.neq("id", current.id); // 現在のお題を除外
+      }
+
+      const { data: upcoming, error: errUpcoming } = await upcomingQuery;
+      if (errUpcoming) throw errUpcoming;
+
+      // 念のためクライアント側でも昇順ソート
+      const sortedUpcoming = (upcoming ?? []).sort(
+        (a, b) =>
+          new Date(a.deadline ?? 0).getTime() -
+          new Date(b.deadline ?? 0).getTime()
+      );
+      setUpcomingChallenges(sortedUpcoming);
 
       // 3) 過去のお題
       const { data: past, error: err3 } = await supabase
         .from("challenges")
         .select("*")
-        .eq("type", grandType)
+        .or(`type.is.null,type.eq.${grandType}`)
         .lt("deadline", nowIso)
         .order("deadline", { ascending: false })
       if (err3) throw err3

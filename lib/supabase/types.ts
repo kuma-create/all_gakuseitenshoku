@@ -796,7 +796,7 @@ export type Database = {
       }
       question_bank: {
         Row: {
-          category: Database["public"]["Enums"]["question_category"]
+          category: Database["public"]["Enums"]["question_category"] | null
           challenge_id: string | null
           choices: Json | null
           correct_choice: number | null
@@ -804,11 +804,14 @@ export type Database = {
           difficulty: number | null
           expected_kw: string[] | null
           explanation: string | null
+          grand_type: Database["public"]["Enums"]["grandprix_type"]
           id: string
+          order_no: number | null
           stem: string
+          weight: number | null
         }
         Insert: {
-          category: Database["public"]["Enums"]["question_category"]
+          category?: Database["public"]["Enums"]["question_category"] | null
           challenge_id?: string | null
           choices?: Json | null
           correct_choice?: number | null
@@ -816,11 +819,14 @@ export type Database = {
           difficulty?: number | null
           expected_kw?: string[] | null
           explanation?: string | null
+          grand_type?: Database["public"]["Enums"]["grandprix_type"]
           id?: string
+          order_no?: number | null
           stem: string
+          weight?: number | null
         }
         Update: {
-          category?: Database["public"]["Enums"]["question_category"]
+          category?: Database["public"]["Enums"]["question_category"] | null
           challenge_id?: string | null
           choices?: Json | null
           correct_choice?: number | null
@@ -828,8 +834,11 @@ export type Database = {
           difficulty?: number | null
           expected_kw?: string[] | null
           explanation?: string | null
+          grand_type?: Database["public"]["Enums"]["grandprix_type"]
           id?: string
+          order_no?: number | null
           stem?: string
+          weight?: number | null
         }
         Relationships: [
           {
