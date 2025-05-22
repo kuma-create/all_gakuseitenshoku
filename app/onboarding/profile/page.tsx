@@ -251,10 +251,11 @@ export default function OnboardingProfile() {
         }
       }
 
-      /* 2‑A. student_profiles を upsert (会社名は除外) */
+      /* 2‑A. student_profiles を upsert (会社名・補足情報は除外) */
       const {
-        company1, company2, company3,           // ← 除外対象
-        ...profileRest
+        company1, company2, company3,               // experiences へ
+        work_summary, skill_text, qualification_text, // profile_details or metaRows
+        ...profileRest                               // student_profiles へ送るもの
       } = form;
 
       const { error: profileErr } = await supabase
@@ -411,8 +412,9 @@ function Step1Inputs({
         <Label>性別</Label>
         <div className="flex gap-6">
           {genderOptions.map((g) => (
-            <label key={g} className="flex items-center gap-1 text-sm">
+            <div key={g} className="flex items-center gap-1 text-sm">
               <input
+                id={`gender-${g}`}
                 type="radio"
                 name="gender"
                 value={g}
@@ -420,9 +422,12 @@ function Step1Inputs({
                 onChange={(e) =>
                   onChange({ ...e, target: { ...e.target, id: "gender" } } as InputChange)
                 }
+                className="cursor-pointer"
               />
-              {g}
-            </label>
+              <Label htmlFor={`gender-${g}`} className="cursor-pointer">
+                {g}
+              </Label>
+            </div>
           ))}
         </div>
       </div>
