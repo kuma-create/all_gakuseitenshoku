@@ -65,7 +65,9 @@ const FieldInput = ({
       id={id} type={type} disabled={disabled}
       placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`h-8 text-xs sm:h-10 sm:text-sm ${error && "border-red-500"}`}
+      className={`h-8 text-xs sm:h-10 sm:text-sm ${error ? "border-red-500" : ""} ${
+        value && !disabled ? "text-gray-900 font-medium" : ""
+      } placeholder:text-gray-400`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
@@ -89,7 +91,9 @@ const FieldTextarea = ({
       id={id} rows={rows} maxLength={max} disabled={disabled}
       placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`text-xs sm:text-sm ${error && "border-red-500"}`}
+      className={`text-xs sm:text-sm ${error ? "border-red-500" : ""} ${
+        value && !disabled ? "text-gray-900 font-medium" : ""
+      } placeholder:text-gray-400`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
   </div>
@@ -304,12 +308,52 @@ export default function StudentProfilePage() {
                     disabled={!editing}
                     onChange={(v) => updateLocal({ phone: v })}
                   />
+                  {/* 住所4項目 */}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <FieldInput
+                      id="postal_code"
+                      label="郵便番号"
+                      value={profile.postal_code ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ postal_code: v })}
+                    />
+                    <FieldInput
+                      id="prefecture"
+                      label="都道府県"
+                      value={profile.prefecture ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ prefecture: v })}
+                    />
+                    <FieldInput
+                      id="city"
+                      label="市区町村"
+                      value={profile.city ?? ''}
+                      disabled={!editing}
+                      onChange={(v) => updateLocal({ city: v })}
+                    />
+                  </div>
                   <FieldInput
-                    id="address"
-                    label="住所"
-                    value={profile.address ?? ''}
+                    id="address_line"
+                    label="番地・建物名など"
+                    value={profile.address_line ?? ''}
                     disabled={!editing}
-                    onChange={(v) => updateLocal({ address: v })}
+                    onChange={(v) => updateLocal({ address_line: v })}
+                  />
+                  <FieldInput
+                    id="hometown"
+                    label="出身地"
+                    value={profile.hometown ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ hometown: v })}
+                  />
+                  <FieldInput
+                    id="birth_date"
+                    type="date"
+                    label="生年月日"
+                    value={profile.birth_date ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ birth_date: v })}
+                    placeholder="YYYY-MM-DD"
                   />
                 </CardContent>
               </Card>
@@ -338,6 +382,13 @@ export default function StudentProfilePage() {
                     disabled={!editing}
                     onChange={(v) => updateLocal({ faculty: v })}
                   />
+                  <FieldInput
+                    id="department"
+                    label="学科"
+                    value={profile.department ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ department: v })}
+                  />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FieldInput
                       id="admission_month"
@@ -356,6 +407,23 @@ export default function StudentProfilePage() {
                       onChange={(v) => updateLocal({ graduation_year: Number(v) || null })}
                     />
                   </div>
+                  <FieldInput
+                    id="graduation_month"
+                    type="month"
+                    label="卒業予定月"
+                    value={profile.graduation_month ?? ''}
+                    disabled={!editing}
+                    onChange={(v) => updateLocal({ graduation_month: v })}
+                  />
+                  <FieldTextarea
+                    id="research_theme"
+                    label="研究テーマ"
+                    rows={3}
+                    value={profile.research_theme ?? ''}
+                    disabled={!editing}
+                    max={500}
+                    onChange={(v) => updateLocal({ research_theme: v })}
+                  />
                 </CardContent>
               </Card>
             </CollapsibleContent>
@@ -418,6 +486,23 @@ export default function StudentProfilePage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 p-4">
+              <FieldInput
+                id="pr_title"
+                label="PR タイトル"
+                value={profile.pr_title ?? ''}
+                disabled={!editing}
+                onChange={(v) => updateLocal({ pr_title: v })}
+              />
+              <FieldTextarea
+                id="about"
+                label="ひとこと自己紹介"
+                rows={2}
+                max={200}
+                value={profile.about ?? ''}
+                disabled={!editing}
+                placeholder="140文字以内で自己紹介"
+                onChange={(v) => updateLocal({ about: v })}
+              />
               <FieldTextarea
                 id="pr_text"
                 label="自己PR"
@@ -447,6 +532,15 @@ export default function StudentProfilePage() {
                 </div>
               </div>
 
+              <FieldTextarea
+                id="motive"
+                label="志望動機"
+                rows={4}
+                max={600}
+                value={profile.motive ?? ''}
+                disabled={!editing}
+                onChange={(v) => updateLocal({ motive: v })}
+              />
               <TipBox />
             </CardContent>
           </Card>
@@ -479,23 +573,103 @@ export default function StudentProfilePage() {
                 onChange={(v) => updateLocal({ salary_range: v })}
               />
 
-              {/* industries */}
               <FieldInput
-                id="desired_industries"
-                label="希望業界（カンマ区切り）"
-                value={(profile.desired_industries ?? []).join(', ')}
+                id="employment_type"
+                label="雇用形態の希望"
+                value={profile.employment_type ?? ''}
+                disabled={!editing}
+                placeholder="正社員 / 契約社員 / インターン"
+                onChange={(v) => updateLocal({ employment_type: v })}
+              />
+
+              <FieldInput
+                id="desired_positions"
+                label="希望ポジション（カンマ区切り）"
+                value={(profile.desired_positions ?? []).join(', ')}
                 disabled={!editing}
                 onChange={(v) =>
                   updateLocal({
-                    desired_industries: v
-                      .split(',')
+                    desired_positions: v.split(',').map((s) => s.trim()).filter(Boolean),
+                  })
+                }
+              />
+              {profile.desired_positions?.length ? (
+                <TagPreview items={profile.desired_positions} color="blue" />
+              ) : null}
+
+              <FieldInput
+                id="work_style_options"
+                label="働き方オプション（カンマ区切り）"
+                value={(profile.work_style_options ?? []).join(', ')}
+                disabled={!editing}
+                placeholder="リモート可, フレックス など"
+                onChange={(v) =>
+                  updateLocal({
+                    work_style_options: v.split(',').map((s) => s.trim()).filter(Boolean),
+                  })
+                }
+              />
+              {profile.work_style_options?.length ? (
+                <TagPreview items={profile.work_style_options} color="purple" />
+              ) : null}
+
+              <FieldInput
+                id="preferred_industries"
+                label="興味業界（カンマ区切り）"
+                value={
+                  Array.isArray(profile.preferred_industries)
+                    ? profile.preferred_industries.map(String).join(", ")
+                    : typeof profile.preferred_industries === "string"
+                    ? profile.preferred_industries
+                    : ""
+                }
+                disabled={!editing}
+                onChange={(v) =>
+                  updateLocal({
+                    preferred_industries: v
+                      .split(",")
                       .map((s) => s.trim())
                       .filter(Boolean),
                   })
                 }
               />
-              {profile.desired_industries?.length ? (
-                <TagPreview items={profile.desired_industries} color="green" />
+              {Array.isArray(profile.preferred_industries) &&
+              profile.preferred_industries.length ? (
+                <TagPreview
+                  items={profile.preferred_industries.map(String)}
+                  color="green"
+                />
+              ) : null}
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="has_internship_experience"
+                  type="checkbox"
+                  checked={profile.has_internship_experience ?? false}
+                  disabled={!editing}
+                  onChange={(e) =>
+                    updateLocal({ has_internship_experience: e.target.checked })
+                  }
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="has_internship_experience" className="text-xs sm:text-sm">
+                  インターン経験あり
+                </Label>
+              </div>
+
+              <FieldInput
+                id="interests"
+                label="興味・関心（カンマ区切り）"
+                value={(profile.interests ?? []).join(', ')}
+                disabled={!editing}
+                onChange={(v) =>
+                  updateLocal({
+                    interests: v.split(',').map((s) => s.trim()).filter(Boolean),
+                  })
+                }
+              />
+              {profile.interests?.length ? (
+                <TagPreview items={profile.interests} color="blue" />
               ) : null}
 
               {/* locations */}

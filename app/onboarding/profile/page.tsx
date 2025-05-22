@@ -422,7 +422,7 @@ function Step1Inputs({
                 onChange={(e) =>
                   onChange({ ...e, target: { ...e.target, id: "gender" } } as InputChange)
                 }
-                className="cursor-pointer"
+                className="cursor-pointer accent-red-600 focus-visible:ring-red-600"
               />
               <Label htmlFor={`gender-${g}`} className="cursor-pointer">
                 {g}
