@@ -92,25 +92,8 @@ export default function EmailCallbackPage() {
         return;
       }
 
-      /* ---------- 4) 学生プロフィール有無で遷移先を決定 ---------- */
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-
-      if (userErr || !user) {
-        console.error("getUser error:", userErr);
-        setStatus("error");
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("student_profiles")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      router.replace(profile ? "/student-dashboard" : "/onboarding/profile");
+      /* ---------- 4) デフォルト遷移先を onboarding/profile に固定 ---------- */
+      router.replace("/onboarding/profile");
     })();
   }, [router, search]);
 
