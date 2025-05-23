@@ -496,6 +496,45 @@ export type Database = {
           },
         ]
       }
+      event_details: {
+        Row: {
+          capacity: number | null
+          event_date: string | null
+          format: string | null
+          selection_id: string
+          venue: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          event_date?: string | null
+          format?: string | null
+          selection_id: string
+          venue?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          event_date?: string | null
+          format?: string | null
+          selection_id?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       experiences: {
         Row: {
           achievements: string | null
@@ -546,6 +585,81 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      fulltime_details: {
+        Row: {
+          is_ongoing: boolean | null
+          selection_id: string
+        }
+        Insert: {
+          is_ongoing?: boolean | null
+          selection_id: string
+        }
+        Update: {
+          is_ongoing?: boolean | null
+          selection_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fulltime_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulltime_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internship_details: {
+        Row: {
+          allowance: string | null
+          duration_weeks: number | null
+          end_date: string | null
+          is_paid: boolean | null
+          selection_id: string
+          start_date: string | null
+          work_days_per_week: number | null
+        }
+        Insert: {
+          allowance?: string | null
+          duration_weeks?: number | null
+          end_date?: string | null
+          is_paid?: boolean | null
+          selection_id: string
+          start_date?: string | null
+          work_days_per_week?: number | null
+        }
+        Update: {
+          allowance?: string | null
+          duration_weeks?: number | null
+          end_date?: string | null
+          is_paid?: boolean | null
+          selection_id?: string
+          start_date?: string | null
+          work_days_per_week?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internship_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internship_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_interests: {
         Row: {
@@ -1002,6 +1116,56 @@ export type Database = {
           },
         ]
       }
+      selections: {
+        Row: {
+          application_deadline: string | null
+          company_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          location: string | null
+          published: boolean | null
+          salary_max: number | null
+          salary_min: number | null
+          selection_type: Database["public"]["Enums"]["selection_type"]
+          title: string
+        }
+        Insert: {
+          application_deadline?: string | null
+          company_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          location?: string | null
+          published?: boolean | null
+          salary_max?: number | null
+          salary_min?: number | null
+          selection_type: Database["public"]["Enums"]["selection_type"]
+          title: string
+        }
+        Update: {
+          application_deadline?: string | null
+          company_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          location?: string | null
+          published?: boolean | null
+          salary_max?: number | null
+          salary_min?: number | null
+          selection_type?: Database["public"]["Enums"]["selection_type"]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_answers: {
         Row: {
           answer_raw: Json | null
@@ -1377,6 +1541,41 @@ export type Database = {
         }
         Relationships: []
       }
+      selections_view: {
+        Row: {
+          allowance: string | null
+          application_deadline: string | null
+          capacity: number | null
+          company_id: string | null
+          created_at: string | null
+          description: string | null
+          duration_weeks: number | null
+          end_date: string | null
+          event_date: string | null
+          format: string | null
+          id: string | null
+          is_ongoing: boolean | null
+          is_paid: boolean | null
+          location: string | null
+          published: boolean | null
+          salary_max: number | null
+          salary_min: number | null
+          selection_type: Database["public"]["Enums"]["selection_type"] | null
+          start_date: string | null
+          title: string | null
+          venue: string | null
+          work_days_per_week: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       auto_grade_answer: {
@@ -1502,6 +1701,7 @@ export type Database = {
       offer_status: "pending" | "accepted" | "rejected"
       question_category: "web_lang" | "web_math" | "case" | "biz_battle"
       role_enum: "student" | "company" | "company_admin" | "admin"
+      selection_type: "fulltime" | "internship_short" | "event"
       session_status: "in_progress" | "submitted" | "graded"
     }
     CompositeTypes: {
@@ -1635,6 +1835,7 @@ export const Constants = {
       offer_status: ["pending", "accepted", "rejected"],
       question_category: ["web_lang", "web_math", "case", "biz_battle"],
       role_enum: ["student", "company", "company_admin", "admin"],
+      selection_type: ["fulltime", "internship_short", "event"],
       session_status: ["in_progress", "submitted", "graded"],
     },
   },

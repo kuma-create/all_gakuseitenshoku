@@ -55,16 +55,17 @@ import { Separator } from "@/components/ui/separator"
 /* ------------------------------------------------------------------
    Supabase 型定義
 ------------------------------------------------------------------ */
-type JobRow = Database["public"]["Tables"]["jobs"]["Row"]
-type ApplicationRow = Database["public"]["Tables"]["applications"]["Row"]
-type CompanyProfile = Database["public"]["Tables"]["companies"]["Row"]
+type SelectionRow = Database["public"]["Views"]["selections_view"]["Row"]
 
 /* UI 用に拡張した型 */
-interface JobItem extends JobRow {
+interface JobItem extends SelectionRow {
   applicants : number
   status     : "公開中" | "下書き" | "締切済"
   postedDate : string
   expiryDate : string
+  /* ↓ SelectionRow に含まれていない場合の型エラー回避 */
+  work_type? : string | null
+  views?     : number | null
 }
 
 /* ------------------------------------------------------------------
@@ -81,8 +82,16 @@ export default function CompanyJobsPage() {
   /* フィルタ用 state */
   const [searchTerm , setSearchTerm ] = useState("")
   const [statusTab  , setStatusTab  ] = useState("all")
+  const [selTypeFilter, setSelTypeFilter] = useState("all");
   const [sortOption , setSortOption ] =
     useState<"posted"|"applicants"|"expiry">("posted")
+
+  const SELECTION_TYPES = [
+    { value: "all",              label: "すべての選考" },
+    { value: "fulltime",         label: "本選考" },
+    { value: "internship_short", label: "インターン（短期）" },
+    { value: "event",            label: "説明会／イベント" },
+  ] as const;
 
   /* ---------------- Supabase からデータ取得 ---------------- */
   useEffect(() => {
@@ -112,7 +121,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
 
       /* ❷ 求人取得 */
       const { data: jobsData, error: jobsErr } = await supabase
-        .from("jobs")
+        .from("selections_view")
         .select("*")
         .eq("company_id", companyId)  
 
@@ -121,28 +130,35 @@ const companyId = companyRow.id    // ★ ここで変数を定義
       /* ❸ 応募数取得 */
       const { data: appsData, error: appsErr } = await supabase
         .from("applications")
-        .select("job_id")
+        .select("job_id")                // ← 現状 DB は job_id のまま
 
       if (appsErr) { setError(appsErr.message); setLoading(false); return }
 
       const counts: Record<string, number> = {}
-      appsData.forEach(a => { if (a.job_id) counts[a.job_id] = (counts[a.job_id] ?? 0)+1 })
+      appsData.forEach(a => {
+        const sid = a.job_id as string | null
+        if (sid) counts[sid] = (counts[sid] ?? 0) + 1
+      })
 
       /* ❹ 整形 */
-      const now = new Date()
-      const dateStr = (d: string|null) => d?.slice(0,10) ?? ""
+      const list: JobItem[] = jobsData.map(j => {
+        const selId = j.id as string  // SelectionRow["id"] は string | null のため
+        const deadline = j.application_deadline           // 新しい期限カラム
+        const created   = j.created_at
+        const now       = new Date()
 
-      const list: JobItem[] = jobsData.map(j => ({
-        ...j,
-        applicants: counts[j.id] ?? 0,
-        status: !j.published
-          ? "下書き"
-          : j.published_until && new Date(j.published_until) < now
-          ? "締切済"
-          : "公開中",
-        postedDate: dateStr(j.created_at),
-        expiryDate: dateStr(j.published_until),
-      }))
+        return {
+          ...j,
+          applicants: counts[selId] ?? 0,
+          status: !j.published
+            ? "下書き"
+            : deadline && new Date(deadline) < now
+            ? "締切済"
+            : "公開中",
+          postedDate : created?.slice(0,10) ?? "",
+          expiryDate : deadline?.slice(0,10) ?? "",
+        }
+      })
 
       setJobs(list)
       setLoading(false)
@@ -151,11 +167,13 @@ const companyId = companyRow.id    // ★ ここで変数を定義
 
   /* ---------------- 検索・フィルタ・ソート ---------------- */
   const filteredJobs = useMemo(() => {
-    let data = jobs.filter(j =>
-      `${j.title}${j.location ?? ""}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
-    )
+    let data = jobs
+      .filter(j =>
+        `${j.title}${j.location ?? ""}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
+      )
+      .filter(j => selTypeFilter === "all" || j.selection_type === selTypeFilter);
 
     if (statusTab !== "all") data = data.filter(j => j.status === statusTab)
 
@@ -169,7 +187,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
     })
 
     return data
-  }, [jobs, searchTerm, statusTab, sortOption])
+  }, [jobs, searchTerm, statusTab, sortOption, selTypeFilter])
 
   const counts = useMemo(() => ({
     all   : jobs.length,
@@ -192,7 +210,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
 
   const deleteJob = async(id:string)=>{
     if(!confirm("この求人を削除しますか？")) return
-    await supabase.from("jobs").delete().eq("id",id)
+    await supabase.from("selections").delete().eq("id", id)
     setJobs(prev=>prev.filter(j=>j.id!==id))
   }
 
@@ -237,6 +255,17 @@ const companyId = companyRow.id    // ★ ここで変数を定義
               <SelectItem value="posted">公開順</SelectItem>
               <SelectItem value="applicants">応募数順</SelectItem>
               <SelectItem value="expiry">締切日順</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={selTypeFilter} onValueChange={setSelTypeFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="選考種類" />
+            </SelectTrigger>
+            <SelectContent>
+              {SELECTION_TYPES.map(t => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -292,21 +321,29 @@ function JobGrid({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={()=>push(`/company/jobs/${job.id}`)}>
+                    <DropdownMenuItem onClick={()=>push(`/company/jobs/${job.id!}`)}>
                       <Edit className="mr-2 h-4 w-4"/> 編集する
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={()=>push(`/company/applicants?jobId=${job.id}`)}
+                      onClick={()=>push(`/company/applicants?jobId=${job.id!}`)}
                       disabled={job.applicants===0}
                     >
                       <Users className="mr-2 h-4 w-4"/> 応募者を見る
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={()=>deleteJob(job.id)} className="text-red-600">
+                    <DropdownMenuItem onClick={()=>deleteJob(job.id!)} className="text-red-600">
                       <Trash2 className="mr-2 h-4 w-4"/> 削除する
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+
+              <Badge variant="outline" className="mb-1 text-xs">
+                {{
+                  fulltime: "本選考",
+                  internship_short: "インターン（短期）",
+                  event: "説明会／イベント",
+                }[job.selection_type as string] ?? "その他"}
+              </Badge>
 
               <h3 className="text-xl font-semibold mb-2 line-clamp-2">{job.title}</h3>
 
@@ -336,13 +373,13 @@ function JobGrid({
             </CardContent>
 
             <CardFooter className="bg-gray-50 px-5 py-3 flex justify-between">
-              <Button variant="outline" size="sm" onClick={()=>push(`/company/jobs/${job.id}`)}>
+              <Button variant="outline" size="sm" onClick={()=>push(`/company/jobs/${job.id!}`)}>
                 <Edit className="h-4 w-4 mr-1.5"/> 編集
               </Button>
               <Button
                 variant={job.applicants>0?"default":"outline"}
                 size="sm"
-                onClick={()=>push(`/company/applicants?jobId=${job.id}`)}
+                onClick={()=>push(`/company/applicants?jobId=${job.id!}`)}
                 disabled={job.applicants===0}
                 className={job.applicants>0?"bg-blue-600 hover:bg-blue-700":""}
               >

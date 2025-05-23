@@ -1,13 +1,11 @@
 /* ────────────────────────────────────────────────
    app/jobs/page.tsx  ― 公開中求人一覧 (Client Component)
-   2025-05-23 dropdown & link fix
+   2025-05-23  選考種類ドロップダウン追加
 ──────────────────────────────────────────────── */
 "use client";
 
 import {
   Briefcase,
-  Building,
-  Calendar,
   Filter,
   Heart,
   MapPin,
@@ -39,6 +37,7 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   companies: { name: string; logo: string | null; industry?: string | null } | null;
   industry?: string | null;
   job_type?: string | null;
+  selection_type?: string | null;      // ★ 追加
   is_featured?: boolean | null;
   tags?: string[] | null;
   cover_image_url?: string | null;
@@ -46,6 +45,15 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
 };
 
 const SALARY_MAX = 1200;
+
+/* 選考種類フィルター */
+const SELECTION_TYPES = [
+  { value: "all",              label: "すべての選考" },
+  { value: "fulltime",         label: "本選考" },
+  { value: "internship_short", label: "インターン（短期）" },
+  { value: "event",            label: "説明会／イベント" },
+] as const;
+
 /* 年収フィルターの選択肢 */
 const SALARY_OPTIONS = [
   { value: "all",  label: "すべての年収" },
@@ -67,6 +75,7 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [industry, setIndustry] = useState("all");
   const [jobType, setJobType] = useState("all");
+  const [selectionType, setSelectionType] = useState("all");   // ★
   const [salaryMin, setSalaryMin] = useState<string>("all");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -84,6 +93,7 @@ title,
 description,
 created_at,
 work_type,
+selection_type,          -- ★ 追加
 is_recommended,
 salary_min,
 salary_max,
@@ -151,9 +161,19 @@ job_tags!job_tags_job_id_fkey (
         salaryMin === "all" ||
         (j.salary_max ?? SALARY_MAX) >= Number(salaryMin);
 
-      return matchesQ && matchesInd && matchesJob && matchesSalary;
+      const matchesCategory =
+        selectionType === "all" ||
+        (j.selection_type ?? "") === selectionType;
+
+      return (
+        matchesQ &&
+        matchesInd &&
+        matchesJob &&
+        matchesSalary &&
+        matchesCategory
+      );
     });
-  }, [jobs, search, industry, jobType, salaryMin]);
+  }, [jobs, search, industry, jobType, salaryMin, selectionType]);
 
   /* ------------- helpers ------------------ */
   const toggleSave = (id: string) =>
@@ -228,6 +248,8 @@ job_tags!job_tags_job_id_fkey (
                   setIndustry={setIndustry}
                   jobType={jobType}
                   setJobType={setJobType}
+                  selectionType={selectionType}       // ★
+                  setSelectionType={setSelectionType} // ★
                   salaryMin={salaryMin}
                   setSalaryMin={setSalaryMin}
                 />
@@ -288,6 +310,20 @@ job_tags!job_tags_job_id_fkey (
                 {jobTypes.map((j) => (
                   <SelectItem key={j} value={j}>
                     {j === "all" ? "すべての職種" : j}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* ★ 選考種類 */}
+            <Select value={selectionType} onValueChange={setSelectionType}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="選考種類" />
+              </SelectTrigger>
+              <SelectContent>
+                {SELECTION_TYPES.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -358,6 +394,8 @@ function FilterPanel({
   setIndustry,
   jobType,
   setJobType,
+  selectionType,        // ★
+  setSelectionType,     // ★
   salaryMin,
   setSalaryMin,
 }: {
@@ -367,6 +405,8 @@ function FilterPanel({
   setIndustry: (v: string) => void;
   jobType: string;
   setJobType: (v: string) => void;
+  selectionType: string;           // ★
+  setSelectionType: (v: string) => void; // ★
   salaryMin: string;
   setSalaryMin: (v: string) => void;
 }) {
@@ -393,6 +433,20 @@ function FilterPanel({
           {jobTypes.map((j) => (
             <SelectItem key={j} value={j}>
               {j === "all" ? "すべての職種" : j}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* ★ 選考種類 */}
+      <Select value={selectionType} onValueChange={setSelectionType}>
+        <SelectTrigger>
+          <SelectValue placeholder="選考種類" />
+        </SelectTrigger>
+        <SelectContent>
+          {SELECTION_TYPES.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
             </SelectItem>
           ))}
         </SelectContent>
@@ -427,8 +481,10 @@ function JobGrid({
   toggleSave: (id: string) => void;
   tagColor: (t: string) => string;
 }) {
-  if (!jobs.length) return <p className="text-center text-gray-500">該当する選考情報がありません</p>;
+  if (!jobs.length)
+    return <p className="text-center text-gray-500">該当する選考情報がありません</p>;
 
+  /* ----- list view ----- */
   if (view === "list") {
     return (
       <div className="flex flex-col gap-4">
@@ -475,6 +531,7 @@ function JobGrid({
     );
   }
 
+  /* ----- grid view ----- */
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {jobs.map((j) => (
@@ -499,7 +556,9 @@ function JobGrid({
             )}
             <div className="p-4">
               <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
-              <p className="line-clamp-1 text-sm text-gray-600">{j.companies?.name ?? "-"}</p>
+              <p className="line-clamp-1 text-sm text-gray-600">
+                {j.companies?.name ?? "-"}
+              </p>
               <div className="mt-2 flex flex-wrap gap-1">
                 {(j.tags ?? []).slice(0, 3).map((t) => (
                   <Badge key={t} className={tagColor(t)}>
@@ -521,7 +580,10 @@ function JobGrid({
               toggleSave(j.id);
             }}
           >
-            <Heart size={18} className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""} />
+            <Heart
+              size={18}
+              className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""}
+            />
           </Button>
         </Card>
       ))}
