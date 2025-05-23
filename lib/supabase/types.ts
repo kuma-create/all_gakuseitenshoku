@@ -499,23 +499,35 @@ export type Database = {
       event_details: {
         Row: {
           capacity: number | null
+          contact_email: string | null
           event_date: string | null
           format: string | null
+          notes: string | null
           selection_id: string
+          sessions: Json | null
+          target_grad_years: number[] | null
           venue: string | null
         }
         Insert: {
           capacity?: number | null
+          contact_email?: string | null
           event_date?: string | null
           format?: string | null
+          notes?: string | null
           selection_id: string
+          sessions?: Json | null
+          target_grad_years?: number[] | null
           venue?: string | null
         }
         Update: {
           capacity?: number | null
+          contact_email?: string | null
           event_date?: string | null
           format?: string | null
+          notes?: string | null
           selection_id?: string
+          sessions?: Json | null
+          target_grad_years?: number[] | null
           venue?: string | null
         }
         Relationships: [
@@ -531,6 +543,52 @@ export type Database = {
             columns: ["selection_id"]
             isOneToOne: true
             referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_participants: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          status: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          status?: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          status?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "selections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_participants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -619,29 +677,53 @@ export type Database = {
       internship_details: {
         Row: {
           allowance: string | null
+          capacity: number | null
+          contact_email: string | null
           duration_weeks: number | null
           end_date: string | null
+          format: Database["public"]["Enums"]["event_format"] | null
           is_paid: boolean | null
+          notes: string | null
+          perks: string | null
+          selection_flow: Json | null
           selection_id: string
+          sessions: Json | null
           start_date: string | null
+          target_grad_years: number[] | null
           work_days_per_week: number | null
         }
         Insert: {
           allowance?: string | null
+          capacity?: number | null
+          contact_email?: string | null
           duration_weeks?: number | null
           end_date?: string | null
+          format?: Database["public"]["Enums"]["event_format"] | null
           is_paid?: boolean | null
+          notes?: string | null
+          perks?: string | null
+          selection_flow?: Json | null
           selection_id: string
+          sessions?: Json | null
           start_date?: string | null
+          target_grad_years?: number[] | null
           work_days_per_week?: number | null
         }
         Update: {
           allowance?: string | null
+          capacity?: number | null
+          contact_email?: string | null
           duration_weeks?: number | null
           end_date?: string | null
+          format?: Database["public"]["Enums"]["event_format"] | null
           is_paid?: boolean | null
+          notes?: string | null
+          perks?: string | null
+          selection_flow?: Json | null
           selection_id?: string
+          sessions?: Json | null
           start_date?: string | null
+          target_grad_years?: number[] | null
           work_days_per_week?: number | null
         }
         Relationships: [
@@ -1705,6 +1787,7 @@ export type Database = {
         | "内定"
         | "内定辞退"
         | "不採用"
+      event_format: "online" | "onsite" | "hybrid"
       grandprix_type: "case" | "webtest" | "bizscore"
       offer_status: "pending" | "accepted" | "rejected"
       question_category: "web_lang" | "web_math" | "case" | "biz_battle"
@@ -1839,6 +1922,7 @@ export const Constants = {
         "内定辞退",
         "不採用",
       ],
+      event_format: ["online", "onsite", "hybrid"],
       grandprix_type: ["case", "webtest", "bizscore"],
       offer_status: ["pending", "accepted", "rejected"],
       question_category: ["web_lang", "web_math", "case", "biz_battle"],

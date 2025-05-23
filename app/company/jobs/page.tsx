@@ -292,7 +292,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"/>
             <Input
-              placeholder="求人名、勤務地などで検索..."
+              placeholder="選考名、勤務地などで検索..."
               className="pl-10"
               value={searchTerm}
               onChange={e=>setSearchTerm(e.target.value)}
@@ -339,6 +339,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
               remainDays={remain}
               deleteJob={deleteJob}
               push={router.push}
+              openPicker={()=>setTypePickerOpen(true)}
             />
           </TabsContent>
         </Tabs>
@@ -351,13 +352,14 @@ const companyId = companyRow.id    // ★ ここで変数を定義
    子コンポーネント
 ------------------------------------------------------------------ */
 function JobGrid({
-  jobs, badgeColor, remainDays, deleteJob, push,
+  jobs, badgeColor, remainDays, deleteJob, push, openPicker,
 }:{
   jobs:JobItem[]
   badgeColor:(s:JobItem["status"])=>string|undefined
   remainDays:(e:string)=>number|string
   deleteJob:(id:string)=>void
   push:(path:string)=>void
+  openPicker: () => void
 }){
   return(
     <>
@@ -444,7 +446,18 @@ function JobGrid({
         ))}
       </div>
 
-      {jobs.length===0 && <EmptyState/>}
+      {jobs.length===0 && (
+        <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
+          <div className="text-gray-400 mb-4">
+            <Briefcase className="h-12 w-12 mx-auto"/>
+          </div>
+          <h3 className="text-lg font-medium mb-2">まだ選考が登録されていません</h3>
+          <p className="text-gray-500 mb-4">新しい選考を作成して、優秀な人材を募集しましょう</p>
+          <Button onClick={()=>openPicker()}>
+            <Plus className="mr-2 h-4 w-4"/> 新しい選考を作成
+          </Button>
+        </div>
+      )}
     </>
   )
 }
@@ -458,17 +471,4 @@ function Stat({icon,label,value}:{icon:React.ReactNode;label:string;value:string
   )
 }
 
-function EmptyState(){
-  return(
-    <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
-      <div className="text-gray-400 mb-4">
-        <Briefcase className="h-12 w-12 mx-auto"/>
-      </div>
-      <h3 className="text-lg font-medium mb-2">まだ求人が登録されていません</h3>
-      <p className="text-gray-500 mb-4">新しい求人を作成して、優秀な人材を募集しましょう</p>
-      <Link href="/company/jobs/new">
-        <Button><Plus className="mr-2 h-4 w-4"/> 新しい求人を作成</Button>
-      </Link>
-    </div>
-  )
-}
+

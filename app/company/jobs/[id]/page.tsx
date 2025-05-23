@@ -99,6 +99,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
 
   // Form state
   const [formData, setFormData] = useState({
+    /* 共通 */
     title: "",
     description: "",
     department: "",
@@ -107,6 +108,19 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     salaryMin: "",
     salaryMax: "",
     status: "",
+
+    /* インターン専用 */
+    startDate: "",
+    endDate: "",
+    durationWeeks: "",
+    workDaysPerWeek: "",
+    allowance: "",
+
+    /* イベント専用 */
+    eventDate: "",
+    capacity: "",
+    venue: "",
+    format: "onsite",
   })
 
   useEffect(() => {
@@ -123,6 +137,16 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           salaryMin  : String(selectionData.salaryMin ?? ""),
           salaryMax  : String(selectionData.salaryMax ?? ""),
           status     : selectionData.status,
+          /* 追加フィールドは API が未対応のため空値で初期化 */
+          startDate: "",
+          endDate: "",
+          durationWeeks: "",
+          workDaysPerWeek: "",
+          allowance: "",
+          eventDate: "",
+          capacity: "",
+          venue: "",
+          format: "onsite",
         })
       } catch (error) {
         toast({
@@ -167,14 +191,14 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
       newErrors.location = "勤務地は必須です"
     }
 
-    if (!formData.workingDays.trim()) {
+    if (job.selectionType === "fulltime" && !formData.workingDays.trim()) {
       newErrors.workingDays = "勤務日は必須です"
     }
 
-    if (!formData.salaryMin.trim()) {
+    if (job.selectionType === "fulltime" && !formData.salaryMin.trim()) {
       newErrors.salaryMin = "最低給与は必須です"
     }
-    if (!formData.salaryMax.trim()) {
+    if (job.selectionType === "fulltime" && !formData.salaryMax.trim()) {
       newErrors.salaryMax = "最高給与は必須です"
     }
 
@@ -395,52 +419,134 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
             </div>
 
-            <div>
-              <Label htmlFor="workingDays" className="flex items-center">
-                勤務日 <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="workingDays"
-                name="workingDays"
-                value={formData.workingDays}
-                onChange={handleInputChange}
-                className={`mt-1 ${errors.workingDays ? "border-red-500" : ""}`}
-                placeholder="例: 月曜日〜金曜日（週休2日）"
-              />
-              {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
-            </div>
+            {job.selectionType !== "event" && (
+              <div>
+                <Label htmlFor="workingDays" className="flex items-center">
+                  勤務日 <span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="workingDays"
+                  name="workingDays"
+                  value={formData.workingDays}
+                  onChange={handleInputChange}
+                  className={`mt-1 ${errors.workingDays ? "border-red-500" : ""}`}
+                  placeholder="例: 月曜日〜金曜日（週休2日）"
+                />
+                {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
+              </div>
+            )}
 
-            {/* 最低給与 */}
-            <div>
-              <Label htmlFor="salaryMin" className="flex items-center">
-                最低給与 <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="salaryMin"
-                name="salaryMin"
-                value={formData.salaryMin}
-                onChange={handleInputChange}
-                className={`mt-1 ${errors.salaryMin ? "border-red-500" : ""}`}
-                placeholder="例: 500"
-              />
-              {errors.salaryMin && <p className="text-sm text-red-500 mt-1">{errors.salaryMin}</p>}
-            </div>
+            {job.selectionType === "fulltime" && (
+              <>
+                {/* 最低給与 */}
+                <div>
+                  <Label htmlFor="salaryMin" className="flex items-center">
+                    最低給与 <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  <Input
+                    id="salaryMin"
+                    name="salaryMin"
+                    value={formData.salaryMin}
+                    onChange={handleInputChange}
+                    className={`mt-1 ${errors.salaryMin ? "border-red-500" : ""}`}
+                    placeholder="例: 500"
+                  />
+                  {errors.salaryMin && <p className="text-sm text-red-500 mt-1">{errors.salaryMin}</p>}
+                </div>
+                {/* 最高給与 */}
+                <div>
+                  <Label htmlFor="salaryMax" className="flex items-center">
+                    最高給与 <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  <Input
+                    id="salaryMax"
+                    name="salaryMax"
+                    value={formData.salaryMax}
+                    onChange={handleInputChange}
+                    className={`mt-1 ${errors.salaryMax ? "border-red-500" : ""}`}
+                    placeholder="例: 800"
+                  />
+                  {errors.salaryMax && <p className="text-sm text-red-500 mt-1">{errors.salaryMax}</p>}
+                </div>
+              </>
+            )}
 
-            {/* 最高給与 */}
-            <div>
-              <Label htmlFor="salaryMax" className="flex items-center">
-                最高給与 <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="salaryMax"
-                name="salaryMax"
-                value={formData.salaryMax}
-                onChange={handleInputChange}
-                className={`mt-1 ${errors.salaryMax ? "border-red-500" : ""}`}
-                placeholder="例: 800"
-              />
-              {errors.salaryMax && <p className="text-sm text-red-500 mt-1">{errors.salaryMax}</p>}
-            </div>
+            {job.selectionType === "internship_short" && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="startDate">開始日</Label>
+                    <Input id="startDate" name="startDate" type="date"
+                      value={formData.startDate} onChange={handleInputChange} className="mt-1"/>
+                  </div>
+                  <div>
+                    <Label htmlFor="endDate">終了日</Label>
+                    <Input id="endDate" name="endDate" type="date"
+                      value={formData.endDate} onChange={handleInputChange} className="mt-1"/>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="durationWeeks">期間（週）</Label>
+                    <Input id="durationWeeks" name="durationWeeks"
+                      value={formData.durationWeeks} onChange={handleInputChange} className="mt-1"/>
+                  </div>
+                  <div>
+                    <Label htmlFor="workDaysPerWeek">週あたり勤務日数</Label>
+                    <Input id="workDaysPerWeek" name="workDaysPerWeek"
+                      value={formData.workDaysPerWeek} onChange={handleInputChange} className="mt-1"/>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="allowance">報酬・交通費</Label>
+                  <Input id="allowance" name="allowance"
+                    value={formData.allowance} onChange={handleInputChange} className="mt-1"/>
+                </div>
+              </>
+            )}
+
+            {job.selectionType === "event" && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="eventDate">開催日</Label>
+                    <Input id="eventDate" name="eventDate" type="date"
+                      value={formData.eventDate} onChange={handleInputChange} className="mt-1"/>
+                  </div>
+                  <div>
+                    <Label htmlFor="capacity">定員</Label>
+                    <Input id="capacity" name="capacity"
+                      value={formData.capacity} onChange={handleInputChange} className="mt-1"/>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="venue">会場 / URL</Label>
+                  <Input id="venue" name="venue"
+                    value={formData.venue} onChange={handleInputChange} className="mt-1"/>
+                </div>
+                <div>
+                  <Label htmlFor="format">開催形態</Label>
+                  <RadioGroup
+                    className="mt-2 flex gap-4"
+                    value={formData.format}
+                    onValueChange={(v) => setFormData((p) => ({ ...p, format: v }))}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <RadioGroupItem value="onsite" id="onsite" />
+                      <Label htmlFor="onsite">対面</Label>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <RadioGroupItem value="online" id="online" />
+                      <Label htmlFor="online">オンライン</Label>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <RadioGroupItem value="hybrid" id="hybrid" />
+                      <Label htmlFor="hybrid">ハイブリッド</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

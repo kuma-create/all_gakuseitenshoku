@@ -1,33 +1,15 @@
 /* ───────────────────────────────────────────────
-   app/job/[id]/page.tsx
-   - increment_job_view RPC で “1 ユーザー 1 日 1 カウント”
-   - JobDescription を dynamic import（初回 LCP を短縮）
-────────────────────────────────────────────── */
+   app/jobs/[id]/page.tsx  ― 学生向け選考詳細
+   2025‑05‑23  multi‑type (fulltime / internship / event) 対応
+──────────────────────────────────────────────── */
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import Link from "next/link"
 import dynamic from "next/dynamic"
-import Image from "next/image"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
-  Briefcase,
-  Building,
-  Calendar,
-  Check,
-  CheckCircle,
-  Clock,
-  ExternalLink,
-  FileText,
-  ListFilter,
   Loader2,
-  MapPin,
-  Plus,
-  Quote,
-  Send,
-  Share2,
-  Star,
-  Users,
   AlertCircle,
 } from "lucide-react"
 
@@ -35,110 +17,103 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   SkeletonBlock,
-  SkeletonText,
-  SkeletonCircle,
 } from "@/components/ui/skeleton"
 
-/* Supabase client（client component 用） */
-import { supabase } from "@/lib/supabase/client";  
+/* Supabase */
+import { supabase } from "@/lib/supabase/client"
+import type { Database } from "@/lib/supabase/types"
 
-/* 認証情報 ⇒ userType を取得 */
+/* 認証情報 */
 import { useAuth } from "@/lib/auth-context"
 
-/* ---------- JobDescription を動的に読み込む ---------- */
+/* dynamic import – heavy markdown description */
 const JobDescription = dynamic(() => import("./JobDescription"), {
   loading: () => <SkeletonBlock h={300} />,
   ssr: false,
 })
 
-/* ---------- 型（簡略） ---------- */
-type JobRow = any
-type CompanyRow = any
+/* Variant UIs */
+import { FulltimeInfo, InternInfo, EventInfo } from "./_variants"
 
-export default function JobDetailPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+/* ---------- 型 (簡略) ---------- */
+type SelectionRow = Database["public"]["Views"]["selections_view"]["Row"]
+type CompanyRow   = {
+  id: string
+  name: string | null
+  logo: string | null
+  cover_image_url: string | null
+}
+
+/* ---------- メイン ---------- */
+export default function JobDetailPage({ params }: { params: { id: string } }) {
   const { userType } = useAuth()
+  const router        = useRouter()
 
-  /* ------------ state ------------ */
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  /* ---------- state ---------- */
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
+  const [job, setJob]           = useState<SelectionRow | null>(null)
+  const [company, setCompany]   = useState<CompanyRow | null>(null)
+  const [tags, setTags]         = useState<string[]>([])
+  const [related, setRelated]   = useState<SelectionRow[]>([])
+  const [hasApplied, setHasApplied]     = useState(false)
+  const [showForm, setShowForm]         = useState(false)
 
-  const [job, setJob] = useState<JobRow | null>(null)
-  const [company, setCompany] = useState<CompanyRow | null>(null)
-  const [jobTags, setJobTags] = useState<string[]>([])
-  const [related, setRelated] = useState<any[]>([])
-  const [hasApplied, setHasApplied] = useState(false)
-  const [isInterested, setIsInterested] = useState(false)
-  const [showForm, setShowForm] = useState(false)
+  /* ---------- 1 user / day view count ---------- */
+  const trackView = useCallback(async (id: string) => {
+    if (userType !== "student") return
+    await supabase.rpc("increment_job_view", { _job_id: id })
+  }, [userType])
 
-  /* ---------- RPC: PV インクリメント ---------- */
-  const trackJobView = useCallback(
-    async (jobId: string) => {
-      if (userType !== "student") return
-      const { error } = await supabase.rpc("increment_job_view", {
-        _job_id: jobId,
-      })
-      if (error) console.error("PV カウント失敗:", error)
-    },
-    [userType],
-  )
-
-  /* ---------- データ取得 ---------- */
+  /* ---------- fetch ---------- */
   useEffect(() => {
     if (!params.id) return
     ;(async () => {
       try {
         setLoading(true)
 
-        /* Job + Company */
-        const { data: j, error: je } = await supabase
-          .from("jobs")
-          .select(
-            `
+        /* selection + company */
+        const { data: sel, error: selErr } = await supabase
+          .from("selections_view")
+          .select(`
             *,
             company:companies(
-              id,name,description,logo,cover_image_url,
-              industry,founded_year,employee_count,location,website
-            )
-          `,
-          )
+              id,name,logo,cover_image_url,industry,location,website
+            ),
+            internship:internship_details(*),
+            event:event_details(*)
+          `)
           .eq("id", params.id)
           .single()
-        if (je) throw je
-        if (!j) throw new Error("求人が見つかりませんでした")
 
-        /* Tags */
-        const { data: tags } = await supabase
+        if (selErr) throw selErr
+        if (!sel)  throw new Error("選考が見つかりませんでした")
+
+        /* tags */
+        const { data: tagRows } = await supabase
           .from("job_tags")
           .select("tag")
           .eq("job_id", params.id)
+        const tagList = tagRows?.map(t => t.tag) ?? []
 
-        /* PV カウント */
-        trackJobView(params.id)
+        /* related */
+        let rel: SelectionRow[] = []
+        if (sel.company_id) {
+          const { data: r } = await supabase
+            .from("selections_view")
+            .select(`id,title,location,salary_min,salary_max,selection_type,
+                     company:companies(name,logo)`)
+            .eq("company_id", sel.company_id)
+            .neq("id", params.id)
+            .limit(3)
+          rel = (r ?? []) as unknown as SelectionRow[]
+        }
 
-        /* 応募済みチェック */
-        const { data: { user } } = await supabase.auth.getUser()
+        /* applied? */
+        const { data:{ user } } = await supabase.auth.getUser()
         const { data: applied } = await supabase
           .from("applications")
           .select("id")
@@ -146,263 +121,120 @@ export default function JobDetailPage({
           .eq("student_id", user?.id ?? "")
           .maybeSingle()
 
-        /* Related jobs */
-        let rel: any[] = []
+        /* view count */
+        trackView(params.id)
 
-        if (j.company_id) {                              // 👈 null ガード
-          const { data: relData, error: relErr } = await supabase
-            .from("jobs")
-            .select(
-              `
-              id, title, location, salary_min, salary_max,
-              company:companies(name, logo)
-            `,
-            )
-            .eq("company_id", j.company_id)              // ← ここは string 確定
-            .neq("id", params.id)
-            .limit(3)
-        
-          if (relErr) console.error("related jobs error:", relErr)
-          rel = relData ?? []
-        }
-        
+        /* set */
+        setJob(sel)
+        setCompany(sel.company as CompanyRow)
+        setTags(tagList)
         setRelated(rel)
-
-        /* 興味あり localStorage */
-        const saved = JSON.parse(localStorage.getItem("savedJobs") || "[]")
-
-        /* state 反映 */
-        setJob(j)
-        setCompany(j.company)
-        setJobTags(tags?.map((t) => t.tag) ?? [])
-        setRelated(rel ?? [])
         setHasApplied(Boolean(applied))
-        setIsInterested(saved.includes(Number(params.id)))
-      } catch (e: any) {
+      } catch (e:any) {
         console.error(e)
-        setError(e.message ?? "求人取得に失敗しました")
+        setError(e.message ?? "取得に失敗しました")
       } finally {
         setLoading(false)
       }
     })()
-  }, [params.id, trackJobView])
+  }, [params.id, trackView])
 
-  /* ---------- 応募処理 ---------- */
+  /* ---------- apply ---------- */
   const handleApply = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data:{ user } } = await supabase.auth.getUser()
       if (!user) throw new Error("サインインが必要です")
-      const { error } = await supabase.from("applications").insert({
-        job_id: params.id,
-        student_id: user.id,
-        status: "applied",
-      })
-      if (error) throw error
+
+      if (job?.selection_type === "event") {
+        const participant: Database["public"]["Tables"]["event_participants"]["Insert"] = {
+          event_id   : params.id,
+          student_id : user.id,
+          status     : "reserved",
+        }
+        const { error } = await supabase.from("event_participants").insert(participant)
+        if (error) throw error
+      } else {
+        const appRow: Database["public"]["Tables"]["applications"]["Insert"] = {
+          job_id     : params.id,
+          student_id : user.id,
+        }
+        const { error } = await supabase.from("applications").insert(appRow)
+        if (error) throw error
+      }
       setHasApplied(true)
       setShowForm(false)
-    } catch (e) {
-      alert("応募に失敗しました")
+    } catch (e:any) {
+      alert(e.message ?? "応募に失敗しました")
     }
   }
 
-  /* ---------- 興味あり toggle ---------- */
-  const toggleSave = () => {
-    const saved: number[] = JSON.parse(localStorage.getItem("savedJobs") || "[]")
-    const next = isInterested
-      ? saved.filter((id) => id !== Number(params.id))
-      : [...saved, Number(params.id)]
-    localStorage.setItem("savedJobs", JSON.stringify(next))
-    setIsInterested(!isInterested)
-  }
-
-  /* ---------- Loading / Error ---------- */
-  if (loading)
+  /* ---------- ui: loading / error ---------- */
+  if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="mb-4 h-12 w-12 animate-spin text-red-500" />
-        <p className="text-lg font-medium text-gray-700">読み込み中…</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <Loader2 className="h-10 w-10 animate-spin text-red-500 mb-4" />
+        読み込み中…
       </div>
     )
-  if (error)
+  }
+  if (error || !job) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
         <Card className="max-w-md border-red-200 bg-red-50">
-          <CardContent className="space-y-4 p-6 text-center">
-            <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
-            <p className="font-medium text-red-800">{error}</p>
-            <Button onClick={() => history.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              戻る
+          <CardContent className="p-6 space-y-4 text-center">
+            <AlertCircle className="h-10 w-10 text-red-500 mx-auto" />
+            <p className="text-red-800 font-medium">
+              {error ?? "選考が見つかりませんでした"}
+            </p>
+            <Button onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> 戻る
             </Button>
           </CardContent>
         </Card>
       </div>
     )
-  if (!job) return null
+  }
 
-  /* ───────────────── JSX ───────────────── */
-  return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <main className="container mx-auto px-4 py-8">
-        {/* Back link */}
-        <div className="mb-6">
-          <Link
-            href="/jobs"
-            className="inline-flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-red-600"
-          >
-            <ArrowLeft size={14} /> 求人一覧に戻る
-          </Link>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* ===== LEFT column ===== */}
-          <div className="md:col-span-2">
-            {/* Header */}
-            <Card className="mb-6 overflow-hidden border-0 shadow-md">
-              <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90" />
-              <CardContent className="relative -mt-16 bg-white p-6">
-                <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                  <Image
-                    src={
-                      company?.logo ||
-                      "/placeholder.svg?height=128&width=128&text=Company"
-                    }
-                    alt="logo"
-                    width={80}
-                    height={80}
-                    className="rounded-xl border-4 border-white bg-white object-cover shadow-md"
-                  />
-                  <div className="flex-1">
-                    <h1 className="text-2xl font-bold">{job.title}</h1>
-                    <div className="mt-1 flex gap-2">
-                      <Link
-                        href={`/company/${company?.id}`}
-                        className="font-medium text-red-600 hover:underline"
-                      >
-                        {company?.name}
-                      </Link>
-                      {new Date(job.created_at).getTime() >
-                        Date.now() - 7 * 864e5 && (
-                        <Badge className="bg-red-500">新着</Badge>
-                      )}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {jobTags.map((t) => (
-                        <Badge
-                          key={t}
-                          variant="outline"
-                          className="bg-red-50 text-xs text-red-700"
-                        >
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* chips */}
-                <div className="grid gap-4 rounded-lg bg-gray-50 p-4 text-sm sm:grid-cols-2">
-                  {[
-                    ["勤務地", job.location, MapPin],
-                    ["勤務形態", job.work_style || "ハイブリッド", Building],
-                    [
-                      "給与",
-                      `年収${job.salary_min}〜${job.salary_max}万円`,
-                      Briefcase,
-                    ],
-                    [
-                      "応募締切",
-                      job.deadline
-                        ? new Date(job.deadline).toLocaleDateString("ja-JP")
-                        : "期限なし",
-                      Calendar,
-                    ],
-                  ].map(([label, val, Icon]) => (
-                    <div key={label as string} className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600">
-                        <Icon as any size={16} />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">{label}</p>
-                        <p className="font-medium">{val}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* JobDescription（動的 import） */}
-            <JobDescription html={job.description.replace(/\n/g, "<br />")} />
-
-            {/* 以下：Requirements / WorkingConditions など元コードそのまま */}
-            {/* … */}
-          </div>
-
-          {/* ===== RIGHT column ===== */}
-          <div className="space-y-6">
-            {/* Apply card */}
-            <Card className="sticky top-4 border-0 shadow-md">
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <div className="rounded-lg bg-red-50 p-4 text-center">
-                    <p className="font-bold text-red-700">
-                      この求人に興味がありますか？
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      応募はカンタン 1 分で完了
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-3">
-                    {hasApplied ? (
-                      <Button disabled className="w-full bg-green-600">
-                        <Check className="mr-1 h-4 w-4" />
-                        応募済み
-                      </Button>
-                    ) : job.status === "closed" ? (
-                      <Button disabled className="w-full bg-gray-400">
-                        募集終了
-                      </Button>
-                    ) : (
-                      <Button
-                        className="w-full bg-red-600"
-                        onClick={() => setShowForm(true)}
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        応募する
-                      </Button>
-                    )}
-
-                    <Button
-                      variant={isInterested ? "default" : "outline"}
-                      onClick={toggleSave}
-                      className={isInterested ? "bg-yellow-500" : ""}
-                    >
-                      <Star
-                        size={16}
-                        className={isInterested ? "fill-current" : ""}
-                      />
-                      {isInterested ? "興味あり済み" : "興味ありに登録"}
-                    </Button>
-
-                    <Button variant="outline">
-                      <Share2 size={16} /> シェア
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 企業情報 / 関連求人カード …（元コードをそのまま配置） */}
-          </div>
-        </div>
-
-        {/* 応募フォーム Dialog（元コードを使用） */}
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          {/* … */}
-        </Dialog>
-      </main>
-    </div>
-  )
+  /* ---------- variant render ---------- */
+  switch (job.selection_type as "fulltime" | "internship_short" | "event") {
+    case "internship_short":
+      return (
+        <InternInfo
+          job={job}
+          company={company!}
+          tags={tags}
+          related={related}
+          apply={handleApply}
+          hasApplied={hasApplied}
+          showForm={showForm}
+          setShowForm={setShowForm}
+        />
+      )
+    case "event":
+      return (
+        <EventInfo
+          job={job}
+          company={company!}
+          tags={tags}
+          related={related}
+          apply={handleApply}
+          hasApplied={hasApplied}
+          showForm={showForm}
+          setShowForm={setShowForm}
+        />
+      )
+    default:
+      return (
+        <FulltimeInfo
+          job={job}
+          company={company!}
+          tags={tags}
+          related={related}
+          apply={handleApply}
+          hasApplied={hasApplied}
+          showForm={showForm}
+          setShowForm={setShowForm}
+        />
+      )
+  }
 }

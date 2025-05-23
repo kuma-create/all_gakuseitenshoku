@@ -97,6 +97,7 @@ is_recommended,
 salary_min,
 salary_max,
 location,
+selection_type,
 cover_image_url,
 companies!jobs_company_id_fkey (
   name,
@@ -224,7 +225,7 @@ job_tags!job_tags_job_id_fkey (
             <div className="relative w-full md:max-w-md">
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="企業名、職種などで検索"
+                placeholder="企業名・職種・キーワード"
                 className="pl-10"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -500,6 +501,13 @@ function JobGrid({
                 />
               )}
               <div className="flex flex-1 flex-col gap-2 p-4">
+                <Badge variant="outline" className="mb-0.5 text-[10px]">
+                  {{
+                    fulltime: "本選考",
+                    internship_short: "インターン（短期）",
+                    event: "説明会／イベント",
+                  }[j.selection_type ?? "fulltime"]}
+                </Badge>
                 <h3 className="text-lg font-bold">{j.title}</h3>
                 <p className="text-sm text-gray-600">
                   {j.companies?.name ?? "-"} / {j.location}
@@ -554,6 +562,13 @@ function JobGrid({
               </div>
             )}
             <div className="p-4">
+              <Badge variant="outline" className="mb-0.5 text-[10px]">
+                {{
+                  fulltime: "本選考",
+                  internship_short: "インターン（短期）",
+                  event: "説明会／イベント",
+                }[j.selection_type ?? "fulltime"]}
+              </Badge>
               <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
               <p className="line-clamp-1 text-sm text-gray-600">
                 {j.companies?.name ?? "-"}

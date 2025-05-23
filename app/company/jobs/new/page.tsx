@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Save, MapPin, Calendar, DollarSign, Eye, EyeOff, Briefcase, Clock, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,12 @@ import { supabase } from "@/lib/supabase/client"
 import { useAuth }  from "@/lib/auth-context"
 
 export default function NewJobPage() {
+  const searchParams   = useSearchParams()
+  const selectionType  = (searchParams.get("type") ?? "fulltime") as
+    | "fulltime"
+    | "internship_short"
+    | "event"
+
   const router = useRouter()
   const { toast } = useToast()
   const { user }    = useAuth() 
@@ -25,6 +32,7 @@ export default function NewJobPage() {
   const [showSuccessOptions, setShowSuccessOptions] = useState(false)
 
   const [formData, setFormData] = useState({
+    /* 共通 */
     title: "",
     department: "",
     employmentType: "正社員",
@@ -36,8 +44,20 @@ export default function NewJobPage() {
     salary: "",
     benefits: "",
     applicationDeadline: "",
+    status: "非公開",
+
+    /* intern only */
     startDate: "",
-    status: "非公開", // Default to private
+    endDate: "",
+    durationWeeks: "",
+    workDaysPerWeek: "",
+    allowance: "",
+
+    /* event only */
+    eventDate: "",
+    capacity: "",
+    venue: "",
+    format: "onsite",
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -76,8 +96,10 @@ export default function NewJobPage() {
     if (!formData.title.trim()) newErrors.title = "求人タイトルを入力してください"
     if (!formData.description.trim()) newErrors.description = "職務内容を入力してください"
     if (!formData.location.trim()) newErrors.location = "勤務地を入力してください"
-    if (!formData.workingDays.trim()) newErrors.workingDays = "勤務日を入力してください"
-    if (!formData.salary.trim()) newErrors.salary = "給与を入力してください"
+    if (selectionType === "fulltime" && !formData.workingDays.trim())
+      newErrors.workingDays = "勤務日を入力してください"
+    if (selectionType === "fulltime" && !formData.salary.trim())
+      newErrors.salary = "給与を入力してください"
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -150,7 +172,7 @@ export default function NewJobPage() {
       const payload = {
         id                : crypto.randomUUID(),
         company_id        : companyId,
-        selection_type    : "fulltime",
+        selection_type    : selectionType,
         title             : formData.title,
         description       : formData.description,
         requirements      : formData.requirements || null,
@@ -193,7 +215,13 @@ export default function NewJobPage() {
             選考一覧へ戻る
           </Button>
 
-          <h1 className="text-2xl font-bold">新しい本選考を作成</h1>
+          <h1 className="text-2xl font-bold">
+            {selectionType === "internship_short"
+              ? "新しい短期インターンを作成"
+              : selectionType === "event"
+              ? "新しいイベントを作成"
+              : "新しい本選考を作成"}
+          </h1>
         </div>
 
         {showSuccessOptions ? (
@@ -218,7 +246,13 @@ export default function NewJobPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium">選考が作成されました</h3>
+                  <h3 className="text-lg font-medium">
+                    {selectionType === "internship_short"
+                      ? "インターンが作成されました"
+                      : selectionType === "event"
+                      ? "イベントが作成されました"
+                      : "選考が作成されました"}
+                  </h3>
                   <p className="text-sm text-muted-foreground mt-1">次に何をしますか？</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -228,6 +262,7 @@ export default function NewJobPage() {
                   <Button
                     onClick={() => {
                       setFormData({
+                        /* 共通 */
                         title: "",
                         department: "",
                         employmentType: "正社員",
@@ -239,14 +274,28 @@ export default function NewJobPage() {
                         salary: "",
                         benefits: "",
                         applicationDeadline: "",
-                        startDate: "",
                         status: "非公開",
+                        /* intern only */
+                        startDate: "",
+                        endDate: "",
+                        durationWeeks: "",
+                        workDaysPerWeek: "",
+                        allowance: "",
+                        /* event only */
+                        eventDate: "",
+                        capacity: "",
+                        venue: "",
+                        format: "onsite",
                       })
                       setShowSuccessOptions(false)
                     }}
                     className="w-full sm:w-auto"
                   >
-                    別の選考を作成
+                    {selectionType === "internship_short"
+                      ? "別のインターンを作成"
+                      : selectionType === "event"
+                      ? "別のイベントを作成"
+                      : "別の選考を作成"}
                   </Button>
                 </div>
               </div>
@@ -373,58 +422,64 @@ export default function NewJobPage() {
                   {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectionType !== "event" && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="workingDays" className="flex items-center gap-1">
+                          勤務日{selectionType === "fulltime" && <span className="text-red-500">*</span>}
+                        </Label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                          <Input
+                            id="workingDays"
+                            name="workingDays"
+                            value={formData.workingDays}
+                            onChange={handleInputChange}
+                            className={`pl-10 mt-1 ${errors.workingDays ? "border-red-500" : ""}`}
+                            placeholder="例: 月曜日〜金曜日（週休2日）"
+                          />
+                        </div>
+                        {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
+                      </div>
+
+                      <div>
+                        <Label htmlFor="workingHours">勤務時間</Label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                          <Input
+                            id="workingHours"
+                            name="workingHours"
+                            value={formData.workingHours}
+                            onChange={handleInputChange}
+                            className="pl-10 mt-1"
+                            placeholder="例: 9:00〜18:00（休憩1時間）"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {selectionType === "fulltime" && (
                   <div>
-                    <Label htmlFor="workingDays" className="flex items-center gap-1">
-                      勤務日<span className="text-red-500">*</span>
+                    <Label htmlFor="salary" className="flex items-center gap-1">
+                      給与<span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
                       <Input
-                        id="workingDays"
-                        name="workingDays"
-                        value={formData.workingDays}
+                        id="salary"
+                        name="salary"
+                        value={formData.salary}
                         onChange={handleInputChange}
-                        className={`pl-10 mt-1 ${errors.workingDays ? "border-red-500" : ""}`}
-                        placeholder="例: 月曜日〜金曜日（週休2日）"
+                        className={`pl-10 mt-1 ${errors.salary ? "border-red-500" : ""}`}
+                        placeholder="例: 年収500万円〜800万円"
                       />
                     </div>
-                    {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
+                    {errors.salary && <p className="text-sm text-red-500 mt-1">{errors.salary}</p>}
                   </div>
-
-                  <div>
-                    <Label htmlFor="workingHours">勤務時間</Label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                      <Input
-                        id="workingHours"
-                        name="workingHours"
-                        value={formData.workingHours}
-                        onChange={handleInputChange}
-                        className="pl-10 mt-1"
-                        placeholder="例: 9:00〜18:00（休憩1時間）"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="salary" className="flex items-center gap-1">
-                    給与<span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                    <Input
-                      id="salary"
-                      name="salary"
-                      value={formData.salary}
-                      onChange={handleInputChange}
-                      className={`pl-10 mt-1 ${errors.salary ? "border-red-500" : ""}`}
-                      placeholder="例: 年収500万円〜800万円"
-                    />
-                  </div>
-                  {errors.salary && <p className="text-sm text-red-500 mt-1">{errors.salary}</p>}
-                </div>
+                )}
 
                 <div>
                   <Label htmlFor="benefits">福利厚生</Label>
@@ -464,6 +519,85 @@ export default function NewJobPage() {
                     />
                   </div>
                 </div>
+
+                {/* intern only fields */}
+                {selectionType === "internship_short" && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="startDate">開始日</Label>
+                        <Input id="startDate" name="startDate" type="date"
+                          value={formData.startDate} onChange={handleInputChange} className="mt-1"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="endDate">終了日</Label>
+                        <Input id="endDate" name="endDate" type="date"
+                          value={formData.endDate} onChange={handleInputChange} className="mt-1"/>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="durationWeeks">期間（週）</Label>
+                        <Input id="durationWeeks" name="durationWeeks"
+                          value={formData.durationWeeks} onChange={handleInputChange} className="mt-1"
+                          placeholder="例: 2"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="workDaysPerWeek">週あたり勤務日数</Label>
+                        <Input id="workDaysPerWeek" name="workDaysPerWeek"
+                          value={formData.workDaysPerWeek} onChange={handleInputChange} className="mt-1"
+                          placeholder="例: 3"/>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="allowance">報酬・交通費</Label>
+                      <Input id="allowance" name="allowance"
+                        value={formData.allowance} onChange={handleInputChange} className="mt-1"
+                        placeholder="例: 日当1万円＋交通費支給"/>
+                    </div>
+                  </>
+                )}
+
+                {/* event only fields */}
+                {selectionType === "event" && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="eventDate">開催日</Label>
+                        <Input id="eventDate" name="eventDate" type="date"
+                          value={formData.eventDate} onChange={handleInputChange} className="mt-1"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="capacity">定員</Label>
+                        <Input id="capacity" name="capacity"
+                          value={formData.capacity} onChange={handleInputChange} className="mt-1"
+                          placeholder="例: 50"/>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="venue">会場 / URL</Label>
+                      <Input id="venue" name="venue"
+                        value={formData.venue} onChange={handleInputChange} className="mt-1"
+                        placeholder="例: 本社セミナールーム or Zoom URL"/>
+                    </div>
+                    <div>
+                      <Label htmlFor="format">開催形態</Label>
+                      <Select
+                        value={formData.format}
+                        onValueChange={(v) => handleSelectChange("format", v)}
+                      >
+                        <SelectTrigger id="format" className="mt-1">
+                          <SelectValue placeholder="形式を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="onsite">対面</SelectItem>
+                          <SelectItem value="online">オンライン</SelectItem>
+                          <SelectItem value="hybrid">ハイブリッド</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -521,7 +655,11 @@ export default function NewJobPage() {
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      選考を作成
+                      {selectionType === "internship_short"
+                        ? "インターンを作成"
+                        : selectionType === "event"
+                        ? "イベントを作成"
+                        : "選考を作成"}
                     </>
                   )}
                 </Button>
