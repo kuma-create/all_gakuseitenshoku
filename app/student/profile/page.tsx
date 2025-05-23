@@ -45,7 +45,7 @@ type FieldInputProps = {
   id: string
   label: string
   value: string | number
-  disabled: boolean
+  disabled?: boolean
   onChange: (v: string) => void
   type?: HTMLInputTypeAttribute
   placeholder?: string
@@ -53,7 +53,7 @@ type FieldInputProps = {
   error?: string
 }
 const FieldInput = ({
-  id, label, value, disabled, onChange,
+  id, label, value, disabled = false, onChange,
   type = "text", placeholder, required, error,
 }: FieldInputProps) => (
   <div className="space-y-1">
@@ -65,7 +65,7 @@ const FieldInput = ({
       placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`h-8 text-xs sm:h-10 sm:text-sm ${error ? "border-red-500" : ""} ${
-        value && !disabled ? "text-gray-900 font-medium" : ""
+        value ? "text-gray-900 font-medium" : ""
       } placeholder:text-gray-400`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
@@ -74,11 +74,11 @@ const FieldInput = ({
 
 type FieldTextareaProps = {
   id: string; label: string; value: string
-  disabled: boolean; onChange: (v: string) => void
+  disabled?: boolean; onChange: (v: string) => void
   rows?: number; max?: number; placeholder?: string; error?: string
 }
 const FieldTextarea = ({
-  id, label, value, disabled, onChange,
+  id, label, value, disabled = false, onChange,
   rows = 4, max, placeholder, error,
 }: FieldTextareaProps) => (
   <div className="space-y-1">
@@ -91,7 +91,7 @@ const FieldTextarea = ({
       placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`text-xs sm:text-sm ${error ? "border-red-500" : ""} ${
-        value && !disabled ? "text-gray-900 font-medium" : ""
+        value ? "text-gray-900 font-medium" : ""
       } placeholder:text-gray-400`}
     />
     {error && <p className="text-xs text-red-500">{error}</p>}
@@ -107,8 +107,13 @@ export default function StudentProfilePage() {
   const ready = useAuthGuard("student")
   const {
     data: profile, loading, error, saving,
-    editing, updateLocal, resetLocal, save,
+    updateLocal, save,
   } = useStudentProfile()
+  // 入力値を更新しつつ即保存するユーティリティ
+  const updateAndSave = (partial: Partial<typeof profile>) => {
+    updateLocal(partial);
+    void save();                      // 失敗時は既存 toast が catch
+  };
   const completionObj = useProfileCompletion()               // null | { score: number }
 
   /* ↓ ローカル UI 用フックも guard の前に置く ↓ */
@@ -152,12 +157,6 @@ export default function StudentProfilePage() {
     try {
       // まず DB にコミット
       await save()
-
-      // コミット成功後に編集モードを終了
-      updateLocal({ __editing: false })
-
-      // 最新データを取り込み
-      resetLocal()
 
       // 成功トースト
       toast({
@@ -329,8 +328,7 @@ export default function StudentProfilePage() {
                       label="姓"
                       required
                       value={profile.last_name ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ last_name: v })}
+                      onChange={(v) => updateAndSave({ last_name: v })}
                       error={fieldErrs.last_name}
                     />
                     <FieldInput
@@ -338,23 +336,20 @@ export default function StudentProfilePage() {
                       label="名"
                       required
                       value={profile.first_name ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ first_name: v })}
+                      onChange={(v) => updateAndSave({ first_name: v })}
                       error={fieldErrs.first_name}
                     />
                     <FieldInput
                       id="last_name_kana"
                       label="セイ"
                       value={profile.last_name_kana ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ last_name_kana: v })}
+                      onChange={(v) => updateAndSave({ last_name_kana: v })}
                     />
                     <FieldInput
                       id="first_name_kana"
                       label="メイ"
                       value={profile.first_name_kana ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ first_name_kana: v })}
+                      onChange={(v) => updateAndSave({ first_name_kana: v })}
                     />
                   </div>
 
@@ -362,8 +357,7 @@ export default function StudentProfilePage() {
                     id="phone"
                     label="電話番号"
                     value={profile.phone ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ phone: v })}
+                    onChange={(v) => updateAndSave({ phone: v })}
                   />
                   {/* 住所4項目 */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -371,45 +365,39 @@ export default function StudentProfilePage() {
                       id="postal_code"
                       label="郵便番号"
                       value={profile.postal_code ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ postal_code: v })}
+                      onChange={(v) => updateAndSave({ postal_code: v })}
                     />
                     <FieldInput
                       id="prefecture"
                       label="都道府県"
                       value={profile.prefecture ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ prefecture: v })}
+                      onChange={(v) => updateAndSave({ prefecture: v })}
                     />
                     <FieldInput
                       id="city"
                       label="市区町村"
                       value={profile.city ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ city: v })}
+                      onChange={(v) => updateAndSave({ city: v })}
                     />
                   </div>
                   <FieldInput
                     id="address_line"
                     label="番地・建物名など"
                     value={profile.address_line ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ address_line: v })}
+                    onChange={(v) => updateAndSave({ address_line: v })}
                   />
                   <FieldInput
                     id="hometown"
                     label="出身地"
                     value={profile.hometown ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ hometown: v })}
+                    onChange={(v) => updateAndSave({ hometown: v })}
                   />
                   <FieldInput
                     id="birth_date"
                     type="date"
                     label="生年月日"
                     value={profile.birth_date ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ birth_date: v })}
+                    onChange={(v) => updateAndSave({ birth_date: v })}
                     placeholder="YYYY-MM-DD"
                   />
                 </CardContent>
@@ -429,24 +417,21 @@ export default function StudentProfilePage() {
                     id="university"
                     label="大学名"
                     value={profile.university ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ university: v })}
+                    onChange={(v) => updateAndSave({ university: v })}
                     error={fieldErrs.university}
                   />
                   <FieldInput
                     id="faculty"
                     label="学部"
                     value={profile.faculty ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ faculty: v })}
+                    onChange={(v) => updateAndSave({ faculty: v })}
                     error={fieldErrs.faculty}
                   />
                   <FieldInput
                     id="department"
                     label="学科"
                     value={profile.department ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ department: v })}
+                    onChange={(v) => updateAndSave({ department: v })}
                   />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FieldInput
@@ -454,16 +439,14 @@ export default function StudentProfilePage() {
                       type="month"
                       label="入学年月"
                       value={profile.admission_month ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ admission_month: v })}
+                      onChange={(v) => updateAndSave({ admission_month: v })}
                     />
                     <FieldInput
                       id="graduation_year"
                       type="number"
                       label="卒業予定年"
                       value={profile.graduation_year ?? ''}
-                      disabled={!editing}
-                      onChange={(v) => updateLocal({ graduation_year: Number(v) || null })}
+                      onChange={(v) => updateAndSave({ graduation_year: Number(v) || null })}
                     />
                   </div>
                   <FieldInput
@@ -471,17 +454,15 @@ export default function StudentProfilePage() {
                     type="month"
                     label="卒業予定月"
                     value={profile.graduation_month ?? ''}
-                    disabled={!editing}
-                    onChange={(v) => updateLocal({ graduation_month: v })}
+                    onChange={(v) => updateAndSave({ graduation_month: v })}
                   />
                   <FieldTextarea
                     id="research_theme"
                     label="研究テーマ"
                     rows={3}
                     value={profile.research_theme ?? ''}
-                    disabled={!editing}
                     max={500}
-                    onChange={(v) => updateLocal({ research_theme: v })}
+                    onChange={(v) => updateAndSave({ research_theme: v })}
                   />
                 </CardContent>
               </Card>
@@ -501,10 +482,9 @@ export default function StudentProfilePage() {
                     label="スキル"
                     rows={3}
                     value={profile.skill_text ?? ''}
-                    disabled={!editing}
                     max={500}
                     placeholder="例: Java, Python, AWS, Figma..."
-                    onChange={(v) => updateLocal({ skill_text: v })}
+                    onChange={(v) => updateAndSave({ skill_text: v })}
                   />
                   {profile.skill_text && (
                     <TagPreview items={profile.skill_text.split(',')} color="blue" />
@@ -515,18 +495,16 @@ export default function StudentProfilePage() {
                     label="資格"
                     rows={3}
                     value={profile.qualification_text ?? ''}
-                    disabled={!editing}
                     max={500}
-                    onChange={(v) => updateLocal({ qualification_text: v })}
+                    onChange={(v) => updateAndSave({ qualification_text: v })}
                   />
                   <FieldTextarea
                     id="language_skill"
                     label="語学力"
                     rows={2}
                     value={profile.language_skill ?? ''}
-                    disabled={!editing}
                     max={300}
-                    onChange={(v) => updateLocal({ language_skill: v })}
+                    onChange={(v) => updateAndSave({ language_skill: v })}
                   />
                 </CardContent>
               </Card>
@@ -549,8 +527,7 @@ export default function StudentProfilePage() {
                 id="pr_title"
                 label="PR タイトル"
                 value={profile.pr_title ?? ''}
-                disabled={!editing}
-                onChange={(v) => updateLocal({ pr_title: v })}
+                onChange={(v) => updateAndSave({ pr_title: v })}
               />
               <FieldTextarea
                 id="about"
@@ -558,9 +535,8 @@ export default function StudentProfilePage() {
                 rows={2}
                 max={200}
                 value={profile.about ?? ''}
-                disabled={!editing}
                 placeholder="140文字以内で自己紹介"
-                onChange={(v) => updateLocal({ about: v })}
+                onChange={(v) => updateAndSave({ about: v })}
               />
               <FieldTextarea
                 id="pr_text"
@@ -568,9 +544,8 @@ export default function StudentProfilePage() {
                 rows={8}
                 max={800}
                 value={profile.pr_text ?? ''}
-                disabled={!editing}
                 placeholder="具体的なエピソードや成果を数字で示すと効果的です"
-                onChange={(v) => updateLocal({ pr_text: v })}
+                onChange={(v) => updateAndSave({ pr_text: v })}
                 error={fieldErrs.pr_text}
               />
 
@@ -584,9 +559,8 @@ export default function StudentProfilePage() {
                       id={`strength_${i}`}
                       label={`強み${i}`}
                       value={(profile as any)[`strength_${i}`] ?? ''}
-                      disabled={!editing}
                       placeholder="例: 問題解決力"
-                      onChange={(v) => updateLocal({ [`strength_${i}`]: v })}
+                      onChange={(v) => updateAndSave({ [`strength_${i}`]: v })}
                     />
                   ))}
                 </div>
@@ -598,8 +572,7 @@ export default function StudentProfilePage() {
                 rows={4}
                 max={600}
                 value={profile.motive ?? ''}
-                disabled={!editing}
-                onChange={(v) => updateLocal({ motive: v })}
+                onChange={(v) => updateAndSave({ motive: v })}
               />
               <TipBox />
             </CardContent>
@@ -620,35 +593,31 @@ export default function StudentProfilePage() {
                 id="work_style"
                 label="希望勤務形態"
                 value={profile.work_style ?? ''}
-                disabled={!editing}
                 placeholder="正社員 / インターン など"
-                onChange={(v) => updateLocal({ work_style: v })}
+                onChange={(v) => updateAndSave({ work_style: v })}
               />
               <FieldInput
                 id="salary_range"
                 label="希望年収"
                 value={profile.salary_range ?? ''}
-                disabled={!editing}
                 placeholder="400万〜500万"
-                onChange={(v) => updateLocal({ salary_range: v })}
+                onChange={(v) => updateAndSave({ salary_range: v })}
               />
 
               <FieldInput
                 id="employment_type"
                 label="雇用形態の希望"
                 value={profile.employment_type ?? ''}
-                disabled={!editing}
                 placeholder="正社員 / 契約社員 / インターン"
-                onChange={(v) => updateLocal({ employment_type: v })}
+                onChange={(v) => updateAndSave({ employment_type: v })}
               />
 
               <FieldInput
                 id="desired_positions"
                 label="希望ポジション（カンマ区切り）"
                 value={(profile.desired_positions ?? []).join(', ')}
-                disabled={!editing}
                 onChange={(v) =>
-                  updateLocal({
+                  updateAndSave({
                     desired_positions: v.split(',').map((s) => s.trim()).filter(Boolean),
                   })
                 }
@@ -661,10 +630,9 @@ export default function StudentProfilePage() {
                 id="work_style_options"
                 label="働き方オプション（カンマ区切り）"
                 value={(profile.work_style_options ?? []).join(', ')}
-                disabled={!editing}
                 placeholder="リモート可, フレックス など"
                 onChange={(v) =>
-                  updateLocal({
+                  updateAndSave({
                     work_style_options: v.split(',').map((s) => s.trim()).filter(Boolean),
                   })
                 }
@@ -683,9 +651,8 @@ export default function StudentProfilePage() {
                     ? profile.preferred_industries
                     : ""
                 }
-                disabled={!editing}
                 onChange={(v) =>
-                  updateLocal({
+                  updateAndSave({
                     preferred_industries: v
                       .split(",")
                       .map((s) => s.trim())
@@ -706,9 +673,8 @@ export default function StudentProfilePage() {
                   id="has_internship_experience"
                   type="checkbox"
                   checked={profile.has_internship_experience ?? false}
-                  disabled={!editing}
                   onChange={(e) =>
-                    updateLocal({ has_internship_experience: e.target.checked })
+                    updateAndSave({ has_internship_experience: e.target.checked })
                   }
                   className="h-4 w-4"
                 />
@@ -721,9 +687,8 @@ export default function StudentProfilePage() {
                 id="interests"
                 label="興味・関心（カンマ区切り）"
                 value={(profile.interests ?? []).join(', ')}
-                disabled={!editing}
                 onChange={(v) =>
-                  updateLocal({
+                  updateAndSave({
                     interests: v.split(',').map((s) => s.trim()).filter(Boolean),
                   })
                 }
@@ -737,9 +702,8 @@ export default function StudentProfilePage() {
                 id="desired_locations"
                 label="希望勤務地（カンマ区切り）"
                 value={(profile.desired_locations ?? []).join(', ')}
-                disabled={!editing}
                 onChange={(v) =>
-                  updateLocal({
+                  updateAndSave({
                     desired_locations: v
                       .split(',')
                       .map((s) => s.trim())
@@ -757,8 +721,7 @@ export default function StudentProfilePage() {
                 rows={4}
                 max={500}
                 value={profile.preference_note ?? ''}
-                disabled={!editing}
-                onChange={(v) => updateLocal({ preference_note: v })}
+                onChange={(v) => updateAndSave({ preference_note: v })}
               />
             </CardContent>
           </Card>
@@ -767,40 +730,15 @@ export default function StudentProfilePage() {
 
       {/* sticky footer -------------------------------------------------- */}
       <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
-        <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm">完成度 {completionScore}%</span>
-            <div className="h-1 w-24 rounded bg-gray-200">
-              <div
-                className={`h-full rounded ${getBarColor(completionScore)}`}
-                style={{ width: `${completionScore}%` }}
-              />
-            </div>
+        <div className="container mx-auto flex items-center gap-2">
+          <span className="text-xs sm:text-sm">完成度 {completionScore}%</span>
+          <div className="h-1 w-24 rounded bg-gray-200">
+            <div
+              className={`h-full rounded ${getBarColor(completionScore)}`}
+              style={{ width: `${completionScore}%` }}
+            />
           </div>
-
-          {editing ? (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={resetLocal} className="h-8 sm:h-10">
-                <X size={14} className="mr-1" /> キャンセル
-              </Button>
-              <Button onClick={handleSave} disabled={saving} className="h-8 sm:h-10">
-                {saving ? (
-                  <>
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
-                    保存中
-                  </>
-                ) : (
-                  <>
-                    <Save size={14} className="mr-1" /> 保存
-                  </>
-                )}
-              </Button>
-            </div>
-          ) : (
-            <Button onClick={() => updateLocal({ __editing: true })} className="h-8 sm:h-10">
-              <Edit size={14} className="mr-1" /> 編集
-            </Button>
-          )}
+          <span className="ml-auto text-xs text-gray-500">自動保存</span>
         </div>
       </footer>
 
