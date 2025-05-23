@@ -36,8 +36,9 @@ const studentMain: NavItem[] = [
 ];
 /* ---------- マイページ配下 ---------- */
 const studentSub: NavItem[] = [
+  { href: "/student-dashboard",          label: "マイページ",     icon: LayoutDashboard },
   { href: "/student/profile", label: "プロフィール", icon: User },
-  { href: "/resume",          label: "レジュメ",     icon: Briefcase },
+  { href: "/resume",          label: "職務経歴書",     icon: Briefcase },
 ];
 /* ---------- company / admin ---------- */
 const companyMain: NavItem[] = [
