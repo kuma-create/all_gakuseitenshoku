@@ -115,7 +115,6 @@ export default function StudentProfilePage() {
   const [tab, setTab] = useState<"basic" | "pr" | "pref">("basic")
   const [fieldErrs, setFieldErrs] =
     useState<Partial<Record<keyof FormValues, string>>>({})
-  const [savedToast, setSavedToast] = useState(false)
 
   const handleSave = async () => {
     /* 1) フロントバリデーション --------------------------- */
@@ -146,7 +145,11 @@ export default function StudentProfilePage() {
       // 最新データを取り込み
       resetLocal()
 
-      setSavedToast(true)
+      // 成功トースト
+      toast({
+        title: "保存しました",
+        variant: "default",
+      })
     } catch (err: any) {
       toast({
         title: "保存に失敗しました",
@@ -157,12 +160,6 @@ export default function StudentProfilePage() {
     }
   }
 
-  /* saved toast timer */
-  useEffect(() => {
-    if (!savedToast) return
-    const t = setTimeout(() => setSavedToast(false), 2500)
-    return () => clearTimeout(t)
-  }, [savedToast])
 
   /* 🚩 2) guard はフック呼び出しの **後ろ** なので常に同数のフック */
   if (!ready || loading) {
@@ -788,12 +785,6 @@ export default function StudentProfilePage() {
         </div>
       </footer>
 
-      {/* toast ------------------------------------------------------------ */}
-      {savedToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded bg-green-600 px-3 py-2 text-xs text-white shadow-md">
-          保存しました
-        </div>
-      )}
     </div>
   )
 }

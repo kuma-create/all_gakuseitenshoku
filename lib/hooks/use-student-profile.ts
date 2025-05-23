@@ -84,6 +84,7 @@ export function useStudentProfile() {
 
   /* save --------------------------------------------------------------- */
   const save = async () => {
+    console.debug("[useStudentProfile] save() start", data);
     setSaving(true); setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -99,14 +100,16 @@ export function useStudentProfile() {
         user_id: user.id,   // upsert 衝突キー
       });
 
-      const { error: upErr } = await supabase
+      const { data: upserted, error: upErr } = await supabase
         .from("student_profiles")
-        .upsert(payload, { onConflict: "user_id" });
+        .upsert(payload, { onConflict: "user_id" })
+        .select()
+        .single<Insert>();
 
       if (upErr) throw upErr;
 
-      // 保存成功 → 編集モード解除 & 再フェッチ
-      await fetchProfile();
+      // 保存成功 → 返ってきた行でローカルを即更新
+      setData({ ...upserted, __editing: false });
     } catch (e: any) {
       setError(e);
       throw e;                 // 呼び出し側 (handleSave) で捕捉
