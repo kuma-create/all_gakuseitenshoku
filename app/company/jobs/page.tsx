@@ -119,13 +119,37 @@ export default function CompanyJobsPage() {
 const companyId = companyRow.id    // ★ ここで変数を定義
 
 
-      /* ❷ 求人取得 */
-      const { data: jobsData, error: jobsErr } = await supabase
+      /* ❷ 選考取得（まず selections_view を試し、0 件なら旧 jobs にフォールバック） */
+      let { data: jobsData, error: jobsErr } = await supabase
         .from("selections_view")
         .select("*")
-        .eq("company_id", companyId)  
+        .eq("company_id", companyId)
 
       if (jobsErr) { setError(jobsErr.message); setLoading(false); return }
+
+      /* 旧テーブルにまだデータが残っている場合の救済 */
+      if (!jobsData || jobsData.length === 0) {
+        const { data: legacy, error: legacyErr } = await supabase
+          .from("jobs")
+          .select(`
+            id,
+            company_id,
+            title,
+            description,
+            location,
+            salary_min,
+            salary_max,
+            published,
+            published_until     as application_deadline,   -- 型合わせ
+            created_at,
+            work_type,
+            views
+          `)
+          .eq("company_id", companyId)
+
+        if (legacyErr) { setError(legacyErr.message); setLoading(false); return }
+        jobsData = legacy as any[]
+      }
 
       /* ❸ 応募数取得 */
       const { data: appsData, error: appsErr } = await supabase
