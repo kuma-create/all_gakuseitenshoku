@@ -76,7 +76,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         setLoading(true)
 
         /* selection + company */
-        const { data: sel, error: selErr } = await supabase
+        const { data: selRows, error: selErr } = await supabase
           .from("selections_view")
           .select(`
             *,
@@ -87,10 +87,14 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
             event:event_details(*)
           `)
           .eq("id", params.id)
-          .single()
+          .limit(1)              // まず 1 件に絞る
 
         if (selErr) throw selErr
-        if (!sel)  throw new Error("選考が見つかりませんでした")
+        if (!selRows || selRows.length === 0) {
+          throw new Error("選考が見つかりませんでした")
+        }
+
+        const sel = selRows[0] as SelectionRow
 
         /* tags */
         const { data: tagRows } = await supabase

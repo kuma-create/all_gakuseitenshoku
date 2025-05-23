@@ -494,22 +494,14 @@ export default function StudentProfilePage() {
                       onBlur={handleBlur}
                     />
                     <FieldInput
-                      id="graduation_year"
-                      type="number"
-                      label="卒業予定年"
-                      value={profile.graduation_year ?? ''}
-                      onChange={(v) => updateMark({ graduation_year: Number(v) || null })}
+                      id="graduation_month"
+                      type="month"
+                      label="卒業予定月"
+                      value={profile.graduation_month ?? ''}
+                      onChange={(v) => updateMark({ graduation_month: v })}
                       onBlur={handleBlur}
                     />
                   </div>
-                  <FieldInput
-                    id="graduation_month"
-                    type="month"
-                    label="卒業予定月"
-                    value={profile.graduation_month ?? ''}
-                    onChange={(v) => updateMark({ graduation_month: v })}
-                    onBlur={handleBlur}
-                  />
                   <FieldTextarea
                     id="research_theme"
                     label="研究テーマ"
