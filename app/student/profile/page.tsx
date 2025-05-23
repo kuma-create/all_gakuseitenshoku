@@ -40,6 +40,10 @@ const schema = z.object({
   pr_text   : z.string().max(800, "自己PRは800文字以内"),
 })
 
+/* ── suggestion master data ─*/
+const SKILL_OPTIONS = ["Java", "Python", "JavaScript", "TypeScript", "React", "AWS", "Figma"];
+const QUALIFICATION_OPTIONS = ["TOEIC 800", "基本情報技術者", "簿記2級", "AWS SAA", "応用情報技術者"];
+
 /* ── reusable field components ─────────────── */
 type FieldInputProps = {
   id: string
@@ -288,7 +292,7 @@ export default function StudentProfilePage() {
 
   /* ================= RENDER ========================================== */
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8 pb-36">
+    <div className="container mx-auto px-4 py-6 sm:py-8 pb-48">
       {/* ---------- header ---------- */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
@@ -528,28 +532,31 @@ export default function StudentProfilePage() {
             <CollapsibleContent className="animate-accordion-down">
               <Card className="border-t-0">
                 <CardContent className="space-y-4 p-4">
-                  <FieldTextarea
+                  <FieldInput
                     id="skill_text"
-                    label="スキル"
-                    rows={3}
+                    label="スキル（カンマ区切り）"
                     value={profile.skill_text ?? ''}
-                    max={500}
-                    placeholder="例: Java, Python, AWS, Figma..."
+                    placeholder="例: Java, Python, AWS"
                     onChange={(v) => updateMark({ skill_text: v })}
                     onBlur={handleBlur}
+                    type="text"
+                    // @ts-expect-error web only attr
+                    list="skillOptions"
                   />
                   {profile.skill_text && (
                     <TagPreview items={profile.skill_text.split(',')} color="blue" />
                   )}
 
-                  <FieldTextarea
+                  <FieldInput
                     id="qualification_text"
-                    label="資格"
-                    rows={3}
+                    label="資格（カンマ区切り）"
                     value={profile.qualification_text ?? ''}
-                    max={500}
+                    placeholder="例: 基本情報技術者, TOEIC 800"
                     onChange={(v) => updateMark({ qualification_text: v })}
                     onBlur={handleBlur}
+                    type="text"
+                    // @ts-expect-error web only attr
+                    list="qualificationOptions"
                   />
                   <FieldTextarea
                     id="language_skill"
@@ -810,6 +817,13 @@ export default function StudentProfilePage() {
         </div>
       </footer>
 
+      {/* datalist for autocomplete */}
+      <datalist id="skillOptions">
+        {SKILL_OPTIONS.map((s) => <option key={s} value={s} />)}
+      </datalist>
+      <datalist id="qualificationOptions">
+        {QUALIFICATION_OPTIONS.map((q) => <option key={q} value={q} />)}
+      </datalist>
     </div>
   )
 }
