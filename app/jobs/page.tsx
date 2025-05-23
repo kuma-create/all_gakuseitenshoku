@@ -97,7 +97,6 @@ is_recommended,
 salary_min,
 salary_max,
 location,
-selection_type:job_type,
 cover_image_url,
 companies!jobs_company_id_fkey (
   name,
@@ -117,11 +116,19 @@ job_tags!job_tags_job_id_fkey (
         console.error("jobs fetch error", error);
         setError("選考情報取得に失敗しました");
       } else {
-        const normalized = (data ?? []).map((row) => ({
-          ...row,
-          industry: row.companies?.industry ?? null,
-          tags: (row.job_tags ?? []).map((t) => t.tag),
-        }));
+        const normalized = (data ?? []).map((row) => {
+          // derive selection_type from work_type
+          let sel: JobRow["selection_type"] = "fulltime"
+          if (row.work_type?.includes("インターン")) sel = "internship_short"
+          else if (row.work_type?.includes("イベント") || row.work_type?.includes("説明会")) sel = "event"
+
+          return {
+            ...row,
+            selection_type: sel,
+            industry: row.companies?.industry ?? null,
+            tags: (row.job_tags ?? []).map((t) => t.tag),
+          }
+        });
         setJobs(normalized);
       }
       setLoading(false);
