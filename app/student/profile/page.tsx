@@ -126,7 +126,11 @@ export default function StudentProfilePage() {
         errs[e.path[0] as keyof FormValues] = e.message
       })
       setFieldErrs(errs)
-      toast({ title: "入力エラーがあります", variant: "destructive" })
+      toast({
+        title: "入力エラーがあります",
+        description: Object.values(errs).join(" / "),
+        variant: "destructive",
+      })
       return
     }
     setFieldErrs({})
@@ -212,6 +216,15 @@ export default function StudentProfilePage() {
     pref: pct(prefList),
   }
 
+  /* ── section error flags ───────────────────────────── */
+  const sectionError = {
+    basic: ['last_name', 'first_name', 'university', 'faculty']
+      .some(k => !!fieldErrs[k as keyof FormValues]),
+    pr   : ['pr_text']
+      .some(k => !!fieldErrs[k as keyof FormValues]),
+    pref : false, // 現状必須チェックなし
+  } as const;
+
   /* overall completion: simple average of three sections */
   const completionScore = Math.round(
     (sectionPct.basic + sectionPct.pr + sectionPct.pref) / 3
@@ -270,13 +283,13 @@ export default function StudentProfilePage() {
                 key={s}
                 className={`flex items-center justify-between rounded-md border p-2 text-xs ${
                   tab === s ? 'border-primary bg-primary/5' : 'border-gray-200'
-                }`}
+                } ${sectionError[s] ? 'border-red-500 text-red-600' : ''}`}
                 onClick={() => setTab(s)}
               >
                 <span className="flex items-center gap-1 text-muted-foreground">
                   {icons[s]} {names[s]}
                 </span>
-                <span className="flex items-center gap-1">
+                <span className={`flex items-center gap-1 ${sectionError[s] && 'text-red-600'}`}>
                   {pct}% <Status pct={pct} />
                 </span>
               </button>
