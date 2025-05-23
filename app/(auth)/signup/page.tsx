@@ -80,7 +80,25 @@ export default function SignupPage() {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "登録に失敗しました");
+
+      /* ---------------- duplicate email handling ---------------- */
+      if (!res.ok) {
+        const msg: string = json.error ?? "";
+        const isDuplicate =
+          res.status === 400 ||
+          res.status === 409 ||
+          /already/i.test(msg) ||
+          /exists/i.test(msg);
+
+        if (isDuplicate) {
+          // メールアドレス重複の場合はエラー文言を表示してログイン画面へ
+          setError("そのメールアドレスはすでに登録されています。ログインしてください。");
+          setTimeout(() => router.push("/login"), 1000);
+          return;
+        }
+
+        throw new Error(msg || "登録に失敗しました");
+      }
 
       /* 完了画面へ */
       setStep(2);

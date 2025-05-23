@@ -46,6 +46,7 @@ type CompanyRow   = {
   logo: string | null
   cover_image_url: string | null
 }
+type SelectionWithCompany = SelectionRow & { company?: CompanyRow | null }
 
 /* ---------- メイン ---------- */
 export default function JobDetailPage({ params }: { params: { id: string } }) {
@@ -55,7 +56,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
   /* ---------- state ---------- */
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
-  const [job, setJob]           = useState<SelectionRow | null>(null)
+  const [job, setJob]           = useState<SelectionWithCompany | null>(null)
   const [company, setCompany]   = useState<CompanyRow | null>(null)
   const [tags, setTags]         = useState<string[]>([])
   const [related, setRelated]   = useState<SelectionRow[]>([])
@@ -94,7 +95,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           throw new Error("選考が見つかりませんでした")
         }
 
-        const sel = selRows[0] as SelectionRow
+        const sel = selRows[0] as SelectionWithCompany
 
         /* tags */
         const { data: tagRows } = await supabase
@@ -130,7 +131,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
         /* set */
         setJob(sel)
-        setCompany(sel.company as CompanyRow)
+        setCompany(sel.company ?? null)
         setTags(tagList)
         setRelated(rel)
         setHasApplied(Boolean(applied))

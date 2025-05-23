@@ -38,10 +38,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: createErr?.message }, { status: 400 });
   }
 
-  /* 4) role を student に更新（auth.users は自動生成型に無いので ts-ignore） */
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  await supabase.from("auth.users").update({ role: "student" }).eq("id", created.user.id);
+  /* 4) user_roles に student を INSERT ----------------------------- */
+  const { error: roleErr } = await supabase
+    .from("user_roles")
+    .insert({ user_id: created.user.id, role: "student" });
+
+  if (roleErr) {
+    return NextResponse.json({ error: roleErr.message }, { status: 500 });
+  }
 
   /* 5) Magic Link 生成 (#access_token & refresh_token 付き) ----------- */
   const { data: linkData, error: linkErr } =
