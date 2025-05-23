@@ -97,7 +97,7 @@ is_recommended,
 salary_min,
 salary_max,
 location,
-selection_type,
+job_type as selection_type,
 cover_image_url,
 companies!jobs_company_id_fkey (
   name,
