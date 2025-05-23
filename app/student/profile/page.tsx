@@ -3,7 +3,7 @@
 ─────────────────────────────────────────────── */
 "use client"
 
-import { useState, useEffect, HTMLInputTypeAttribute } from "react"
+import { useState, useEffect, useRef, HTMLInputTypeAttribute } from "react"
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
   GraduationCap, Code, ChevronUp, Info, Loader2,
@@ -47,13 +47,14 @@ type FieldInputProps = {
   value: string | number
   disabled?: boolean
   onChange: (v: string) => void
+  onBlur?: () => void
   type?: HTMLInputTypeAttribute
   placeholder?: string
   required?: boolean
   error?: string
 }
 const FieldInput = ({
-  id, label, value, disabled = false, onChange,
+  id, label, value, disabled = false, onChange, onBlur,
   type = "text", placeholder, required, error,
 }: FieldInputProps) => (
   <div className="space-y-1">
@@ -64,6 +65,7 @@ const FieldInput = ({
       id={id} type={type} disabled={disabled}
       placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
       className={`h-8 text-xs sm:h-10 sm:text-sm ${error ? "border-red-500" : ""} ${
         value ? "text-gray-900 font-medium" : ""
       } placeholder:text-gray-400`}
@@ -75,10 +77,11 @@ const FieldInput = ({
 type FieldTextareaProps = {
   id: string; label: string; value: string
   disabled?: boolean; onChange: (v: string) => void
+  onBlur?: () => void
   rows?: number; max?: number; placeholder?: string; error?: string
 }
 const FieldTextarea = ({
-  id, label, value, disabled = false, onChange,
+  id, label, value, disabled = false, onChange, onBlur,
   rows = 4, max, placeholder, error,
 }: FieldTextareaProps) => (
   <div className="space-y-1">
@@ -90,6 +93,7 @@ const FieldTextarea = ({
       id={id} rows={rows} maxLength={max} disabled={disabled}
       placeholder={placeholder} value={value}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
       className={`text-xs sm:text-sm ${error ? "border-red-500" : ""} ${
         value ? "text-gray-900 font-medium" : ""
       } placeholder:text-gray-400`}
@@ -109,11 +113,40 @@ export default function StudentProfilePage() {
     data: profile, loading, error, saving,
     updateLocal, save,
   } = useStudentProfile()
-  // 入力値を更新しつつ即保存するユーティリティ
-  const updateAndSave = (partial: Partial<typeof profile>) => {
-    updateLocal(partial);
-    void save();                      // 失敗時は既存 toast が catch
-  };
+  // dirtyRef, updateMark, handleBlur
+  const dirtyRef = useRef(false)
+
+  // 値を変更 → ローカルだけ更新し dirty フラグ
+  const updateMark = (partial: Partial<typeof profile>) => {
+    updateLocal(partial)
+    dirtyRef.current = true
+  }
+
+  // フォーカスアウトかナビゲーション時に呼び出し
+  const handleBlur = async () => {
+    if (!dirtyRef.current) return
+    dirtyRef.current = false
+    try {
+      await save()
+    } catch (e: any) {
+      toast({
+        title: "保存に失敗しました",
+        description: e?.message ?? "ネットワークまたはサーバーエラー",
+        variant: "destructive",
+      })
+    }
+  }
+  // Save before unload / route change
+  useEffect(() => {
+    const fn = () => {
+      if (dirtyRef.current) {
+        // fire and forget; cannot await in beforeunload
+        save()
+      }
+    }
+    window.addEventListener("beforeunload", fn)
+    return () => window.removeEventListener("beforeunload", fn)
+  }, [save])
   const completionObj = useProfileCompletion()               // null | { score: number }
 
   /* ↓ ローカル UI 用フックも guard の前に置く ↓ */
@@ -328,7 +361,8 @@ export default function StudentProfilePage() {
                       label="姓"
                       required
                       value={profile.last_name ?? ''}
-                      onChange={(v) => updateAndSave({ last_name: v })}
+                      onChange={(v) => updateMark({ last_name: v })}
+                      onBlur={handleBlur}
                       error={fieldErrs.last_name}
                     />
                     <FieldInput
@@ -336,20 +370,23 @@ export default function StudentProfilePage() {
                       label="名"
                       required
                       value={profile.first_name ?? ''}
-                      onChange={(v) => updateAndSave({ first_name: v })}
+                      onChange={(v) => updateMark({ first_name: v })}
+                      onBlur={handleBlur}
                       error={fieldErrs.first_name}
                     />
                     <FieldInput
                       id="last_name_kana"
                       label="セイ"
                       value={profile.last_name_kana ?? ''}
-                      onChange={(v) => updateAndSave({ last_name_kana: v })}
+                      onChange={(v) => updateMark({ last_name_kana: v })}
+                      onBlur={handleBlur}
                     />
                     <FieldInput
                       id="first_name_kana"
                       label="メイ"
                       value={profile.first_name_kana ?? ''}
-                      onChange={(v) => updateAndSave({ first_name_kana: v })}
+                      onChange={(v) => updateMark({ first_name_kana: v })}
+                      onBlur={handleBlur}
                     />
                   </div>
 
@@ -357,7 +394,8 @@ export default function StudentProfilePage() {
                     id="phone"
                     label="電話番号"
                     value={profile.phone ?? ''}
-                    onChange={(v) => updateAndSave({ phone: v })}
+                    onChange={(v) => updateMark({ phone: v })}
+                    onBlur={handleBlur}
                   />
                   {/* 住所4項目 */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -365,39 +403,45 @@ export default function StudentProfilePage() {
                       id="postal_code"
                       label="郵便番号"
                       value={profile.postal_code ?? ''}
-                      onChange={(v) => updateAndSave({ postal_code: v })}
+                      onChange={(v) => updateMark({ postal_code: v })}
+                      onBlur={handleBlur}
                     />
                     <FieldInput
                       id="prefecture"
                       label="都道府県"
                       value={profile.prefecture ?? ''}
-                      onChange={(v) => updateAndSave({ prefecture: v })}
+                      onChange={(v) => updateMark({ prefecture: v })}
+                      onBlur={handleBlur}
                     />
                     <FieldInput
                       id="city"
                       label="市区町村"
                       value={profile.city ?? ''}
-                      onChange={(v) => updateAndSave({ city: v })}
+                      onChange={(v) => updateMark({ city: v })}
+                      onBlur={handleBlur}
                     />
                   </div>
                   <FieldInput
                     id="address_line"
                     label="番地・建物名など"
                     value={profile.address_line ?? ''}
-                    onChange={(v) => updateAndSave({ address_line: v })}
+                    onChange={(v) => updateMark({ address_line: v })}
+                    onBlur={handleBlur}
                   />
                   <FieldInput
                     id="hometown"
                     label="出身地"
                     value={profile.hometown ?? ''}
-                    onChange={(v) => updateAndSave({ hometown: v })}
+                    onChange={(v) => updateMark({ hometown: v })}
+                    onBlur={handleBlur}
                   />
                   <FieldInput
                     id="birth_date"
                     type="date"
                     label="生年月日"
                     value={profile.birth_date ?? ''}
-                    onChange={(v) => updateAndSave({ birth_date: v })}
+                    onChange={(v) => updateMark({ birth_date: v })}
+                    onBlur={handleBlur}
                     placeholder="YYYY-MM-DD"
                   />
                 </CardContent>
@@ -417,21 +461,24 @@ export default function StudentProfilePage() {
                     id="university"
                     label="大学名"
                     value={profile.university ?? ''}
-                    onChange={(v) => updateAndSave({ university: v })}
+                    onChange={(v) => updateMark({ university: v })}
+                    onBlur={handleBlur}
                     error={fieldErrs.university}
                   />
                   <FieldInput
                     id="faculty"
                     label="学部"
                     value={profile.faculty ?? ''}
-                    onChange={(v) => updateAndSave({ faculty: v })}
+                    onChange={(v) => updateMark({ faculty: v })}
+                    onBlur={handleBlur}
                     error={fieldErrs.faculty}
                   />
                   <FieldInput
                     id="department"
                     label="学科"
                     value={profile.department ?? ''}
-                    onChange={(v) => updateAndSave({ department: v })}
+                    onChange={(v) => updateMark({ department: v })}
+                    onBlur={handleBlur}
                   />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FieldInput
@@ -439,14 +486,16 @@ export default function StudentProfilePage() {
                       type="month"
                       label="入学年月"
                       value={profile.admission_month ?? ''}
-                      onChange={(v) => updateAndSave({ admission_month: v })}
+                      onChange={(v) => updateMark({ admission_month: v })}
+                      onBlur={handleBlur}
                     />
                     <FieldInput
                       id="graduation_year"
                       type="number"
                       label="卒業予定年"
                       value={profile.graduation_year ?? ''}
-                      onChange={(v) => updateAndSave({ graduation_year: Number(v) || null })}
+                      onChange={(v) => updateMark({ graduation_year: Number(v) || null })}
+                      onBlur={handleBlur}
                     />
                   </div>
                   <FieldInput
@@ -454,7 +503,8 @@ export default function StudentProfilePage() {
                     type="month"
                     label="卒業予定月"
                     value={profile.graduation_month ?? ''}
-                    onChange={(v) => updateAndSave({ graduation_month: v })}
+                    onChange={(v) => updateMark({ graduation_month: v })}
+                    onBlur={handleBlur}
                   />
                   <FieldTextarea
                     id="research_theme"
@@ -462,7 +512,8 @@ export default function StudentProfilePage() {
                     rows={3}
                     value={profile.research_theme ?? ''}
                     max={500}
-                    onChange={(v) => updateAndSave({ research_theme: v })}
+                    onChange={(v) => updateMark({ research_theme: v })}
+                    onBlur={handleBlur}
                   />
                 </CardContent>
               </Card>
@@ -484,7 +535,8 @@ export default function StudentProfilePage() {
                     value={profile.skill_text ?? ''}
                     max={500}
                     placeholder="例: Java, Python, AWS, Figma..."
-                    onChange={(v) => updateAndSave({ skill_text: v })}
+                    onChange={(v) => updateMark({ skill_text: v })}
+                    onBlur={handleBlur}
                   />
                   {profile.skill_text && (
                     <TagPreview items={profile.skill_text.split(',')} color="blue" />
@@ -496,7 +548,8 @@ export default function StudentProfilePage() {
                     rows={3}
                     value={profile.qualification_text ?? ''}
                     max={500}
-                    onChange={(v) => updateAndSave({ qualification_text: v })}
+                    onChange={(v) => updateMark({ qualification_text: v })}
+                    onBlur={handleBlur}
                   />
                   <FieldTextarea
                     id="language_skill"
@@ -504,7 +557,8 @@ export default function StudentProfilePage() {
                     rows={2}
                     value={profile.language_skill ?? ''}
                     max={300}
-                    onChange={(v) => updateAndSave({ language_skill: v })}
+                    onChange={(v) => updateMark({ language_skill: v })}
+                    onBlur={handleBlur}
                   />
                 </CardContent>
               </Card>
@@ -527,7 +581,8 @@ export default function StudentProfilePage() {
                 id="pr_title"
                 label="PR タイトル"
                 value={profile.pr_title ?? ''}
-                onChange={(v) => updateAndSave({ pr_title: v })}
+                onChange={(v) => updateMark({ pr_title: v })}
+                onBlur={handleBlur}
               />
               <FieldTextarea
                 id="about"
@@ -536,7 +591,8 @@ export default function StudentProfilePage() {
                 max={200}
                 value={profile.about ?? ''}
                 placeholder="140文字以内で自己紹介"
-                onChange={(v) => updateAndSave({ about: v })}
+                onChange={(v) => updateMark({ about: v })}
+                onBlur={handleBlur}
               />
               <FieldTextarea
                 id="pr_text"
@@ -545,7 +601,8 @@ export default function StudentProfilePage() {
                 max={800}
                 value={profile.pr_text ?? ''}
                 placeholder="具体的なエピソードや成果を数字で示すと効果的です"
-                onChange={(v) => updateAndSave({ pr_text: v })}
+                onChange={(v) => updateMark({ pr_text: v })}
+                onBlur={handleBlur}
                 error={fieldErrs.pr_text}
               />
 
@@ -560,7 +617,8 @@ export default function StudentProfilePage() {
                       label={`強み${i}`}
                       value={(profile as any)[`strength_${i}`] ?? ''}
                       placeholder="例: 問題解決力"
-                      onChange={(v) => updateAndSave({ [`strength_${i}`]: v })}
+                      onChange={(v) => updateMark({ [`strength_${i}`]: v })}
+                      onBlur={handleBlur}
                     />
                   ))}
                 </div>
@@ -572,7 +630,8 @@ export default function StudentProfilePage() {
                 rows={4}
                 max={600}
                 value={profile.motive ?? ''}
-                onChange={(v) => updateAndSave({ motive: v })}
+                onChange={(v) => updateMark({ motive: v })}
+                onBlur={handleBlur}
               />
               <TipBox />
             </CardContent>
@@ -594,14 +653,16 @@ export default function StudentProfilePage() {
                 label="希望勤務形態"
                 value={profile.work_style ?? ''}
                 placeholder="正社員 / インターン など"
-                onChange={(v) => updateAndSave({ work_style: v })}
+                onChange={(v) => updateMark({ work_style: v })}
+                onBlur={handleBlur}
               />
               <FieldInput
                 id="salary_range"
                 label="希望年収"
                 value={profile.salary_range ?? ''}
                 placeholder="400万〜500万"
-                onChange={(v) => updateAndSave({ salary_range: v })}
+                onChange={(v) => updateMark({ salary_range: v })}
+                onBlur={handleBlur}
               />
 
               <FieldInput
@@ -609,7 +670,8 @@ export default function StudentProfilePage() {
                 label="雇用形態の希望"
                 value={profile.employment_type ?? ''}
                 placeholder="正社員 / 契約社員 / インターン"
-                onChange={(v) => updateAndSave({ employment_type: v })}
+                onChange={(v) => updateMark({ employment_type: v })}
+                onBlur={handleBlur}
               />
 
               <FieldInput
@@ -617,10 +679,11 @@ export default function StudentProfilePage() {
                 label="希望ポジション（カンマ区切り）"
                 value={(profile.desired_positions ?? []).join(', ')}
                 onChange={(v) =>
-                  updateAndSave({
+                  updateMark({
                     desired_positions: v.split(',').map((s) => s.trim()).filter(Boolean),
                   })
                 }
+                onBlur={handleBlur}
               />
               {profile.desired_positions?.length ? (
                 <TagPreview items={profile.desired_positions} color="blue" />
@@ -632,10 +695,11 @@ export default function StudentProfilePage() {
                 value={(profile.work_style_options ?? []).join(', ')}
                 placeholder="リモート可, フレックス など"
                 onChange={(v) =>
-                  updateAndSave({
+                  updateMark({
                     work_style_options: v.split(',').map((s) => s.trim()).filter(Boolean),
                   })
                 }
+                onBlur={handleBlur}
               />
               {profile.work_style_options?.length ? (
                 <TagPreview items={profile.work_style_options} color="purple" />
@@ -652,13 +716,14 @@ export default function StudentProfilePage() {
                     : ""
                 }
                 onChange={(v) =>
-                  updateAndSave({
+                  updateMark({
                     preferred_industries: v
                       .split(",")
                       .map((s) => s.trim())
                       .filter(Boolean),
                   })
                 }
+                onBlur={handleBlur}
               />
               {Array.isArray(profile.preferred_industries) &&
               profile.preferred_industries.length ? (
@@ -674,7 +739,7 @@ export default function StudentProfilePage() {
                   type="checkbox"
                   checked={profile.has_internship_experience ?? false}
                   onChange={(e) =>
-                    updateAndSave({ has_internship_experience: e.target.checked })
+                    updateMark({ has_internship_experience: e.target.checked })
                   }
                   className="h-4 w-4"
                 />
@@ -688,10 +753,11 @@ export default function StudentProfilePage() {
                 label="興味・関心（カンマ区切り）"
                 value={(profile.interests ?? []).join(', ')}
                 onChange={(v) =>
-                  updateAndSave({
+                  updateMark({
                     interests: v.split(',').map((s) => s.trim()).filter(Boolean),
                   })
                 }
+                onBlur={handleBlur}
               />
               {profile.interests?.length ? (
                 <TagPreview items={profile.interests} color="blue" />
@@ -703,13 +769,14 @@ export default function StudentProfilePage() {
                 label="希望勤務地（カンマ区切り）"
                 value={(profile.desired_locations ?? []).join(', ')}
                 onChange={(v) =>
-                  updateAndSave({
+                  updateMark({
                     desired_locations: v
                       .split(',')
                       .map((s) => s.trim())
                       .filter(Boolean),
                   })
                 }
+                onBlur={handleBlur}
               />
               {profile.desired_locations?.length ? (
                 <TagPreview items={profile.desired_locations} color="purple" />
@@ -721,7 +788,8 @@ export default function StudentProfilePage() {
                 rows={4}
                 max={500}
                 value={profile.preference_note ?? ''}
-                onChange={(v) => updateAndSave({ preference_note: v })}
+                onChange={(v) => updateMark({ preference_note: v })}
+                onBlur={handleBlur}
               />
             </CardContent>
           </Card>
