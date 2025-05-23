@@ -140,7 +140,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
             salary_min,
             salary_max,
             published,
-            published_until     as application_deadline,   -- 型合わせ
+            application_deadline:published_until,
             created_at,
             work_type,
             views

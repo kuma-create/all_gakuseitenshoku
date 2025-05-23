@@ -93,7 +93,7 @@ title,
 description,
 created_at,
 work_type,
-selection_type,          -- ★ 追加
+selection_type,
 is_recommended,
 salary_min,
 salary_max,
