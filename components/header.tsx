@@ -29,7 +29,7 @@ type NavItem = { href: string; label: string; icon: React.ElementType };
 /* ---------- student 用メインメニュー ---------- */
 const studentMain: NavItem[] = [
   { href: "/student-dashboard", label: "マイページ", icon: LayoutDashboard },
-  { href: "/jobs",              label: "求人",       icon: Search },
+  { href: "/jobs",              label: "選考",       icon: Search },
   { href: "/student/scouts",    label: "スカウト",   icon: Mail },
   { href: "/chat",              label: "チャット",   icon: MessageSquare },
   { href: "/grandprix",         label: "就活GP",    icon: Trophy },
@@ -42,7 +42,7 @@ const studentSub: NavItem[] = [
 /* ---------- company / admin ---------- */
 const companyMain: NavItem[] = [
   { href: "/company-dashboard", label: "マイページ", icon: LayoutDashboard },
-  { href: "/company/jobs",      label: "求人管理",   icon: Briefcase },
+  { href: "/company/jobs",      label: "求人・選考管理",   icon: Briefcase },
   { href: "/company/scout",             label: "スカウト",   icon: Mail },
   { href: "/company/chat",              label: "チャット",   icon: MessageSquare },
   { href: "/company/analytics",              label: "アナリティクス",   icon: MessageSquare },

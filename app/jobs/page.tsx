@@ -105,7 +105,7 @@ job_tags!job_tags_job_id_fkey (
 
       if (error) {
         console.error("jobs fetch error", error);
-        setError("求人取得に失敗しました");
+        setError("選考情報取得に失敗しました");
       } else {
         const normalized = (data ?? []).map((row) => ({
           ...row,
@@ -197,8 +197,8 @@ job_tags!job_tags_job_id_fkey (
       {/* hero */}
       <header className="bg-gradient-to-r from-red-500 to-red-700 py-8">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-white">求人一覧</h1>
-          <p className="text-white/90">あなたにぴったりの求人を探しましょう</p>
+          <h1 className="text-3xl font-bold text-white">選考一覧</h1>
+          <p className="text-white/90">あなたにぴったりの会社を探しましょう</p>
 
           {/* search & toggles */}
           <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
@@ -427,7 +427,7 @@ function JobGrid({
   toggleSave: (id: string) => void;
   tagColor: (t: string) => string;
 }) {
-  if (!jobs.length) return <p className="text-center text-gray-500">該当する求人がありません</p>;
+  if (!jobs.length) return <p className="text-center text-gray-500">該当する選考情報がありません</p>;
 
   if (view === "list") {
     return (
