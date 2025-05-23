@@ -116,23 +116,37 @@ export default function StudentProfilePage() {
   const [fieldErrs, setFieldErrs] =
     useState<Partial<Record<keyof FormValues, string>>>({})
 
+  /* ── required keys per tab (saving scope) ─────────────────────────── */
+  const TAB_REQUIRED: Record<typeof tab, (keyof FormValues)[]> = {
+    basic: ['last_name', 'first_name', 'university', 'faculty'],
+    pr   : ['pr_text'],
+    pref : [],
+  };
+
   const handleSave = async () => {
-    /* 1) フロントバリデーション --------------------------- */
-    const parsed = schema.safeParse(profile)
+    /* 1) フロントバリデーション（現在タブのみ） ----------- */
+    const parsed = schema.safeParse(profile);
     if (!parsed.success) {
-      const errs: typeof fieldErrs = {}
-      parsed.error.errors.forEach(e => {
-        errs[e.path[0] as keyof FormValues] = e.message
-      })
-      setFieldErrs(errs)
-      toast({
-        title: "入力エラーがあります",
-        description: Object.values(errs).join(" / "),
-        variant: "destructive",
-      })
-      return
+      const reqKeys   = TAB_REQUIRED[tab];
+      const errs: typeof fieldErrs = {};
+      parsed.error.errors
+        .filter(e => reqKeys.includes(e.path[0] as keyof FormValues))
+        .forEach(e => {
+          errs[e.path[0] as keyof FormValues] = e.message;
+        });
+
+      if (Object.keys(errs).length) {
+        setFieldErrs(errs);
+        toast({
+          title: "入力エラーがあります",
+          description: Object.values(errs).join(" / "),
+          variant: "destructive",
+        });
+        return;
+      }
     }
-    setFieldErrs({})
+    /* エラーなし or 他タブのみ → クリア */
+    setFieldErrs({});
 
     /* 2) 保存実行 ----------------------------------------- */
     try {
@@ -317,6 +331,7 @@ export default function StudentProfilePage() {
                       value={profile.last_name ?? ''}
                       disabled={!editing}
                       onChange={(v) => updateLocal({ last_name: v })}
+                      error={fieldErrs.last_name}
                     />
                     <FieldInput
                       id="first_name"
@@ -325,6 +340,7 @@ export default function StudentProfilePage() {
                       value={profile.first_name ?? ''}
                       disabled={!editing}
                       onChange={(v) => updateLocal({ first_name: v })}
+                      error={fieldErrs.first_name}
                     />
                     <FieldInput
                       id="last_name_kana"
@@ -415,6 +431,7 @@ export default function StudentProfilePage() {
                     value={profile.university ?? ''}
                     disabled={!editing}
                     onChange={(v) => updateLocal({ university: v })}
+                    error={fieldErrs.university}
                   />
                   <FieldInput
                     id="faculty"
@@ -422,6 +439,7 @@ export default function StudentProfilePage() {
                     value={profile.faculty ?? ''}
                     disabled={!editing}
                     onChange={(v) => updateLocal({ faculty: v })}
+                    error={fieldErrs.faculty}
                   />
                   <FieldInput
                     id="department"
@@ -553,6 +571,7 @@ export default function StudentProfilePage() {
                 disabled={!editing}
                 placeholder="具体的なエピソードや成果を数字で示すと効果的です"
                 onChange={(v) => updateLocal({ pr_text: v })}
+                error={fieldErrs.pr_text}
               />
 
               {/* 強み 3 つ */}
