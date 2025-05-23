@@ -276,7 +276,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
                 className="justify-start"
                 onClick={()=>{
                   setTypePickerOpen(false)
-                  router.push(`/company/selections/new?type=${t.value}`)
+                  router.push(`/company/jobs/new?type=${t.value}`)
                 }}
               >
                 {t.label}
