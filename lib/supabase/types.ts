@@ -1129,6 +1129,8 @@ export type Database = {
           salary_min: number | null
           selection_type: Database["public"]["Enums"]["selection_type"]
           title: string
+          views: number | null
+          work_type: string | null
         }
         Insert: {
           application_deadline?: string | null
@@ -1142,6 +1144,8 @@ export type Database = {
           salary_min?: number | null
           selection_type: Database["public"]["Enums"]["selection_type"]
           title: string
+          views?: number | null
+          work_type?: string | null
         }
         Update: {
           application_deadline?: string | null
@@ -1155,6 +1159,8 @@ export type Database = {
           salary_min?: number | null
           selection_type?: Database["public"]["Enums"]["selection_type"]
           title?: string
+          views?: number | null
+          work_type?: string | null
         }
         Relationships: [
           {
@@ -1564,7 +1570,9 @@ export type Database = {
           start_date: string | null
           title: string | null
           venue: string | null
+          views: number | null
           work_days_per_week: number | null
+          work_type: string | null
         }
         Relationships: [
           {

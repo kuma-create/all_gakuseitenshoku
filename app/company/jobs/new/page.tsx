@@ -146,27 +146,30 @@ export default function NewJobPage() {
     
       if (!companyId) throw new Error("会社IDの取得に失敗しました")
     
-      /* 2) jobs へ INSERT ---------------------------------------- */
+      /* 2) selections へ INSERT  */
       const payload = {
-        company_id      : companyId,                  // ← FK はこれだけ
-        title           : formData.title,
-        description     : formData.description,
-        requirements    : formData.requirements || null,
-        location        : formData.location    || null,
-        work_type       : formData.employmentType,
-        salary_range    : formData.salary      || null,
-        published       : formData.status === "公開",
-        published_until : formData.applicationDeadline || null,
+        id                : crypto.randomUUID(),
+        company_id        : companyId,
+        selection_type    : "fulltime",
+        title             : formData.title,
+        description       : formData.description,
+        requirements      : formData.requirements || null,
+        location          : formData.location    || null,
+        work_type         : formData.employmentType,
+        salary_min        : null,                // ← 現行フォームは単一入力なので min/max は null
+        salary_max        : null,
+        published         : formData.status === "公開",
+        application_deadline: formData.applicationDeadline || null,
       } as const
     
       const { error: insertErr } = await supabase
-        .from("jobs")
+        .from("selections")
         .insert(payload)
         .select()
     
       if (insertErr) throw insertErr
     
-      toast({ title: "作成完了", description: "新しい求人が作成されました。" })
+      toast({ title: "作成完了", description: "新しい選考が作成されました。" })
       setShowSuccessOptions(true)
     } catch (err: any) {
       console.error(err)
@@ -185,12 +188,12 @@ export default function NewJobPage() {
       <div className="flex flex-col space-y-6">
         {/* Header with back button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <Button variant="outline" onClick={() => router.push("/company/jobs")} className="w-fit">
+          <Button variant="outline" onClick={() => router.push("/company/selections")} className="w-fit">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            求人一覧へ戻る
+            選考一覧へ戻る
           </Button>
 
-          <h1 className="text-2xl font-bold">新しい求人を作成</h1>
+          <h1 className="text-2xl font-bold">新しい本選考を作成</h1>
         </div>
 
         {showSuccessOptions ? (
@@ -215,12 +218,12 @@ export default function NewJobPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium">求人が作成されました</h3>
+                  <h3 className="text-lg font-medium">選考が作成されました</h3>
                   <p className="text-sm text-muted-foreground mt-1">次に何をしますか？</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                  <Button variant="outline" onClick={() => router.push("/company/jobs")} className="w-full sm:w-auto">
-                    求人一覧へ戻る
+                  <Button variant="outline" onClick={() => router.push("/company/selections")} className="w-full sm:w-auto">
+                    選考一覧へ戻る
                   </Button>
                   <Button
                     onClick={() => {
@@ -243,7 +246,7 @@ export default function NewJobPage() {
                     }}
                     className="w-full sm:w-auto"
                   >
-                    別の求人を作成
+                    別の選考を作成
                   </Button>
                 </div>
               </div>
@@ -518,7 +521,7 @@ export default function NewJobPage() {
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      求人を作成
+                      選考を作成
                     </>
                   )}
                 </Button>

@@ -51,6 +51,12 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 /* ------------------------------------------------------------------
    Supabase 型定義
@@ -64,8 +70,6 @@ interface JobItem extends SelectionRow {
   postedDate : string
   expiryDate : string
   /* ↓ SelectionRow に含まれていない場合の型エラー回避 */
-  work_type? : string | null
-  views?     : number | null
 }
 
 /* ------------------------------------------------------------------
@@ -85,6 +89,7 @@ export default function CompanyJobsPage() {
   const [selTypeFilter, setSelTypeFilter] = useState("all");
   const [sortOption , setSortOption ] =
     useState<"posted"|"applicants"|"expiry">("posted")
+  const [typePickerOpen, setTypePickerOpen] = useState(false)
 
   const SELECTION_TYPES = [
     { value: "all",              label: "すべての選考" },
@@ -247,15 +252,39 @@ const companyId = companyRow.id    // ★ ここで変数を定義
       {/* ヘッダ */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">求人一覧</h1>
-          <p className="text-gray-500">登録済みの求人を管理・編集できます</p>
+          <h1 className="text-3xl font-bold mb-1">選考一覧</h1>
+          <p className="text-gray-500">登録済みの選考を管理・編集できます</p>
         </div>
-        <Link href="/company/jobs/new" className="mt-4 md:mt-0">
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="mr-2 h-4 w-4"/> 新しい求人を作成
-          </Button>
-        </Link>
+        <Button
+          className="bg-blue-600 hover:bg-blue-700 mt-4 md:mt-0"
+          onClick={()=>setTypePickerOpen(true)}
+        >
+          <Plus className="mr-2 h-4 w-4"/> 新しい選考を作成
+        </Button>
       </div>
+
+      <Dialog open={typePickerOpen} onOpenChange={setTypePickerOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>選考種類を選択</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {SELECTION_TYPES.filter(t=>t.value!=="all").map(t=>(
+              <Button
+                key={t.value}
+                variant="outline"
+                className="justify-start"
+                onClick={()=>{
+                  setTypePickerOpen(false)
+                  router.push(`/company/selections/new?type=${t.value}`)
+                }}
+              >
+                {t.label}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 検索・ソート */}
       <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6">

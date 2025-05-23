@@ -39,31 +39,31 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/lib/hooks/use-toast"
 
 /**
- * Supabase から求人 1 件を取得し、フロントで使いやすい shape に整形して返す
+ * Supabase から選考 1 件を取得し、フロントで使いやすい shape に整形して返す
  */
-const fetchJob = async (id: string) => {
+const fetchSelection = async (id: string) => {
   // 必要なカラムと、応募者数をカウントするリレーションを取得
   const { data, error } = await supabase
-    .from("jobs")
+    .from("selections_view")
     .select(
       `
         id,
         title,
         description,
         location,
-        work_type,
         salary_min,
         salary_max,
         published,
         views,
         company_id,
+        selection_type,
         created_at
       `
     )
     .eq("id", id)
     .single();
 
-  if (error || !data) throw error ?? new Error("Job not found");
+  if (error || !data) throw error ?? new Error("Selection not found");
 
   return {
     id: data.id,
@@ -71,7 +71,8 @@ const fetchJob = async (id: string) => {
     description: data.description ?? "",
     department: "",                     // column無し → 空
     location: data.location ?? "",
-    workingDays: data.work_type ?? "",  // work_type ⇄ workingDays
+    selectionType: data.selection_type ?? "fulltime",
+    workingDays: "",                    // selections_view には work_type 無し
     salaryMin: data.salary_min ?? "",
     salaryMax: data.salary_max ?? "",
     status: data.published ? "公開" : "非公開",
@@ -109,24 +110,24 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
   })
 
   useEffect(() => {
-    const loadJob = async () => {
+    const loadSelection = async () => {
       try {
-        const jobData = await fetchJob(id)
-        setJob(jobData)
+        const selectionData = await fetchSelection(id)
+        setJob(selectionData)
         setFormData({
-          title: jobData.title,
-          description: jobData.description,
-          department: jobData.department || "",
-          location: jobData.location,
-          workingDays: jobData.workingDays,
-          salaryMin: String(jobData.salaryMin ?? ""),
-          salaryMax: String(jobData.salaryMax ?? ""),
-          status: jobData.status,
+          title      : selectionData.title        ?? "",
+          description: selectionData.description  ?? "",
+          department : selectionData.department   ?? "",
+          location   : selectionData.location     ?? "",
+          workingDays: selectionData.workingDays  ?? "",
+          salaryMin  : String(selectionData.salaryMin ?? ""),
+          salaryMax  : String(selectionData.salaryMax ?? ""),
+          status     : selectionData.status,
         })
       } catch (error) {
         toast({
           title: "エラー",
-          description: "求人情報の取得に失敗しました。",
+          description: "選考情報の取得に失敗しました。",
           variant: "destructive",
         })
       } finally {
@@ -134,7 +135,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
       }
     }
 
-    loadJob()
+    loadSelection()
   }, [id, toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -194,7 +195,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     setIsSaving(true)
 
     try {
-      // In a real app, this would be an API call to update the job
+      // In a real app, this would be an API call to update the selection
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       // Update local state
@@ -204,12 +205,12 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
 
       toast({
         title: "保存完了",
-        description: "求人情報が更新されました。",
+        description: "選考情報が更新されました。",
       })
     } catch (error) {
       toast({
         title: "エラー",
-        description: "求人情報の更新に失敗しました。",
+        description: "選考情報の更新に失敗しました。",
         variant: "destructive",
       })
     } finally {
@@ -221,20 +222,20 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     setIsDeleting(true)
 
     try {
-      // In a real app, this would be an API call to delete the job
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // In a real app, this would be an API call to delete the selection
+      await supabase.from("selections").delete().eq("id", id)
 
       setIsDeleteDialogOpen(false)
-      router.push("/company/jobs")
+      router.push("/company/selections")
 
       toast({
         title: "削除完了",
-        description: "求人が削除されました。",
+        description: "選考が削除されました。",
       })
     } catch (error) {
       toast({
         title: "エラー",
-        description: "求人の削除に失敗しました。",
+        description: "選考の削除に失敗しました。",
         variant: "destructive",
       })
     } finally {
@@ -257,10 +258,10 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
   if (!job) {
     return (
       <div className="container mx-auto py-8 px-4">
-        <h1 className="text-2xl font-bold">求人が見つかりませんでした</h1>
-        <Button variant="outline" className="mt-4" onClick={() => router.push("/company/jobs")}>
+        <h1 className="text-2xl font-bold">選考が見つかりませんでした</h1>
+        <Button variant="outline" className="mt-4" onClick={() => router.push("/company/selections")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          求人一覧に戻る
+          選考一覧に戻る
         </Button>
       </div>
     )
@@ -273,19 +274,19 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           <CardHeader>
             <div className="flex items-center space-x-2">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
-              <CardTitle>求人情報を更新しました</CardTitle>
+              <CardTitle>選考情報を更新しました</CardTitle>
             </div>
-            <CardDescription>求人情報が正常に更新されました。次のアクションを選択してください。</CardDescription>
+            <CardDescription>選考情報が正常に更新されました。次のアクションを選択してください。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button variant="default" className="flex-1" onClick={() => router.push("/company/jobs")}>
+              <Button variant="default" className="flex-1" onClick={() => router.push("/company/selections")}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                求人一覧に戻る
+                選考一覧に戻る
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => router.push(`/company/scout?jobId=${id}`)}>
+              <Button variant="outline" className="flex-1" onClick={() => router.push(`/company/scout?selectionId=${id!}`)}>
                 <Users className="mr-2 h-4 w-4" />
-                この求人でスカウトを送る
+                この選考でスカウトを送る
               </Button>
             </div>
             <Button variant="link" className="w-full" onClick={() => setShowSuccessCard(false)}>
@@ -302,16 +303,16 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
       <div className="flex flex-col space-y-6">
         {/* Header with back button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={() => router.push("/company/jobs")} className="w-fit">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              求人一覧へ戻る
-            </Button>
-            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-              <Edit className="mr-1 h-3 w-3" />
-              編集中
-            </Badge>
-          </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={() => router.push("/company/selections")} className="w-fit">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            選考一覧へ戻る
+          </Button>
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+            <Edit className="mr-1 h-3 w-3" />
+            編集中
+          </Badge>
+        </div>
         </div>
 
         {/* Basic Information Section */}
@@ -321,12 +322,12 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               <FileText className="h-5 w-5 text-gray-500" />
               <CardTitle className="text-lg">基本情報</CardTitle>
             </div>
-            <CardDescription>求人の基本的な情報を入力してください</CardDescription>
+            <CardDescription>選考の基本的な情報を入力してください</CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-4">
             <div>
               <Label htmlFor="title" className="flex items-center">
-                求人タイトル <span className="text-red-500 ml-1">*</span>
+                選考タイトル <span className="text-red-500 ml-1">*</span>
               </Label>
               <Input
                 id="title"
@@ -496,7 +497,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           <CardHeader className="bg-gray-50 border-b">
             <div className="flex items-center space-x-2">
               <ChevronRight className="h-5 w-5 text-gray-500" />
-              <CardTitle className="text-lg">求人の状況</CardTitle>
+              <CardTitle className="text-lg">選考の状況</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
@@ -537,7 +538,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
                 </>
               )}
             </Button>
-            <Button variant="outline" onClick={() => router.push("/company/jobs")} className="flex-1 sm:flex-none">
+            <Button variant="outline" onClick={() => router.push("/company/selections")} className="flex-1 sm:flex-none">
               キャンセル
             </Button>
           </div>
@@ -551,13 +552,13 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               危険な操作
             </CardTitle>
             <CardDescription className="text-red-600">
-              この求人を削除すると、関連するすべてのデータが完全に削除されます。この操作は取り消せません。
+              この選考を削除すると、関連するすべてのデータが完全に削除されます。この操作は取り消せません。
             </CardDescription>
           </CardHeader>
           <CardFooter>
             <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
-              求人を削除する
+              選考を削除する
             </Button>
           </CardFooter>
         </Card>
@@ -569,14 +570,14 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center">
               <AlertTriangle className="h-5 w-5 mr-2" />
-              求人を削除しますか？
+              選考を削除しますか？
             </DialogTitle>
             <DialogDescription>
-              <p className="mb-4">この操作は取り消せません。本当にこの求人を削除しますか？</p>
+              <p className="mb-4">この操作は取り消せません。本当にこの選考を削除しますか？</p>
               <div className="bg-red-50 p-3 rounded-md border border-red-200 text-red-800 text-sm">
                 <p className="font-medium">削除されるデータ:</p>
                 <ul className="list-disc list-inside mt-1 space-y-1">
-                  <li>求人情報</li>
+                  <li>選考情報</li>
                   <li>応募者データ</li>
                   <li>関連するスカウト履歴</li>
                 </ul>
