@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────────
    app/jobs/page.tsx  ― 公開中求人一覧 (Client Component)
-   2025‑05‑17 UI/UX overhaul — search / filter / grid‑list toggle
+   2025-05-23 dropdown & link fix
 ──────────────────────────────────────────────── */
 "use client";
 
@@ -29,32 +29,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 
-/**
- * Supabase の `jobs` テーブルには列名の差分があるため、
- * 必要なフィールドを “optional” で拡張した型を定義して扱う。
- * これにより TypeScript エラーを抑止しつつ UI 側の項目を
- * そのまま参照できる。
- */
+/** Supabase 型を拡張 */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   companies: { name: string; logo: string | null; industry?: string | null } | null;
-
-  /** 業界 (companies.industry から alias) */
   industry?: string | null;
-  job_type?: string | null;       // 職種
-  is_featured?: boolean | null;   // おすすめフラグ
-  tags?: string[] | null;         // タグ配列
-  cover_image_url?: string | null; // カバー画像
-  job_tags?: { tag: string }[] | null;   // ← add this
+  job_type?: string | null;
+  is_featured?: boolean | null;
+  tags?: string[] | null;
+  cover_image_url?: string | null;
+  job_tags?: { tag: string }[] | null;
 };
 
-const SALARY_MIN = 200;
 const SALARY_MAX = 1200;
+/* 年収フィルターの選択肢 */
+const SALARY_OPTIONS = [
+  { value: "all",  label: "すべての年収" },
+  { value: "200",  label: "200万以上" },
+  { value: "400",  label: "400万以上" },
+  { value: "600",  label: "600万以上" },
+  { value: "800",  label: "800万以上" },
+  { value: "1000", label: "1000万以上" },
+] as const;
 
 /* ────────────────────────────────────────── */
 export default function JobsPage() {
@@ -67,7 +67,7 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [industry, setIndustry] = useState("all");
   const [jobType, setJobType] = useState("all");
-  const [salary, setSalary] = useState<[number, number]>([SALARY_MIN, SALARY_MAX]);
+  const [salaryMin, setSalaryMin] = useState<string>("all");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"grid" | "list">("grid");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -107,19 +107,12 @@ job_tags!job_tags_job_id_fkey (
         console.error("jobs fetch error", error);
         setError("求人取得に失敗しました");
       } else {
-        // setJobs(data ?? []);
-        if (data) {
-          const normalized = data.map((row: any) => ({
-            ...row,
-            // companies.industry を industry に昇格
-            industry: row.companies?.industry ?? null,
-            // job_tags -> tags の文字列配列へ
-            tags: (row.job_tags ?? []).map((t: { tag: string }) => t.tag),
-          }));
-          setJobs(normalized);
-        } else {
-          setJobs([]);
-        }
+        const normalized = (data ?? []).map((row) => ({
+          ...row,
+          industry: row.companies?.industry ?? null,
+          tags: (row.job_tags ?? []).map((t) => t.tag),
+        }));
+        setJobs(normalized);
       }
       setLoading(false);
     })();
@@ -154,13 +147,13 @@ job_tags!job_tags_job_id_fkey (
         jobType === "all" ||
         (j.job_type ?? "").toLowerCase().includes(jobType.toLowerCase());
 
-      const min = j.salary_min ?? SALARY_MIN;
-      const max = j.salary_max ?? SALARY_MAX;
-      const matchesSalary = max >= salary[0] && min <= salary[1];
+      const matchesSalary =
+        salaryMin === "all" ||
+        (j.salary_max ?? SALARY_MAX) >= Number(salaryMin);
 
       return matchesQ && matchesInd && matchesJob && matchesSalary;
     });
-  }, [jobs, search, industry, jobType, salary]);
+  }, [jobs, search, industry, jobType, salaryMin]);
 
   /* ------------- helpers ------------------ */
   const toggleSave = (id: string) =>
@@ -170,17 +163,13 @@ job_tags!job_tags_job_id_fkey (
       return next;
     });
 
-  const tagColor = (tag: string) =>
-    "bg-gray-100 text-gray-800"; // simplified
+  const tagColor = () => "bg-gray-100 text-gray-800";
 
   /* ------------- UI ----------------------- */
   if (loading) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-3">
-        <svg
-          className="h-6 w-6 animate-spin text-primary"
-          viewBox="0 0 24 24"
-        >
+        <svg className="h-6 w-6 animate-spin text-primary" viewBox="0 0 24 24">
           <circle
             cx="12"
             cy="12"
@@ -209,10 +198,9 @@ job_tags!job_tags_job_id_fkey (
       <header className="bg-gradient-to-r from-red-500 to-red-700 py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-white">求人一覧</h1>
-          <p className="text-white/90">
-            あなたにぴったりの求人を探しましょう
-          </p>
+          <p className="text-white/90">あなたにぴったりの求人を探しましょう</p>
 
+          {/* search & toggles */}
           <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative w-full md:max-w-md">
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -227,11 +215,7 @@ job_tags!job_tags_job_id_fkey (
             {/* filter toggle (mobile) */}
             <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
               <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 md:hidden"
-                >
+                <Button variant="outline" size="sm" className="gap-2 md:hidden">
                   <Filter size={16} />
                   フィルター
                 </Button>
@@ -244,8 +228,8 @@ job_tags!job_tags_job_id_fkey (
                   setIndustry={setIndustry}
                   jobType={jobType}
                   setJobType={setJobType}
-                  salary={salary}
-                  setSalary={setSalary}
+                  salaryMin={salaryMin}
+                  setSalaryMin={setSalaryMin}
                 />
               </SheetContent>
             </Sheet>
@@ -257,13 +241,7 @@ job_tags!job_tags_job_id_fkey (
                 size="icon"
                 onClick={() => setView("grid")}
               >
-                <svg
-                  width="16"
-                  height="16"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  fill="none"
-                >
+                <svg width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none">
                   <rect x="1" y="1" width="6" height="6" />
                   <rect x="9" y="1" width="6" height="6" />
                   <rect x="1" y="9" width="6" height="6" />
@@ -275,13 +253,7 @@ job_tags!job_tags_job_id_fkey (
                 size="icon"
                 onClick={() => setView("list")}
               >
-                <svg
-                  width="16"
-                  height="16"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  fill="none"
-                >
+                <svg width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none">
                   <line x1="4" y1="4" x2="15" y2="4" />
                   <line x1="4" y1="8" x2="15" y2="8" />
                   <line x1="4" y1="12" x2="15" y2="12" />
@@ -321,20 +293,18 @@ job_tags!job_tags_job_id_fkey (
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-2 text-white">
-              年収
-              <Slider
-                value={salary}
-                onValueChange={(v) => setSalary(v as [number, number])}
-                min={SALARY_MIN}
-                max={SALARY_MAX}
-                step={50}
-                className="w-40"
-              />
-              <span className="text-sm">
-                {salary[0]}万 – {salary[1]}万
-              </span>
-            </div>
+            <Select value={salaryMin} onValueChange={setSalaryMin}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="年収" />
+              </SelectTrigger>
+              <SelectContent>
+                {SALARY_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </header>
@@ -348,17 +318,11 @@ job_tags!job_tags_job_id_fkey (
             <TabsTrigger value="new">新着</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="all" className="mt-0">
-            <JobGrid
-              jobs={displayed}
-              view={view}
-              saved={saved}
-              toggleSave={toggleSave}
-              tagColor={tagColor}
-            />
+          <TabsContent value="all">
+            <JobGrid jobs={displayed} view={view} saved={saved} toggleSave={toggleSave} tagColor={tagColor} />
           </TabsContent>
 
-          <TabsContent value="saved" className="mt-0">
+          <TabsContent value="saved">
             <JobGrid
               jobs={displayed.filter((j) => saved.has(j.id))}
               view={view}
@@ -368,11 +332,10 @@ job_tags!job_tags_job_id_fkey (
             />
           </TabsContent>
 
-          <TabsContent value="new" className="mt-0">
+          <TabsContent value="new">
             <JobGrid
               jobs={displayed.filter((j) => {
-                const diff =
-                  (Date.now() - new Date(j.created_at!).getTime()) / 86400000;
+                const diff = (Date.now() - new Date(j.created_at!).getTime()) / 86400000;
                 return diff < 7;
               })}
               view={view}
@@ -395,8 +358,8 @@ function FilterPanel({
   setIndustry,
   jobType,
   setJobType,
-  salary,
-  setSalary,
+  salaryMin,
+  setSalaryMin,
 }: {
   industries: string[];
   jobTypes: string[];
@@ -404,8 +367,8 @@ function FilterPanel({
   setIndustry: (v: string) => void;
   jobType: string;
   setJobType: (v: string) => void;
-  salary: [number, number];
-  setSalary: (v: [number, number]) => void;
+  salaryMin: string;
+  setSalaryMin: (v: string) => void;
 }) {
   return (
     <div className="space-y-4 py-4">
@@ -435,16 +398,18 @@ function FilterPanel({
         </SelectContent>
       </Select>
 
-      <div>
-        <p className="mb-2 text-sm">年収 ({salary[0]}万 – {salary[1]}万)</p>
-        <Slider
-          value={salary}
-          onValueChange={(v) => setSalary(v as [number, number])}
-          min={SALARY_MIN}
-          max={SALARY_MAX}
-          step={50}
-        />
-      </div>
+      <Select value={salaryMin} onValueChange={setSalaryMin}>
+        <SelectTrigger>
+          <SelectValue placeholder="年収" />
+        </SelectTrigger>
+        <SelectContent>
+          {SALARY_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -462,46 +427,47 @@ function JobGrid({
   toggleSave: (id: string) => void;
   tagColor: (t: string) => string;
 }) {
-  if (!jobs.length) {
-    return <p className="text-center text-gray-500">該当する求人がありません</p>;
-  }
+  if (!jobs.length) return <p className="text-center text-gray-500">該当する求人がありません</p>;
 
   if (view === "list") {
     return (
       <div className="flex flex-col gap-4">
         {jobs.map((j) => (
           <Card key={j.id} className="flex overflow-hidden">
-            {j.cover_image_url && (
-              <Image
-                src={j.cover_image_url}
-                alt="cover"
-                width={160}
-                height={120}
-                className="h-auto w-40 object-cover"
-              />
-            )}
-            <div className="flex flex-1 flex-col gap-2 p-4">
-              <h3 className="text-lg font-bold">{j.title}</h3>
-              <p className="text-sm text-gray-600">
-                {j.companies?.name ?? "-"} / {j.location}
-              </p>
-              <div className="flex gap-1 text-xs text-gray-500">
-                <MapPin size={12} />
-                <span>{j.location}</span>
-                <Briefcase size={12} />
-                <span>
-                  {j.salary_min}万 – {j.salary_max ?? "応相談"}万
-                </span>
+            <Link href={`/jobs/${j.id}`} className="flex flex-1 hover:bg-gray-50">
+              {j.cover_image_url && (
+                <Image
+                  src={j.cover_image_url}
+                  alt="cover"
+                  width={160}
+                  height={120}
+                  className="h-auto w-40 object-cover"
+                />
+              )}
+              <div className="flex flex-1 flex-col gap-2 p-4">
+                <h3 className="text-lg font-bold">{j.title}</h3>
+                <p className="text-sm text-gray-600">
+                  {j.companies?.name ?? "-"} / {j.location}
+                </p>
+                <div className="flex gap-1 text-xs text-gray-500">
+                  <MapPin size={12} />
+                  <span>{j.location}</span>
+                  <Briefcase size={12} />
+                  <span>
+                    {j.salary_min}万 – {j.salary_max ?? "応相談"}万
+                  </span>
+                </div>
               </div>
-            </div>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => toggleSave(j.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleSave(j.id);
+              }}
             >
-              <Heart
-                className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""}
-              />
+              <Heart className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""} />
             </Button>
           </Card>
         ))}
@@ -512,57 +478,51 @@ function JobGrid({
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {jobs.map((j) => (
-        <Card key={j.id} className="group overflow-hidden">
-          {j.cover_image_url && (
-            <div className="relative h-32 w-full overflow-hidden">
-              <Image
-                src={j.cover_image_url}
-                alt="cover"
-                fill
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-              {j.is_featured && (
-                <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
-                  <Star size={12} />
-                  おすすめ
-                </div>
-              )}
-            </div>
-          )}
-          <div className="p-4">
-            <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
-            <p className="line-clamp-1 text-sm text-gray-600">
-              {j.companies?.name ?? "-"}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {(j.tags ?? [])
-                .slice(0, 3)
-                .map((t) => (
+        <Card key={j.id} className="group relative overflow-hidden">
+          <Link href={`/jobs/${j.id}`} className="block">
+            {j.cover_image_url && (
+              <div className="relative h-32 w-full overflow-hidden">
+                <Image
+                  src={j.cover_image_url}
+                  alt="cover"
+                  fill
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                {j.is_featured && (
+                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
+                    <Star size={12} />
+                    おすすめ
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="p-4">
+              <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
+              <p className="line-clamp-1 text-sm text-gray-600">{j.companies?.name ?? "-"}</p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {(j.tags ?? []).slice(0, 3).map((t) => (
                   <Badge key={t} className={tagColor(t)}>
                     {t}
                   </Badge>
                 ))}
-            </div>
-
-            <div className="mt-3 flex justify-between">
-              <div className="text-xs text-gray-500">
+              </div>
+              <div className="mt-3 text-xs text-gray-500">
                 {j.salary_min}万 – {j.salary_max ?? "応相談"}万
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => toggleSave(j.id)}
-              >
-                <Heart
-                  size={18}
-                  className={
-                    saved.has(j.id) ? "fill-red-500 text-red-500" : ""
-                  }
-                />
-              </Button>
             </div>
-          </div>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSave(j.id);
+            }}
+          >
+            <Heart size={18} className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""} />
+          </Button>
         </Card>
       ))}
     </div>
