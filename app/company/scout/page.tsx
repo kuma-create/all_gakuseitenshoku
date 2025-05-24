@@ -36,6 +36,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Accordion,
@@ -131,6 +138,7 @@ export default function ScoutPage() {
   const [profileStudent     , setProfileStudent     ] = useState<Student | null>(null)
 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState<boolean>(false)
   const [editingTpl, setEditingTpl] = useState<ScoutTemplateRow | null>(null)
   const [tplTitle, setTplTitle] = useState("")
   const [tplContent, setTplContent] = useState("")
@@ -332,6 +340,7 @@ export default function ScoutPage() {
       ...prev,
     ])
     setIsScoutModalOpen(false)
+    setIsDetailSheetOpen(false)
   }
 
   if (loading) {
@@ -496,7 +505,13 @@ export default function ScoutPage() {
                     <Card
                       key={s.id}
                       className="relative cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-transform"
-                      onClick={() => window.open(`/student/${s.id}`, "_blank")}
+                      onClick={() => {
+                        setProfileStudent(s)
+                        setSelectedStudent(s)
+                        setScoutMessage("")
+                        setSelectedTemplate(null)
+                        setIsDetailSheetOpen(true)
+                      }}
                     >
                       <CardContent>
                         <div className="flex gap-4">
@@ -677,6 +692,62 @@ export default function ScoutPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 学生詳細 & スカウト送信シート */}
+      <Sheet open={isDetailSheetOpen} onOpenChange={setIsDetailSheetOpen}>
+        <SheetContent side="right" className="w-[420px] sm:w-[560px]">
+          <SheetHeader>
+            <SheetTitle>{profileStudent?.full_name ?? "学生詳細"}</SheetTitle>
+            <SheetDescription>
+              プロフィールを確認し、そのままスカウトを送信できます
+            </SheetDescription>
+          </SheetHeader>
+
+          {/* プロフィール表示エリア */}
+          {profileStudent && (
+            <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
+              <p className="text-sm text-gray-500">
+                {profileStudent.university} · {profileStudent.major} · {profileStudent.academic_year}年生
+              </p>
+              {profileStudent.about && (
+                <p className="whitespace-pre-wrap break-words border p-3 rounded bg-gray-50">
+                  {profileStudent.about}
+                </p>
+              )}
+              {/* 追加で必要な情報があればここに表示 */}
+            </div>
+          )}
+
+          {/* スカウト送信用 UI */}
+          <div className="space-y-4 pt-4 border-t">
+            <Select value={selectedTemplate || ""} onValueChange={selectTemplate}>
+              <SelectTrigger><SelectValue placeholder="テンプレート選択" /></SelectTrigger>
+              <SelectContent>
+                {effectiveTemplates.map((t) => (
+                  <SelectItem key={String((t as any).id ?? t.title)} value={String((t as any).id ?? t.title)}>
+                    {t.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Textarea
+              rows={6}
+              value={scoutMessage}
+              onChange={(e) => setScoutMessage(e.target.value)}
+              placeholder="メッセージを入力..."
+            />
+
+            <Button
+              disabled={!scoutMessage.trim() || !selectedStudent}
+              onClick={sendScout}
+              className="w-full"
+            >
+              <Send className="mr-1" /> スカウト送信
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* スカウト送信モーダル */}
       <Dialog open={isScoutModalOpen} onOpenChange={setIsScoutModalOpen}>
