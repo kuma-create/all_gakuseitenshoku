@@ -703,48 +703,91 @@ export default function ScoutPage() {
             </SheetDescription>
           </SheetHeader>
 
-          {/* プロフィール表示エリア */}
-          {profileStudent && (
-            <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
-              <p className="text-sm text-gray-500">
-                {profileStudent.university} · {profileStudent.major} · {profileStudent.academic_year}年生
-              </p>
-              {profileStudent.about && (
-                <p className="whitespace-pre-wrap break-words border p-3 rounded bg-gray-50">
-                  {profileStudent.about}
-                </p>
-              )}
-              {/* 追加で必要な情報があればここに表示 */}
+          {/* 2‑column layout : 左=プロフィール / 右=スカウト */}
+          <div className="flex flex-col md:flex-row gap-6 py-4 h-full">
+            {/* ── プロフィール列 ─────────────────────── */}
+            {profileStudent && (
+              <div className="md:w-1/2 space-y-4 overflow-y-auto">
+                <div className="flex justify-center">
+                  <Image
+                    src={profileStudent.avatar || "/placeholder.svg"}
+                    alt={profileStudent.full_name ?? ""}
+                    width={120}
+                    height={120}
+                    className="rounded-full"
+                  />
+                </div>
+
+                <div className="text-center space-y-1">
+                  <p className="text-lg font-semibold">{profileStudent.full_name}</p>
+                  <p className="text-sm text-gray-500">
+                    {profileStudent.university} · {profileStudent.major} · {profileStudent.academic_year}年生
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {profileStudent.location} · {profileStudent.graduation_year}年卒
+                  </p>
+                </div>
+
+                {profileStudent.about && (
+                  <p className="whitespace-pre-wrap break-words border p-3 rounded bg-gray-50 text-sm">
+                    {profileStudent.about}
+                  </p>
+                )}
+
+                {profileStudent.skills?.length ? (
+                  <div className="flex flex-wrap gap-1">
+                    {profileStudent.skills.map((sk) => (
+                      <Badge key={sk} variant="secondary">{sk}</Badge>
+                    ))}
+                  </div>
+                ) : null}
+
+                {profileStudent.experience?.length ? (
+                  <div>
+                    <h4 className="font-medium mb-2">経験</h4>
+                    <ul className="space-y-1 text-sm list-disc list-inside">
+                      {profileStudent.experience.map((exp, idx) => (
+                        <li key={idx}>
+                          {exp.company} / {exp.title}（{exp.period}）
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {/* ── スカウト入力列 ─────────────────────── */}
+            <div className="md:w-1/2 space-y-4 md:border-l md:pl-4 border-t pt-4 md:border-t-0">
+              <Select value={selectedTemplate || ""} onValueChange={selectTemplate}>
+                <SelectTrigger><SelectValue placeholder="テンプレート選択" /></SelectTrigger>
+                <SelectContent>
+                  {effectiveTemplates.map((t) => (
+                    <SelectItem
+                      key={String((t as any).id ?? t.title)}
+                      value={String((t as any).id ?? t.title)}
+                    >
+                      {t.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Textarea
+                rows={6}
+                value={scoutMessage}
+                onChange={(e) => setScoutMessage(e.target.value)}
+                placeholder="メッセージを入力..."
+              />
+
+              <Button
+                disabled={!scoutMessage.trim() || !selectedStudent}
+                onClick={sendScout}
+                className="w-full"
+              >
+                <Send className="mr-1" /> スカウト送信
+              </Button>
             </div>
-          )}
-
-          {/* スカウト送信用 UI */}
-          <div className="space-y-4 pt-4 border-t">
-            <Select value={selectedTemplate || ""} onValueChange={selectTemplate}>
-              <SelectTrigger><SelectValue placeholder="テンプレート選択" /></SelectTrigger>
-              <SelectContent>
-                {effectiveTemplates.map((t) => (
-                  <SelectItem key={String((t as any).id ?? t.title)} value={String((t as any).id ?? t.title)}>
-                    {t.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Textarea
-              rows={6}
-              value={scoutMessage}
-              onChange={(e) => setScoutMessage(e.target.value)}
-              placeholder="メッセージを入力..."
-            />
-
-            <Button
-              disabled={!scoutMessage.trim() || !selectedStudent}
-              onClick={sendScout}
-              className="w-full"
-            >
-              <Send className="mr-1" /> スカウト送信
-            </Button>
           </div>
         </SheetContent>
       </Sheet>
