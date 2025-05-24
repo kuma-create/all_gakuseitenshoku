@@ -18,18 +18,14 @@ import type { Database } from "@/lib/supabase/types";
 
 /* ---------- 型 ---------- */
 export type UserRole = "student" | "company" | "company_admin" | "admin" | null;
-
-/** company サイドのロールをまとめる */
 const COMPANY_ROLES = new Set<UserRole>(["company", "company_admin"]);
-
-export type RoleOption = Exclude<UserRole, null>;
 
 export type User =
   | {
       id: string;
       email: string;
       name: string;
-      role: UserRole;
+      role: Exclude<UserRole, null>;
     }
   | null;
 
@@ -47,12 +43,13 @@ export interface AuthContextValue {
   user: User;
   profile: UserProfile;
   error: string | null;
-  login: (e: string, p: string, r: RoleOption) => Promise<boolean>;
+  /* ★ login から role 引数削除 */
+  login: (email: string, password: string) => Promise<boolean>;
   signup: (
-    e: string,
-    p: string,
-    r: RoleOption,
-    n: string,
+    email: string,
+    password: string,
+    role: Exclude<UserRole, null>,
+    fullName: string,
   ) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -81,26 +78,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   /* 状態 ---------------------------------------------------------------- */
-  const [session, setSession] = useState<Session | null | undefined>(
-    undefined,
-  );
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [ready, setReady] = useState(false);
   const [userType, setUserType] = useState<UserRole>(null);
   const [user, setUser] = useState<User>(null);
   const [profile, setProfile] = useState<UserProfile>(null);
   const [error, setError] = useState<string | null>(null);
-
   const clearError = () => setError(null);
 
   /* ---- session を反映 ------------------------------------------------- */
   const applySession = useCallback(
     async (sess: Session | null) => {
-    // eslint-disable-next-line no-console
-    console.log("[DEBUG] applySession – raw session =", sess);
-    setSession(sess);
+      setSession(sess);
 
-      /* 未ログイン ------------------------------------------------------ */
+      /* ① 未ログイン ---------------------------------------------------- */
       if (!sess) {
         setIsLoggedIn(false);
         setUser(null);
@@ -111,51 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      /* ログイン済み ---------------------------------------------------- */
+      /* ② ログイン済み -------------------------------------------------- */
       setIsLoggedIn(true);
 
-      /* ---------- ロール取得 (JWT → app_metadata → user_roles) ---------- */
-      const jwtRole =
-        // ① user_metadata にあれば最優先
-        (sess.user.user_metadata as any)?.role ??
-        // ② app_metadata
-        (sess.user.app_metadata as any)?.role ??
-        // ③ JWT top‑level（Hook で注入された場合）
-        (sess.user as any).role ??
-        null;
+      /* ★ user_roles からロール取得 */
+      const { data: roleRow, error: roleErr } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", sess.user.id)
+        .maybeSingle();
 
-      // rawRole は JWT そのままの文字列を保持（"authenticated" など）
-      const rawRole = jwtRole as string | null;
-      let role: UserRole = (jwtRole as any) as UserRole;
+      if (roleErr) console.error("[Auth] role fetch error", roleErr);
 
-      /* ---------- role 補正 --------------------------------------------------
-         JWT が "authenticated" でも企業レコードがあれば company_admin とみなす。
-         逆にどちらのレコードも無ければ student 扱いに落とす。
-      ---------------------------------------------------------------------- */
-      if (rawRole === "authenticated") {
-        const { data: compRow } = await supabase
-          .from("companies")
-          .select("id")
-          .eq("user_id", sess.user.id)
-          .maybeSingle();
-
-        if (compRow) {
-          role = "company_admin";
-        } else {
-          role = "student";
-        }
-      }
-
-      /* JWT に無い場合のみ user_roles でフォールバック */
-      if (!role) {
-        const { data: roleRow } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", sess.user.id)
-          .maybeSingle();
-        role = (roleRow?.role ?? "student") as UserRole;
-      }
-
+      const role: UserRole = (roleRow?.role ?? "student") as UserRole;
       setUserType(role);
 
       /* user オブジェクト */
@@ -166,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           sess.user.user_metadata?.full_name ??
           sess.user.email?.split("@")[0] ??
           "ユーザー",
-        role,
+        role: role ?? "student",
       });
 
       /* profile 取得 */
@@ -189,18 +149,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setReady(true);
-      console.log("[DEBUG role]", role, "[path]", pathname);
 
-      /* ダッシュボードリダイレクト */
+      /* ダッシュボード自動リダイレクト */
       if (pathname === "/login" || pathname === "/") {
-        const redirectPath =
+        const redirect =
           COMPANY_ROLES.has(role)
             ? "/company-dashboard"
             : role === "admin"
-              ? "/admin"
-              : "/student-dashboard";
-
-        router.replace(redirectPath);
+            ? "/admin-dashboard"
+            : "/student-dashboard";
+        router.replace(redirect);
       }
     },
     [pathname, router],
@@ -209,48 +167,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /* ---- 初回セッション取得 & リスナー --------------------------------- */
   useEffect(() => {
     (async () => {
-      /* ❶ ローカルセッション取得 */
       let {
         data: { session },
       } = await supabase.auth.getSession();
 
-      /* ❷ 失効していたら手動リフレッシュ */
       if (!session) {
         const { data: ref } = await supabase.auth.refreshSession();
         session = ref.session ?? null;
       }
-
       await applySession(session);
     })();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, sess) => {
-        if (event === "TOKEN_REFRESHED") {
-          console.log("[Auth] TOKEN_REFRESHED");
+        if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN")
           applySession(sess);
-        }
-        if (event === "SIGNED_OUT") {
-          console.log("[Auth] SIGNED_OUT");
-          applySession(null);
-        }
-        if (event === "SIGNED_IN") {
-          // eslint-disable-next-line no-console
-          console.log("[DEBUG] onAuthStateChange SIGNED_IN", sess);
-          applySession(sess);
-        }
+        if (event === "SIGNED_OUT") applySession(null);
       },
     );
     return () => listener.subscription.unsubscribe();
   }, [applySession]);
 
-  /* ---- アイドル時自動リフレッシュ (失効 5 分前) ---------------------- */
+  /* ---- 自動リフレッシュ ---------------------------------------------- */
   useEffect(() => {
     if (!session) return;
     const ttl = session.expires_at! * 1000 - Date.now();
-    const timer = setTimeout(async () => {
-      console.log("[Auth] auto refresh");
-      await supabase.auth.refreshSession();
-    }, Math.max(ttl - 5 * 60 * 1000, 0));
+    const timer = setTimeout(
+      () => supabase.auth.refreshSession(),
+      Math.max(ttl - 5 * 60 * 1000, 0),
+    );
     return () => clearTimeout(timer);
   }, [session]);
 
@@ -258,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (
     email: string,
     password: string,
-    role: RoleOption,
+    role: Exclude<UserRole, null>,
     fullName: string,
   ) => {
     clearError();
@@ -268,9 +213,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: { data: { full_name: fullName } },
       });
-      if (error) throw error;
-      if (!data.user) return false;
+      if (error || !data.user) throw error ?? new Error("no user");
 
+      /* user_roles へ 1回だけ insert */
       await supabase.from("user_roles").insert({
         user_id: data.user.id,
         role,
@@ -295,18 +240,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, pw: string, role: RoleOption) => {
+  /* ★ login から role 引数削除 */
+  const login = async (email: string, password: string) => {
     clearError();
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password: pw,
+        password,
       });
-
-      console.log("[login result]", { data, error });
       if (error) throw error;
-
-      /* session が null → メール未確認 or 設定異常 */
       if (!data.session) {
         setError("メール確認が完了していません。リンクを確認してください。");
         return false;
@@ -320,40 +262,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     clearError();
-
-    /* -- ① リモート & Cookie を無効化 -- */
     await supabase.auth.signOut({ scope: "global" });
-
-    /* -- ② ブラウザの localStorage トークンも確実に削除 -- */
     await supabase.auth.signOut({ scope: "local" });
 
-    /* 2. セッションが完全に消えたことを確認する */
-    for (let i = 0; i < 5; i++) {
-      const {
-        data: { session: still },
-      } = await supabase.auth.getSession();
-      if (!still) break;
-      await new Promise((res) => setTimeout(res, 150)); // wait 150ms
-    }
-
-    /* --- 2‑b. クッキーに残る sb‑<project> トークンも明示的に失効させる --- */
+    /* sb-xxxx Cookie も削除 */
     document.cookie
       .split(";")
       .map((c) => c.trim().split("=")[0])
-      .filter((name) => name.startsWith("sb-"))
-      .forEach((name) => {
-        document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+      .filter((n) => n.startsWith("sb-"))
+      .forEach((n) => {
+        document.cookie = `${n}=; Max-Age=0; path=/; SameSite=Lax`;
       });
 
-    /* 3. React / localStorage 状態をクリア */
     localStorage.removeItem("userType");
-    setUserType(null);
     setSession(null);
     setProfile(null);
     setUser(null);
     setIsLoggedIn(false);
+    setUserType(null);
 
-    /* 4. /login へ遷移してからリフレッシュ */
     await router.replace("/login");
     router.refresh();
   };
