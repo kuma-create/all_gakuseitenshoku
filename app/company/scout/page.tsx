@@ -695,7 +695,7 @@ export default function ScoutPage() {
 
       {/* 学生詳細 & スカウト送信シート */}
       <Sheet open={isDetailSheetOpen} onOpenChange={setIsDetailSheetOpen}>
-        <SheetContent side="right" className="w-[420px] sm:w-[560px]">
+        <SheetContent side="right" className="w-full sm:max-w-[80vw]">
           <SheetHeader>
             <SheetTitle>{profileStudent?.full_name ?? "学生詳細"}</SheetTitle>
             <SheetDescription>
