@@ -61,6 +61,21 @@ const IconInput = ({
 /* ---------- 専用フォーム ---------- */
 type Role = "student" | "company" | "admin";
 
+// --- helper ---------------------------------------------------------------
+// DB から本物の role を取得（見つからなければ "student" 扱い）
+const fetchUserRole = async (userId: string): Promise<Role> => {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .single();
+  if (error || !data) {
+    console.error("[fetchUserRole] failed", error);
+    return "student";
+  }
+  return data.role as Role;
+};
+
 const LoginForm = ({
   role,
   email,
@@ -214,14 +229,24 @@ export default function LoginClient() {
 
     if (ok) {
       await supabase.auth.refreshSession();
-      const dest = nextPath
-        ? nextPath
-        : tab === "company"
-        ? "/company-dashboard"
-        : tab === "admin"
-        ? "/admin-dashboard"
-        : "/student-dashboard";
-      router.replace(dest);
+
+      // 認証ユーザーを取得し、user_roles テーブルから正しいロールを読む
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      const realRole: Role = authUser
+        ? await fetchUserRole(authUser.id)
+        : "student";
+
+      router.replace(
+        nextPath
+          ? nextPath
+          : realRole === "company"
+          ? "/company-dashboard"
+          : realRole === "admin"
+          ? "/admin-dashboard"
+          : "/student-dashboard"
+      );
     }
   };
 
