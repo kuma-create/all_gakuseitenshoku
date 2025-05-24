@@ -18,3 +18,5 @@ export * from "./tabs"
 export * from "./toast"
 export * from "./alert"      // ← 追加
 export * from "./textarea" 
+export * from "./separator"
+export * from "./sheet"

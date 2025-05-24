@@ -15,8 +15,14 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  Separator,
 } from "@/components/ui";
-import { Search, Mail, Check, X, Clock } from "lucide-react";
+import { Search, Mail, Check, X, Clock, Briefcase } from "lucide-react";
 import Image from "next/image";
 import { useMemo } from "react";
 
@@ -31,6 +37,35 @@ type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"];
 type ScoutWithRelations = ScoutRow & {
   companies: { name: string; logo: string | null } | null;
   jobs: { title: string | null } | null;
+  students: {
+    last_name: string;
+    first_name: string;
+    last_name_kana?: string;
+    first_name_kana?: string;
+    birth_date?: string;
+    phone?: string;
+    email?: string;
+    university?: string;
+    faculty?: string;
+    graduation_month?: string;
+    pr_title?: string;
+    pr_text?: string;
+    strength_1?: string | null;
+    strength_2?: string | null;
+    strength_3?: string | null;
+    desired_positions?: string[] | null;
+    desired_locations?: string[] | null;
+    salary_range?: string | null;
+    work_experiences?: {
+      company?: string;
+      position?: string;
+      start_month?: string;
+      end_month?: string;
+      is_current?: boolean;
+      description?: string;
+      technologies?: string;
+    }[] | null;
+  } | null;
 };
 
 /** UI 用フラット型 */
@@ -42,6 +77,35 @@ export type UIScout = {
   createdAt: string;
   status: "pending" | "accepted" | "declined";
   companyLogo: string;
+  student: UIStudent;
+};
+
+export type UIStudent = {
+  lastName: string;
+  firstName: string;
+  lastNameKana?: string;
+  firstNameKana?: string;
+  birthDate?: string;
+  phone?: string;
+  email?: string;
+  university?: string;
+  faculty?: string;
+  graduationMonth?: string;
+  prTitle?: string;
+  prText?: string;
+  strengths?: string[];
+  workExperiences?: {
+    company?: string;
+    position?: string;
+    startMonth?: string;
+    endMonth?: string;
+    isCurrent?: boolean;
+    description?: string;
+    technologies?: string;
+  }[];
+  desiredPositions?: string[];
+  desiredLocations?: string[];
+  salaryRange?: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -54,6 +118,10 @@ export default function ScoutsPage() {
   const [statusTab, setStatusTab] = useState<"all" | "pending" | "accepted" | "declined">("all");
   const [query, setQuery] = useState("");
 
+  const [open, setOpen] = useState(false);
+  const [selectedScout, setSelectedScout] = useState<UIScout | null>(null);
+  const openDetails = (s: UIScout) => { setSelectedScout(s); setOpen(true); };
+
   /* -------------------- Supabase → UIScout 変換 -------------------- */
   const fetchScouts = async () => {
     setLoading(true);
@@ -64,7 +132,14 @@ export default function ScoutsPage() {
         `
           *,
           companies:companies!scouts_company_id_fkey(name, logo),
-          jobs:jobs!scouts_job_id_fkey(title)
+          jobs:jobs!scouts_job_id_fkey(title),
+          students:students!scouts_student_id_fkey(
+            last_name, first_name, last_name_kana, first_name_kana, birth_date,
+            phone, email, university, faculty, graduation_month,
+            pr_title, pr_text, strength_1, strength_2, strength_3,
+            desired_positions, desired_locations, salary_range,
+            work_experiences
+          )
         `,
       )
       .order("created_at", { ascending: false })
@@ -77,15 +152,39 @@ export default function ScoutsPage() {
       return;
     }
 
-    const uiScouts: UIScout[] = (data ?? []).map((row) => ({
-      id: row.id,
-      companyName: row.companies?.name ?? "Unknown Company",
-      position: row.jobs?.title ?? "Unknown Position",
-      message: row.message,
-      createdAt: row.created_at ?? "",
-      status: (row.status as UIScout["status"]) ?? "pending",
-      companyLogo: row.companies?.logo ?? "/placeholder.svg",
-    }));
+    const uiScouts: UIScout[] = (data ?? []).map((row) => {
+      const stu = (row as any).students;
+      const student: UIStudent = {
+        lastName: stu?.last_name ?? "",
+        firstName: stu?.first_name ?? "",
+        lastNameKana: stu?.last_name_kana ?? "",
+        firstNameKana: stu?.first_name_kana ?? "",
+        birthDate: stu?.birth_date ?? "",
+        phone: stu?.phone ?? "",
+        email: stu?.email ?? "",
+        university: stu?.university ?? "",
+        faculty: stu?.faculty ?? "",
+        graduationMonth: stu?.graduation_month ?? "",
+        prTitle: stu?.pr_title ?? "",
+        prText: stu?.pr_text ?? "",
+        strengths: [stu?.strength_1, stu?.strength_2, stu?.strength_3].filter(Boolean) as string[],
+        workExperiences: stu?.work_experiences ?? [],
+        desiredPositions: stu?.desired_positions ?? [],
+        desiredLocations: stu?.desired_locations ?? [],
+        salaryRange: stu?.salary_range ?? ""
+      };
+
+      return {
+        id: row.id,
+        companyName: row.companies?.name ?? "Unknown Company",
+        position: row.jobs?.title ?? "Unknown Position",
+        message: row.message,
+        createdAt: row.created_at ?? "",
+        status: (row.status as UIScout["status"]) ?? "pending",
+        companyLogo: row.companies?.logo ?? "/placeholder.svg",
+        student,
+      };
+    });
 
     setScouts(uiScouts);
     setLoading(false);
@@ -171,56 +270,139 @@ export default function ScoutsPage() {
         )}
 
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {displayedScouts.map((s) => (
-            <Card key={s.id} className="group overflow-hidden rounded-xl shadow hover:shadow-lg transition">
-              <div className="flex items-center gap-3 p-4">
-                <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white border">
-                  <Image
-                    src={s.companyLogo || "/placeholder.svg"}
-                    alt={`${s.companyName} logo`}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold line-clamp-1">{s.companyName}</h3>
-                  <p className="text-xs text-gray-500 line-clamp-1">{s.position}</p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    s.status === "pending"
-                      ? "border-yellow-400 text-yellow-600"
-                      : s.status === "accepted"
-                      ? "border-green-400 text-green-600"
-                      : "border-gray-400 text-gray-500"
-                  }
-                >
-                  {s.status === "pending" ? "未対応" : s.status === "accepted" ? "承諾" : "辞退"}
-                </Badge>
-              </div>
-
-              <div className="px-4 pb-4 text-sm text-gray-600 line-clamp-3">{s.message}</div>
-
-              <div className="mt-auto border-t px-4 py-3 flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
-                </span>
-                {s.status === "pending" && (
-                  <div className="flex gap-2">
-                    <Button size="icon" variant="ghost" onClick={() => handleDecline(s.id)}>
-                      <X size={16} className="text-gray-400" />
-                    </Button>
-                    <Button size="icon" onClick={() => handleAccept(s.id)}>
-                      <Check size={16} />
-                    </Button>
+          {displayedScouts.map((s)=>(
+            <SheetTrigger asChild key={s.id} onClick={()=>openDetails(s)}>
+              <Card className="group overflow-hidden rounded-xl shadow hover:shadow-lg transition">
+                <div className="flex items-center gap-3 p-4">
+                  <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white border">
+                    <Image
+                      src={s.companyLogo || "/placeholder.svg"}
+                      alt={`${s.companyName} logo`}
+                      fill
+                      className="object-cover"
+                    />
                   </div>
-                )}
-              </div>
-            </Card>
+                  <div className="flex-1">
+                    <h3 className="font-semibold line-clamp-1">{s.companyName}</h3>
+                    <p className="text-xs text-gray-500 line-clamp-1">{s.position}</p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      s.status === "pending"
+                        ? "border-yellow-400 text-yellow-600"
+                        : s.status === "accepted"
+                        ? "border-green-400 text-green-600"
+                        : "border-gray-400 text-gray-500"
+                    }
+                  >
+                    {s.status === "pending" ? "未対応" : s.status === "accepted" ? "承諾" : "辞退"}
+                  </Badge>
+                </div>
+
+                <div className="px-4 pb-4 text-sm text-gray-600 line-clamp-3">{s.message}</div>
+
+                <div className="mt-auto border-t px-4 py-3 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
+                  </span>
+                  {s.status === "pending" && (
+                    <div className="flex gap-2">
+                      <Button size="icon" variant="ghost" onClick={() => handleDecline(s.id)}>
+                        <X size={16} className="text-gray-400" />
+                      </Button>
+                      <Button size="icon" onClick={() => handleAccept(s.id)}>
+                        <Check size={16} />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </SheetTrigger>
           ))}
         </div>
       </main>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="right" className="w-full max-w-lg overflow-y-auto">
+          {selectedScout && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex flex-col">
+                  {selectedScout.student.lastName} {selectedScout.student.firstName}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {selectedScout.student.university} {selectedScout.student.faculty}
+                  </span>
+                </SheetTitle>
+              </SheetHeader>
+
+              <section className="mt-6 space-y-2">
+                <h3 className="text-sm font-semibold">基本情報</h3>
+                <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                  <dt className="font-medium">氏名</dt>
+                  <dd className="col-span-2">
+                    {selectedScout.student.lastName} {selectedScout.student.firstName}
+                    {selectedScout.student.lastNameKana && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({selectedScout.student.lastNameKana} {selectedScout.student.firstNameKana})
+                      </span>
+                    )}
+                  </dd>
+                  <dt className="font-medium">生年月日</dt>
+                  <dd className="col-span-2">{selectedScout.student.birthDate || "--"}</dd>
+                  <dt className="font-medium">電話</dt>
+                  <dd className="col-span-2">{selectedScout.student.phone || "--"}</dd>
+                  <dt className="font-medium">メール</dt>
+                  <dd className="col-span-2">{selectedScout.student.email || "--"}</dd>
+                  <dt className="font-medium">卒業予定</dt>
+                  <dd className="col-span-2">{selectedScout.student.graduationMonth || "--"}</dd>
+                </dl>
+              </section>
+
+              <Separator className="my-4"/>
+
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold flex items-center gap-1"><Briefcase className="h-4 w-4"/>職務経歴</h3>
+                {selectedScout.student.workExperiences?.length ? selectedScout.student.workExperiences.map((w,i)=>(
+                  <div key={i} className="rounded-md border p-3 mb-2">
+                    <p className="font-medium">{w.company||"--"}</p>
+                    <p className="text-xs text-muted-foreground">{w.startMonth||"--"} 〜 {w.isCurrent?"現在":w.endMonth||"--"}</p>
+                    {w.position && <p className="text-sm">{w.position}</p>}
+                    {w.description && <p className="mt-1 text-xs">{w.description}</p>}
+                    {w.technologies && <div className="mt-1 flex flex-wrap gap-1">
+                      {w.technologies.split(",").map((t,j)=><Badge key={j} variant="outline" className="bg-blue-50 text-xs">{t.trim()}</Badge>)}
+                    </div>}
+                  </div>
+                )):<p className="text-sm text-muted-foreground">登録なし</p>}
+              </section>
+
+              <Separator className="my-4"/>
+
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">自己PR</h3>
+                {selectedScout.student.prTitle && <p className="font-medium">{selectedScout.student.prTitle}</p>}
+                <p className="whitespace-pre-wrap text-sm">{selectedScout.student.prText || "--"}</p>
+                {selectedScout.student.strengths?.length && <div className="flex flex-wrap gap-1">
+                  {selectedScout.student.strengths.map((st,i)=><Badge key={i} variant="outline" className="bg-green-50 text-xs">{st}</Badge>)}
+                </div>}
+              </section>
+
+              <Separator className="my-4"/>
+
+              <section className="space-y-2 mb-8">
+                <h3 className="text-sm font-semibold">希望条件</h3>
+                <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                  <dt className="font-medium">職種</dt>
+                  <dd className="col-span-2">{(selectedScout.student.desiredPositions??[]).join(", ")||"--"}</dd>
+                  <dt className="font-medium">勤務地</dt>
+                  <dd className="col-span-2">{(selectedScout.student.desiredLocations??[]).join(", ")||"--"}</dd>
+                  <dt className="font-medium">希望年収</dt>
+                  <dd className="col-span-2">{selectedScout.student.salaryRange||"--"}</dd>
+                </dl>
+              </section>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
