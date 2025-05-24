@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import {
   Search,
   Filter,
@@ -488,11 +489,15 @@ export default function ScoutPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 {sortedStudents.map((s) => {
                   const scout = sentScouts.find((r) => r.student_id === s.id)
                   return (
-                    <Card key={s.id} className="relative">
+                    <Card
+                      key={s.id}
+                      className="relative cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-transform"
+                      onClick={() => window.open(`/student/${s.id}`, "_blank")}
+                    >
                       <CardContent>
                         <div className="flex gap-4">
                           <div className="h-20 w-20 rounded-full overflow-hidden">
@@ -528,13 +533,23 @@ export default function ScoutPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => { setProfileStudent(s); setIsProfileModalOpen(true) }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProfileStudent(s);
+                              setIsProfileModalOpen(true);
+                            }}
                           >
                             <User className="mr-1" /> プロフィール
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => { setSelectedStudent(s); setIsScoutModalOpen(true); setScoutMessage(""); setSelectedTemplate(null); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedStudent(s);
+                              setIsScoutModalOpen(true);
+                              setScoutMessage("");
+                              setSelectedTemplate(null);
+                            }}
                           >
                             <Send className="mr-1" /> スカウト
                           </Button>
@@ -590,11 +605,12 @@ export default function ScoutPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setSelectedStudent(stu || null)
-                                setScoutMessage(scout.message)
-                                setSelectedTemplate(null)
-                                setIsScoutModalOpen(true)
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedStudent(stu || null);
+                                setScoutMessage(scout.message);
+                                setSelectedTemplate(null);
+                                setIsScoutModalOpen(true);
                               }}
                             >
                               再送信
