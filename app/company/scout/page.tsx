@@ -208,7 +208,7 @@ export default function ScoutPage() {
         >
           <div className="flex h-full overflow-hidden">
             {/* ── Sidebar ───────────────────────────── */}
-            <aside className="w-72 shrink-0 border-r p-4 space-y-6 overflow-y-auto">
+            <aside className="w-80 shrink-0 border-r px-6 py-4 space-y-6 overflow-y-auto">
               {/* フリーワード検索 */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
