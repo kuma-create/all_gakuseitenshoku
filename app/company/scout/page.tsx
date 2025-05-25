@@ -18,6 +18,15 @@ import ScoutDrawer from "./ScoutDrawer"
 
 import clsx from "clsx"
 
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Filter as FilterIcon, X } from "lucide-react"
+
 /* ──────────────── 型定義 ──────────────── */
 type StudentRow = Database["public"]["Tables"]["student_profiles"]["Row"]
 type ScoutRow   = Database["public"]["Tables"]["scouts"]["Row"]
@@ -48,8 +57,14 @@ export default function ScoutPage() {
   const [search, setSearch] = useState("")
 
   /* ── フィルタ state ───────────────────── */
-  const [gradYears, setGradYears]   = useState<number[]>([])
-  const [statuses, setStatuses]     = useState<string[]>([])
+  const [filterOpen, setFilterOpen] = useState(false)
+
+  const [gradYears, setGradYears]         = useState<number[]>([])
+  const [statuses, setStatuses]           = useState<string[]>([])
+  const [selectedMajor, setSelectedMajor] = useState<string>("all")
+  const [selectedLocation, setSelectedLocation] = useState<string>("all")
+  const [hasInternship, setHasInternship] = useState<boolean>(false)
+  const [skills, setSkills]               = useState<string[]>([])
 
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
@@ -138,8 +153,30 @@ export default function ScoutPage() {
       list = list.filter((s) => statuses.includes(s.status ?? ""))
     }
 
+    /* major */
+    if (selectedMajor !== "all") {
+      list = list.filter((s) => (s.major ?? "") === selectedMajor)
+    }
+
+    /* location */
+    if (selectedLocation !== "all") {
+      list = list.filter((s) => (s.location ?? "") === selectedLocation)
+    }
+
+    /* internship */
+    if (hasInternship) {
+      list = list.filter((s) => s.has_internship_experience)
+    }
+
+    /* skills */
+    if (skills.length) {
+      list = list.filter((s) =>
+        skills.every((sk) => (s.skills ?? []).includes(sk)),
+      )
+    }
+
     return list
-  }, [students, search, gradYears, statuses])
+  }, [students, search, gradYears, statuses, selectedMajor, selectedLocation, hasInternship, skills])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
   const handleSent = useCallback(
@@ -173,51 +210,17 @@ export default function ScoutPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-2"
+            onClick={() => setFilterOpen(true)}
+          >
+            <FilterIcon className="h-4 w-4 mr-1" />
+            フィルタ
+          </Button>
         </div>
       </header>
-
-      {/* フィルタチップ */}
-      <div className="px-6 pt-2 pb-1 flex flex-wrap gap-2 border-b">
-        {/* 卒業年チップ */}
-        {[2025, 2026, 2027, 2028].map((yr) => (
-          <button
-            key={yr}
-            onClick={() =>
-              setGradYears((prev) =>
-                prev.includes(yr) ? prev.filter((y) => y !== yr) : [...prev, yr],
-              )
-            }
-            className={clsx(
-              "text-xs px-2 py-1 rounded border",
-              gradYears.includes(yr)
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-600 hover:bg-gray-100 border-gray-300",
-            )}
-          >
-            {yr}卒
-          </button>
-        ))}
-
-        {/* ステータスチップ */}
-        {["未スカウト", "送信済み"].map((st) => (
-          <button
-            key={st}
-            onClick={() =>
-              setStatuses((prev) =>
-                prev.includes(st) ? prev.filter((s) => s !== st) : [...prev, st],
-              )
-            }
-            className={clsx(
-              "text-xs px-2 py-1 rounded border",
-              statuses.includes(st)
-                ? "bg-emerald-600 text-white border-emerald-600"
-                : "bg-white text-gray-600 hover:bg-gray-100 border-gray-300",
-            )}
-          >
-            {st}
-          </button>
-        ))}
-      </div>
 
       <Tabs defaultValue="candidates" className="flex-1 overflow-hidden">
         <TabsList>
@@ -295,6 +298,164 @@ export default function ScoutPage() {
         /* 送信完了後 callback */
         onSent={handleSent}
       />
+
+      {/* ───────── Filter Drawer ───────── */}
+      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+        <SheetContent side="left" className="w-full sm:max-w-[320px]">
+          <SheetHeader>
+            <SheetTitle>フィルタ</SheetTitle>
+          </SheetHeader>
+
+          <div className="py-4 space-y-6 overflow-y-auto">
+
+            {/* 卒業年 */}
+            <div>
+              <h4 className="font-semibold mb-2">卒業年</h4>
+              {[2025, 2026, 2027, 2028].map((yr) => (
+                <div key={yr} className="flex items-center space-x-2 mb-1">
+                  <Checkbox
+                    id={`yr-${yr}`}
+                    checked={gradYears.includes(yr)}
+                    onCheckedChange={(v) =>
+                      setGradYears((prev) =>
+                        v ? [...prev, yr] : prev.filter((y) => y !== yr),
+                      )
+                    }
+                  />
+                  <label htmlFor={`yr-${yr}`} className="text-sm">
+                    {yr}卒
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            {/* 専攻 */}
+            <div>
+              <h4 className="font-semibold mb-2">専攻</h4>
+              <select
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={selectedMajor}
+                onChange={(e) => setSelectedMajor(e.target.value)}
+              >
+                <option value="all">全て</option>
+                {[...new Set(
+                  students
+                    .map((s) => s.major)
+                    .filter((m): m is string => m != null),
+                )].map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 地域 */}
+            <div>
+              <h4 className="font-semibold mb-2">地域</h4>
+              <select
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+              >
+                <option value="all">全て</option>
+                {[...new Set(
+                  students
+                    .map((s) => s.location)
+                    .filter((l): l is string => l != null),
+                )].map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* インターン経験 */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="intern"
+                checked={hasInternship}
+                onCheckedChange={(v) => setHasInternship(!!v)}
+              />
+              <label htmlFor="intern" className="text-sm">
+                インターン経験あり
+              </label>
+            </div>
+
+            {/* ステータス */}
+            <div>
+              <h4 className="font-semibold mb-2">ステータス</h4>
+              {["未スカウト", "送信済み"].map((st) => (
+                <div key={st} className="flex items-center space-x-2 mb-1">
+                  <Checkbox
+                    id={`st-${st}`}
+                    checked={statuses.includes(st)}
+                    onCheckedChange={(v) =>
+                      setStatuses((prev) =>
+                        v ? [...prev, st] : prev.filter((s) => s !== st),
+                      )
+                    }
+                  />
+                  <label htmlFor={`st-${st}`} className="text-sm">
+                    {st}
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            {/* スキル */}
+            <div>
+              <h4 className="font-semibold mb-2">スキル</h4>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {skills.map((sk) => (
+                  <span
+                    key={sk}
+                    className="text-xs flex items-center bg-gray-200 px-2 py-1 rounded"
+                  >
+                    {sk}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer"
+                      onClick={() =>
+                        setSkills((prev) => prev.filter((s) => s !== sk))
+                      }
+                    />
+                  </span>
+                ))}
+              </div>
+              <input
+                type="text"
+                placeholder="Enterで追加"
+                className="w-full border rounded px-2 py-1 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                    const val = e.currentTarget.value.trim()
+                    setSkills((prev) =>
+                      prev.includes(val) ? prev : [...prev, val],
+                    )
+                    e.currentTarget.value = ""
+                  }
+                }}
+              />
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setGradYears([])
+                setStatuses([])
+                setSelectedMajor("all")
+                setSelectedLocation("all")
+                setHasInternship(false)
+                setSkills([])
+              }}
+            >
+              リセット
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
