@@ -38,11 +38,80 @@ const schema = z.object({
   university: z.string().min(1, "大学名は必須です"),
   faculty   : z.string().min(1, "学部は必須です"),
   pr_text   : z.string().max(800, "自己PRは800文字以内"),
+  preferred_industries : z.array(z.string()).default([]).optional(),
+  desired_positions    : z.array(z.string()).default([]).optional(),
+  desired_locations    : z.array(z.string()).default([]).optional(),
+  work_style_options   : z.array(z.string()).default([]).optional(),
 })
 
 /* ── suggestion master data ─*/
 const SKILL_OPTIONS = ["Java", "Python", "JavaScript", "TypeScript", "React", "AWS", "Figma"];
 const QUALIFICATION_OPTIONS = ["TOEIC 800", "基本情報技術者", "簿記2級", "AWS SAA", "応用情報技術者"];
+
+/* ── checkbox master data ───────────────────────────── */
+const INDUSTRY_OPTIONS = [
+  "IT・通信","メーカー","商社","金融","コンサルティング","マスコミ",
+  "広告・マーケティング","サービス","小売・流通","医療・福祉",
+  "教育","公務員",
+] as const;
+
+const JOB_TYPE_OPTIONS = [
+  "エンジニア","営業","企画・マーケティング","コンサルタント","研究・開発",
+  "デザイナー","総務・人事","経理・財務","生産管理","品質管理",
+  "物流","販売・サービス",
+] as const;
+
+const LOCATION_OPTIONS = [
+  "東京","神奈川","千葉","埼玉","大阪","京都","兵庫","奈良",
+  "愛知","福岡","北海道","宮城","広島","沖縄","海外","リモート可",
+] as const;
+
+const WORK_PREF_OPTIONS = [
+  "フレックスタイム制","リモートワーク可","副業可","残業少なめ",
+  "土日祝休み","有給取得しやすい","育児支援制度あり","研修制度充実",
+] as const;
+
+function CheckboxGroup({
+  idPrefix,
+  options,
+  values,
+  onChange,
+}: {
+  idPrefix: string;
+  options: readonly string[];
+  values: string[];
+  onChange: (v: string[]) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 sm:gap-2">
+      {options.map((opt) => {
+        const checked = values.includes(opt);
+        return (
+          <div key={opt} className="flex items-center space-x-1 sm:space-x-2">
+            <input
+              id={`${idPrefix}-${opt}`}
+              type="checkbox"
+              className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+              checked={checked}
+              onChange={(e) => {
+                const nv = e.target.checked
+                  ? [...values, opt]
+                  : values.filter((v) => v !== opt);
+                onChange(nv);
+              }}
+            />
+            <Label
+              htmlFor={`${idPrefix}-${opt}`}
+              className="text-xs sm:text-sm"
+            >
+              {opt}
+            </Label>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /* ── reusable field components ─────────────── */
 type FieldInputProps = {
@@ -596,10 +665,10 @@ export default function StudentProfilePage() {
               <FieldTextarea
                 id="pr_text"
                 label="自己PR"
-                rows={8}
+                rows={10}
                 max={800}
                 value={profile.pr_text ?? ''}
-                placeholder="具体的なエピソードや成果を数字で示すと効果的です"
+                placeholder="課題 → 行動 → 成果 の順でエピソードを具体的に記述しましょう"
                 onChange={(v) => updateMark({ pr_text: v })}
                 onBlur={handleBlur}
                 error={fieldErrs.pr_text}
@@ -673,64 +742,42 @@ export default function StudentProfilePage() {
                 onBlur={handleBlur}
               />
 
-              <FieldInput
-                id="desired_positions"
-                label="希望ポジション（カンマ区切り）"
-                value={(profile.desired_positions ?? []).join(', ')}
-                onChange={(v) =>
-                  updateMark({
-                    desired_positions: v.split(',').map((s) => s.trim()).filter(Boolean),
-                  })
-                }
-                onBlur={handleBlur}
-              />
-              {profile.desired_positions?.length ? (
-                <TagPreview items={profile.desired_positions} color="blue" />
-              ) : null}
-
-              <FieldInput
-                id="work_style_options"
-                label="働き方オプション（カンマ区切り）"
-                value={(profile.work_style_options ?? []).join(', ')}
-                placeholder="リモート可, フレックス など"
-                onChange={(v) =>
-                  updateMark({
-                    work_style_options: v.split(',').map((s) => s.trim()).filter(Boolean),
-                  })
-                }
-                onBlur={handleBlur}
-              />
-              {profile.work_style_options?.length ? (
-                <TagPreview items={profile.work_style_options} color="purple" />
-              ) : null}
-
-              <FieldInput
-                id="preferred_industries"
-                label="興味業界（カンマ区切り）"
-                value={
-                  Array.isArray(profile.preferred_industries)
-                    ? profile.preferred_industries.map(String).join(", ")
-                    : typeof profile.preferred_industries === "string"
-                    ? profile.preferred_industries
-                    : ""
-                }
-                onChange={(v) =>
-                  updateMark({
-                    preferred_industries: v
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                  })
-                }
-                onBlur={handleBlur}
-              />
-              {Array.isArray(profile.preferred_industries) &&
-              profile.preferred_industries.length ? (
-                <TagPreview
-                  items={profile.preferred_industries.map(String)}
-                  color="green"
+              {/* --- 希望職種 --- */}
+              <div className="space-y-1 sm:space-y-2">
+                <Label className="text-xs sm:text-sm">希望職種</Label>
+                <CheckboxGroup
+                  idPrefix="job"
+                  options={JOB_TYPE_OPTIONS}
+                  values={profile.desired_positions ?? []}
+                  onChange={(vals) => updateMark({ desired_positions: vals })}
                 />
-              ) : null}
+              </div>
+
+              {/* --- 働き方オプション --- */}
+              <div className="space-y-1 sm:space-y-2">
+                <Label className="text-xs sm:text-sm">働き方オプション</Label>
+                <CheckboxGroup
+                  idPrefix="workpref"
+                  options={WORK_PREF_OPTIONS}
+                  values={profile.work_style_options ?? []}
+                  onChange={(vals) => updateMark({ work_style_options: vals })}
+                />
+              </div>
+
+              {/* --- 希望業界 --- */}
+              <div className="space-y-1 sm:space-y-2">
+                <Label className="text-xs sm:text-sm">希望業界</Label>
+                <CheckboxGroup
+                  idPrefix="industry"
+                  options={INDUSTRY_OPTIONS}
+                  values={
+                    Array.isArray(profile.preferred_industries)
+                      ? profile.preferred_industries.map(String)
+                      : []
+                  }
+                  onChange={(vals) => updateMark({ preferred_industries: vals })}
+                />
+              </div>
 
               <div className="flex items-center gap-2">
                 <input
@@ -763,23 +810,16 @@ export default function StudentProfilePage() {
               ) : null}
 
               {/* locations */}
-              <FieldInput
-                id="desired_locations"
-                label="希望勤務地（カンマ区切り）"
-                value={(profile.desired_locations ?? []).join(', ')}
-                onChange={(v) =>
-                  updateMark({
-                    desired_locations: v
-                      .split(',')
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                  })
-                }
-                onBlur={handleBlur}
-              />
-              {profile.desired_locations?.length ? (
-                <TagPreview items={profile.desired_locations} color="purple" />
-              ) : null}
+              {/* --- 希望勤務地 --- */}
+              <div className="space-y-1 sm:space-y-2">
+                <Label className="text-xs sm:text-sm">希望勤務地</Label>
+                <CheckboxGroup
+                  idPrefix="loc"
+                  options={LOCATION_OPTIONS}
+                  values={profile.desired_locations ?? []}
+                  onChange={(vals) => updateMark({ desired_locations: vals })}
+                />
+              </div>
 
               <FieldTextarea
                 id="preference_note"
