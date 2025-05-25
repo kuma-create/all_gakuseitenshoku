@@ -16,9 +16,7 @@ import { supabase as sb } from "@/lib/supabase/client"
 import StudentList from "./StudentList"
 import ScoutDrawer from "./ScoutDrawer"
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Filter as FilterIcon } from "lucide-react"
+import clsx from "clsx"
 
 /* ──────────────── 型定義 ──────────────── */
 type StudentRow = Database["public"]["Tables"]["student_profiles"]["Row"]
@@ -50,7 +48,6 @@ export default function ScoutPage() {
   const [search, setSearch] = useState("")
 
   /* ── フィルタ state ───────────────────── */
-  const [filterOpen, setFilterOpen] = useState(false)
   const [gradYears, setGradYears]   = useState<number[]>([])
   const [statuses, setStatuses]     = useState<string[]>([])
 
@@ -176,17 +173,51 @@ export default function ScoutPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-2"
-            onClick={() => setFilterOpen(true)}
-          >
-            <FilterIcon className="h-4 w-4 mr-1" />
-            フィルタ
-          </Button>
         </div>
       </header>
+
+      {/* フィルタチップ */}
+      <div className="px-6 pt-2 pb-1 flex flex-wrap gap-2 border-b">
+        {/* 卒業年チップ */}
+        {[2025, 2026, 2027, 2028].map((yr) => (
+          <button
+            key={yr}
+            onClick={() =>
+              setGradYears((prev) =>
+                prev.includes(yr) ? prev.filter((y) => y !== yr) : [...prev, yr],
+              )
+            }
+            className={clsx(
+              "text-xs px-2 py-1 rounded border",
+              gradYears.includes(yr)
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "bg-white text-gray-600 hover:bg-gray-100 border-gray-300",
+            )}
+          >
+            {yr}卒
+          </button>
+        ))}
+
+        {/* ステータスチップ */}
+        {["未スカウト", "送信済み"].map((st) => (
+          <button
+            key={st}
+            onClick={() =>
+              setStatuses((prev) =>
+                prev.includes(st) ? prev.filter((s) => s !== st) : [...prev, st],
+              )
+            }
+            className={clsx(
+              "text-xs px-2 py-1 rounded border",
+              statuses.includes(st)
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white text-gray-600 hover:bg-gray-100 border-gray-300",
+            )}
+          >
+            {st}
+          </button>
+        ))}
+      </div>
 
       <Tabs defaultValue="candidates" className="flex-1 overflow-hidden">
         <TabsList>
@@ -264,59 +295,6 @@ export default function ScoutPage() {
         /* 送信完了後 callback */
         onSent={handleSent}
       />
-
-      {/* ───────── 左フィルタサイドバー ───────── */}
-      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-[300px]">
-          <SheetHeader>
-            <SheetTitle>フィルタ</SheetTitle>
-          </SheetHeader>
-
-          <div className="py-4 space-y-6 overflow-y-auto">
-            {/* 卒業年 */}
-            <div>
-              <h4 className="font-semibold mb-2">卒業年</h4>
-              {[2025, 2026, 2027, 2028].map((year) => (
-                <div key={year} className="flex items-center space-x-2 mb-1">
-                  <Checkbox
-                    id={`grad-${year}`}
-                    checked={gradYears.includes(year)}
-                    onCheckedChange={(v) =>
-                      setGradYears((prev) =>
-                        v ? [...prev, year] : prev.filter((y) => y !== year)
-                      )
-                    }
-                  />
-                  <label htmlFor={`grad-${year}`} className="text-sm">
-                    {year}卒
-                  </label>
-                </div>
-              ))}
-            </div>
-
-            {/* ステータス */}
-            <div>
-              <h4 className="font-semibold mb-2">ステータス</h4>
-              {["未スカウト", "送信済み"].map((st) => (
-                <div key={st} className="flex items-center space-x-2 mb-1">
-                  <Checkbox
-                    id={`status-${st}`}
-                    checked={statuses.includes(st)}
-                    onCheckedChange={(v) =>
-                      setStatuses((prev) =>
-                        v ? [...prev, st] : prev.filter((s) => s !== st)
-                      )
-                    }
-                  />
-                  <label htmlFor={`status-${st}`} className="text-sm">
-                    {st}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }

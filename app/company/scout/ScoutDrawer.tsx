@@ -85,7 +85,7 @@ export default function ScoutDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[700px] p-0">
+      <SheetContent side="right" className="w-full sm:max-w-[80vw] p-0">
         <SheetHeader>
           <SheetTitle className="flex items-center">
             <Send className="h-5 w-5 mr-2" />
