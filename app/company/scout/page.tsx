@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { Search } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import type { Database } from "@/lib/supabase/types"
 
@@ -18,14 +18,7 @@ import ScoutDrawer from "./ScoutDrawer"
 
 import clsx from "clsx"
 
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Filter as FilterIcon, X } from "lucide-react"
 
 /* ──────────────── 型定義 ──────────────── */
 type StudentRow = Database["public"]["Tables"]["student_profiles"]["Row"]
@@ -57,8 +50,6 @@ export default function ScoutPage() {
   const [search, setSearch] = useState("")
 
   /* ── フィルタ state ───────────────────── */
-  const [filterOpen, setFilterOpen] = useState(false)
-
   const [gradYears, setGradYears]         = useState<number[]>([])
   const [statuses, setStatuses]           = useState<string[]>([])
   const [selectedMajor, setSelectedMajor] = useState<string>("all")
@@ -202,24 +193,6 @@ export default function ScoutPage() {
       {/* ヘッダー */}
       <header className="shrink-0 border-b px-6 py-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">スカウト管理</h1>
-        <div className="relative w-64 flex items-center">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="学生を検索..."
-            className="pl-10"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-2"
-            onClick={() => setFilterOpen(true)}
-          >
-            <FilterIcon className="h-4 w-4 mr-1" />
-            フィルタ
-          </Button>
-        </div>
       </header>
 
       <Tabs defaultValue="candidates" className="flex-1 overflow-hidden">
@@ -233,11 +206,171 @@ export default function ScoutPage() {
           value="candidates"
           className="h-[calc(100%-40px)] overflow-hidden"
         >
-          <StudentList
-            students={filtered}
-            selectedId={selectedStudent?.id ?? null}
-            onSelect={handleSelect}
-          />
+          <div className="flex h-full overflow-hidden">
+            {/* ── Sidebar ───────────────────────────── */}
+            <aside className="w-72 shrink-0 border-r p-4 space-y-6 overflow-y-auto">
+              {/* フリーワード検索 */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="学生を検索..."
+                  className="pl-10"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              {/* 卒業年 */}
+              <div>
+                <h4 className="font-semibold mb-2">卒業年</h4>
+                {[2025, 2026, 2027, 2028].map((yr) => (
+                  <div key={yr} className="flex items-center space-x-2 mb-1">
+                    <Checkbox
+                      id={`yr-${yr}`}
+                      checked={gradYears.includes(yr)}
+                      onCheckedChange={(v) =>
+                        setGradYears((prev) =>
+                          v ? [...prev, yr] : prev.filter((y) => y !== yr),
+                        )
+                      }
+                    />
+                    <label htmlFor={`yr-${yr}`} className="text-sm">
+                      {yr}卒
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              {/* 専攻 */}
+              <div>
+                <h4 className="font-semibold mb-2">専攻</h4>
+                <select
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  value={selectedMajor}
+                  onChange={(e) => setSelectedMajor(e.target.value)}
+                >
+                  <option value="all">全て</option>
+                  {[...new Set(
+                    students
+                      .map((s) => s.major)
+                      .filter((m): m is string => m != null),
+                  )].map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 地域 */}
+              <div>
+                <h4 className="font-semibold mb-2">地域</h4>
+                <select
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                >
+                  <option value="all">全て</option>
+                  {[...new Set(
+                    students
+                      .map((s) => s.location)
+                      .filter((l): l is string => l != null),
+                  )].map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* インターン経験 */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="intern"
+                  checked={hasInternship}
+                  onCheckedChange={(v) => setHasInternship(!!v)}
+                />
+                <label htmlFor="intern" className="text-sm">
+                  インターン経験あり
+                </label>
+              </div>
+
+              {/* ステータス */}
+              <div>
+                <h4 className="font-semibold mb-2">ステータス</h4>
+                {["未スカウト", "送信済み"].map((st) => (
+                  <div key={st} className="flex items-center space-x-2 mb-1">
+                    <Checkbox
+                      id={`st-${st}`}
+                      checked={statuses.includes(st)}
+                      onCheckedChange={(v) =>
+                        setStatuses((prev) =>
+                          v ? [...prev, st] : prev.filter((s) => s !== st),
+                        )
+                      }
+                    />
+                    <label htmlFor={`st-${st}`} className="text-sm">{st}</label>
+                  </div>
+                ))}
+              </div>
+
+              {/* スキル */}
+              <div>
+                <h4 className="font-semibold mb-2">スキル</h4>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {skills.map((sk) => (
+                    <span
+                      key={sk}
+                      className="text-xs flex items-center bg-gray-200 px-2 py-1 rounded"
+                    >
+                      {sk}
+                      <X
+                        className="h-3 w-3 ml-1 cursor-pointer"
+                        onClick={() =>
+                          setSkills((prev) => prev.filter((s) => s !== sk))
+                        }
+                      />
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Enterで追加"
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                      const val = e.currentTarget.value.trim()
+                      setSkills((prev) =>
+                        prev.includes(val) ? prev : [...prev, val],
+                      )
+                      e.currentTarget.value = ""
+                    }
+                  }}
+                />
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setSearch("")
+                  setGradYears([])
+                  setStatuses([])
+                  setSelectedMajor("all")
+                  setSelectedLocation("all")
+                  setHasInternship(false)
+                  setSkills([])
+                }}
+              >
+                リセット
+              </Button>
+            </aside>
+
+            {/* ── 学生リスト ─────────────────── */}
+            <div className="flex-1 overflow-hidden">
+              <StudentList
+                students={filtered}
+                selectedId={selectedStudent?.id ?? null}
+                onSelect={handleSelect}
+              />
+            </div>
+          </div>
         </TabsContent>
 
         {/* ───────── 送信済みタブ ───────── */}
@@ -298,164 +431,6 @@ export default function ScoutPage() {
         /* 送信完了後 callback */
         onSent={handleSent}
       />
-
-      {/* ───────── Filter Drawer ───────── */}
-      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-[320px]">
-          <SheetHeader>
-            <SheetTitle>フィルタ</SheetTitle>
-          </SheetHeader>
-
-          <div className="py-4 space-y-6 overflow-y-auto">
-
-            {/* 卒業年 */}
-            <div>
-              <h4 className="font-semibold mb-2">卒業年</h4>
-              {[2025, 2026, 2027, 2028].map((yr) => (
-                <div key={yr} className="flex items-center space-x-2 mb-1">
-                  <Checkbox
-                    id={`yr-${yr}`}
-                    checked={gradYears.includes(yr)}
-                    onCheckedChange={(v) =>
-                      setGradYears((prev) =>
-                        v ? [...prev, yr] : prev.filter((y) => y !== yr),
-                      )
-                    }
-                  />
-                  <label htmlFor={`yr-${yr}`} className="text-sm">
-                    {yr}卒
-                  </label>
-                </div>
-              ))}
-            </div>
-
-            {/* 専攻 */}
-            <div>
-              <h4 className="font-semibold mb-2">専攻</h4>
-              <select
-                className="w-full border rounded px-2 py-1 text-sm"
-                value={selectedMajor}
-                onChange={(e) => setSelectedMajor(e.target.value)}
-              >
-                <option value="all">全て</option>
-                {[...new Set(
-                  students
-                    .map((s) => s.major)
-                    .filter((m): m is string => m != null),
-                )].map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 地域 */}
-            <div>
-              <h4 className="font-semibold mb-2">地域</h4>
-              <select
-                className="w-full border rounded px-2 py-1 text-sm"
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-              >
-                <option value="all">全て</option>
-                {[...new Set(
-                  students
-                    .map((s) => s.location)
-                    .filter((l): l is string => l != null),
-                )].map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* インターン経験 */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="intern"
-                checked={hasInternship}
-                onCheckedChange={(v) => setHasInternship(!!v)}
-              />
-              <label htmlFor="intern" className="text-sm">
-                インターン経験あり
-              </label>
-            </div>
-
-            {/* ステータス */}
-            <div>
-              <h4 className="font-semibold mb-2">ステータス</h4>
-              {["未スカウト", "送信済み"].map((st) => (
-                <div key={st} className="flex items-center space-x-2 mb-1">
-                  <Checkbox
-                    id={`st-${st}`}
-                    checked={statuses.includes(st)}
-                    onCheckedChange={(v) =>
-                      setStatuses((prev) =>
-                        v ? [...prev, st] : prev.filter((s) => s !== st),
-                      )
-                    }
-                  />
-                  <label htmlFor={`st-${st}`} className="text-sm">
-                    {st}
-                  </label>
-                </div>
-              ))}
-            </div>
-
-            {/* スキル */}
-            <div>
-              <h4 className="font-semibold mb-2">スキル</h4>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {skills.map((sk) => (
-                  <span
-                    key={sk}
-                    className="text-xs flex items-center bg-gray-200 px-2 py-1 rounded"
-                  >
-                    {sk}
-                    <X
-                      className="h-3 w-3 ml-1 cursor-pointer"
-                      onClick={() =>
-                        setSkills((prev) => prev.filter((s) => s !== sk))
-                      }
-                    />
-                  </span>
-                ))}
-              </div>
-              <input
-                type="text"
-                placeholder="Enterで追加"
-                className="w-full border rounded px-2 py-1 text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && e.currentTarget.value.trim()) {
-                    const val = e.currentTarget.value.trim()
-                    setSkills((prev) =>
-                      prev.includes(val) ? prev : [...prev, val],
-                    )
-                    e.currentTarget.value = ""
-                  }
-                }}
-              />
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setGradYears([])
-                setStatuses([])
-                setSelectedMajor("all")
-                setSelectedLocation("all")
-                setHasInternship(false)
-                setSkills([])
-              }}
-            >
-              リセット
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }
