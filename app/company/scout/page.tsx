@@ -14,8 +14,6 @@ import { useToast } from "@/lib/hooks/use-toast"
 import { supabase as sb } from "@/lib/supabase/client"
 
 import StudentList from "./StudentList"
-import StudentSummary from "./StudentSummary"
-import StudentDetailTabs from "./StudentDetailTabs"
 import ScoutDrawer from "./ScoutDrawer"
 
 /* ──────────────── 型定義 ──────────────── */
@@ -89,7 +87,6 @@ export default function ScoutPage() {
             : "",
         }))
         setStudents(list)
-        setSelectedStudent(list[0] ?? null)
       }
 
       /* スカウト履歴 */
@@ -131,6 +128,12 @@ export default function ScoutPage() {
     [],
   )
 
+  /** 学生カードクリック時 */
+  const handleSelect = useCallback((stu: Student) => {
+    setSelectedStudent(stu)
+    setDrawerOpen(true)
+  }, [])
+
   /* ── UI ─────────────────────────────── */
   if (loading) {
     return (
@@ -163,23 +166,13 @@ export default function ScoutPage() {
         {/* ───────── 候補学生タブ ───────── */}
         <TabsContent
           value="candidates"
-          className="h-[calc(100%-40px)] flex overflow-hidden"
+          className="h-[calc(100%-40px)] overflow-hidden"
         >
-          {/* 学生リスト */}
           <StudentList
             students={filtered}
             selectedId={selectedStudent?.id ?? null}
-            onSelect={(stu) => setSelectedStudent(stu)}
+            onSelect={handleSelect}
           />
-
-          {/* サマリー */}
-          <StudentSummary
-            student={selectedStudent}
-            onScout={() => setDrawerOpen(true)}
-          />
-
-          {/* 詳細 */}
-          <StudentDetailTabs student={selectedStudent} />
         </TabsContent>
 
         {/* ───────── 送信済みタブ ───────── */}

@@ -16,6 +16,7 @@ import { useState } from "react"
 import type { Database } from "@/lib/supabase/types"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase/client"
+import StudentDetailTabs from "./StudentDetailTabs"
 
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"]
 type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"]
@@ -84,7 +85,7 @@ export default function ScoutDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[500px]">
+      <SheetContent side="right" className="w-full sm:max-w-[700px] p-0">
         <SheetHeader>
           <SheetTitle className="flex items-center">
             <Send className="h-5 w-5 mr-2" />
@@ -93,80 +94,91 @@ export default function ScoutDrawer({
         </SheetHeader>
 
         {student && (
-          <div className="py-6 space-y-6">
-            <Card>
-              <CardContent className="pt-4 flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage
-                    src={student.avatar_url ?? "/placeholder.svg"}
-                    alt={student.full_name ?? ""}
-                  />
-                  <AvatarFallback>
-                    {student.full_name?.slice(0, 2) ?? "👤"}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-medium">{student.full_name}</h3>
-                  <p className="text-sm text-gray-500 truncate">
-                    {student.university}
-                  </p>
-                  <div className="flex items-center mt-1">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                    <span className="text-sm">
-                      マッチ度 {student.status ?? "--"}%
-                    </span>
+          <div className="grid grid-cols-3 h-full">
+            {/* ── 左 2/3：プロフィール詳細 ─────────────────── */}
+            <div className="col-span-2 overflow-y-auto p-6">
+              <StudentDetailTabs student={student} />
+            </div>
+
+            {/* ── 右 1/3：スカウト送信フォーム ───────────────── */}
+            <div className="border-l p-6 flex flex-col space-y-6">
+              {/* 学生サマリー */}
+              <Card>
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage
+                      src={student.avatar_url ?? "/placeholder.svg"}
+                      alt={student.full_name ?? ""}
+                    />
+                    <AvatarFallback>
+                      {student.full_name?.slice(0, 2) ?? "👤"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-medium">{student.full_name}</h3>
+                    <p className="text-sm text-gray-500 truncate">
+                      {student.university}
+                    </p>
+                    <div className="flex items-center mt-1">
+                      <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
+                      <span className="text-sm">
+                        マッチ度 {student.status ?? "--"}%
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* テンプレート選択 */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                テンプレート
-              </label>
-              <Select value={selectedTemplate} onValueChange={handleTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="テンプレートを選択..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* テンプレート選択 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  テンプレート
+                </label>
+                <Select value={selectedTemplate} onValueChange={handleTemplate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="テンプレートを選択..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* メッセージ */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">本文</label>
-              <Textarea
-                rows={8}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {message.length}/1000 文字
-              </p>
-            </div>
+              {/* メッセージ */}
+              <div className="flex-1 flex flex-col">
+                <label className="text-sm font-medium mb-2 block">本文</label>
+                <Textarea
+                  rows={10}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="flex-1 resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {message.length}/1000 文字
+                </p>
+              </div>
 
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => onOpenChange(false)}
-              >
-                キャンセル
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={isDisabled}
-                onClick={handleSend}
-              >
-                <Send className="h-4 w-4 mr-2" /> 送信
-              </Button>
+              {/* ボタン */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => onOpenChange(false)}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={isDisabled}
+                  onClick={handleSend}
+                >
+                  <Send className="h-4 w-4 mr-2" /> 送信
+                </Button>
+              </div>
             </div>
           </div>
         )}
