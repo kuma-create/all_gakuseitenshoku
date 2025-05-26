@@ -692,11 +692,11 @@ export default function StudentProfilePage() {
                   {[1, 2, 3].map((i) => (
                     <FieldInput
                       key={i}
-                      id={`strength_${i}`}
+                      id={`strength${i}`}
                       label={`強み${i}`}
-                      value={(profile as any)[`strength_${i}`] ?? ''}
+                      value={(profile as any)[`strength${i}`] ?? ''}
                       placeholder="例: 問題解決力"
-                      onChange={(v) => updateMark({ [`strength_${i}`]: v })}
+                      onChange={(v) => updateMark({ [`strength${i}`]: v })}
                       onBlur={handleBlur}
                     />
                   ))}
