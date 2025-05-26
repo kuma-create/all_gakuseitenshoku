@@ -327,12 +327,16 @@ export default function ResumePage() {
 
   // 保存／自動保存
   const handleSave = async (): Promise<void> => {
+    setSaving(true);
     try {
       const {
         data: { user },
         error: userErr,
       } = await supabase.auth.getUser();
-      if (userErr || !user) return;
+      if (userErr || !user) {
+        setSaving(false);
+        return;
+      }
 
       // resumes を upsert
       await supabase
@@ -347,8 +351,12 @@ export default function ResumePage() {
           { onConflict: "user_id" }
         )
         .throwOnError();
+      setSaving(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Auto‑save error:", error);
+      setSaving(false);
     }
   };
 
