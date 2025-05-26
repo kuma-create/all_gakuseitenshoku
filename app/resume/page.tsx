@@ -459,11 +459,6 @@ export default function ResumePage() {
               )}
             </Button>
 
-            {saveSuccess && (
-              <div className="animate-fade-in rounded-md bg-green-100 px-2 py-1 text-xs text-green-800">
-                保存しました！
-              </div>
-            )}
           </div>
         </div>
 
@@ -705,23 +700,6 @@ export default function ResumePage() {
           </Button>
         </CardContent>
       </Card>
-
-      {/* ─── Auto‑save toast notifications ─────────────────────────────── */}
-      {saving && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-md bg-gray-800/90 px-3 py-2 text-xs font-medium text-white shadow-lg backdrop-blur">
-          <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          保存中…
-        </div>
-      )}
-
-      {saveSuccess && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-md bg-green-600/90 px-3 py-2 text-xs font-medium text-white shadow-lg backdrop-blur transition-opacity">
-          <Check size={12} />
-          保存しました！
-        </div>
-      )}
-      {/* ──────────────────────────────────────────────────────────────── */}
-      {/* Spacer to prevent content from being hidden behind the sticky save button */}
       <div className="h-16"></div>
     </div>
     )

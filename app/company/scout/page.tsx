@@ -85,7 +85,7 @@ export default function ScoutPage() {
       /* 学生一覧 */
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
-        .select("*")
+        .select("*, experiences(*)")  // 👈 職務経歴もネスト取得
 
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
