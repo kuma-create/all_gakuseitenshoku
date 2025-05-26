@@ -136,10 +136,12 @@ type FieldInputProps = {
   placeholder?: string
   required?: boolean
   error?: string
+  min?: string
+  max?: string
 }
 const FieldInput = ({
   id, label, value, disabled = false, onChange, onBlur,
-  type = "text", placeholder, required, error,
+  type = "text", placeholder, required, error, min, max,
 }: FieldInputProps) => (
   <div className="space-y-1">
     <Label htmlFor={id} className="text-xs sm:text-sm">
@@ -147,7 +149,7 @@ const FieldInput = ({
     </Label>
     <Input
       id={id} type={type} disabled={disabled}
-      placeholder={placeholder} value={value}
+      placeholder={placeholder} min={min} max={max} value={value}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
       className={`h-8 text-xs sm:h-10 sm:text-sm ${error ? "border-red-500" : ""} ${
@@ -569,7 +571,9 @@ export default function StudentProfilePage() {
                       id="admission_month"
                       type="month"
                       label="入学年月"
-                      value={profile.admission_month ?? ''}
+                      value={profile.admission_month?.slice(0, 7) ?? ''}
+                      min="2018-01"
+                      max="2030-12"
                       onChange={(v) => {
                         updateMark({ admission_month: v });
                         handleBlur();
@@ -580,7 +584,9 @@ export default function StudentProfilePage() {
                       id="graduation_month"
                       type="month"
                       label="卒業予定月"
-                      value={profile.graduation_month ?? ''}
+                      value={profile.graduation_month?.slice(0, 7) ?? ''}
+                      min="2018-01"
+                      max="2030-12"
                       onChange={(v) => {
                         updateMark({ graduation_month: v });
                         handleBlur();
