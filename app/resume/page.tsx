@@ -328,23 +328,13 @@ export default function ResumePage() {
   // 保存／自動保存
   const handleSave = async (): Promise<void> => {
     try {
-      // 1) 認証ユーザー取得
       const {
         data: { user },
         error: userErr,
       } = await supabase.auth.getUser();
       if (userErr || !user) return;
 
-      // 2) FK 先の users テーブルに行が無いと 23503 になるため先に upsert
-      await supabase
-        .from("users")
-        .upsert(
-          { id: user.id },          // 既に存在する場合は何も更新しない
-          { onConflict: "id" }
-        )
-        .throwOnError();
-
-      // 3) resumes を upsert
+      // resumes を upsert
       await supabase
         .from("resumes")
         .upsert(
