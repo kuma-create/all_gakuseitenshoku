@@ -328,22 +328,37 @@ export default function ResumePage() {
   // 保存／自動保存
   const handleSave = async (): Promise<void> => {
     try {
+      // 1) 認証ユーザー取得
       const {
         data: { user },
         error: userErr,
       } = await supabase.auth.getUser();
       if (userErr || !user) return;
 
-      const { error } = await supabase.from("resumes").upsert({
-        user_id: user.id,
-        form_data: formData,
-        work_experiences: workExperiences,
-        updated_at: new Date().toISOString(),
-      });
+      // 2) FK 先の users テーブルに行が無いと 23503 になるため先に upsert
+      await supabase
+        .from("users")
+        .upsert(
+          { id: user.id },          // 既に存在する場合は何も更新しない
+          { onConflict: "id" }
+        )
+        .throwOnError();
 
-      if (error) console.error("Failed to auto‑save resume:", error);
+      // 3) resumes を upsert
+      await supabase
+        .from("resumes")
+        .upsert(
+          {
+            user_id: user.id,
+            form_data: formData,
+            work_experiences: workExperiences,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        )
+        .throwOnError();
     } catch (error) {
-      console.error("Unexpected auto‑save error:", error);
+      console.error("Auto‑save error:", error);
     }
   };
 
