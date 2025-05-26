@@ -15,6 +15,24 @@ import {
 /* ---------- 型 ---------- */
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"]
 
+/* ---------- Experience ---------- */
+type Experience = {
+  id: string
+  user_id: string
+  company_name: string | null
+  role: string | null
+  start_date: string | null
+  end_date: string | null
+  achievements: string | null
+  created_at: string | null
+  kind: string | null
+  summary_text: string | null
+  skill_text: string | null
+  qualification_text: string | null
+  payload: any
+  order: number | null
+}
+
 interface Props {
   student: Student | null
 }
@@ -75,9 +93,12 @@ export default function StudentDetailTabs({ student }: Props) {
   const fmtDate = (iso?: string | null) =>
     iso ? iso.slice(0, 7).replace("-", "/") : "―"
 
-  const experiences = Array.isArray(student.experience)
-    ? (student.experience as any[])
-    : [];
+  const experiences: Experience[] = Array.isArray(
+    // スキーマに合わせて experience(s) どちらでも拾う
+    (student as any).experiences ?? (student as any).experience
+  )
+    ? ((student as any).experiences ?? (student as any).experience)
+    : []
 
   return (
     <Tabs defaultValue="basic" className="flex-1 overflow-y-auto">
@@ -146,30 +167,35 @@ export default function StudentDetailTabs({ student }: Props) {
         </Section>
 
         <Section title="職歴・プロジェクト">
-          {Array.isArray(student.experience) && student.experience.length > 0 ? (
-            <div className="col-span-full space-y-4">
-              {student.experience.map((exp: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="border-l-2 border-blue-300 pl-4 space-y-1"
-                >
-                  <p className="font-medium">{exp?.company}</p>
-                  <p className="text-sm text-gray-600">{exp?.position}</p>
-                  <p className="text-xs text-gray-500">{exp?.period}</p>
-                  {exp?.description && (
-                    <p className="text-sm text-gray-700">
-                      {exp.description}
+          {experiences.length > 0 ? (
+            <div className="col-span-full space-y-6">
+              {experiences
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((exp) => (
+                  <div
+                    key={exp.id}
+                    className="border-l-4 border-blue-400 pl-4 space-y-1"
+                  >
+                    <p className="font-semibold">{exp.company_name ?? "（社名未登録）"}</p>
+                    <p className="text-sm text-gray-600">{exp.role ?? "―"}</p>
+                    <p className="text-xs text-gray-500">
+                      {(exp.start_date ? exp.start_date.slice(0, 7).replace("-", "/") : "―") +
+                        " 〜 " +
+                        (exp.end_date ? exp.end_date.slice(0, 7).replace("-", "/") : "現在")}
                     </p>
-                  )}
-                </div>
-              ))}
+                    {exp.summary_text && (
+                      <p className="text-sm whitespace-pre-wrap">{exp.summary_text}</p>
+                    )}
+                    {exp.achievements && (
+                      <p className="text-sm whitespace-pre-wrap">
+                        <span className="font-medium">成果:</span> {exp.achievements}
+                      </p>
+                    )}
+                  </div>
+                ))}
             </div>
           ) : (
-            <Field
-              label=""
-              value="職歴・プロジェクト情報は未登録です。"
-              multiline
-            />
+            <Field label="" value="職歴・プロジェクト情報は未登録です。" multiline />
           )}
         </Section>
       </TabsContent>
@@ -221,22 +247,49 @@ export default function StudentDetailTabs({ student }: Props) {
         {/* 職歴 */}
         <Section title="職歴・プロジェクト">
           {experiences.length > 0 ? (
-            <div className="col-span-full space-y-4">
-              {experiences.map((exp: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="border-l-2 border-blue-300 pl-4 space-y-1"
-                >
-                  <p className="font-medium">{exp?.company}</p>
-                  <p className="text-sm text-gray-600">{exp?.position}</p>
-                  <p className="text-xs text-gray-500">{exp?.period}</p>
-                  {exp?.description && (
-                    <p className="text-sm text-gray-700">
-                      {exp.description}
+            <div className="col-span-full space-y-6">
+              {experiences
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((exp) => (
+                  <div
+                    key={exp.id}
+                    className="border-l-4 border-blue-400 pl-4 space-y-1"
+                  >
+                    <p className="font-semibold text-base">
+                      {exp.company_name ?? "（社名未登録）"}
                     </p>
-                  )}
-                </div>
-              ))}
+                    <p className="text-sm text-gray-600">{exp.role ?? "―"}</p>
+                    <p className="text-xs text-gray-500">
+                      {(exp.start_date ? exp.start_date.slice(0, 7).replace("-", "/") : "―") +
+                        " 〜 " +
+                        (exp.end_date ? exp.end_date.slice(0, 7).replace("-", "/") : "現在")}
+                    </p>
+
+                    {exp.summary_text && (
+                      <p className="text-sm whitespace-pre-wrap">{exp.summary_text}</p>
+                    )}
+                    {exp.achievements && (
+                      <p className="text-sm whitespace-pre-wrap">
+                        <span className="font-medium">成果:</span> {exp.achievements}
+                      </p>
+                    )}
+
+                    {(exp.skill_text || exp.qualification_text) && (
+                      <div className="flex flex-wrap gap-x-2 gap-y-1">
+                        {exp.skill_text && (
+                          <Badge className="bg-indigo-50 text-indigo-700">
+                            {exp.skill_text}
+                          </Badge>
+                        )}
+                        {exp.qualification_text && (
+                          <Badge className="bg-emerald-50 text-emerald-700">
+                            {exp.qualification_text}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
           ) : (
             <Field label="" value="職歴情報は未登録です" multiline />
