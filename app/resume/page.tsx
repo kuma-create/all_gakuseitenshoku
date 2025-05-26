@@ -334,6 +334,12 @@ export default function ResumePage() {
       } = await supabase.auth.getUser();
       if (userErr || !user) return;
 
+      // ―― Ensure the FK target exists so resumes.user_id constraint passes ――
+      await supabase
+        .from("users")
+        .upsert({ id: user.id }, { onConflict: "id" }) // ignore if already exists
+        .throwOnError();
+
       // resumes を upsert
       await supabase
         .from("resumes")
