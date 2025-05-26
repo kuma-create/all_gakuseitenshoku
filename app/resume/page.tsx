@@ -195,6 +195,41 @@ export default function ResumePage() {
     },
   });
 
+  // 初期ロード済みフラグ
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+  // ─── 既存レジュメを取得 ─────────────────────────────────────
+  useEffect(() => {
+    const loadResume = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) return;
+
+      const { data, error } = await supabase
+        .from("resumes")
+        .select("form_data, work_experiences")
+        .eq("user_id", uid)
+        .single();
+
+      if (!error && data) {
+        if (data.form_data) {
+          setFormData(data.form_data as FormData);
+        }
+        if (data.work_experiences && Array.isArray(data.work_experiences)) {
+          setWorkExperiences(data.work_experiences as WorkExperience[]);
+        }
+        console.log("📄 Resume loaded from DB");
+      } else {
+        console.log("ℹ️ No existing resume found (or error):", error?.message);
+      }
+      setInitialLoaded(true);
+    };
+
+    loadResume();
+  }, []);
+
 
   // ─── 完了率を計算 ────────────────────────────────────────────────
 
@@ -387,6 +422,10 @@ export default function ResumePage() {
   };
 
   return (
+    // Optional UI guard: 読込中はローディング表示
+    !initialLoaded ? (
+      <div className="p-4 text-center text-sm text-gray-500">読込中…</div>
+    ) : (
     <div className="container mx-auto px-4 py-6 sm:py-8">
       {/* Header with progress tracker */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
@@ -685,5 +724,5 @@ export default function ResumePage() {
       {/* Spacer to prevent content from being hidden behind the sticky save button */}
       <div className="h-16"></div>
     </div>
-  )
-}
+    )
+)}
