@@ -144,7 +144,7 @@ export default function ResumePage() {
     conditions: 0,
   });
 
-  const saveTimeout = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [formData, setFormData] = useState<FormData>({
     basic: {
       lastName: "",
