@@ -2,7 +2,7 @@
 
 "use client"; // ─────────── 必ずファイル先頭１行目
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   PlusCircle,
   Trash2,
@@ -224,6 +224,23 @@ export default function ResumePage() {
     );
     setCompletionPercentage(overall);
   }, [formData, workExperiences]);
+
+  // ─── Auto‑save whenever form data or work experiences change ─────────────────
+  useEffect(() => {
+    // Clear any existing timer so we only save once after the latest change
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+
+    // Debounce: wait 1 second after the user stops typing/changing before saving
+    saveTimeout.current = setTimeout(() => {
+      handleSave();
+    }, 1000);
+
+    // Clean‑up on unmount
+    return () => {
+      if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    };
+  }, [formData, workExperiences]);
+  // ────────────────────────────────────────────────────────────────────────────
 
 
   // ─── ハンドラ関数 ────────────────────────────────────────────────
@@ -610,3 +627,5 @@ export default function ResumePage() {
     </div>
   )
 }
+
+  const saveTimeout = useRef<NodeJS.Timeout | null>(null);
