@@ -172,25 +172,18 @@ export default function StudentDetailTabs({ student }: Props) {
               {experiences
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                 .map((exp) => (
-                  <div
-                    key={exp.id}
-                    className="border-l-4 border-blue-400 pl-4 space-y-1"
-                  >
-                    <p className="font-semibold">{exp.company_name ?? "（社名未登録）"}</p>
-                    <p className="text-sm text-gray-600">{exp.role ?? "―"}</p>
-                    <p className="text-xs text-gray-500">
-                      {(exp.start_date ? exp.start_date.slice(0, 7).replace("-", "/") : "―") +
-                        " 〜 " +
-                        (exp.end_date ? exp.end_date.slice(0, 7).replace("-", "/") : "現在")}
-                    </p>
-                    {exp.summary_text && (
-                      <p className="text-sm whitespace-pre-wrap">{exp.summary_text}</p>
-                    )}
-                    {exp.achievements && (
-                      <p className="text-sm whitespace-pre-wrap">
-                        <span className="font-medium">成果:</span> {exp.achievements}
-                      </p>
-                    )}
+                  <div key={exp.id} className="bg-white rounded-md border p-4 space-y-1">
+                    <Field label="企業・組織名" value={exp.company_name ?? "（社名未登録）"} />
+                    <Field label="役職・ポジション" value={exp.role ?? "―"} />
+                    <Field
+                      label="在籍期間"
+                      value={`${fmtDate(exp.start_date)} 〜 ${
+                        exp.end_date ? fmtDate(exp.end_date) : "現在"
+                      }`}
+                    />
+                    <Field label="業務内容" value={exp.summary_text} multiline />
+                    <Field label="使用技術・ツール" value={exp.skill_text} multiline />
+                    <Field label="成果・実績" value={exp.achievements} multiline />
                   </div>
                 ))}
             </div>
@@ -228,21 +221,6 @@ export default function StudentDetailTabs({ student }: Props) {
 
       {/* ========== 職務経歴書 TAB ========== */}
       <TabsContent value="resume" className="p-6 space-y-6">
-        {/* 学歴 + プロフィール */}
-        <Section title="学歴">
-          <Field label="大学" value={student.university} />
-          <Field label="学部" value={student.faculty} />
-          <Field label="学科" value={student.department} />
-          <Field label="入学月" value={fmtDate(student.admission_month)} />
-          <Field label="卒業月" value={fmtDate(student.graduation_month)} />
-        </Section>
-        <Section title="プロフィール">
-          <Field label="性別" value={student.gender} />
-          <Field label="ステータス" value={student.status} />
-          <Field label="研究テーマ" value={student.research_theme} multiline />
-          <Field label="About" value={student.about} multiline />
-          <Field label="興味分野" value={student.interests?.join(' / ')} />
-        </Section>
 
         {/* 職歴 */}
         <Section title="職歴・プロジェクト">
@@ -251,43 +229,18 @@ export default function StudentDetailTabs({ student }: Props) {
               {experiences
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                 .map((exp) => (
-                  <div
-                    key={exp.id}
-                    className="border-l-4 border-blue-400 pl-4 space-y-1"
-                  >
-                    <p className="font-semibold text-base">
-                      {exp.company_name ?? "（社名未登録）"}
-                    </p>
-                    <p className="text-sm text-gray-600">{exp.role ?? "―"}</p>
-                    <p className="text-xs text-gray-500">
-                      {(exp.start_date ? exp.start_date.slice(0, 7).replace("-", "/") : "―") +
-                        " 〜 " +
-                        (exp.end_date ? exp.end_date.slice(0, 7).replace("-", "/") : "現在")}
-                    </p>
-
-                    {exp.summary_text && (
-                      <p className="text-sm whitespace-pre-wrap">{exp.summary_text}</p>
-                    )}
-                    {exp.achievements && (
-                      <p className="text-sm whitespace-pre-wrap">
-                        <span className="font-medium">成果:</span> {exp.achievements}
-                      </p>
-                    )}
-
-                    {(exp.skill_text || exp.qualification_text) && (
-                      <div className="flex flex-wrap gap-x-2 gap-y-1">
-                        {exp.skill_text && (
-                          <Badge className="bg-indigo-50 text-indigo-700">
-                            {exp.skill_text}
-                          </Badge>
-                        )}
-                        {exp.qualification_text && (
-                          <Badge className="bg-emerald-50 text-emerald-700">
-                            {exp.qualification_text}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                  <div key={exp.id} className="bg-white rounded-md border p-4 space-y-1">
+                    <Field label="企業・組織名" value={exp.company_name ?? "（社名未登録）"} />
+                    <Field label="役職・ポジション" value={exp.role ?? "―"} />
+                    <Field
+                      label="在籍期間"
+                      value={`${fmtDate(exp.start_date)} 〜 ${
+                        exp.end_date ? fmtDate(exp.end_date) : "現在"
+                      }`}
+                    />
+                    <Field label="業務内容" value={exp.summary_text} multiline />
+                    <Field label="使用技術・ツール" value={exp.skill_text} multiline />
+                    <Field label="成果・実績" value={exp.achievements} multiline />
                   </div>
                 ))}
             </div>
