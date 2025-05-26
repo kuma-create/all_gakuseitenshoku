@@ -37,7 +37,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 
 
@@ -189,6 +191,8 @@ export default function ResumePage() {
     },
   });
 
+  const supabase = createClientComponentClient();
+
   // ─── 完了率を計算 ────────────────────────────────────────────────
 
   useEffect(() => {
@@ -319,13 +323,25 @@ export default function ResumePage() {
   };
 
   // 保存ボタン
-  const handleSave = (): void => {
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1000);
+  const handleSave = async (): Promise<void> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase
+        .from("resumes")
+        .upsert(
+          {
+            user_id: user.id,
+            form_data: formData,
+            work_experiences: workExperiences,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+    } catch (error) {
+      console.error("Failed to auto‑save resume:", error);
+    }
   };
 
   // 完了率バーの色を返す
@@ -351,7 +367,7 @@ export default function ResumePage() {
             <h1 className="text-xl font-bold sm:text-2xl">職務経歴書</h1>
             <p className="text-xs text-gray-500 sm:text-sm">あなたのキャリアや学歴情報を入力してください</p>
           </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="hidden">
             <Button
               onClick={handleSave}
               disabled={saving}
