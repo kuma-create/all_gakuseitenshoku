@@ -42,6 +42,8 @@ const schema = z.object({
   desired_positions    : z.array(z.string()).default([]).optional(),
   desired_locations    : z.array(z.string()).default([]).optional(),
   work_style_options   : z.array(z.string()).default([]).optional(),
+  admission_month  : z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  graduation_month : z.string().regex(/^\d{4}-\d{2}$/).optional(),
 })
 
 /* ── suggestion master data ─*/
@@ -76,11 +78,13 @@ function CheckboxGroup({
   options,
   values,
   onChange,
+  onSave,
 }: {
   idPrefix: string;
   options: readonly string[];
   values: string[];
   onChange: (v: string[]) => void;
+  onSave?: () => void;
 }) {
   return (
     <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 sm:gap-2">
@@ -98,6 +102,7 @@ function CheckboxGroup({
                   ? [...values, opt]
                   : values.filter((v) => v !== opt);
                 onChange(nv);
+                if (onSave) onSave();     // trigger auto‑save immediately
               }}
             />
             <Label
@@ -559,7 +564,10 @@ export default function StudentProfilePage() {
                       type="month"
                       label="入学年月"
                       value={profile.admission_month ?? ''}
-                      onChange={(v) => updateMark({ admission_month: v })}
+                      onChange={(v) => {
+                        updateMark({ admission_month: v });
+                        handleBlur();
+                      }}
                       onBlur={handleBlur}
                     />
                     <FieldInput
@@ -567,7 +575,10 @@ export default function StudentProfilePage() {
                       type="month"
                       label="卒業予定月"
                       value={profile.graduation_month ?? ''}
-                      onChange={(v) => updateMark({ graduation_month: v })}
+                      onChange={(v) => {
+                        updateMark({ graduation_month: v });
+                        handleBlur();
+                      }}
                       onBlur={handleBlur}
                     />
                   </div>
@@ -750,6 +761,7 @@ export default function StudentProfilePage() {
                   options={JOB_TYPE_OPTIONS}
                   values={profile.desired_positions ?? []}
                   onChange={(vals) => updateMark({ desired_positions: vals })}
+                  onSave={handleBlur}
                 />
               </div>
 
@@ -761,6 +773,7 @@ export default function StudentProfilePage() {
                   options={WORK_PREF_OPTIONS}
                   values={profile.work_style_options ?? []}
                   onChange={(vals) => updateMark({ work_style_options: vals })}
+                  onSave={handleBlur}
                 />
               </div>
 
@@ -776,6 +789,7 @@ export default function StudentProfilePage() {
                       : []
                   }
                   onChange={(vals) => updateMark({ preferred_industries: vals })}
+                  onSave={handleBlur}
                 />
               </div>
 
@@ -818,6 +832,7 @@ export default function StudentProfilePage() {
                   options={LOCATION_OPTIONS}
                   values={profile.desired_locations ?? []}
                   onChange={(vals) => updateMark({ desired_locations: vals })}
+                  onSave={handleBlur}
                 />
               </div>
 
