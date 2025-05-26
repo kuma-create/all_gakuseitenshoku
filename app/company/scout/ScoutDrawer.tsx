@@ -18,7 +18,9 @@ import { toast } from "sonner"
 import { supabase } from "@/lib/supabase/client"
 import StudentDetailTabs from "./StudentDetailTabs"
 
-type Student = Database["public"]["Tables"]["student_profiles"]["Row"]
+type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
+  match_score?: number | null      // 動的計算されたマッチ度
+}
 type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"]
 
 interface Template {
@@ -46,7 +48,9 @@ export default function ScoutDrawer({
 }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [message, setMessage] = useState<string>("")
-  const isDisabled = !student || !message.trim() || !companyId
+  const MAX_LEN = 1000
+  const isDisabled =
+    !student || !message.trim() || !companyId || message.length > MAX_LEN
 
   const handleTemplate = (id: string) => {
     const tmp = templates.find((t) => t.id === id)
@@ -122,7 +126,7 @@ export default function ScoutDrawer({
                     <div className="flex items-center mt-1">
                       <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
                       <span className="text-sm">
-                        マッチ度 {student.status ?? "--"}%
+                        マッチ度 {student.match_score ?? "--"}%
                       </span>
                     </div>
                   </div>
@@ -154,11 +158,14 @@ export default function ScoutDrawer({
                 <Textarea
                   rows={10}
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => {
+                    const txt = e.target.value
+                    if (txt.length <= MAX_LEN) setMessage(txt)
+                  }}
                   className="flex-1 resize-none"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  {message.length}/1000 文字
+                  {message.length}/{MAX_LEN} 文字
                 </p>
               </div>
 

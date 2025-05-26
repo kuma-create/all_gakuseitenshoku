@@ -4,6 +4,12 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Building } from "lucide-react"
 import type { Database } from "@/lib/supabase/types"
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs"
 
 type Experience = {
   company?: string
@@ -30,73 +36,84 @@ export default function StudentDetailTabs({ student }: Props) {
     : []
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-8">
-      {/* 自己PR */}
-      <section>
-        <h3 className="font-semibold text-lg mb-2">自己PR</h3>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">
-          {student.about ?? student.pr_body ?? "自己PRは未登録です。"}
-        </p>
-      </section>
+    <Tabs defaultValue="pr" className="flex-1 overflow-y-auto">
+      {/* タブバー */}
+      <TabsList className="sticky top-0 z-10 bg-white">
+        <TabsTrigger value="pr">自己PR</TabsTrigger>
+        <TabsTrigger value="skills">スキル</TabsTrigger>
+        <TabsTrigger value="exp">職歴・プロジェクト</TabsTrigger>
+      </TabsList>
 
-      <Separator />
+      {/* ---------- 自己PR ---------- */}
+      <TabsContent value="pr" className="p-6 space-y-8">
+        <section>
+          <h3 className="font-semibold text-lg mb-2">自己PR</h3>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+            {student.about ?? student.pr_body ?? "自己PRは未登録です。"}
+          </p>
+        </section>
+      </TabsContent>
 
-      {/* スキル & 興味 */}
-      <section className="space-y-4">
-        <div>
-          <h4 className="font-semibold mb-1">技術スキル</h4>
-          <div className="flex flex-wrap gap-2">
-            {(student.skills ?? []).map((s) => (
-              <Badge key={s} variant="secondary">
-                {s}
-              </Badge>
-            ))}
-            {student.skills?.length === 0 && (
-              <span className="text-xs text-gray-400">未登録</span>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <h4 className="font-semibold mb-1">興味分野</h4>
-          <div className="flex flex-wrap gap-2">
-            {(student.interests ?? []).map((i) => (
-              <Badge key={i}>{i}</Badge>
-            ))}
-            {student.interests?.length === 0 && (
-              <span className="text-xs text-gray-400">未登録</span>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <Separator />
-
-      {/* 経験・プロジェクト */}
-      <section className="space-y-4">
-        <h3 className="font-semibold text-lg flex items-center">
-          <Building className="h-5 w-5 mr-2" />
-          職歴・プロジェクト
-        </h3>
-
-        {experiences.length > 0 ? (
-          experiences.map((exp, idx) => (
-            <div
-              key={idx}
-              className="border-l-2 border-blue-300 pl-4 space-y-1"
-            >
-              <p className="font-medium">{exp?.company}</p>
-              <p className="text-sm text-gray-600">{exp?.position}</p>
-              <p className="text-xs text-gray-500">{exp?.period}</p>
-              {exp?.description && (
-                <p className="text-sm text-gray-700">{exp.description}</p>
+      {/* ---------- スキル & 興味 ---------- */}
+      <TabsContent value="skills" className="p-6 space-y-8">
+        <section className="space-y-4">
+          <div>
+            <h4 className="font-semibold mb-1">技術スキル</h4>
+            <div className="flex flex-wrap gap-2">
+              {(student.skills ?? []).map((s) => (
+                <Badge key={s} variant="secondary">
+                  {s}
+                </Badge>
+              ))}
+              {student.skills?.length === 0 && (
+                <span className="text-xs text-gray-400">未登録</span>
               )}
             </div>
-          ))
-        ) : (
-          <p className="text-xs text-gray-400">職歴・プロジェクト情報は未登録です。</p>
-        )}
-      </section>
-    </div>
+          </div>
+
+          <div>
+            <h4 className="font-semibold mb-1">興味分野</h4>
+            <div className="flex flex-wrap gap-2">
+              {(student.interests ?? []).map((i) => (
+                <Badge key={i}>{i}</Badge>
+              ))}
+              {student.interests?.length === 0 && (
+                <span className="text-xs text-gray-400">未登録</span>
+              )}
+            </div>
+          </div>
+        </section>
+      </TabsContent>
+
+      {/* ---------- 職歴・プロジェクト ---------- */}
+      <TabsContent value="exp" className="p-6 space-y-8">
+        <section className="space-y-4">
+          <h3 className="font-semibold text-lg flex items-center">
+            <Building className="h-5 w-5 mr-2" />
+            職歴・プロジェクト
+          </h3>
+
+          {experiences.length > 0 ? (
+            experiences.map((exp, idx) => (
+              <div
+                key={idx}
+                className="border-l-2 border-blue-300 pl-4 space-y-1"
+              >
+                <p className="font-medium">{exp?.company}</p>
+                <p className="text-sm text-gray-600">{exp?.position}</p>
+                <p className="text-xs text-gray-500">{exp?.period}</p>
+                {exp?.description && (
+                  <p className="text-sm text-gray-700">{exp.description}</p>
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-gray-400">
+              職歴・プロジェクト情報は未登録です。
+            </p>
+          )}
+        </section>
+      </TabsContent>
+    </Tabs>
   )
 }
