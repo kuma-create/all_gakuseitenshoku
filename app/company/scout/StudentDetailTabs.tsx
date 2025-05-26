@@ -1,7 +1,8 @@
 "use client"
 
+import React from "react"
+import clsx from "clsx"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Building } from "lucide-react"
 import type { Database } from "@/lib/supabase/types"
 import {
@@ -11,108 +12,187 @@ import {
   TabsContent,
 } from "@/components/ui/tabs"
 
-type Experience = {
-  company?: string
-  position?: string
-  period?: string
-  description?: string
-}
-
-function isExperienceArray(data: unknown): data is Experience[] {
-  return Array.isArray(data)
-}
-
+/* ---------- 型 ---------- */
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"]
 
 interface Props {
   student: Student | null
 }
 
-export default function StudentDetailTabs({ student }: Props) {
-  if (!student) return null
+/* ---------- presenter helpers ---------- */
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <h3 className="font-semibold text-base">{title}</h3>
+      <div className="bg-gray-50 border rounded p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+        {children}
+      </div>
+    </div>
+  )
+}
 
-  const experiences: Experience[] = isExperienceArray(student.experience)
-    ? student.experience
-    : []
+function Field({
+  label,
+  value,
+  multiline = false,
+}: {
+  label: string
+  value: string | number | boolean | null | undefined
+  multiline?: boolean
+}) {
+  return (
+    <div className={multiline ? "col-span-full" : ""}>
+      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+      <p
+        className={clsx(
+          multiline ? "whitespace-pre-wrap" : "truncate",
+          "text-sm",
+        )}
+      >
+        {value !== null && value !== undefined && value !== ""
+          ? String(value)
+          : "―"}
+      </p>
+    </div>
+  )
+}
+
+export default function StudentDetailTabs({ student }: Props) {
+  if (!student)
+    return (
+      <div className="p-6 text-sm text-gray-500">
+        左側のリストから学生を選択してください
+      </div>
+    )
+
+  /* helpers */
+  const fmtDate = (iso?: string | null) =>
+    iso ? iso.slice(0, 7).replace("-", "/") : "―"
 
   return (
-    <Tabs defaultValue="pr" className="flex-1 overflow-y-auto">
-      {/* タブバー */}
+    <Tabs defaultValue="basic" className="flex-1 overflow-y-auto">
+      {/* ------------ タブバー ------------- */}
       <TabsList className="sticky top-0 z-10 bg-white">
+        <TabsTrigger value="basic">基本情報</TabsTrigger>
         <TabsTrigger value="pr">自己PR</TabsTrigger>
-        <TabsTrigger value="skills">スキル</TabsTrigger>
-        <TabsTrigger value="exp">職歴・プロジェクト</TabsTrigger>
+        <TabsTrigger value="pref">希望条件</TabsTrigger>
       </TabsList>
 
-      {/* ---------- 自己PR ---------- */}
-      <TabsContent value="pr" className="p-6 space-y-8">
-        <section>
-          <h3 className="font-semibold text-lg mb-2">自己PR</h3>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">
-            {student.about ?? student.pr_body ?? "自己PRは未登録です。"}
-          </p>
-        </section>
+      {/* ========== 基本情報 TAB ========== */}
+      <TabsContent value="basic" className="p-6 space-y-6">
+        <Section title="学歴">
+          <Field label="大学" value={student.university} />
+          <Field label="学部" value={student.faculty} />
+          <Field label="学科" value={student.department} />
+          <Field label="入学月" value={fmtDate(student.admission_month)} />
+          <Field label="卒業月" value={fmtDate(student.graduation_month)} />
+        </Section>
+
+        <Section title="プロフィール">
+          <Field label="性別" value={student.gender} />
+          <Field label="ステータス" value={student.status} />
+          <Field
+            label="インターン経験"
+            value={student.has_internship_experience ? "あり" : "なし"}
+          />
+          <Field label="研究テーマ" value={student.research_theme} multiline />
+          <Field label="About" value={student.about} multiline />
+          <Field label="興味分野" value={student.interests?.join(" / ")} />
+        </Section>
       </TabsContent>
 
-      {/* ---------- スキル & 興味 ---------- */}
-      <TabsContent value="skills" className="p-6 space-y-8">
-        <section className="space-y-4">
-          <div>
-            <h4 className="font-semibold mb-1">技術スキル</h4>
-            <div className="flex flex-wrap gap-2">
-              {(student.skills ?? []).map((s) => (
-                <Badge key={s} variant="secondary">
-                  {s}
-                </Badge>
+      {/* ========== 自己PR TAB ========== */}
+      <TabsContent value="pr" className="p-6 space-y-6">
+        <Section title="自己PR">
+          <Field label="PR タイトル" value={student.pr_title} />
+          <Field label="PR 本文" value={student.pr_body} multiline />
+          <Field label="ひとこと自己紹介" value={student.pr_text} multiline />
+          <Field
+            label="Strength 1"
+            value={student.strength1 ?? "―"}
+            multiline
+          />
+          <Field
+            label="Strength 2"
+            value={student.strength2 ?? "―"}
+            multiline
+          />
+          <Field
+            label="Strength 3"
+            value={student.strength3 ?? "―"}
+            multiline
+          />
+        </Section>
+
+        <Section title="スキル & 資格">
+          <Field label="資格" value={student.qualification_text} multiline />
+          <Field label="スキル詳細" value={student.skill_text} multiline />
+          <Field
+            label="語学スキル"
+            value={student.language_skill}
+            multiline
+          />
+        </Section>
+
+        <Section title="職歴・プロジェクト">
+          {Array.isArray(student.experience) && student.experience.length > 0 ? (
+            <div className="col-span-full space-y-4">
+              {student.experience.map((exp: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="border-l-2 border-blue-300 pl-4 space-y-1"
+                >
+                  <p className="font-medium">{exp?.company}</p>
+                  <p className="text-sm text-gray-600">{exp?.position}</p>
+                  <p className="text-xs text-gray-500">{exp?.period}</p>
+                  {exp?.description && (
+                    <p className="text-sm text-gray-700">
+                      {exp.description}
+                    </p>
+                  )}
+                </div>
               ))}
-              {student.skills?.length === 0 && (
-                <span className="text-xs text-gray-400">未登録</span>
-              )}
             </div>
-          </div>
-
-          <div>
-            <h4 className="font-semibold mb-1">興味分野</h4>
-            <div className="flex flex-wrap gap-2">
-              {(student.interests ?? []).map((i) => (
-                <Badge key={i}>{i}</Badge>
-              ))}
-              {student.interests?.length === 0 && (
-                <span className="text-xs text-gray-400">未登録</span>
-              )}
-            </div>
-          </div>
-        </section>
-      </TabsContent>
-
-      {/* ---------- 職歴・プロジェクト ---------- */}
-      <TabsContent value="exp" className="p-6 space-y-8">
-        <section className="space-y-4">
-          <h3 className="font-semibold text-lg flex items-center">
-            <Building className="h-5 w-5 mr-2" />
-            職歴・プロジェクト
-          </h3>
-
-          {experiences.length > 0 ? (
-            experiences.map((exp, idx) => (
-              <div
-                key={idx}
-                className="border-l-2 border-blue-300 pl-4 space-y-1"
-              >
-                <p className="font-medium">{exp?.company}</p>
-                <p className="text-sm text-gray-600">{exp?.position}</p>
-                <p className="text-xs text-gray-500">{exp?.period}</p>
-                {exp?.description && (
-                  <p className="text-sm text-gray-700">{exp.description}</p>
-                )}
-              </div>
-            ))
           ) : (
-            <p className="text-xs text-gray-400">
-              職歴・プロジェクト情報は未登録です。
-            </p>
+            <Field
+              label=""
+              value="職歴・プロジェクト情報は未登録です。"
+              multiline
+            />
           )}
-        </section>
+        </Section>
+      </TabsContent>
+
+      {/* ========== 希望条件 TAB ========== */}
+      <TabsContent value="pref" className="p-6 space-y-6">
+        <Section title="希望条件">
+          <Field
+            label="希望業界（第1希望）"
+            value={student.desired_industries?.join(", ")}
+          />
+          <Field
+            label="希望職種"
+            value={student.desired_positions?.join(", ")}
+          />
+          <Field
+            label="希望勤務地"
+            value={student.desired_locations?.join(", ")}
+          />
+          <Field label="希望勤務形態" value={student.work_style} />
+          <Field label="雇用形態" value={student.employment_type} />
+          <Field label="希望年収" value={student.salary_range} />
+          <Field
+            label="働き方オプション"
+            value={student.work_style_options?.join(", ")}
+          />
+          <Field label="補足メモ" value={student.preference_note} multiline />
+        </Section>
       </TabsContent>
     </Tabs>
   )
