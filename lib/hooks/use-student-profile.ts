@@ -108,8 +108,8 @@ export function useStudentProfile() {
 
       if (upErr) throw upErr;
 
-      // 保存成功 → 返ってきた行でローカルを即更新
-      setData(prev => ({ ...prev, ...(upserted ?? {}), __editing: false }));
+      // 保存成功: サーバーを信じつつローカルはそのまま保持し、__editing を外す
+      setData(prev => ({ ...prev, __editing: false }));
     } catch (e: any) {
       setError(e);
       throw e;                 // 呼び出し側 (handleSave) で捕捉
