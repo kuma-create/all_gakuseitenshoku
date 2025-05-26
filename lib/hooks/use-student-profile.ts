@@ -100,6 +100,20 @@ export function useStudentProfile() {
         user_id: user.id,   // upsert 衝突キー
       });
 
+      // ---- YYYY-MM → YYYY-MM-01 補正（date 型カラム）-------------
+      if (
+        typeof payload.admission_month === "string" &&
+        /^\d{4}-\d{2}$/.test(payload.admission_month)
+      ) {
+        payload.admission_month = `${payload.admission_month}-01`;
+      }
+      if (
+        typeof payload.graduation_month === "string" &&
+        /^\d{4}-\d{2}$/.test(payload.graduation_month)
+      ) {
+        payload.graduation_month = `${payload.graduation_month}-01`;
+      }
+
       const { data: upserted, error: upErr } = await supabase
         .from("student_profiles")
         .upsert(payload, { onConflict: "user_id" })
