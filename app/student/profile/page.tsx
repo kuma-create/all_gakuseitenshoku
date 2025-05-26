@@ -102,7 +102,13 @@ function CheckboxGroup({
                   ? [...values, opt]
                   : values.filter((v) => v !== opt);
                 onChange(nv);
-                if (onSave) onSave();     // trigger auto‑save immediately
+
+                /* 保存は 1 フレーム遅らせて、setState → re‑render が完了してから */
+                if (onSave) {
+                  window.requestAnimationFrame(() => {
+                    onSave();
+                  });
+                }
               }}
             />
             <Label
