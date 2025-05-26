@@ -3,7 +3,6 @@
 import React from "react"
 import clsx from "clsx"
 import { Badge } from "@/components/ui/badge"
-import { Building } from "lucide-react"
 import type { Database } from "@/lib/supabase/types"
 import {
   Tabs,
@@ -31,6 +30,11 @@ type Experience = {
   qualification_text: string | null
   payload: any
   order: number | null
+}
+
+// ----- Resume 型 -----
+type Resume = {
+  work_experiences: Experience[] | null
 }
 
 interface Props {
@@ -93,11 +97,13 @@ export default function StudentDetailTabs({ student }: Props) {
   const fmtDate = (iso?: string | null) =>
     iso ? iso.slice(0, 7).replace("-", "/") : "―"
 
-  const experiences: Experience[] = Array.isArray(
-    // スキーマに合わせて experience(s) どちらでも拾う
-    (student as any).experiences ?? (student as any).experience
-  )
-    ? ((student as any).experiences ?? (student as any).experience)
+  // ----- レジュメ (work_experiences) 取得 -----
+  const resume: Resume | null = Array.isArray((student as any).resumes)
+    ? ((student as any).resumes as Resume[])[0] ?? null
+    : null
+
+  const experiences: Experience[] = Array.isArray(resume?.work_experiences)
+    ? (resume!.work_experiences as Experience[])
     : []
 
   return (
@@ -245,7 +251,7 @@ export default function StudentDetailTabs({ student }: Props) {
                 ))}
             </div>
           ) : (
-            <Field label="" value="職歴情報は未登録です" multiline />
+            <Field label="" value="職歴・プロジェクト情報は未登録です。" multiline />
           )}
         </Section>
 

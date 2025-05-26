@@ -26,6 +26,9 @@ type ScoutRow   = Database["public"]["Tables"]["scouts"]["Row"]
 type TemplateRow = Database["public"]["Tables"]["scout_templates"]["Row"]
 
 interface Student extends StudentRow {
+  resumes?: {
+    work_experiences: any[] | null
+  }[]
   match_score?: number        // 後で算出
   last_active?: string        // “◯分前”
 }
@@ -85,13 +88,14 @@ export default function ScoutPage() {
       /* 学生一覧 */
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
-        .select("*, experiences(*)")  // 👈 職務経歴もネスト取得
+        .select("*, resumes(work_experiences)")   // 👈 レジュメ(work_experiences)をネスト取得
 
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
       } else {
         const now = Date.now()
-        const list: Student[] = (stuRows ?? []).map((s) => ({
+        // Supabase 型にはネスト済み `resumes` が含まれないので any→Student へキャスト
+        const list: Student[] = ((stuRows ?? []) as any as Student[]).map((s) => ({
           ...s,
           match_score: 0,
           last_active: s.created_at
