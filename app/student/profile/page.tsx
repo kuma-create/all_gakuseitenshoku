@@ -44,6 +44,8 @@ const schema = z.object({
   work_style_options   : z.array(z.string()).default([]).optional(),
   admission_month  : z.string().regex(/^\d{4}-\d{2}$/).optional(),
   graduation_month : z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  gender             : z.enum(["male","female","other"]).optional(),
+  desired_industries : z.array(z.string()).default([]).optional(),
 })
 
 /* ── suggestion master data ─*/
@@ -324,6 +326,7 @@ export default function StudentProfilePage() {
     profile.city,
     profile.address_line,
     profile.birth_date,
+    profile.gender,
   ]
   const prList = [
     profile.pr_title,
@@ -334,6 +337,7 @@ export default function StudentProfilePage() {
     profile.employment_type,
     profile.desired_positions,
     profile.work_style,
+    profile.desired_industries,
   ]
 
   const pct = (arr: unknown[]) =>
@@ -483,6 +487,30 @@ export default function StudentProfilePage() {
                     onChange={(v) => updateMark({ phone: v })}
                     onBlur={handleBlur}
                   />
+                  {/* 性別 */}
+                  <div className="space-y-1">
+                    <Label className="text-xs sm:text-sm">性別</Label>
+                    <div className="flex gap-4">
+                      {[
+                        { key: "male",   label: "男性" },
+                        { key: "female", label: "女性" },
+                        { key: "other",  label: "その他" },
+                      ].map(({ key, label }) => (
+                        <label key={key} className="flex items-center gap-1 text-xs sm:text-sm">
+                          <input
+                            type="radio"
+                            name="gender"
+                            value={key}
+                            checked={profile.gender === key}
+                            onChange={() => updateMark({ gender: key })}
+                            onBlur={handleBlur}
+                            className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                   {/* 住所4項目 */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <FieldInput
@@ -787,7 +815,7 @@ export default function StudentProfilePage() {
               <div className="space-y-1 sm:space-y-2">
                 <Label className="text-xs sm:text-sm">希望業界</Label>
                 <CheckboxGroup
-                  idPrefix="industry"
+                  idPrefix="desiredindustry"
                   options={INDUSTRY_OPTIONS}
                   values={
                     Array.isArray(profile.preferred_industries)
