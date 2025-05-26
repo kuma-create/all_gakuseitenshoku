@@ -574,10 +574,7 @@ export default function StudentProfilePage() {
                       value={profile.admission_month?.slice(0, 7) ?? ''}
                       min="2018-01"
                       max="2030-12"
-                      onChange={(v) => {
-                        updateMark({ admission_month: v });
-                        handleBlur();
-                      }}
+                      onChange={(v) => updateMark({ admission_month: v })}
                       onBlur={handleBlur}
                     />
                     <FieldInput
@@ -587,10 +584,7 @@ export default function StudentProfilePage() {
                       value={profile.graduation_month?.slice(0, 7) ?? ''}
                       min="2018-01"
                       max="2030-12"
-                      onChange={(v) => {
-                        updateMark({ graduation_month: v });
-                        handleBlur();
-                      }}
+                      onChange={(v) => updateMark({ graduation_month: v })}
                       onBlur={handleBlur}
                     />
                   </div>
