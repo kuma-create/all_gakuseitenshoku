@@ -103,13 +103,13 @@ export function useStudentProfile() {
       const { data: upserted, error: upErr } = await supabase
         .from("student_profiles")
         .upsert(payload, { onConflict: "user_id" })
-        .select()
+        .select("*")
         .single<Insert>();
 
       if (upErr) throw upErr;
 
       // 保存成功 → 返ってきた行でローカルを即更新
-      setData({ ...upserted, __editing: false });
+      setData(prev => ({ ...prev, ...(upserted ?? {}), __editing: false }));
     } catch (e: any) {
       setError(e);
       throw e;                 // 呼び出し側 (handleSave) で捕捉
