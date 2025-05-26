@@ -39,7 +39,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
+// Create a single Supabase client instance for the component to avoid multiple GoTrue instances
+const supabase = createClientComponentClient();
 
 
 
@@ -191,7 +195,6 @@ export default function ResumePage() {
     },
   });
 
-  const supabase = createClientComponentClient();
 
   // ─── 完了率を計算 ────────────────────────────────────────────────
 
@@ -322,25 +325,25 @@ export default function ResumePage() {
     handleInputChange("pr", "strengths", newStrengths);
   };
 
-  // 保存ボタン
+  // 保存／自動保存
   const handleSave = async (): Promise<void> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+      if (userErr || !user) return;
 
-      await supabase
-        .from("resumes")
-        .upsert(
-          {
-            user_id: user.id,
-            form_data: formData,
-            work_experiences: workExperiences,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
+      const { error } = await supabase.from("resumes").upsert({
+        user_id: user.id,
+        form_data: formData,
+        work_experiences: workExperiences,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) console.error("Failed to auto‑save resume:", error);
     } catch (error) {
-      console.error("Failed to auto‑save resume:", error);
+      console.error("Unexpected auto‑save error:", error);
     }
   };
 
