@@ -327,37 +327,49 @@ export default function ResumePage() {
 
   // 保存／自動保存
   const handleSave = async (): Promise<void> => {
+    console.log("🟡 Auto‑save fired");          // ← デバッグ用
     setSaving(true);
-    try {
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-      if (userErr || !user) {
-        setSaving(false);
-        return;
-      }
 
-      // resumes を upsert
-      await supabase
-        .from("resumes")
-        .upsert(
-          {
-            user_id: user.id,
-            form_data: formData,
-            work_experiences: workExperiences,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        )
-        .throwOnError();
+    // 1) セッションから UID を取得
+    const {
+      data: { session },
+      error: sessionErr,
+    } = await supabase.auth.getSession();
+
+    if (sessionErr || !session?.user?.id) {
+      console.warn("⚠️ セッション無しで自動保存スキップ");
       setSaving(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      console.error("Auto‑save error:", error);
-      setSaving(false);
+      return;
     }
+
+    const uid = session.user.id;
+
+    // 2) resumes を upsert
+    const { error } = await supabase
+      .from("resumes")
+      .upsert(
+        {
+          user_id: uid,
+          form_data: formData,
+          work_experiences: workExperiences,
+          updated_at: new Date().toISOString(),
+        } as any, // 👈 型をゆるめる
+        {
+          onConflict: "user_id",
+        }
+      );
+
+    if (error) {
+      console.error("❌ Auto‑save error:", error);
+      alert("自動保存に失敗しました: " + error.message); // 一時的に可視化
+      setSaving(false);
+      return;
+    }
+
+    console.log("✅ Auto‑save succeeded");
+    setSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   // 完了率バーの色を返す
@@ -655,6 +667,21 @@ export default function ResumePage() {
         </CardContent>
       </Card>
 
+      {/* ─── Auto‑save toast notifications ─────────────────────────────── */}
+      {saving && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-md bg-gray-800/90 px-3 py-2 text-xs font-medium text-white shadow-lg backdrop-blur">
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          保存中…
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-md bg-green-600/90 px-3 py-2 text-xs font-medium text-white shadow-lg backdrop-blur transition-opacity">
+          <Check size={12} />
+          保存しました！
+        </div>
+      )}
+      {/* ──────────────────────────────────────────────────────────────── */}
       {/* Spacer to prevent content from being hidden behind the sticky save button */}
       <div className="h-16"></div>
     </div>
