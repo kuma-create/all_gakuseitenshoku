@@ -12,6 +12,8 @@ import {
   TableCell,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function TemplateIndex() {
   const [rows, setRows] = useState<any[]>([])
@@ -24,6 +26,17 @@ export default function TemplateIndex() {
       .order("created_at", { ascending: false })
       .then(({ data }) => setRows(data || []))
   }, [])
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("本当に削除しますか？")) return;
+    const { error } = await supabase.from("scout_templates").delete().eq("id", id);
+    if (error) {
+      toast.error("削除に失敗しました");
+      return;
+    }
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    toast.success("削除しました");
+  };
 
   return (
     <div className="p-6 space-y-4">
@@ -39,6 +52,7 @@ export default function TemplateIndex() {
             <TableHead>タイトル</TableHead>
             <TableHead>作成日</TableHead>
             <TableHead className="text-center">種別</TableHead>
+            <TableHead className="w-[80px] text-center">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -56,6 +70,17 @@ export default function TemplateIndex() {
                 ) : (
                   <Badge>社内</Badge>
                 )}
+              </TableCell>
+              <TableCell
+                className="text-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  className="p-1 rounded hover:bg-destructive/10"
+                  onClick={() => handleDelete(r.id)}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </button>
               </TableCell>
             </TableRow>
           ))}
