@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import type { Database } from "@/lib/supabase/types";
+import { toast } from "sonner";
 
 type Form = {
   title: string;
@@ -46,17 +47,44 @@ export default function TemplateEditor({ mode }: Props) {
 
   /* --- 保存処理 ------------------------------------------------ */
   const handleSave = async () => {
-    // TODO: company_id をセッションや context から取得して差し込む
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+    if (authErr || !user) {
+      toast.error("ログイン情報を取得できませんでした");
+      return;
+    }
     const payload: Database["public"]["Tables"]["scout_templates"]["Insert"] = {
-      ...tpl,
-      company_id: "", // 仮
+      title: tpl.title,
+      content: tpl.content,
+      is_global: tpl.is_global,
+      company_id: user.id,
     };
 
+    let result;
     if (mode === "new") {
-      await supabase.from("scout_templates").insert(payload);
+      result = await supabase
+        .from("scout_templates")
+        .insert(payload)
+        .select()
+        .single();
     } else if (params?.id) {
-      await supabase.from("scout_templates").update(payload).eq("id", params.id);
+      result = await supabase
+        .from("scout_templates")
+        .update(payload)
+        .eq("id", params.id)
+        .select()
+        .single();
     }
+
+    if (result?.error) {
+      console.error(result.error);
+      toast.error(`保存に失敗しました: ${result.error.message}`);
+      return;
+    }
+
+    toast.success(mode === "new" ? "テンプレートを作成しました" : "テンプレートを更新しました");
     router.push("/company/scout/templates");
   };
 
