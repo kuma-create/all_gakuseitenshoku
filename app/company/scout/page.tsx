@@ -127,14 +127,14 @@ export default function ScoutPage() {
               : "",
           }
           const existed = mergedById.get(normalized.id)
-          // 既に同じ id があれば、resumes を持っている方を優先
+          // 既に同じ id があれば、resumes を持っている方を優先（常に履歴を持つ行を優先）
           if (!existed) {
             mergedById.set(normalized.id, normalized)
           } else {
             const pick =
-              (existed.resumes?.length ?? 0) >= (normalized.resumes?.length ?? 0)
-                ? existed
-                : normalized
+              Array.isArray(normalized.resumes) && normalized.resumes.length
+                ? normalized
+                : existed
             mergedById.set(normalized.id, pick)
           }
         }
