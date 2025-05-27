@@ -136,10 +136,10 @@ export default function Header() {
     (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("avatar")
+        .select("avatar_url")
         .eq("user_id", user.id)
         .maybeSingle();
-      setAvatar(data?.avatar ?? null);
+      setAvatar(data?.avatar_url ?? null);
     })();
   }, [ready, isLoggedIn, userType, user?.id]);
 

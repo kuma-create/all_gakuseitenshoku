@@ -102,8 +102,26 @@ export default function StudentDetailTabs({ student }: Props) {
     ? ((student as any).resumes as Resume[])[0] ?? null
     : null
 
+  /* ---------- work_experiences 正規化 ---------- */
+  const normalizeExperience = (raw: any, idx: number): Experience => ({
+    id: String(raw.id ?? idx),
+    user_id: student.id,
+    company_name: raw.company_name ?? raw.company ?? null,
+    role: raw.role ?? raw.position ?? null,
+    start_date: raw.start_date ?? raw.startDate ?? null,
+    end_date: raw.end_date ?? raw.endDate ?? null,
+    achievements: raw.achievements ?? null,
+    created_at: null,
+    kind: raw.kind ?? null,
+    summary_text: raw.summary_text ?? raw.description ?? null,
+    skill_text: raw.skill_text ?? raw.technologies ?? null,
+    qualification_text: raw.qualification_text ?? null,
+    payload: raw,
+    order: raw.order ?? idx,
+  })
+
   const experiences: Experience[] = Array.isArray(resume?.work_experiences)
-    ? (resume!.work_experiences as Experience[])
+    ? (resume!.work_experiences as any[]).map(normalizeExperience)
     : []
 
   return (

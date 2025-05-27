@@ -19,7 +19,16 @@ import { supabase } from "@/lib/supabase/client"
 import StudentDetailTabs from "./StudentDetailTabs"
 
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
-  match_score?: number | null      // 動的計算されたマッチ度
+  /** 動的計算されたマッチ度 */
+  match_score?: number | null
+
+  /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
+  major?: string | null
+  location?: string | null
+  skills?: string[] | null
+  has_internship_experience?: boolean | null
+  graduation_year?: number | null
+  status?: string | null
 }
 type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"]
 

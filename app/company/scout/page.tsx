@@ -25,12 +25,30 @@ type StudentRow = Database["public"]["Tables"]["student_profiles"]["Row"]
 type ScoutRow   = Database["public"]["Tables"]["scouts"]["Row"]
 type TemplateRow = Database["public"]["Tables"]["scout_templates"]["Row"]
 
-interface Student extends StudentRow {
+/**
+ * 学生データ型
+ * - Supabase の `student_profiles` 行に独自の画面用プロパティを足したもの
+ * - 既存列はそのまま保持するため `StudentRow & { ... }` の交差型で定義
+ */
+type Student = StudentRow & {
+  /** レジュメ(work_experiences) のネストデータ */
   resumes?: {
     work_experiences: any[] | null
   }[]
-  match_score?: number        // 後で算出
-  last_active?: string        // “◯分前”
+
+  /** 一覧用: 絞り込みや並び替えで使う算出スコア */
+  match_score?: number
+
+  /** 一覧用: 「◯分前」など表示用の文字列 */
+  last_active?: string
+
+  /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
+  major?: string | null
+  location?: string | null
+  skills?: string[] | null
+  has_internship_experience?: boolean | null
+  graduation_year?: number | null
+  status?: string | null
 }
 
 /* ──────────────── ページ本体 ──────────────── */

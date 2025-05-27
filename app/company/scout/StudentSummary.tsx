@@ -14,7 +14,17 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import type { Database } from "@/lib/supabase/types"
 
-type Student = Database["public"]["Tables"]["student_profiles"]["Row"]
+type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
+  /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
+  major?: string | null
+  location?: string | null
+  graduation_year?: number | null
+  skills?: string[] | null
+  has_internship_experience?: boolean | null
+  status?: string | null
+  email?: string | null
+  phone?: string | null
+}
 
 interface Props {
   student: Student | null

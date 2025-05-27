@@ -8,8 +8,18 @@ import { Card, CardContent } from "@/components/ui/card"
 
 /** 学生リストで追加メタ情報も扱えるよう intersection 型に */
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
+  /** 動的計算されたマッチ度 */
   match_score?: number
+  /** 最終アクティブ時刻を元にした表示用文字列 */
   last_active?: string
+
+  /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
+  major?: string | null
+  location?: string | null
+  skills?: string[] | null
+  has_internship_experience?: boolean | null
+  graduation_year?: number | null
+  status?: string | null
 }
 
 interface Props {

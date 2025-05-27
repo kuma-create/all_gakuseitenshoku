@@ -642,7 +642,15 @@ export type Database = {
           summary_text?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "experiences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fulltime_details: {
         Row: {
@@ -1070,43 +1078,79 @@ export type Database = {
           desired_job_title: string | null
           educations: Json | null
           experiences: Json | null
+          form_data: Json
           id: string
           skills: Json | null
           summary: string | null
           updated_at: string | null
           user_id: string | null
+          work_experiences: Json
         }
         Insert: {
           created_at?: string | null
           desired_job_title?: string | null
           educations?: Json | null
           experiences?: Json | null
+          form_data?: Json
           id?: string
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
           user_id?: string | null
+          work_experiences?: Json
         }
         Update: {
           created_at?: string | null
           desired_job_title?: string | null
           educations?: Json | null
           experiences?: Json | null
+          form_data?: Json
           id?: string
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
           user_id?: string | null
+          work_experiences?: Json
         }
         Relationships: [
           {
             foreignKeyName: "resumes_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
+            isOneToOne: true
+            referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      role_change_log: {
+        Row: {
+          changed_at: string | null
+          changed_by: string | null
+          id: number
+          new_role: string | null
+          old_role: string | null
+          query: string | null
+          user_id: string | null
+        }
+        Insert: {
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: number
+          new_role?: string | null
+          old_role?: string | null
+          query?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: number
+          new_role?: string | null
+          old_role?: string | null
+          query?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       scout_templates: {
         Row: {
@@ -1302,11 +1346,9 @@ export type Database = {
       student_profiles: {
         Row: {
           about: string | null
-          academic_year: number | null
           address: string | null
           address_line: string | null
           admission_month: string | null
-          avatar: string | null
           avatar_url: string | null
           birth_date: string | null
           city: string | null
@@ -1315,19 +1357,14 @@ export type Database = {
           desired_industries: string[] | null
           desired_locations: string[] | null
           desired_positions: string[] | null
-          dev_tools: string | null
-          email: string | null
           employment_type: string | null
-          enrollment_status: string | null
           experience: Json | null
           faculty: string | null
           first_name: string | null
           first_name_kana: string | null
-          framework_lib: string | null
           full_name: string | null
           gender: string | null
           graduation_month: string | null
-          graduation_year: number | null
           has_internship_experience: boolean
           hometown: string | null
           id: string
@@ -1337,8 +1374,6 @@ export type Database = {
           language_skill: string | null
           last_name: string | null
           last_name_kana: string | null
-          location: string | null
-          major: string | null
           motive: string | null
           phone: string | null
           postal_code: string | null
@@ -1347,13 +1382,11 @@ export type Database = {
           pr_title: string | null
           prefecture: string | null
           preference_note: string | null
-          preferred_industries: Json | null
-          profile_image: string | null
+          preferred_industries: string[] | null
           qualification_text: string | null
           research_theme: string | null
           salary_range: string | null
           skill_text: string | null
-          skills: string[] | null
           status: string
           strength1: string | null
           strength2: string | null
@@ -1366,11 +1399,9 @@ export type Database = {
         }
         Insert: {
           about?: string | null
-          academic_year?: number | null
           address?: string | null
           address_line?: string | null
           admission_month?: string | null
-          avatar?: string | null
           avatar_url?: string | null
           birth_date?: string | null
           city?: string | null
@@ -1379,19 +1410,14 @@ export type Database = {
           desired_industries?: string[] | null
           desired_locations?: string[] | null
           desired_positions?: string[] | null
-          dev_tools?: string | null
-          email?: string | null
           employment_type?: string | null
-          enrollment_status?: string | null
           experience?: Json | null
           faculty?: string | null
           first_name?: string | null
           first_name_kana?: string | null
-          framework_lib?: string | null
           full_name?: string | null
           gender?: string | null
           graduation_month?: string | null
-          graduation_year?: number | null
           has_internship_experience?: boolean
           hometown?: string | null
           id?: string
@@ -1401,8 +1427,6 @@ export type Database = {
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
-          location?: string | null
-          major?: string | null
           motive?: string | null
           phone?: string | null
           postal_code?: string | null
@@ -1411,13 +1435,11 @@ export type Database = {
           pr_title?: string | null
           prefecture?: string | null
           preference_note?: string | null
-          preferred_industries?: Json | null
-          profile_image?: string | null
+          preferred_industries?: string[] | null
           qualification_text?: string | null
           research_theme?: string | null
           salary_range?: string | null
           skill_text?: string | null
-          skills?: string[] | null
           status?: string
           strength1?: string | null
           strength2?: string | null
@@ -1430,11 +1452,9 @@ export type Database = {
         }
         Update: {
           about?: string | null
-          academic_year?: number | null
           address?: string | null
           address_line?: string | null
           admission_month?: string | null
-          avatar?: string | null
           avatar_url?: string | null
           birth_date?: string | null
           city?: string | null
@@ -1443,19 +1463,14 @@ export type Database = {
           desired_industries?: string[] | null
           desired_locations?: string[] | null
           desired_positions?: string[] | null
-          dev_tools?: string | null
-          email?: string | null
           employment_type?: string | null
-          enrollment_status?: string | null
           experience?: Json | null
           faculty?: string | null
           first_name?: string | null
           first_name_kana?: string | null
-          framework_lib?: string | null
           full_name?: string | null
           gender?: string | null
           graduation_month?: string | null
-          graduation_year?: number | null
           has_internship_experience?: boolean
           hometown?: string | null
           id?: string
@@ -1465,8 +1480,6 @@ export type Database = {
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
-          location?: string | null
-          major?: string | null
           motive?: string | null
           phone?: string | null
           postal_code?: string | null
@@ -1475,13 +1488,11 @@ export type Database = {
           pr_title?: string | null
           prefecture?: string | null
           preference_note?: string | null
-          preferred_industries?: Json | null
-          profile_image?: string | null
+          preferred_industries?: string[] | null
           qualification_text?: string | null
           research_theme?: string | null
           salary_range?: string | null
           skill_text?: string | null
-          skills?: string[] | null
           status?: string
           strength1?: string | null
           strength2?: string | null
@@ -1703,7 +1714,7 @@ export type Database = {
         Returns: number
       }
       custom_access_token_hook: {
-        Args: { event: Json } | { uid: string; email: string; claims: Json }
+        Args: { uid: string; email: string; claims: Json }
         Returns: Json
       }
       dashboard_overview: {
