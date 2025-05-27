@@ -110,10 +110,11 @@ export default function StudentDetailTabs({ student }: Props) {
   const fmtDate = (iso?: string | null) =>
     iso ? iso.slice(0, 7).replace("-", "/") : "―"
 
-  // ----- レジュメ (work_experiences) 取得 -----
-  const resume: Resume | null = Array.isArray((student as any).resumes)
-    ? ((student as any).resumes as Resume[])[0] ?? null
-    : null
+  /* ----- レジュメ( work_experiences ) 取得 ----- */
+  const resume: Resume | null =
+    Array.isArray(student.resumes) && student.resumes.length
+      ? student.resumes[0]
+      : null
 
   /* ---------- work_experiences 正規化 ---------- */
   const normalizeExperience = (raw: any, idx: number): Experience => ({
@@ -133,9 +134,12 @@ export default function StudentDetailTabs({ student }: Props) {
     order: raw.order ?? idx,
   })
 
-  const experiences: Experience[] = Array.isArray(resume?.work_experiences)
-    ? (resume!.work_experiences as any[]).map(normalizeExperience)
-    : []
+  /* work_experiences が配列でない場合も対応 */
+  const raw = resume?.work_experiences
+
+  const experiences: Experience[] = !raw
+    ? []
+    : (Array.isArray(raw) ? raw : [raw]).map(normalizeExperience)
 
   return (
     <Tabs defaultValue="basic" className="flex-1 overflow-y-auto">
