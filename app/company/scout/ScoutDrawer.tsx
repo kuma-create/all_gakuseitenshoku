@@ -60,6 +60,8 @@ export default function ScoutDrawer({
   companyId,
   onSent,
 }: Props) {
+  // === debug ===
+  console.log("ScoutDrawer student", student);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [message, setMessage] = useState<string>("")
   const MAX_LEN = 1000
