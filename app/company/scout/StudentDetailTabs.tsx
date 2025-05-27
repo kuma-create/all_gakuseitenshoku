@@ -140,6 +140,8 @@ export default function StudentDetailTabs({ student }: Props) {
   const experiences: Experience[] = !raw
     ? []
     : (Array.isArray(raw) ? raw : [raw]).map(normalizeExperience)
+console.log("DEBUG resume =", resume)
+console.log("DEBUG experiences =", experiences)
 
   return (
     <Tabs defaultValue="basic" className="flex-1 overflow-y-auto">
