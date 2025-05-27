@@ -1,6 +1,7 @@
 "use client"
 
-import React from "react"
+import React, { useState, useMemo, useEffect } from "react"
+import { supabase } from "@/lib/supabase/client"
 import clsx from "clsx"
 import { Badge } from "@/components/ui/badge"
 import type { Database } from "@/lib/supabase/types"
@@ -137,11 +138,31 @@ export default function StudentDetailTabs({ student }: Props) {
   /* work_experiences が配列でない場合も対応 */
   const raw = resume?.work_experiences
 
-  const experiences: Experience[] = !raw
-    ? []
-    : (Array.isArray(raw) ? raw : [raw]).map(normalizeExperience)
-console.log("DEBUG resume =", resume)
-console.log("DEBUG experiences =", experiences)
+  const [experiences, setExperiences] = useState<Experience[]>(() =>
+    !raw ? [] : (Array.isArray(raw) ? raw : [raw]).map(normalizeExperience),
+  )
+
+  // --- fallback: resume が無い場合は Supabase から取得 ---
+  useEffect(() => {
+    if (resume) return
+    if (!student.user_id) return
+
+    ;(async () => {
+      const { data, error } = await supabase
+        .from("resumes")
+        .select("work_experiences")
+        .eq("user_id", student.user_id!)
+        .maybeSingle()
+
+      if (error || !data?.work_experiences) return
+
+      const list = Array.isArray(data.work_experiences)
+        ? data.work_experiences
+        : [data.work_experiences]
+
+      setExperiences(list.map((raw: any, idx: number) => normalizeExperience(raw, idx)))
+    })()
+  }, [resume, student.user_id])
 
   return (
     <Tabs defaultValue="basic" className="flex-1 overflow-y-auto">
