@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,18 @@ export default function TemplateEditor({ mode }: Props) {
   const params = useParams<{ id: string }>();
   const [tpl, setTpl] = useState<Form>({ title: "", content: "", is_global: false });
   const isSaving = tpl.title.trim() === "" || tpl.content.trim() === "";
+
+  const [showPreview, setShowPreview] = useState(false);
+  const sampleData = { name: "山田太郎", skill: "React, TypeScript" };
+
+  // 簡易タグ置換（プレビュー用）
+  const renderPreview = useCallback(
+    (txt: string) =>
+      txt
+        .replace(/{name}/g, sampleData.name)
+        .replace(/{skill}/g, sampleData.skill),
+    [sampleData]
+  );
 
   /* --- 編集モード：既存データ取得 ----------------------------- */
   useEffect(() => {
@@ -104,32 +116,81 @@ export default function TemplateEditor({ mode }: Props) {
 
   /* --- JSX ----------------------------------------------------- */
   return (
-    <div className="p-6 space-y-4 max-w-xl">
-      <Input
-        placeholder="タイトル"
-        value={tpl.title}
-        onChange={(e) => setTpl({ ...tpl, title: e.target.value })}
-      />
+    <div className="p-6 space-y-6 max-w-2xl">
+      <h2 className="text-lg font-semibold">
+        {mode === "new" ? "スカウトテンプレート作成" : "スカウトテンプレート編集"}
+      </h2>
 
-      <Textarea
-        placeholder="本文 (Markdown 可)"
-        className="h-64"
-        value={tpl.content}
-        onChange={(e) => setTpl({ ...tpl, content: e.target.value })}
-      />
-
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={tpl.is_global}
-          onChange={(e) => setTpl({ ...tpl, is_global: e.target.checked })}
+      {/* タイトル入力 */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">タイトル</label>
+        <Input
+          placeholder="例）エンジニア向け一次面談案内"
+          value={tpl.title}
+          onChange={(e) => setTpl({ ...tpl, title: e.target.value })}
         />
-        全社で共有する
-      </label>
+      </div>
 
-      <Button disabled={isSaving} onClick={handleSave}>
-        {mode === "new" ? "作成" : "更新"}する
-      </Button>
+      {/* 本文入力 */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">本文 (Markdown 可)</label>
+          <button
+            type="button"
+            className="text-xs text-primary hover:underline"
+            onClick={() => setShowPreview((v) => !v)}
+          >
+            {showPreview ? "入力に戻る" : "プレビュー"}
+          </button>
+        </div>
+
+        {showPreview ? (
+          <div className="border rounded-md p-4 bg-muted/40 whitespace-pre-wrap text-sm">
+            {renderPreview(tpl.content || "")}
+          </div>
+        ) : (
+          <>
+            <Textarea
+              placeholder="テンプレート本文を入力..."
+              className="h-64"
+              value={tpl.content}
+              onChange={(e) => setTpl({ ...tpl, content: e.target.value })}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {tpl.content.length} 文字
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* 置換タグヘルプ */}
+      <div className="text-xs text-gray-600 space-y-1">
+        <p className="font-medium">利用可能なプレースホルダー:</p>
+        <ul className="list-disc list-inside space-y-0.5">
+          <li><code>{`{name}`}</code> : 学生の氏名</li>
+          <li><code>{`{skill}`}</code> : 学生のスキル一覧</li>
+        </ul>
+      </div>
+
+      {/* 全社チェック & アクション */}
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={tpl.is_global}
+            onChange={(e) => setTpl({ ...tpl, is_global: e.target.checked })}
+          />
+          全社で共有する
+        </label>
+
+        <Button
+          disabled={isSaving}
+          onClick={handleSave}
+          className="ml-auto"
+        >
+          {mode === "new" ? "作成" : "更新"}する
+        </Button>
+      </div>
     </div>
   );
 }
