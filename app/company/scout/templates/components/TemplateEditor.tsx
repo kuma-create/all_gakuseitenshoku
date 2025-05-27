@@ -58,14 +58,14 @@ export default function TemplateEditor({ mode }: Props) {
       return;
     }
 
-    /* 2) 所属 company_id を取得 (company_members テーブル) */
-    const { data: memberRow, error: memberErr } = await supabase
-      .from("company_members")
-      .select("company_id")
+    /* 2) 所属 company_id を取得 (companies.user_id を参照) */
+    const { data: companyRow, error: cmpErr } = await supabase
+      .from("companies")
+      .select("id")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (memberErr || !memberRow?.company_id) {
+    if (cmpErr || !companyRow?.id) {
       toast.error("所属企業が見つかりませんでした");
       return;
     }
@@ -75,7 +75,7 @@ export default function TemplateEditor({ mode }: Props) {
       title: tpl.title,
       content: tpl.content,
       is_global: tpl.is_global,
-      company_id: memberRow.company_id, // 外部キー制約を満たす companies.id
+      company_id: companyRow.id, // 外部キー制約を満たす companies.id
     };
 
     /* 4) INSERT or UPDATE */
