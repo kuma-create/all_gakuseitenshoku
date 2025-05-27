@@ -21,7 +21,7 @@ export default function TemplateIndex() {
     supabase
       .from("scout_templates")
       .select("*")
-      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .then(({ data }) => setRows(data || []))
   }, [])
 
@@ -37,19 +37,19 @@ export default function TemplateIndex() {
         <TableHeader>
           <TableRow>
             <TableHead>タイトル</TableHead>
-            <TableHead>更新日</TableHead>
+            <TableHead>作成日</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.map((r: any) => (
             <TableRow
               key={r.id}
-              onClick={() => router.push(`/company/scout/templates/${r.id}/edit`)}
+              onClick={() => router.push(`/company/scout/templates/${r.id}`)}
               className="cursor-pointer hover:bg-muted"
             >
               <TableCell>{r.title}</TableCell>
               <TableCell>
-                {new Date(r.updated_at ?? r.created_at).toLocaleDateString()}
+                {new Date(r.created_at).toLocaleDateString()}
               </TableCell>
             </TableRow>
           ))}
