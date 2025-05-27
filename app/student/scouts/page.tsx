@@ -136,7 +136,7 @@ export default function ScoutsPage() {
           student_profiles:student_profiles!scouts_student_id_fkey(
             last_name, first_name, last_name_kana, first_name_kana, birth_date,
             phone, university, faculty, graduation_month,
-            pr_title, pr_text, strength_1, strength_2, strength_3,
+            pr_title, pr_text, strength1, strength2, strength3,
             desired_positions, desired_locations, salary_range,
             work_experiences
           )
@@ -167,7 +167,7 @@ export default function ScoutsPage() {
         graduationMonth: stu?.graduation_month ?? "",
         prTitle: stu?.pr_title ?? "",
         prText: stu?.pr_text ?? "",
-        strengths: [stu?.strength_1, stu?.strength_2, stu?.strength_3].filter(Boolean) as string[],
+        strengths: [stu?.strength1, stu?.strength2, stu?.strength3].filter(Boolean) as string[],
         workExperiences: stu?.work_experiences ?? [],
         desiredPositions: stu?.desired_positions ?? [],
         desiredLocations: stu?.desired_locations ?? [],
