@@ -47,28 +47,41 @@ export default function TemplateEditor({ mode }: Props) {
 
   /* --- 保存処理 ------------------------------------------------ */
   const handleSave = async () => {
+    /* 1) 認証ユーザー取得 */
     const {
       data: { user },
       error: authErr,
     } = await supabase.auth.getUser();
+
     if (authErr || !user) {
       toast.error("ログイン情報を取得できませんでした");
       return;
     }
+
+    /* 2) 所属 company_id を取得 (company_members テーブル) */
+    const { data: memberRow, error: memberErr } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (memberErr || !memberRow?.company_id) {
+      toast.error("所属企業が見つかりませんでした");
+      return;
+    }
+
+    /* 3) 作成 / 更新ペイロード */
     const payload: Database["public"]["Tables"]["scout_templates"]["Insert"] = {
       title: tpl.title,
       content: tpl.content,
       is_global: tpl.is_global,
-      company_id: user.id,
+      company_id: memberRow.company_id, // 外部キー制約を満たす companies.id
     };
 
+    /* 4) INSERT or UPDATE */
     let result;
     if (mode === "new") {
-      result = await supabase
-        .from("scout_templates")
-        .insert(payload)
-        .select()
-        .single();
+      result = await supabase.from("scout_templates").insert(payload).select().single();
     } else if (params?.id) {
       result = await supabase
         .from("scout_templates")
@@ -78,6 +91,7 @@ export default function TemplateEditor({ mode }: Props) {
         .single();
     }
 
+    /* 5) エラー処理 */
     if (result?.error) {
       console.error(result.error);
       toast.error(`保存に失敗しました: ${result.error.message}`);
