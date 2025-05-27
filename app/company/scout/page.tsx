@@ -116,15 +116,29 @@ export default function ScoutPage() {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
       } else {
         const now = Date.now()
-        // Supabase 型にはネスト済み `resumes` が含まれないので any→Student へキャスト
-        const list: Student[] = ((stuRows ?? []) as any as Student[]).map((s) => ({
-          ...s,
-          match_score: 0,
-          last_active: s.created_at
-            ? `${Math.round((now - new Date(s.created_at).getTime()) / 60000)}分前`
-            : "",
-        }))
-        setStudents(list)
+        // 重複する id の学生は、resumes を持っている方を優先して deduplicate
+        const mergedById: Map<string, Student> = new Map()
+        for (const row of (stuRows ?? []) as any as Student[]) {
+          const normalized: Student = {
+            ...row,
+            match_score: 0,
+            last_active: row.created_at
+              ? `${Math.round((now - new Date(row.created_at).getTime()) / 60000)}分前`
+              : "",
+          }
+          const existed = mergedById.get(normalized.id)
+          // 既に同じ id があれば、resumes を持っている方を優先
+          if (!existed) {
+            mergedById.set(normalized.id, normalized)
+          } else {
+            const pick =
+              (existed.resumes?.length ?? 0) >= (normalized.resumes?.length ?? 0)
+                ? existed
+                : normalized
+            mergedById.set(normalized.id, pick)
+          }
+        }
+        setStudents(Array.from(mergedById.values()))
       }
 
       /* スカウト履歴 */
