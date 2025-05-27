@@ -104,10 +104,11 @@ export default function ScoutPage() {
       setCompanyId(comp.id)
 
       /* 学生一覧 */
+      // 🔽 page.tsx の学生取得クエリをこれに置き換え
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
-        // LEFT JOIN: resumes.user_id で結合し work_experiences をネスト取得
-        .select("*, resumes!user_id!left(work_experiences)")
+        // デフォルト = LEFT JOIN。外部キーも自動解決される
+        .select("*, resumes(work_experiences)")
         console.log("stuErr =", stuErr)     // ★追加
         console.log("stuRows =", stuRows)
 
