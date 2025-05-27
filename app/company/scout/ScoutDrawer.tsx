@@ -3,8 +3,6 @@
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
 } from "@/components/ui/sheet"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
@@ -105,12 +103,7 @@ export default function ScoutDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-[80vw] p-0">
-        <SheetHeader>
-          <SheetTitle className="flex items-center">
-            <Send className="h-5 w-5 mr-2" />
-            スカウト送信
-          </SheetTitle>
-        </SheetHeader>
+
 
         {student && (
           <div className="grid grid-cols-3 h-full">

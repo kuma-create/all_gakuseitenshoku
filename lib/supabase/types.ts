@@ -1114,11 +1114,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "resumes_user_id_fkey"
+            foreignKeyName: "resumes_user_id_profile_fkey"
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1158,6 +1158,7 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          is_global: boolean | null
           title: string
         }
         Insert: {
@@ -1165,6 +1166,7 @@ export type Database = {
           content: string
           created_at?: string | null
           id?: string
+          is_global?: boolean | null
           title: string
         }
         Update: {
@@ -1172,9 +1174,17 @@ export type Database = {
           content?: string
           created_at?: string | null
           id?: string
+          is_global?: boolean | null
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_templates_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scout_templates_company_id_fkey"
             columns: ["company_id"]
@@ -1219,6 +1229,20 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_scouts_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_scouts_student"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scouts_company_id_fkey"
             columns: ["company_id"]
