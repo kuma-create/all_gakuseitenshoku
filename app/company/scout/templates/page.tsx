@@ -1,4 +1,3 @@
-// app/company/scout/templates/page.tsx
 "use client"
 import { supabase } from "@/lib/supabase/client"
 import { useEffect, useState } from "react"
@@ -21,7 +20,7 @@ export default function TemplateIndex() {
   useEffect(() => {
     supabase
       .from("scout_templates")
-      .select("*, creator:profiles(full_name)")
+      .select("*")
       .order("created_at", { ascending: false })
       .then(({ data }) => setRows(data || []))
   }, [])
@@ -38,7 +37,6 @@ export default function TemplateIndex() {
         <TableHeader>
           <TableRow>
             <TableHead>タイトル</TableHead>
-            <TableHead>作成者</TableHead>
             <TableHead>作成日</TableHead>
             <TableHead className="text-center">種別</TableHead>
           </TableRow>
@@ -51,7 +49,6 @@ export default function TemplateIndex() {
               className="cursor-pointer odd:bg-muted/40 hover:bg-muted transition-colors"
             >
               <TableCell className="font-medium">{r.title}</TableCell>
-              <TableCell>{r.creator?.full_name ?? "—"}</TableCell>
               <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
               <TableCell className="text-center">
                 {r.is_global ? (
