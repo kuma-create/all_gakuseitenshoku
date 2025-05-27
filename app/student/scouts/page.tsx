@@ -37,7 +37,7 @@ type ScoutRow = Database["public"]["Tables"]["scouts"]["Row"];
 type ScoutWithRelations = ScoutRow & {
   companies: { name: string; logo: string | null } | null;
   jobs: { title: string | null } | null;
-  students: {
+  student_profiles: {
     last_name: string;
     first_name: string;
     last_name_kana?: string;
@@ -133,7 +133,7 @@ export default function ScoutsPage() {
           *,
           companies:companies!scouts_company_id_fkey(name, logo),
           jobs:jobs!scouts_job_id_fkey(title),
-          students:students!scouts_student_id_fkey(
+          student_profiles:student_profiles!scouts_student_id_fkey(
             last_name, first_name, last_name_kana, first_name_kana, birth_date,
             phone, email, university, faculty, graduation_month,
             pr_title, pr_text, strength_1, strength_2, strength_3,
@@ -153,7 +153,7 @@ export default function ScoutsPage() {
     }
 
     const uiScouts: UIScout[] = (data ?? []).map((row) => {
-      const stu = (row as any).students;
+      const stu = (row as any).student_profiles;
       const student: UIStudent = {
         lastName: stu?.last_name ?? "",
         firstName: stu?.first_name ?? "",
