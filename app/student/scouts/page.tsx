@@ -135,7 +135,7 @@ export default function ScoutsPage() {
           jobs:jobs!scouts_job_id_fkey(title),
           student_profiles:student_profiles!scouts_student_id_fkey(
             last_name, first_name, last_name_kana, first_name_kana, birth_date,
-            phone, email, university, faculty, graduation_month,
+            phone, contact_email, university, faculty, graduation_month,
             pr_title, pr_text, strength_1, strength_2, strength_3,
             desired_positions, desired_locations, salary_range,
             work_experiences
@@ -161,7 +161,7 @@ export default function ScoutsPage() {
         firstNameKana: stu?.first_name_kana ?? "",
         birthDate: stu?.birth_date ?? "",
         phone: stu?.phone ?? "",
-        email: stu?.email ?? "",
+        email: (stu as any)?.contact_email ?? "",
         university: stu?.university ?? "",
         faculty: stu?.faculty ?? "",
         graduationMonth: stu?.graduation_month ?? "",
