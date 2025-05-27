@@ -13,6 +13,11 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   /** 最終アクティブ時刻を元にした表示用文字列 */
   last_active?: string
 
+  /** ネスト取得したレジュメ */
+  resumes?: {
+    work_experiences: any[] | null
+  }[]
+
   /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
   major?: string | null
   location?: string | null

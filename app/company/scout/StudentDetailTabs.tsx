@@ -12,7 +12,20 @@ import {
 } from "@/components/ui/tabs"
 
 /* ---------- 型 ---------- */
-type Student = Database["public"]["Tables"]["student_profiles"]["Row"]
+type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
+  /** ネスト取得したレジュメ */
+  resumes?: {
+    work_experiences: any[] | null
+  }[]
+
+  /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
+  major?: string | null
+  location?: string | null
+  skills?: string[] | null
+  has_internship_experience?: boolean | null
+  graduation_year?: number | null
+  status?: string | null
+}
 
 /* ---------- Experience ---------- */
 type Experience = {

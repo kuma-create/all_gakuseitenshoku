@@ -106,8 +106,8 @@ export default function ScoutPage() {
       /* 学生一覧 */
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
-        // student_profiles.user_id  ⇔  resumes.user_id で JOIN
-        .select("*, resumes!user_id(work_experiences)")   // 👈 work_experiences をネスト取得
+        // `resumes` テーブルを *必ず* 結合して work_experiences を取得
+        .select("*, resumes!inner(work_experiences)")   // 👈 INNER JOIN + ネスト取得
 
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })

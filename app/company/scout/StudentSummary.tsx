@@ -15,6 +15,11 @@ import { Separator } from "@/components/ui/separator"
 import type { Database } from "@/lib/supabase/types"
 
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
+  /** ネスト取得したレジュメ */
+  resumes?: {
+    work_experiences: any[] | null
+  }[]
+
   /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
   major?: string | null
   location?: string | null
