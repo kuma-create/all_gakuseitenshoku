@@ -107,10 +107,10 @@ export default function ScoutPage() {
       // 🔽 page.tsx の学生取得クエリをこれに置き換え
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
-        // デフォルト = LEFT JOIN。外部キーも自動解決される
-        .select("*, resumes(work_experiences)")
-        console.log("stuErr =", stuErr)     // ★追加
-        console.log("stuRows =", stuRows)
+        // ← 外部キー名を明示しつつ !left で LEFT JOIN
+        .select("*, resumes!resumes_user_id_profile_fkey!left(work_experiences)")
+      console.log("stuErr =", stuErr)     // ★追加
+      console.log("stuRows =", stuRows)
 
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
