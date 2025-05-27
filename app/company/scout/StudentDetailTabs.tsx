@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect } from "react"
 import { supabase } from "@/lib/supabase/client"
 import clsx from "clsx"
-import { Badge } from "@/components/ui/badge"
 import type { Database } from "@/lib/supabase/types"
 import {
   Tabs,
@@ -95,6 +94,61 @@ function Field({
           ? String(value)
           : "―"}
       </p>
+    </div>
+  )
+}
+
+/* ----- Timeline item component (numbered & vertical line) ----- */
+function TimelineItem({
+  idx,
+  exp,
+  fmtDate,
+}: {
+  idx: number
+  exp: Experience
+  fmtDate: (iso?: string | null) => string
+}) {
+  return (
+    <div className="relative pl-12 pb-10 first:pt-0 last:pb-0">
+      {/* vertical line */}
+      <span className="absolute left-4 top-0 h-full w-px bg-purple-300" />
+
+      {/* index badge */}
+      <span className="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white text-sm font-semibold">
+        {idx + 1}
+      </span>
+
+      {/* content */}
+      <div className="space-y-2">
+        {/* header */}
+        <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between">
+          <h4 className="font-semibold text-sm sm:text-base">
+            {exp.company_name ?? "（社名未登録）"}
+          </h4>
+          <span className="text-xs text-gray-500 mt-0.5 sm:mt-0">
+            {fmtDate(exp.start_date)} 〜{" "}
+            {exp.end_date ? fmtDate(exp.end_date) : "現在"}
+          </span>
+        </div>
+
+        {exp.role && <p className="text-xs text-gray-500">{exp.role}</p>}
+
+        {exp.summary_text && (
+          <p className="text-sm whitespace-pre-wrap">{exp.summary_text}</p>
+        )}
+
+        {exp.skill_text && (
+          <p className="text-xs text-gray-500">
+            <span className="font-semibold">技術:</span> {exp.skill_text}
+          </p>
+        )}
+
+        {exp.achievements && (
+          <p className="text-xs text-gray-500">
+            <span className="font-semibold">実績:</span> {exp.achievements}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -232,49 +286,11 @@ export default function StudentDetailTabs({ student }: Props) {
 
         <Section title="職歴・プロジェクト">
           {experiences.length > 0 ? (
-            <div className="col-span-full space-y-6">
+            <div className="col-span-full">
               {experiences
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((exp) => (
-                  <div
-                    key={exp.id}
-                    className="border-l-4 border-gray-300 pl-4 space-y-2 first:mt-0"
-                  >
-                    {/* Header line: Company + Period */}
-                    <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between">
-                      <h4 className="font-semibold text-sm sm:text-base">
-                        {exp.company_name ?? "（社名未登録）"}
-                      </h4>
-                      <span className="text-xs text-gray-500 mt-0.5 sm:mt-0">
-                        {fmtDate(exp.start_date)} 〜{" "}
-                        {exp.end_date ? fmtDate(exp.end_date) : "現在"}
-                      </span>
-                    </div>
-
-                    {/* Role */}
-                    {exp.role && (
-                      <p className="text-xs text-gray-500">{exp.role}</p>
-                    )}
-
-                    {/* Summary / description */}
-                    {exp.summary_text && (
-                      <p className="text-sm whitespace-pre-wrap">{exp.summary_text}</p>
-                    )}
-
-                    {/* Tech stack */}
-                    {exp.skill_text && (
-                      <p className="text-xs text-gray-500">
-                        <span className="font-semibold">技術:</span> {exp.skill_text}
-                      </p>
-                    )}
-
-                    {/* Achievements */}
-                    {exp.achievements && (
-                      <p className="text-xs text-gray-500">
-                        <span className="font-semibold">実績:</span> {exp.achievements}
-                      </p>
-                    )}
-                  </div>
+                .map((exp, i) => (
+                  <TimelineItem key={exp.id} idx={i} exp={exp} fmtDate={fmtDate} />
                 ))}
             </div>
           ) : (
@@ -315,84 +331,16 @@ export default function StudentDetailTabs({ student }: Props) {
         {/* 職歴 */}
         <Section title="職歴・プロジェクト">
           {experiences.length > 0 ? (
-            <div className="col-span-full space-y-6">
+            <div className="col-span-full">
               {experiences
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((exp) => (
-                  <div
-                    key={exp.id}
-                    className="border-l-4 border-gray-300 pl-4 space-y-2 first:mt-0"
-                  >
-                    {/* Header line: Company + Period */}
-                    <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between">
-                      <h4 className="font-semibold text-sm sm:text-base">
-                        {exp.company_name ?? "（社名未登録）"}
-                      </h4>
-                      <span className="text-xs text-gray-500 mt-0.5 sm:mt-0">
-                        {fmtDate(exp.start_date)} 〜{" "}
-                        {exp.end_date ? fmtDate(exp.end_date) : "現在"}
-                      </span>
-                    </div>
-
-                    {/* Role */}
-                    {exp.role && (
-                      <p className="text-xs text-gray-500">{exp.role}</p>
-                    )}
-
-                    {/* Summary / description */}
-                    {exp.summary_text && (
-                      <p className="text-sm whitespace-pre-wrap">{exp.summary_text}</p>
-                    )}
-
-                    {/* Tech stack */}
-                    {exp.skill_text && (
-                      <p className="text-xs text-gray-500">
-                        <span className="font-semibold">技術:</span> {exp.skill_text}
-                      </p>
-                    )}
-
-                    {/* Achievements */}
-                    {exp.achievements && (
-                      <p className="text-xs text-gray-500">
-                        <span className="font-semibold">実績:</span> {exp.achievements}
-                      </p>
-                    )}
-                  </div>
+                .map((exp, i) => (
+                  <TimelineItem key={exp.id} idx={i} exp={exp} fmtDate={fmtDate} />
                 ))}
             </div>
           ) : (
             <Field label="" value="職歴・プロジェクト情報は未登録です。" multiline />
           )}
-        </Section>
-
-        {/* スキル & 資格 */}
-        <Section title="スキル & 資格">
-          <Field label="資格" value={student.qualification_text} multiline />
-          <Field label="スキル詳細" value={student.skill_text} multiline />
-          <Field label="語学スキル" value={student.language_skill} multiline />
-        </Section>
-
-        {/* 希望条件 */}
-        <Section title="希望条件">
-          <Field
-            label="希望業界"
-            value={student.desired_industries?.join(', ')}
-          />
-          <Field
-            label="希望職種"
-            value={student.desired_positions?.join(', ')}
-          />
-          <Field
-            label="希望勤務地"
-            value={student.desired_locations?.join(', ')}
-          />
-          <Field label="希望勤務形態" value={student.work_style} />
-          <Field label="雇用形態" value={student.employment_type} />
-          <Field label="希望年収" value={student.salary_range} />
-          <Field
-            label="働き方オプション"
-            value={student.work_style_options?.join(', ')}
-          />
         </Section>
       </TabsContent>
     </Tabs>
