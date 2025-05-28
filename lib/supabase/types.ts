@@ -1202,6 +1202,8 @@ export type Database = {
           is_read: boolean
           job_id: string | null
           message: string
+          offer_amount: string | null
+          offer_position: string | null
           status: string | null
           student_id: string
           updated_at: string | null
@@ -1213,6 +1215,8 @@ export type Database = {
           is_read?: boolean
           job_id?: string | null
           message: string
+          offer_amount?: string | null
+          offer_position?: string | null
           status?: string | null
           student_id: string
           updated_at?: string | null
@@ -1224,6 +1228,8 @@ export type Database = {
           is_read?: boolean
           job_id?: string | null
           message?: string
+          offer_amount?: string | null
+          offer_position?: string | null
           status?: string | null
           student_id?: string
           updated_at?: string | null
