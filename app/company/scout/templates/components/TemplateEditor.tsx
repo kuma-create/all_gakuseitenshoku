@@ -26,14 +26,21 @@ export default function TemplateEditor({ mode }: Props) {
   const isSaving = tpl.title.trim() === "" || tpl.content.trim() === "";
 
   const [showPreview, setShowPreview] = useState(false);
-  const sampleData = { name: "山田太郎", skill: "React, TypeScript" };
+  const sampleData = {
+    name: "山田太郎",
+    skill: "React, TypeScript",
+    position: "フロントエンドエンジニア",
+    offer_range: "400-600",
+  };
 
   // 簡易タグ置換（プレビュー用）
   const renderPreview = useCallback(
     (txt: string) =>
       txt
         .replace(/{name}/g, sampleData.name)
-        .replace(/{skill}/g, sampleData.skill),
+        .replace(/{skill}/g, sampleData.skill)
+        .replace(/{position}/g, sampleData.position)
+        .replace(/{offer_range}/g, sampleData.offer_range),
     [sampleData]
   );
 
@@ -169,6 +176,8 @@ export default function TemplateEditor({ mode }: Props) {
         <ul className="list-disc list-inside space-y-0.5">
           <li><code>{`{name}`}</code> : 学生の氏名</li>
           <li><code>{`{skill}`}</code> : 学生のスキル一覧</li>
+          <li><code>{`{position}`}</code> : 提示ポジション</li>
+          <li><code>{`{offer_range}`}</code> : オファー額レンジ（万円）</li>
         </ul>
       </div>
 
