@@ -56,15 +56,7 @@ type ScoutWithRelations = ScoutRow & {
     desired_positions?: string[] | null;
     desired_locations?: string[] | null;
     salary_range?: string | null;
-    work_experiences?: {
-      company?: string;
-      position?: string;
-      start_month?: string;
-      end_month?: string;
-      is_current?: boolean;
-      description?: string;
-      technologies?: string;
-    }[] | null;
+    experience?: any | null
   } | null;
 };
 
@@ -138,7 +130,7 @@ export default function ScoutsPage() {
             phone, university, faculty, graduation_month,
             pr_title, pr_text, strength1, strength2, strength3,
             desired_positions, desired_locations, salary_range,
-            work_experiences
+            experience
           )
         `,
       )
@@ -168,7 +160,7 @@ export default function ScoutsPage() {
         prTitle: stu?.pr_title ?? "",
         prText: stu?.pr_text ?? "",
         strengths: [stu?.strength1, stu?.strength2, stu?.strength3].filter(Boolean) as string[],
-        workExperiences: stu?.work_experiences ?? [],
+        workExperiences: (stu?.experience as any) ?? [],
         desiredPositions: stu?.desired_positions ?? [],
         desiredLocations: stu?.desired_locations ?? [],
         salaryRange: stu?.salary_range ?? ""
