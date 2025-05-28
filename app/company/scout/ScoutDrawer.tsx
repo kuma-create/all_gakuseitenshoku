@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Send, Star } from "lucide-react"
 import { useState } from "react"
@@ -61,9 +62,16 @@ export default function ScoutDrawer({
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [message, setMessage] = useState<string>("")
+  const [offerPosition, setOfferPosition] = useState<string>("")
+  const [offerAmount, setOfferAmount] = useState<string>("") // 万円単位
   const MAX_LEN = 1000
-  const isDisabled =
-    !student || !message.trim() || !companyId || message.length > MAX_LEN
+  const isDisabled: boolean =
+    !student ||
+    !message.trim() ||
+    !offerPosition.trim() ||
+    !companyId ||
+    message.length > MAX_LEN ||
+    (offerAmount.trim() !== "" && Number(offerAmount) <= 0);
 
   const handleTemplate = (id: string) => {
     const tmp = templates.find((t) => t.id === id)
@@ -73,16 +81,24 @@ export default function ScoutDrawer({
       .replace("[学生名]", student.full_name ?? "")
       .replace("[スキル]", (student.skills ?? []).join(", "))
     setMessage(msg)
+    // reset previous inputs
+    setOfferPosition("")
+    setOfferAmount("")
   }
 
   const handleSend = async () => {
     if (!student) return
 
-    const payload: Database["public"]["Tables"]["scouts"]["Insert"] = {
+    const payload: Database["public"]["Tables"]["scouts"]["Insert"] & {
+      offer_amount?: number | null
+      offer_position?: string | null
+    } = {
       company_id: companyId,
       student_id: student.id,
       message,
       status: "sent",
+      offer_position: offerPosition.trim() || null,
+      offer_amount: offerAmount ? Number(offerAmount) * 10000 : null, // 円変換
     }
 
     const { data, error } = await supabase
@@ -158,6 +174,32 @@ export default function ScoutDrawer({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* オファーポジション */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  オファーポジション <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={offerPosition}
+                  onChange={(e) => setOfferPosition(e.target.value)}
+                  placeholder="例: フロントエンドエンジニア"
+                />
+              </div>
+
+              {/* オファー額 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  オファー額（万円）
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={offerAmount}
+                  onChange={(e) => setOfferAmount(e.target.value)}
+                  placeholder="例: 500"
+                />
               </div>
 
               {/* メッセージ */}
