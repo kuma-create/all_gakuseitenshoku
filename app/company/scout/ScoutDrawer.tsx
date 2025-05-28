@@ -63,15 +63,20 @@ export default function ScoutDrawer({
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [message, setMessage] = useState<string>("")
   const [offerPosition, setOfferPosition] = useState<string>("")
-  const [offerAmount, setOfferAmount] = useState<string>("") // 万円単位
+  const [offerAmount, setOfferAmount] = useState<string>("") // 例: "400-600"（万円レンジ）
   const MAX_LEN = 1000
+  // 400-600 / 400〜600 / 400‐600 などを許可（全角半角数字 & 区切り）
+  const isValidRange = (str: string) =>
+    /^[0-9０-９]+\s*[-〜‐‑–—~]\s*[0-9０-９]+$/.test(str.trim())
+
   const isDisabled: boolean =
     !student ||
     !message.trim() ||
     !offerPosition.trim() ||
+    !offerAmount.trim() ||      // 必須
     !companyId ||
     message.length > MAX_LEN ||
-    (offerAmount.trim() !== "" && Number(offerAmount) <= 0);
+    !isValidRange(offerAmount); // レンジ形式が不正
 
   const handleTemplate = (id: string) => {
     const tmp = templates.find((t) => t.id === id)
@@ -90,7 +95,7 @@ export default function ScoutDrawer({
     if (!student) return
 
     const payload: Database["public"]["Tables"]["scouts"]["Insert"] & {
-      offer_amount?: number | null
+      offer_amount?: string | null
       offer_position?: string | null
     } = {
       company_id: companyId,
@@ -98,7 +103,7 @@ export default function ScoutDrawer({
       message,
       status: "sent",
       offer_position: offerPosition.trim() || null,
-      offer_amount: offerAmount ? Number(offerAmount) * 10000 : null, // 円変換
+      offer_amount: offerAmount.trim() || null,
     }
 
     const { data, error } = await supabase
@@ -191,15 +196,19 @@ export default function ScoutDrawer({
               {/* オファー額 */}
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  オファー額（万円）
+                  オファー額レンジ（万円） <span className="text-red-500">*</span>
                 </label>
                 <Input
-                  type="number"
-                  min="0"
+                  type="text"
                   value={offerAmount}
                   onChange={(e) => setOfferAmount(e.target.value)}
-                  placeholder="例: 500"
+                  placeholder="例: 400-600"
                 />
+                {!isValidRange(offerAmount) && offerAmount.trim() !== "" && (
+                  <p className="text-xs text-red-500 mt-1">
+                    「400-600」や「400〜600」の形式で入力してください
+                  </p>
+                )}
               </div>
 
               {/* メッセージ */}
