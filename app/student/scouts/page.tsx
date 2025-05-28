@@ -289,7 +289,17 @@ export default function ScoutsPage() {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold line-clamp-1">{s.companyName}</h3>
-                      <p className="text-xs text-gray-500 line-clamp-1">{s.position}</p>
+                      <div className="mt-0.5 flex flex-wrap gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {s.offerPosition ?? s.position}
+                        </Badge>
+                        <Badge
+                          variant={s.offerRange ? "secondary" : "outline"}
+                          className="text-xs"
+                        >
+                          {s.offerRange ? `${s.offerRange} 万円` : "年収 未定"}
+                        </Badge>
+                      </div>
                     </div>
                     <Badge
                       variant="outline"
@@ -305,19 +315,7 @@ export default function ScoutsPage() {
                     </Badge>
                   </div>
 
-                  <div className="px-4 pt-0 text-sm text-gray-600 line-clamp-3">{s.message}</div>
-
-                  {/* オファー詳細 (あれば) */}
-                  {s.offerPosition && (
-                    <p className="px-4 text-xs text-slate-500">
-                      <span className="font-medium">ポジション:</span> {s.offerPosition}
-                    </p>
-                  )}
-                  {s.offerRange && (
-                    <p className="px-4 pb-4 text-xs text-slate-500">
-                      <span className="font-medium">オファー額:</span> {s.offerRange} 万円
-                    </p>
-                  )}
+                  <div className="px-4 pt-0 pb-4 text-sm text-gray-600 line-clamp-3">{s.message}</div>
 
                   <div className="mt-auto border-t px-4 py-3 flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1 text-xs text-gray-400">
