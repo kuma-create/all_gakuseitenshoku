@@ -250,151 +250,154 @@ export default function ScoutsPage() {
       </div>
 
       <main className="container mx-auto px-4 py-8">
-        {loading && (
-          <p className="text-center text-muted-foreground">読み込み中...</p>
-        )}
-
-        {!loading && displayedScouts.length === 0 && (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-            <Mail className="mx-auto mb-4 h-10 w-10 text-gray-400" />
-            <p className="text-gray-600">現在表示できるスカウトはありません</p>
-          </div>
-        )}
-
-        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {displayedScouts.map((s)=>(
-            <SheetTrigger asChild key={s.id} onClick={()=>openDetails(s)}>
-              <Card className="group overflow-hidden rounded-xl shadow hover:shadow-lg transition">
-                <div className="flex items-center gap-3 p-4">
-                  <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white border">
-                    <Image
-                      src={s.companyLogo || "/placeholder.svg"}
-                      alt={`${s.companyName} logo`}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold line-clamp-1">{s.companyName}</h3>
-                    <p className="text-xs text-gray-500 line-clamp-1">{s.position}</p>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={
-                      s.status === "pending"
-                        ? "border-yellow-400 text-yellow-600"
-                        : s.status === "accepted"
-                        ? "border-green-400 text-green-600"
-                        : "border-gray-400 text-gray-500"
-                    }
-                  >
-                    {s.status === "pending" ? "未対応" : s.status === "accepted" ? "承諾" : "辞退"}
-                  </Badge>
-                </div>
-
-                <div className="px-4 pb-4 text-sm text-gray-600 line-clamp-3">{s.message}</div>
-
-                <div className="mt-auto border-t px-4 py-3 flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                    <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
-                  </span>
-                  {s.status === "pending" && (
-                    <div className="flex gap-2">
-                      <Button size="icon" variant="ghost" onClick={() => handleDecline(s.id)}>
-                        <X size={16} className="text-gray-400" />
-                      </Button>
-                      <Button size="icon" onClick={() => handleAccept(s.id)}>
-                        <Check size={16} />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </SheetTrigger>
-          ))}
-        </div>
-      </main>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full max-w-lg overflow-y-auto">
-          {selectedScout && (
-            <>
-              <SheetHeader>
-                <SheetTitle className="flex flex-col">
-                  {selectedScout.student.lastName} {selectedScout.student.firstName}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {selectedScout.student.university} {selectedScout.student.faculty}
-                  </span>
-                </SheetTitle>
-              </SheetHeader>
-
-              <section className="mt-6 space-y-2">
-                <h3 className="text-sm font-semibold">基本情報</h3>
-                <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                  <dt className="font-medium">氏名</dt>
-                  <dd className="col-span-2">
-                    {selectedScout.student.lastName} {selectedScout.student.firstName}
-                    {selectedScout.student.lastNameKana && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({selectedScout.student.lastNameKana} {selectedScout.student.firstNameKana})
-                      </span>
-                    )}
-                  </dd>
-                  <dt className="font-medium">生年月日</dt>
-                  <dd className="col-span-2">{selectedScout.student.birthDate || "--"}</dd>
-                  <dt className="font-medium">電話</dt>
-                  <dd className="col-span-2">{selectedScout.student.phone || "--"}</dd>
-                  <dt className="font-medium">メール</dt>
-                  <dd className="col-span-2">{selectedScout.student.email || "--"}</dd>
-                  <dt className="font-medium">卒業予定</dt>
-                  <dd className="col-span-2">{selectedScout.student.graduationMonth || "--"}</dd>
-                </dl>
-              </section>
-
-              <Separator className="my-4"/>
-
-              <section className="space-y-2">
-                <h3 className="text-sm font-semibold flex items-center gap-1"><Briefcase className="h-4 w-4"/>職務経歴</h3>
-                {selectedScout.student.workExperiences?.length ? selectedScout.student.workExperiences.map((w,i)=>(
-                  <div key={i} className="rounded-md border p-3 mb-2">
-                    <p className="font-medium">{w.company||"--"}</p>
-                    <p className="text-xs text-muted-foreground">{w.startMonth||"--"} 〜 {w.isCurrent?"現在":w.endMonth||"--"}</p>
-                    {w.position && <p className="text-sm">{w.position}</p>}
-                    {w.description && <p className="mt-1 text-xs">{w.description}</p>}
-                    {w.technologies && <div className="mt-1 flex flex-wrap gap-1">
-                      {w.technologies.split(",").map((t,j)=><Badge key={j} variant="outline" className="bg-blue-50 text-xs">{t.trim()}</Badge>)}
-                    </div>}
-                  </div>
-                )):<p className="text-sm text-muted-foreground">登録なし</p>}
-              </section>
-
-              <Separator className="my-4"/>
-
-              <section className="space-y-2">
-                <h3 className="text-sm font-semibold">自己PR</h3>
-                {selectedScout.student.prTitle && <p className="font-medium">{selectedScout.student.prTitle}</p>}
-                <p className="whitespace-pre-wrap text-sm">{selectedScout.student.prText || "--"}</p>
-                {selectedScout.student.strengths?.length && <div className="flex flex-wrap gap-1">
-                  {selectedScout.student.strengths.map((st,i)=><Badge key={i} variant="outline" className="bg-green-50 text-xs">{st}</Badge>)}
-                </div>}
-              </section>
-
-              <Separator className="my-4"/>
-
-              <section className="space-y-2 mb-8">
-                <h3 className="text-sm font-semibold">希望条件</h3>
-                <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                  <dt className="font-medium">職種</dt>
-                  <dd className="col-span-2">{(selectedScout.student.desiredPositions??[]).join(", ")||"--"}</dd>
-                  <dt className="font-medium">勤務地</dt>
-                  <dd className="col-span-2">{(selectedScout.student.desiredLocations??[]).join(", ")||"--"}</dd>
-                  <dt className="font-medium">希望年収</dt>
-                  <dd className="col-span-2">{selectedScout.student.salaryRange||"--"}</dd>
-                </dl>
-              </section>
-            </>
+        <Sheet open={open} onOpenChange={setOpen}>
+          {loading && (
+            <p className="text-center text-muted-foreground">読み込み中...</p>
           )}
-        </SheetContent>
-      </Sheet>
+
+          {!loading && displayedScouts.length === 0 && (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+              <Mail className="mx-auto mb-4 h-10 w-10 text-gray-400" />
+              <p className="text-gray-600">現在表示できるスカウトはありません</p>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {displayedScouts.map((s)=>(
+              <SheetTrigger asChild key={s.id}>
+                <Card
+                  className="group overflow-hidden rounded-xl shadow hover:shadow-lg transition"
+                  onClick={()=>setSelectedScout(s)}
+                >
+                  <div className="flex items-center gap-3 p-4">
+                    <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white border">
+                      <Image
+                        src={s.companyLogo || "/placeholder.svg"}
+                        alt={`${s.companyName} logo`}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold line-clamp-1">{s.companyName}</h3>
+                      <p className="text-xs text-gray-500 line-clamp-1">{s.position}</p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={
+                        s.status === "pending"
+                          ? "border-yellow-400 text-yellow-600"
+                          : s.status === "accepted"
+                          ? "border-green-400 text-green-600"
+                          : "border-gray-400 text-gray-500"
+                      }
+                    >
+                      {s.status === "pending" ? "未対応" : s.status === "accepted" ? "承諾" : "辞退"}
+                    </Badge>
+                  </div>
+
+                  <div className="px-4 pb-4 text-sm text-gray-600 line-clamp-3">{s.message}</div>
+
+                  <div className="mt-auto border-t px-4 py-3 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-xs text-gray-400">
+                      <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
+                    </span>
+                    {s.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button size="icon" variant="ghost" onClick={() => handleDecline(s.id)}>
+                          <X size={16} className="text-gray-400" />
+                        </Button>
+                        <Button size="icon" onClick={() => handleAccept(s.id)}>
+                          <Check size={16} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </SheetTrigger>
+            ))}
+          </div>
+          <SheetContent side="right" className="w-full max-w-lg overflow-y-auto">
+            {selectedScout && (
+              <>
+                <SheetHeader>
+                  <SheetTitle className="flex flex-col">
+                    {selectedScout.student.lastName} {selectedScout.student.firstName}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {selectedScout.student.university} {selectedScout.student.faculty}
+                    </span>
+                  </SheetTitle>
+                </SheetHeader>
+
+                <section className="mt-6 space-y-2">
+                  <h3 className="text-sm font-semibold">基本情報</h3>
+                  <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                    <dt className="font-medium">氏名</dt>
+                    <dd className="col-span-2">
+                      {selectedScout.student.lastName} {selectedScout.student.firstName}
+                      {selectedScout.student.lastNameKana && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({selectedScout.student.lastNameKana} {selectedScout.student.firstNameKana})
+                        </span>
+                      )}
+                    </dd>
+                    <dt className="font-medium">生年月日</dt>
+                    <dd className="col-span-2">{selectedScout.student.birthDate || "--"}</dd>
+                    <dt className="font-medium">電話</dt>
+                    <dd className="col-span-2">{selectedScout.student.phone || "--"}</dd>
+                    <dt className="font-medium">メール</dt>
+                    <dd className="col-span-2">{selectedScout.student.email || "--"}</dd>
+                    <dt className="font-medium">卒業予定</dt>
+                    <dd className="col-span-2">{selectedScout.student.graduationMonth || "--"}</dd>
+                  </dl>
+                </section>
+
+                <Separator className="my-4"/>
+
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold flex items-center gap-1"><Briefcase className="h-4 w-4"/>職務経歴</h3>
+                  {selectedScout.student.workExperiences?.length ? selectedScout.student.workExperiences.map((w,i)=>(
+                    <div key={i} className="rounded-md border p-3 mb-2">
+                      <p className="font-medium">{w.company||"--"}</p>
+                      <p className="text-xs text-muted-foreground">{w.startMonth||"--"} 〜 {w.isCurrent?"現在":w.endMonth||"--"}</p>
+                      {w.position && <p className="text-sm">{w.position}</p>}
+                      {w.description && <p className="mt-1 text-xs">{w.description}</p>}
+                      {w.technologies && <div className="mt-1 flex flex-wrap gap-1">
+                        {w.technologies.split(",").map((t,j)=><Badge key={j} variant="outline" className="bg-blue-50 text-xs">{t.trim()}</Badge>)}
+                      </div>}
+                    </div>
+                  )):<p className="text-sm text-muted-foreground">登録なし</p>}
+                </section>
+
+                <Separator className="my-4"/>
+
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold">自己PR</h3>
+                  {selectedScout.student.prTitle && <p className="font-medium">{selectedScout.student.prTitle}</p>}
+                  <p className="whitespace-pre-wrap text-sm">{selectedScout.student.prText || "--"}</p>
+                  {selectedScout.student.strengths?.length && <div className="flex flex-wrap gap-1">
+                    {selectedScout.student.strengths.map((st,i)=><Badge key={i} variant="outline" className="bg-green-50 text-xs">{st}</Badge>)}
+                  </div>}
+                </section>
+
+                <Separator className="my-4"/>
+
+                <section className="space-y-2 mb-8">
+                  <h3 className="text-sm font-semibold">希望条件</h3>
+                  <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                    <dt className="font-medium">職種</dt>
+                    <dd className="col-span-2">{(selectedScout.student.desiredPositions??[]).join(", ")||"--"}</dd>
+                    <dt className="font-medium">勤務地</dt>
+                    <dd className="col-span-2">{(selectedScout.student.desiredLocations??[]).join(", ")||"--"}</dd>
+                    <dt className="font-medium">希望年収</dt>
+                    <dd className="col-span-2">{selectedScout.student.salaryRange||"--"}</dd>
+                  </dl>
+                </section>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
+      </main>
     </div>
   );
 }
