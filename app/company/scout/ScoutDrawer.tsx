@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Send, Star } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Database } from "@/lib/supabase/types"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase/client"
@@ -64,16 +64,35 @@ export default function ScoutDrawer({
   const [message, setMessage] = useState<string>("")
   const [offerPosition, setOfferPosition] = useState<string>("")
   const [offerAmount, setOfferAmount] = useState<string>("") // 例: "400-600"（万円レンジ）
+  const [jobs, setJobs] = useState<{ id: string; title: string }[]>([])
+  const [selectedJobId, setSelectedJobId] = useState<string>("")
   const MAX_LEN = 1000
   // 400-600 / 400〜600 / 400‐600 などを許可（全角半角数字 & 区切り）
   const isValidRange = (str: string) =>
     /^[0-9０-９]+\s*[-〜‐‑–—~]\s*[0-9０-９]+$/.test(str.trim())
+
+  // 企業が持つ求人一覧を取得
+  useEffect(() => {
+    if (!open) return          // Drawer が開いたときのみ
+    if (!companyId) return
+
+    ;(async () => {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("id, title")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+
+      if (!error && data) setJobs(data as { id: string; title: string }[])
+    })()
+  }, [open, companyId])
 
   const isDisabled: boolean =
     !student ||
     !message.trim() ||
     !offerPosition.trim() ||
     !offerAmount.trim() ||      // 必須
+    !selectedJobId ||           // 紐づけ求人必須
     !companyId ||
     message.length > MAX_LEN ||
     !isValidRange(offerAmount); // レンジ形式が不正
@@ -99,6 +118,7 @@ export default function ScoutDrawer({
       offer_position?: string | null
     } = {
       company_id: companyId,
+      job_id: selectedJobId,
       student_id: student.id,
       message,
       status: "sent",
@@ -163,6 +183,24 @@ export default function ScoutDrawer({
               </Card>
 
               {/* テンプレート選択 */}
+              {/* 求人紐づけ */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  紐づける求人 <span className="text-red-500">*</span>
+                </label>
+                <Select value={selectedJobId} onValueChange={setSelectedJobId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="求人を選択..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jobs.map((j) => (
+                      <SelectItem key={j.id} value={j.id}>
+                        {j.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   テンプレート

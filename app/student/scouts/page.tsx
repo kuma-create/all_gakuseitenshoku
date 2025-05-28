@@ -232,7 +232,7 @@ export default function ScoutsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
       <div className="bg-gradient-to-r from-red-500 to-red-700 py-6 sm:py-10">
-        <div className="container mx-auto px-4">
+        <div className="mx-auto max-w-[1600px] px-4">
           <h1 className="text-2xl font-bold text-white sm:text-3xl">スカウト一覧</h1>
           <p className="text-white/90 sm:text-lg">企業から届いたスカウトを確認しましょう</p>
 
@@ -258,7 +258,7 @@ export default function ScoutsPage() {
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="mx-auto max-w-[1600px] px-4 py-8">
         <Sheet open={open} onOpenChange={setOpen}>
           {loading && (
             <p className="text-center text-muted-foreground">読み込み中...</p>
@@ -271,11 +271,11 @@ export default function ScoutsPage() {
             </div>
           )}
 
-          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {displayedScouts.map((s)=>(
               <SheetTrigger asChild key={s.id}>
                 <Card
-                  className="group overflow-hidden rounded-xl shadow hover:shadow-lg transition"
+                  className="group overflow-hidden rounded-xl border shadow-sm hover:shadow-lg transition flex flex-col"
                   onClick={()=>setSelectedScout(s)}
                 >
                   <div className="flex items-center gap-3 p-4">
@@ -315,9 +315,26 @@ export default function ScoutsPage() {
                     </Badge>
                   </div>
 
-                  <div className="px-4 pt-0 pb-4 text-sm text-gray-600 line-clamp-3">{s.message}</div>
+                  {/* ヘッドライン */}
+                  <div className="px-4 pt-2 pb-3 text-sm font-medium text-gray-800 line-clamp-2">
+                    {s.message}
+                  </div>
 
-                  <div className="mt-auto border-t px-4 py-3 flex items-center justify-between gap-2">
+                  {/* オファー詳細パネル */}
+                  <div className="bg-gray-50 border-t px-4 py-3">
+                    <h4 className="text-xs font-semibold text-gray-500 mb-1">
+                      オファーポジション
+                    </h4>
+                    <p className="text-sm">
+                      {s.offerPosition ?? s.position}
+                    </p>
+                    <p className="text-sm text-primary">
+                      {s.offerRange ? `${s.offerRange} 万円` : "年収 未定"}
+                    </p>
+                  </div>
+
+                  {/* フッター */}
+                  <div className="border-t px-4 py-3 flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1 text-xs text-gray-400">
                       <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
                     </span>

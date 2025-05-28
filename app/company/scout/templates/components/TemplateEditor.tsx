@@ -8,12 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import type { Database } from "@/lib/supabase/types";
 import { toast } from "sonner";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 type Form = {
   title: string;
   position: string;
   offer_range: string;
   content: string;
+  job_id?: string | null;
   is_global: boolean;
 };
 
@@ -29,8 +31,10 @@ export default function TemplateEditor({ mode }: Props) {
     position: "",
     offer_range: "",
     content: "",
+    job_id: null,
     is_global: false,
   });
+  const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
   const isSaving =
     tpl.title.trim() === "" ||
     tpl.position.trim() === "" ||
@@ -66,17 +70,48 @@ export default function TemplateEditor({ mode }: Props) {
         .maybeSingle()
         .then(({ data }) => {
           if (data) {
+            const row = data as unknown as { job_id?: string | null } & typeof data;
             setTpl({
-              title: data.title ?? "",
-              position: data.position ?? "",
-              offer_range: data.offer_range ?? "",
-              content: data.content ?? "",
-              is_global: data.is_global ?? false,
+              title: row.title ?? "",
+              position: row.position ?? "",
+              offer_range: row.offer_range ?? "",
+              content: row.content ?? "",
+              job_id: row.job_id ?? null,
+              is_global: row.is_global ?? false,
             });
           }
         });
     }
   }, [mode, params?.id]);
+
+  // 企業の求人一覧を取得（セレクト用）
+  useEffect(() => {
+    (async () => {
+      if (!tpl.is_global && mode === "edit") {
+        // 編集用テンプレでも求人セレクトを出したいので company を取得
+      }
+      // companyRowId は後述で保存処理にも使うが、ここでは取得手段がまだ無いので user→company を再度呼ぶ
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: cmp } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!cmp?.id) return;
+
+      const { data } = await supabase
+        .from("jobs")
+        .select("id, title")
+        .eq("company_id", cmp.id)
+        .order("created_at", { ascending: false });
+
+      if (data) setJobs(data as { id: string; title: string }[]);
+    })();
+  }, []);
 
   /* --- 保存処理 ------------------------------------------------ */
   const handleSave = async () => {
@@ -104,11 +139,12 @@ export default function TemplateEditor({ mode }: Props) {
     }
 
     /* 3) 作成 / 更新ペイロード */
-    const payload: Database["public"]["Tables"]["scout_templates"]["Insert"] = {
+    const payload: Database["public"]["Tables"]["scout_templates"]["Insert"] & { job_id?: string | null } = {
       title: tpl.title,
       position: tpl.position,
       offer_range: tpl.offer_range,
       content: tpl.content,
+      job_id: tpl.job_id,
       is_global: tpl.is_global,
       company_id: companyRow.id, // 外部キー制約を満たす companies.id
     };
@@ -152,6 +188,29 @@ export default function TemplateEditor({ mode }: Props) {
           value={tpl.title}
           onChange={(e) => setTpl({ ...tpl, title: e.target.value })}
         />
+      </div>
+
+      {/* 紐づけ求人（任意） */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">紐づけ求人 (任意)</label>
+        <Select
+          value={tpl.job_id ?? ""}
+          onValueChange={(v) => setTpl({ ...tpl, job_id: v || null })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="未選択 (汎用テンプレ)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem key="" value="">
+              未選択
+            </SelectItem>
+            {jobs.map((j) => (
+              <SelectItem key={j.id} value={j.id}>
+                {j.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* ポジション & レンジ入力 */}
