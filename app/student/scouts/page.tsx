@@ -58,6 +58,8 @@ type ScoutWithRelations = ScoutRow & {
     salary_range?: string | null;
     experience?: any | null
   } | null;
+  offer_position?: string | null;
+  offer_amount?: string | null;
 };
 
 /** UI 用フラット型 */
@@ -65,6 +67,8 @@ export type UIScout = {
   id: string;
   companyName: string;
   position: string;
+  offerPosition?: string | null;
+  offerRange?: string | null;
   message: string;
   createdAt: string;
   status: "pending" | "accepted" | "declined";
@@ -170,6 +174,8 @@ export default function ScoutsPage() {
         id: row.id,
         companyName: row.companies?.name ?? "Unknown Company",
         position: row.jobs?.title ?? "Unknown Position",
+        offerPosition: row.offer_position ?? null,
+        offerRange: row.offer_amount ?? null,
         message: row.message,
         createdAt: row.created_at ?? "",
         status: (row.status as UIScout["status"]) ?? "pending",
@@ -215,7 +221,10 @@ export default function ScoutsPage() {
         q === "" ||
         s.companyName.toLowerCase().includes(q) ||
         s.position.toLowerCase().includes(q) ||
-        s.message.toLowerCase().includes(q);
+        s.message.toLowerCase().includes(q)
+        || (s.offerPosition ?? "").toLowerCase().includes(q)
+        || (s.offerRange ?? "").toLowerCase().includes(q)
+      ;
       return matchesTab && matchesQ;
     });
   }, [scouts, statusTab, query]);
@@ -296,7 +305,19 @@ export default function ScoutsPage() {
                     </Badge>
                   </div>
 
-                  <div className="px-4 pb-4 text-sm text-gray-600 line-clamp-3">{s.message}</div>
+                  <div className="px-4 pt-0 text-sm text-gray-600 line-clamp-3">{s.message}</div>
+
+                  {/* オファー詳細 (あれば) */}
+                  {s.offerPosition && (
+                    <p className="px-4 text-xs text-slate-500">
+                      <span className="font-medium">ポジション:</span> {s.offerPosition}
+                    </p>
+                  )}
+                  {s.offerRange && (
+                    <p className="px-4 pb-4 text-xs text-slate-500">
+                      <span className="font-medium">オファー額:</span> {s.offerRange} 万円
+                    </p>
+                  )}
 
                   <div className="mt-auto border-t px-4 py-3 flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1 text-xs text-gray-400">
@@ -349,6 +370,18 @@ export default function ScoutsPage() {
                     <dd className="col-span-2">{selectedScout.student.email || "--"}</dd>
                     <dt className="font-medium">卒業予定</dt>
                     <dd className="col-span-2">{selectedScout.student.graduationMonth || "--"}</dd>
+                  </dl>
+                </section>
+
+                <Separator className="my-4"/>
+
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold">オファー内容</h3>
+                  <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                    <dt className="font-medium">ポジション</dt>
+                    <dd className="col-span-2">{selectedScout.offerPosition || "―"}</dd>
+                    <dt className="font-medium">オファー額</dt>
+                    <dd className="col-span-2">{selectedScout.offerRange ? `${selectedScout.offerRange} 万円` : "―"}</dd>
                   </dl>
                 </section>
 
