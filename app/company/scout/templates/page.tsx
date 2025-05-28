@@ -52,6 +52,8 @@ export default function TemplateIndex() {
             <TableHead>タイトル</TableHead>
             <TableHead>作成日</TableHead>
             <TableHead className="text-center">種別</TableHead>
+            <TableHead>ポジション</TableHead>
+            <TableHead>レンジ</TableHead>
             <TableHead className="w-[80px] text-center">操作</TableHead>
           </TableRow>
         </TableHeader>
@@ -71,6 +73,8 @@ export default function TemplateIndex() {
                   <Badge>社内</Badge>
                 )}
               </TableCell>
+              <TableCell>{r.position ?? "—"}</TableCell>
+              <TableCell>{r.offer_range ?? "—"}</TableCell>
               <TableCell
                 className="text-center"
                 onClick={(e) => e.stopPropagation()}

@@ -1159,6 +1159,8 @@ export type Database = {
           created_at: string | null
           id: string
           is_global: boolean | null
+          offer_range: string | null
+          position: string | null
           title: string
         }
         Insert: {
@@ -1167,6 +1169,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_global?: boolean | null
+          offer_range?: string | null
+          position?: string | null
           title: string
         }
         Update: {
@@ -1175,6 +1179,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_global?: boolean | null
+          offer_range?: string | null
+          position?: string | null
           title?: string
         }
         Relationships: [

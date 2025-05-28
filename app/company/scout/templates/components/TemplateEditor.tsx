@@ -11,6 +11,8 @@ import { toast } from "sonner";
 
 type Form = {
   title: string;
+  position: string;
+  offer_range: string;
   content: string;
   is_global: boolean;
 };
@@ -22,8 +24,18 @@ interface Props {
 export default function TemplateEditor({ mode }: Props) {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const [tpl, setTpl] = useState<Form>({ title: "", content: "", is_global: false });
-  const isSaving = tpl.title.trim() === "" || tpl.content.trim() === "";
+  const [tpl, setTpl] = useState<Form>({
+    title: "",
+    position: "",
+    offer_range: "",
+    content: "",
+    is_global: false,
+  });
+  const isSaving =
+    tpl.title.trim() === "" ||
+    tpl.position.trim() === "" ||
+    tpl.offer_range.trim() === "" ||
+    tpl.content.trim() === "";
 
   const [showPreview, setShowPreview] = useState(false);
   const sampleData = {
@@ -56,6 +68,8 @@ export default function TemplateEditor({ mode }: Props) {
           if (data) {
             setTpl({
               title: data.title ?? "",
+              position: data.position ?? "",
+              offer_range: data.offer_range ?? "",
               content: data.content ?? "",
               is_global: data.is_global ?? false,
             });
@@ -92,6 +106,8 @@ export default function TemplateEditor({ mode }: Props) {
     /* 3) 作成 / 更新ペイロード */
     const payload: Database["public"]["Tables"]["scout_templates"]["Insert"] = {
       title: tpl.title,
+      position: tpl.position,
+      offer_range: tpl.offer_range,
       content: tpl.content,
       is_global: tpl.is_global,
       company_id: companyRow.id, // 外部キー制約を満たす companies.id
@@ -136,6 +152,27 @@ export default function TemplateEditor({ mode }: Props) {
           value={tpl.title}
           onChange={(e) => setTpl({ ...tpl, title: e.target.value })}
         />
+      </div>
+
+      {/* ポジション & レンジ入力 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">提示ポジション *</label>
+          <Input
+            placeholder="例）フロントエンドエンジニア"
+            value={tpl.position}
+            onChange={(e) => setTpl({ ...tpl, position: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">オファー額レンジ（万円） *</label>
+          <Input
+            placeholder="例）400-600"
+            value={tpl.offer_range}
+            onChange={(e) => setTpl({ ...tpl, offer_range: e.target.value })}
+          />
+        </div>
       </div>
 
       {/* 本文入力 */}
