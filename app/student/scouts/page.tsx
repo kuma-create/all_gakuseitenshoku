@@ -268,8 +268,16 @@ export default function ScoutsPage() {
           {displayedScouts.map((s) => (
             <Card
               key={s.id}
-              className="relative flex flex-col rounded-2xl border p-6 shadow-sm hover:shadow-md transition bg-white"
-              onClick={() => router.push(`/student/scouts/${s.id}`)}
+              className={`relative flex flex-col rounded-2xl border p-6 shadow-sm transition bg-white ${
+                s.status === "declined"
+                  ? "opacity-60 cursor-not-allowed"
+                  : "hover:shadow-md"
+              }`}
+              onClick={() => {
+                if (s.status !== "declined") {
+                  router.push(`/student/scouts/${s.id}`);
+                }
+              }}
             >
               {/* --- Offer card begins --- */}
               <Badge
