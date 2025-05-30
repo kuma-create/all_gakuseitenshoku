@@ -334,16 +334,27 @@ export default function ScoutsPage() {
               {/* action buttons */}
               <div className="mt-8 flex justify-end gap-4">
                 {s.status === "pending" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDecline(s.id);
-                    }}
-                  >
-                    辞退する
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDecline(s.id);
+                      }}
+                    >
+                      辞退する
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAccept(s.id);
+                      }}
+                    >
+                      承諾する
+                    </Button>
+                  </>
                 )}
                 <Button
                   size="sm"
