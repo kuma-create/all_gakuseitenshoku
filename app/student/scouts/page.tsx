@@ -349,7 +349,11 @@ export default function ScoutsPage() {
                       className="border-red-300 text-red-600 hover:bg-red-50"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDecline(s.id);
+                        if (
+                          window.confirm("本当に辞退しますか？　この操作は取り消せません。")
+                        ) {
+                          handleDecline(s.id);
+                        }
                       }}
                     >
                       辞退する
