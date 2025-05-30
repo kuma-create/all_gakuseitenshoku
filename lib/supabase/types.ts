@@ -1202,8 +1202,10 @@ export type Database = {
       }
       scouts: {
         Row: {
+          accepted_at: string | null
           company_id: string
           created_at: string | null
+          declined_at: string | null
           id: string
           is_read: boolean
           job_id: string | null
@@ -1215,8 +1217,10 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          accepted_at?: string | null
           company_id: string
           created_at?: string | null
+          declined_at?: string | null
           id?: string
           is_read?: boolean
           job_id?: string | null
@@ -1228,8 +1232,10 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          accepted_at?: string | null
           company_id?: string
           created_at?: string | null
+          declined_at?: string | null
           id?: string
           is_read?: boolean
           job_id?: string | null
