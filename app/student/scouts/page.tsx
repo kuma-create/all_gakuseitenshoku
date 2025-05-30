@@ -107,7 +107,7 @@ export default function ScoutsPage() {
   const [scouts, setScouts] = useState<UIScout[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [statusTab, setStatusTab] = useState<"all" | "pending" | "accepted" | "declined">("all");
+  const [statusTab, setStatusTab] = useState<"all" | "pending" | "accepted">("all");
   const [query, setQuery] = useState("");
 
   const router = useRouter();
@@ -224,6 +224,7 @@ export default function ScoutsPage() {
   const displayedScouts = useMemo(() => {
     const q = query.toLowerCase();
     return scouts.filter((s) => {
+      if (s.status === "declined") return false;      // 学生には辞退済みスカウトを非表示
       const matchesTab = statusTab === "all" || s.status === statusTab;
       const matchesQ =
         q === "" ||
@@ -255,11 +256,10 @@ export default function ScoutsPage() {
               />
             </div>
             <Tabs value={statusTab} onValueChange={(v)=>setStatusTab(v as any)} className="w-full sm:w-auto">
-              <TabsList className="grid w-full grid-cols-4 rounded-xl bg-gray-100 p-1 sm:w-72">
+              <TabsList className="grid w-full grid-cols-3 rounded-xl bg-gray-100 p-1 sm:w-72">
                 <TabsTrigger value="all"       className="rounded-lg text-xs sm:text-sm">すべて</TabsTrigger>
                 <TabsTrigger value="pending"   className="rounded-lg text-xs sm:text-sm">未対応</TabsTrigger>
                 <TabsTrigger value="accepted"  className="rounded-lg text-xs sm:text-sm">承諾</TabsTrigger>
-                <TabsTrigger value="declined"  className="rounded-lg text-xs sm:text-sm">辞退</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
