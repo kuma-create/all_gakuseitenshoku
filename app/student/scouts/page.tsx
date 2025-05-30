@@ -195,17 +195,25 @@ export default function ScoutsPage() {
   /* ------------------------- アクション ---------------------------- */
   const patchStatus = async (id: string, next: UIScout["status"]) => {
     setLoading(true);
-    const { error } = await supabase
-      .from("scouts")
-      .update({ status: next })
-      .eq("id", id);
+
+    // 一部のステータスはタイムスタンプ必須のチェック制約が入っているため、
+    // 状態に応じて追加カラムも同時に更新する
+    const now = new Date().toISOString();
+    const updates: any = { status: next };
+
+    if (next === "accepted") {
+      updates.accepted_at = now;   // ★ Supabase 側に accepted_at 列がある前提
+    } else if (next === "declined") {
+      updates.declined_at = now;   // ★ Supabase 側に declined_at 列がある前提
+    }
+
+    const { error } = await supabase.from("scouts").update(updates).eq("id", id);
 
     if (error) {
       console.error(`Error updating scout status to ${next}:`, error);
     } else {
-      setScouts((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status: next } : s)),
-      );
+      // 楽観的 UI 更新
+      setScouts((prev) => prev.map((s) => (s.id === id ? { ...s, status: next } : s)));
     }
     setLoading(false);
   };
@@ -290,10 +298,10 @@ export default function ScoutsPage() {
                 variant="outline"
                 className={`absolute top-6 right-6 text-xs px-3 py-1 rounded-full ${
                   s.status === "pending"
-                    ? "text-gray-700 border-gray-300 bg-white"
+                    ? "bg-yellow-50 text-yellow-700 border-yellow-300"
                     : s.status === "accepted"
-                    ? "text-green-600 border-green-300 bg-green-50"
-                    : "text-gray-400 border-gray-200 bg-gray-50"
+                    ? "bg-green-50 text-green-700 border-green-300"
+                    : "bg-red-50 text-red-600 border-red-300"
                 }`}
               >
                 {s.status === "pending" ? "検討中" : s.status === "accepted" ? "承諾" : "辞退"}
@@ -338,6 +346,7 @@ export default function ScoutsPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="border-red-300 text-red-600 hover:bg-red-50"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDecline(s.id);
@@ -347,6 +356,7 @@ export default function ScoutsPage() {
                     </Button>
                     <Button
                       size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAccept(s.id);
