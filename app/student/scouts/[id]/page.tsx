@@ -16,6 +16,10 @@ import {
   Clock,
   Loader2,
   Mail,
+  Building,
+  MapPin,
+  Users,
+  DollarSign,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,6 +37,23 @@ type ScoutDetail = {
   jobs?: { title: string | null } | null
 }
 
+type CompanyInfo = {
+  id: string
+  name: string
+  logo: string | null
+  industry: string | null
+  employee_count: string | null
+  location: string | null
+  description: string | null
+}
+
+type JobSummary = {
+  id: string
+  title: string | null
+  location: string | null
+  salary_range: string | null
+}
+
 /* ---------------------------- 画面 ----------------------------- */
 export default function ScoutDetailPage({
   params,
@@ -45,6 +66,9 @@ export default function ScoutDetailPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [company, setCompany] = useState<CompanyInfo | null>(null)
+  const [jobs, setJobs] = useState<JobSummary[]>([])
+
   /* -------- Supabase Fetch -------- */
   useEffect(() => {
     ;(async () => {
@@ -55,9 +79,11 @@ export default function ScoutDetailPage({
           `
             id, message, created_at, status,
             offer_position, offer_amount,
-            companies:companies!scouts_company_id_fkey(name, logo),
-            jobs:jobs!scouts_job_id_fkey(title)
-          `,
+            companies:companies!scouts_company_id_fkey(
+              id, name, logo, industry, employee_count, location, description
+            ),
+            jobs:jobs!scouts_job_id_fkey(id, title)
+          `
         )
         .eq("id", params.id)
         .maybeSingle()
@@ -66,6 +92,20 @@ export default function ScoutDetailPage({
         setError("スカウトが見つかりませんでした。")
       } else {
         setData(data as ScoutDetail)
+
+        // 会社情報を保存
+        const c = (data as any).companies
+        if (c) setCompany(c as CompanyInfo)
+
+        // 同一企業の公開求人を取得
+        if (c?.id) {
+          const { data: jobList } = await supabase
+            .from("jobs")
+            .select("id, title, location, salary_range")
+            .eq("company_id", c.id)
+            .eq("is_active", true)
+          if (jobList) setJobs(jobList as JobSummary[])
+        }
       }
       setLoading(false)
     })()
@@ -160,6 +200,61 @@ export default function ScoutDetailPage({
               {data.offer_amount ? `${data.offer_amount} 万円` : "未定"}
             </p>
           </div>
+
+          {/* Company info */}
+          {company && (
+            <div className="rounded-lg border bg-white p-6 flex gap-6">
+              <div className="relative h-24 w-24 rounded-lg border overflow-hidden">
+                <Image
+                  src={company.logo ?? "/placeholder.svg"}
+                  alt="logo"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <h3 className="text-lg font-semibold">{company.name}</h3>
+                <p className="text-sm text-gray-600 flex items-center gap-1">
+                  <Building size={14} />
+                  {company.industry ?? "—"}
+                </p>
+                <p className="text-sm text-gray-600 flex items-center gap-1">
+                  <Users size={14} />
+                  {company.employee_count ?? "—"} 名規模
+                </p>
+                <p className="text-sm text-gray-600 flex items-center gap-1">
+                  <MapPin size={14} />
+                  {company.location ?? "—"}
+                </p>
+                <p className="mt-2 text-sm text-gray-700">
+                  {company.description ?? "企業説明は未登録です。"}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Job list */}
+          {jobs.length > 0 && (
+            <>
+              <h3 className="mt-8 mb-4 text-base font-semibold">公開求人</h3>
+              <div className="grid gap-4">
+                {jobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className="rounded-lg border bg-gray-50 p-4 hover:bg-white transition"
+                  >
+                    <p className="font-medium">{job.title}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <MapPin size={12} />
+                      {job.location ?? "—"}
+                      <DollarSign size={12} />
+                      {job.salary_range ?? "—"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <Separator />
 
