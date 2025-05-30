@@ -264,7 +264,7 @@ export default function ScoutsPage() {
           </div>
         )}
 
-        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="flex flex-col gap-6">
           {displayedScouts.map((s) => (
             <Card
               key={s.id}
