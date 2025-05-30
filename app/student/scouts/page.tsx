@@ -67,7 +67,9 @@ export type UIScout = {
   offerRange?: string | null;
   message: string;
   createdAt: string;
-  status: "pending" | "accepted" | "declined";
+  status: "pending" | "accepted" | "declined" | "expired";
+  /** 返答期限までの残り日数 (pending のみ) */
+  daysLeft?: number;
   companyLogo: string;
   student: UIStudent;
 };
@@ -164,6 +166,32 @@ export default function ScoutsPage() {
         salaryRange: stu?.salary_range ?? ""
       };
 
+      const baseStatus =
+        row.status === "accepted"
+          ? "accepted"
+          : row.status === "declined"
+          ? "declined"
+          : "pending" as const;
+
+      // ───────── 14‑day expiry ─────────
+      let uiStatus: UIScout["status"] = baseStatus;
+      if (baseStatus === "pending" && row.created_at) {
+        const created = new Date(row.created_at);
+        const diffMs = Date.now() - created.getTime();
+        if (diffMs > 14 * 24 * 60 * 60 * 1000) {
+          uiStatus = "expired";
+        }
+      }
+
+      // 返答期限までの残り日数
+      let daysLeft: number | undefined;
+      if (row.created_at) {
+        const created = new Date(row.created_at);
+        const diffMs = Date.now() - created.getTime();
+        const left = 14 - Math.floor(diffMs / 86_400_000); // 86,400,000 = 24h
+        if (left >= 0) daysLeft = left;
+      }
+
       return {
         id: row.id,
         companyName: row.companies?.name ?? "Unknown Company",
@@ -172,13 +200,8 @@ export default function ScoutsPage() {
         offerRange: row.offer_amount ?? null,
         message: row.message,
         createdAt: row.created_at ?? "",
-        // DB の status を UI 用に正規化
-        status:
-          row.status === "accepted"
-            ? "accepted"
-            : row.status === "declined"
-            ? "declined"
-            : "pending",
+        status: uiStatus,
+        daysLeft,
         companyLogo: row.companies?.logo ?? "/placeholder.svg",
         student,
       };
@@ -283,12 +306,12 @@ export default function ScoutsPage() {
             <Card
               key={s.id}
               className={`relative flex flex-col rounded-2xl border p-6 shadow-sm transition bg-white ${
-                s.status === "declined"
+                (s.status === "declined" || s.status === "expired")
                   ? "opacity-60 cursor-not-allowed"
                   : "hover:shadow-md"
               }`}
               onClick={() => {
-                if (s.status !== "declined") {
+                if (s.status !== "declined" && s.status !== "expired") {
                   router.push(`/student/scouts/${s.id}`);
                 }
               }}
@@ -301,10 +324,18 @@ export default function ScoutsPage() {
                     ? "bg-yellow-50 text-yellow-700 border-yellow-300"
                     : s.status === "accepted"
                     ? "bg-green-50 text-green-700 border-green-300"
-                    : "bg-red-50 text-red-600 border-red-300"
+                    : s.status === "declined"
+                    ? "bg-red-50 text-red-600 border-red-300"
+                    : "bg-gray-200 text-gray-600 border-gray-300"
                 }`}
               >
-                {s.status === "pending" ? "検討中" : s.status === "accepted" ? "承諾" : "辞退"}
+                {s.status === "pending"
+                  ? "検討中"
+                  : s.status === "accepted"
+                  ? "承諾"
+                  : s.status === "declined"
+                  ? "辞退"
+                  : "期限切れ"}
               </Badge>
 
               <div className="flex gap-4">
@@ -331,6 +362,21 @@ export default function ScoutsPage() {
                     <Calendar className="h-4 w-4" />
                     <span>{new Date(s.createdAt).toLocaleDateString()}</span>
                   </div>
+
+                  {s.status === "pending" && (
+                    <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                      <Clock className="h-4 w-4" />
+                      <span
+                        className={
+                          s.daysLeft !== undefined && s.daysLeft <= 3
+                            ? "text-red-600 font-semibold"
+                            : ""
+                        }
+                      >
+                        期限まで残り{s.daysLeft}日
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
