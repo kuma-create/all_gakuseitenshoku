@@ -18,7 +18,7 @@ import {
   Separator,
 } from "@/components/ui";
 import { useRouter } from "next/navigation";
-import { Search, Mail, Check, X, Clock, Briefcase } from "lucide-react";
+import { Search, Mail, Check, X, Clock, Briefcase, Calendar } from "lucide-react";
 import Image from "next/image";
 import { useMemo } from "react";
 
@@ -264,98 +264,84 @@ export default function ScoutsPage() {
           </div>
         )}
 
-        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="flex flex-col gap-6">
           {displayedScouts.map((s) => (
             <Card
               key={s.id}
-              className="group overflow-hidden rounded-xl border shadow-sm hover:shadow-lg transition flex flex-col"
+              className="relative flex flex-col rounded-2xl border p-6 shadow-sm hover:shadow-md transition bg-white"
               onClick={() => router.push(`/student/scouts/${s.id}`)}
             >
-              /* ---------- modern Card body begins ---------- */
-              <div className="relative flex-1 rounded-xl overflow-hidden group">
-                {/* --- Banner & header --- */}
-                <div className="relative h-24 w-full bg-gradient-to-r from-red-500 to-pink-600">
+              {/* --- Offer card begins --- */}
+              <Badge
+                variant="outline"
+                className={`absolute top-6 right-6 text-xs px-3 py-1 rounded-full ${
+                  s.status === "pending"
+                    ? "text-gray-700 border-gray-300 bg-white"
+                    : s.status === "accepted"
+                    ? "text-green-600 border-green-300 bg-green-50"
+                    : "text-gray-400 border-gray-200 bg-gray-50"
+                }`}
+              >
+                {s.status === "pending" ? "検討中" : s.status === "accepted" ? "承諾" : "辞退"}
+              </Badge>
+
+              <div className="flex gap-4">
+                {/* logo */}
+                <div className="relative h-14 w-14 rounded-full overflow-hidden bg-gray-100 shrink-0">
                   <Image
                     src={s.companyLogo || "/placeholder.svg"}
                     alt={`${s.companyName} logo`}
                     fill
-                    className="object-cover mix-blend-overlay opacity-70 group-hover:scale-105 transition-transform duration-300"
+                    className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/30" />
-                  <div className="absolute bottom-2 left-3 flex items-center gap-2">
-                    <div className="relative h-10 w-10 rounded-full overflow-hidden border-2 border-white">
-                      <Image
-                        src={s.companyLogo || "/placeholder.svg"}
-                        alt={`${s.companyName} logo mini`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <h3 className="text-white font-semibold truncate max-w-[140px]">
-                      {s.companyName}
-                    </h3>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={`absolute top-2 right-2 backdrop-blur-sm bg-white/20 text-white ${
-                      s.status === "pending"
-                        ? "border-yellow-300"
-                        : s.status === "accepted"
-                        ? "border-green-300"
-                        : "border-gray-300"
-                    }`}
-                  >
-                    {s.status === "pending" ? "未対応" : s.status === "accepted" ? "承諾" : "辞退"}
-                  </Badge>
                 </div>
 
-                {/* --- Body --- */}
-                <div className="p-4 space-y-2 flex flex-col flex-1">
-                  <p className="text-sm text-gray-700 line-clamp-3 flex-1">{s.message}</p>
+                {/* company & meta */}
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-gray-900">{s.companyName}</h3>
 
-                  <Separator />
+                  <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
+                    <Briefcase className="h-4 w-4" />
+                    <span>{s.offerPosition ?? s.position}</span>
+                  </div>
 
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <span className="font-medium">
-                        {s.offerPosition ?? s.position}
-                      </span>
-                      <span className="ml-2 text-primary">
-                        {s.offerRange ? `${s.offerRange} 万円` : "年収 未定"}
-                      </span>
-                    </div>
-                    <span className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
-                      <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
-                    </span>
+                  <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                    <Calendar className="h-4 w-4" />
+                    <span>{new Date(s.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
-
-                {/* --- Action bar (only for pending) --- */}
-                {s.status === "pending" && (
-                  <div className="absolute bottom-2 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDecline(s.id);
-                      }}
-                    >
-                      <X size={16} />
-                    </Button>
-                    <Button
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAccept(s.id);
-                      }}
-                    >
-                      <Check size={16} />
-                    </Button>
-                  </div>
-                )}
               </div>
-              /* ---------- modern Card body ends ---------- */
+
+              {/* message */}
+              <p className="mt-6 text-gray-700 text-sm leading-relaxed">
+                {s.message}
+              </p>
+
+              {/* action buttons */}
+              <div className="mt-8 flex justify-end gap-4">
+                {s.status === "pending" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDecline(s.id);
+                    }}
+                  >
+                    辞退する
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/student/scouts/${s.id}`);
+                  }}
+                >
+                  詳細を見る
+                </Button>
+              </div>
+              {/* --- Offer card ends --- */}
             </Card>
           ))}
         </div>
