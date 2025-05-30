@@ -172,7 +172,13 @@ export default function ScoutsPage() {
         offerRange: row.offer_amount ?? null,
         message: row.message,
         createdAt: row.created_at ?? "",
-        status: (row.status as UIScout["status"]) ?? "pending",
+        // DB の status を UI 用に正規化
+        status:
+          row.status === "accepted"
+            ? "accepted"
+            : row.status === "declined"
+            ? "declined"
+            : "pending",
         companyLogo: row.companies?.logo ?? "/placeholder.svg",
         student,
       };
