@@ -264,95 +264,98 @@ export default function ScoutsPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-6">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {displayedScouts.map((s) => (
             <Card
               key={s.id}
               className="group overflow-hidden rounded-xl border shadow-sm hover:shadow-lg transition flex flex-col"
               onClick={() => router.push(`/student/scouts/${s.id}`)}
             >
-              {/* ---------- existing Card body begins ---------- */}
-
-              <div className="flex items-center gap-3 p-4">
-                <div className="relative h-12 w-12 overflow-hidden rounded-full bg-white border">
+              /* ---------- modern Card body begins ---------- */
+              <div className="relative flex-1 rounded-xl overflow-hidden group">
+                {/* --- Banner & header --- */}
+                <div className="relative h-24 w-full bg-gradient-to-r from-red-500 to-pink-600">
                   <Image
                     src={s.companyLogo || "/placeholder.svg"}
                     alt={`${s.companyName} logo`}
                     fill
-                    className="object-cover"
+                    className="object-cover mix-blend-overlay opacity-70 group-hover:scale-105 transition-transform duration-300"
                   />
+                  <div className="absolute inset-0 bg-black/30" />
+                  <div className="absolute bottom-2 left-3 flex items-center gap-2">
+                    <div className="relative h-10 w-10 rounded-full overflow-hidden border-2 border-white">
+                      <Image
+                        src={s.companyLogo || "/placeholder.svg"}
+                        alt={`${s.companyName} logo mini`}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <h3 className="text-white font-semibold truncate max-w-[140px]">
+                      {s.companyName}
+                    </h3>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`absolute top-2 right-2 backdrop-blur-sm bg-white/20 text-white ${
+                      s.status === "pending"
+                        ? "border-yellow-300"
+                        : s.status === "accepted"
+                        ? "border-green-300"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {s.status === "pending" ? "未対応" : s.status === "accepted" ? "承諾" : "辞退"}
+                  </Badge>
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold line-clamp-1">{s.companyName}</h3>
-                  <div className="mt-0.5 flex flex-wrap gap-1">
-                    <Badge variant="outline" className="text-xs">
-                      {s.offerPosition ?? s.position}
-                    </Badge>
-                    <Badge
-                      variant={s.offerRange ? "secondary" : "outline"}
-                      className="text-xs"
-                    >
-                      {s.offerRange ? `${s.offerRange} 万円` : "年収 未定"}
-                    </Badge>
+
+                {/* --- Body --- */}
+                <div className="p-4 space-y-2 flex flex-col flex-1">
+                  <p className="text-sm text-gray-700 line-clamp-3 flex-1">{s.message}</p>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between text-sm">
+                    <div>
+                      <span className="font-medium">
+                        {s.offerPosition ?? s.position}
+                      </span>
+                      <span className="ml-2 text-primary">
+                        {s.offerRange ? `${s.offerRange} 万円` : "年収 未定"}
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
+                      <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    s.status === "pending"
-                      ? "border-yellow-400 text-yellow-600"
-                      : s.status === "accepted"
-                      ? "border-green-400 text-green-600"
-                      : "border-gray-400 text-gray-500"
-                  }
-                >
-                  {s.status === "pending" ? "未対応" : s.status === "accepted" ? "承諾" : "辞退"}
-                </Badge>
-              </div>
 
-              {/* ヘッドライン */}
-              <div className="px-4 pt-2 pb-3 text-sm font-medium text-gray-800 line-clamp-2">
-                {s.message}
-              </div>
-
-              {/* オファー詳細パネル */}
-              <div className="bg-gray-50 border-t px-4 py-3">
-                <h4 className="text-xs font-semibold text-gray-500 mb-1">
-                  オファーポジション
-                </h4>
-                <p className="text-sm">
-                  {s.offerPosition ?? s.position}
-                </p>
-                <p className="text-sm text-primary">
-                  {s.offerRange ? `${s.offerRange} 万円` : "年収 未定"}
-                </p>
-              </div>
-
-              {/* フッター */}
-              <div className="border-t px-4 py-3 flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <Clock size={12} /> {new Date(s.createdAt).toLocaleDateString()}
-                </span>
+                {/* --- Action bar (only for pending) --- */}
                 {s.status === "pending" && (
-                  <div className="flex gap-2">
+                  <div className="absolute bottom-2 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       size="icon"
-                      variant="ghost"
-                      onClick={(e) => { e.stopPropagation(); handleDecline(s.id); }}
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDecline(s.id);
+                      }}
                     >
-                      <X size={16} className="text-gray-400" />
+                      <X size={16} />
                     </Button>
                     <Button
                       size="icon"
-                      onClick={(e) => { e.stopPropagation(); handleAccept(s.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAccept(s.id);
+                      }}
                     >
                       <Check size={16} />
                     </Button>
                   </div>
                 )}
               </div>
-
-              {/* ---------- existing Card body ends ---------- */}
+              /* ---------- modern Card body ends ---------- */
             </Card>
           ))}
         </div>
