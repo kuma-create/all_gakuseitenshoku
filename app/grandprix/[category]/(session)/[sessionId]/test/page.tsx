@@ -172,27 +172,30 @@ export default function WebTestPage() {
       }
 
       /* ----------------------------------------------------------
-         3. challenge_submissions に JSONB で保存
+         3. challenge_submissions に JSONB で保存 (upsert)
          ---------------------------------------------------------- */
-      const { error: insertErr } = await supabase
+      const { error: upsertErr } = await supabase
         .from("challenge_submissions")
-        .insert([
-          {
-            challenge_id: challengeId,
-            student_id:   studentId,
-            answer:       "",                       // text カラムが必須のため空文字で埋める
-            answers:      answerMap as any,         // JSONB
-            status:       "未採点",
-          },
-        ]);
+        .upsert(
+          [
+            {
+              challenge_id: challengeId,
+              student_id:   studentId,
+              answer:       "",                       // 必須列
+              answers:      answerMap as any,
+              status:       "未採点",
+            },
+          ],
+          { onConflict: "challenge_id,student_id" }
+        );
 
-      if (!insertErr) {
+      if (!upsertErr) {
         setSubmitted(true);
         router.replace(`/grandprix/${category}/${sessionId}/result`);
         return;
       }
 
-      if (insertErr) throw insertErr;
+      if (upsertErr) throw upsertErr;
 
     } catch (e: any) {
       toast({ description: e.message ?? "送信に失敗しました" });
