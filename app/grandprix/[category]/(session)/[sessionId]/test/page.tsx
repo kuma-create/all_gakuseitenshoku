@@ -231,6 +231,13 @@ export default function WebTestPage() {
         return;
       }
 
+      /* ---------- auto score ---------- */
+      const correctCount = answers.reduce((cnt, row) => {
+        const correct = row.question?.correct_choice;      // 1‑4
+        return cnt + (row.answer_raw === correct ? 1 : 0);
+      }, 0);
+      const finalScore = correctCount;                     // 今は 1問＝1点
+
       /* ----------------------------------------------------------
          3. challenge_submissions に JSONB で保存 (upsert)
          ---------------------------------------------------------- */
@@ -241,14 +248,24 @@ export default function WebTestPage() {
             {
               challenge_id: finalChallengeId,
               student_id:   studentId,
-              session_id:   sessionId,           // <- NEW
-              answer:       "",                  // <- restore required col
+              session_id:   sessionId,
+              answer:       "",                  // legacy col
               answers:      answerMap as any,
-              status:       "未採点",
+              auto_score:   finalScore,          // ← NEW
+              final_score:  finalScore,          // ← NEW
+              status:       "採点済み",
             },
           ],
-          { onConflict: "session_id" }          // 1‑session = 1‑submission
+          { onConflict: "session_id" }
         );
+
+      // (Optional but recommended) challenge_sessions 側にもスコア反映
+      if (!upsertErr) {
+        await supabase
+          .from("challenge_sessions")
+          .update({ score: finalScore })
+          .eq("id", sessionId);
+      }
 
       if (!upsertErr) {
         console.log("[handleSubmit] submission saved:", { challengeId, studentId, answerMap });
