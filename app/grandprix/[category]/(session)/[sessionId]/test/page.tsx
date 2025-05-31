@@ -40,6 +40,11 @@ export default function WebTestPage() {
   const { toast } = useToast()
 
   /* ---------- state ---------- */
+  /** challenge_id と student_id を保持 */
+  const [sessionInfo, setSessionInfo] = useState<{
+    challenge_id: string | null;
+    student_id: string | null;
+  } | null>(null);
   const [loading,   setLoading]   = useState(true)
   const [answers,   setAnswers]   = useState<AnswerRow[]>([])
   const [current,   setCurrent]   = useState(0)
@@ -68,11 +73,18 @@ export default function WebTestPage() {
       /* started_at 取得 → deadline 計算 (40 分) ------------------ */
       const { data: sess, error: sessErr } = await supabase
         .from("challenge_sessions")
-        .select("started_at")
+        .select("started_at, challenge_id, student_id")
         .eq("id", sessionId)
         .maybeSingle()
 
       if (sessErr) toast({ description: sessErr.message })
+
+      if (sess) {
+        setSessionInfo({
+          challenge_id: sess.challenge_id,
+          student_id: sess.student_id,
+        });
+      }
 
       const now = new Date()
       let start   = sess?.started_at ? new Date(sess.started_at) : now
@@ -166,11 +178,11 @@ export default function WebTestPage() {
 
       /* ----------------------------------------------------------
          2. challenge_id と student_id を取得
-            - challenge_id: 問題側に埋め込まれている想定
-            - student_id  : session_answers の行に保持されている想定
+            - challenge_id: sessionInfo から取得
+            - student_id  : sessionInfo から取得
       ---------------------------------------------------------- */
-      const challengeId = answers[0]?.question?.challenge_id;
-      const studentId   = (answers[0] as any)?.student_id;
+      const challengeId = sessionInfo?.challenge_id ?? null;
+      const studentId   = sessionInfo?.student_id ?? null;
 
       if (!challengeId || !studentId) {
         console.error("[handleSubmit] missing ids", { challengeId, studentId });
