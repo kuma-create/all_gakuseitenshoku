@@ -84,7 +84,6 @@ export async function POST(req: Request) {
     .insert({
       challenge_id: cid,
       student_id:   user.id,
-      category:     category ?? null,
       started_at:   new Date().toISOString(),
     })
     .select("id")
