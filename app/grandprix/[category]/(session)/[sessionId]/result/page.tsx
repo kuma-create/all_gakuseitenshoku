@@ -64,14 +64,20 @@ export default function WebTestResultPage() {
 
       /* ---------- 2. questions (webtest only) ---------- */
       if (isWeb) {
-        const { data: qs, error: qErr } = await supabase
-          .from("webtest_questions")
-          .select("id, question, order_no, correct_choice")
-          .eq("challenge_id", (sub as SubmissionRow).challenge_id)
-          .order("order_no", { ascending: true });
+        // answerMap の question_id をキーに設問を取得
+        const answerMap = (sub?.answers ?? {}) as Record<string, number>;
+        const qIds      = Object.keys(answerMap);
 
-        if (qErr) toast({ description: qErr.message });
-        else setQuestions(qs as WebTestQuestionRow[]);
+        if (qIds.length) {
+          const { data: qs, error: qErr } = await supabase
+            .from("webtest_questions")          // ← 質問テーブル名
+            .select("id, question, order_no, correct_choice")
+            .in("id", qIds)
+            .order("order_no", { ascending: true });
+
+          if (qErr) toast({ description: qErr.message });
+          else setQuestions(qs as WebTestQuestionRow[]);
+        }
       }
 
       setLoading(false)
@@ -88,7 +94,7 @@ export default function WebTestResultPage() {
     );
   }, [isWeb, submission, questions]);
 
-  const total      = isWeb ? questions.length : 0;
+  const total      = isWeb ? Object.keys((submission?.answers ?? {})).length : 0;
   const percentage = isWeb && total ? Math.round((correctCount / total) * 100) : 0;
   const score      =
     submission?.final_score ?? submission?.auto_score ?? percentage
