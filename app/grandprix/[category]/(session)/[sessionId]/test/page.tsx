@@ -181,8 +181,20 @@ export default function WebTestPage() {
             - challenge_id: sessionInfo から取得
             - student_id  : sessionInfo から取得
       ---------------------------------------------------------- */
-      const challengeId = sessionInfo?.challenge_id ?? null;
-      const studentId   = sessionInfo?.student_id ?? null;
+      const challengeId =
+        sessionInfo?.challenge_id ??
+        currentAnswer?.question?.challenge_id ??
+        null;
+
+      // ログインユーザー → student_id として扱う
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const studentId =
+        sessionInfo?.student_id ??
+        user?.id ??
+        null;
 
       if (!challengeId || !studentId) {
         console.error("[handleSubmit] missing ids", { challengeId, studentId });
