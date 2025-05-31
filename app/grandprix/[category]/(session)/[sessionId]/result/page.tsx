@@ -25,7 +25,7 @@ import { useToast }   from "@/components/ui/use-toast"
 
 /* ---------- 型定義 ---------- */
 type SubmissionRow      = Database["public"]["Tables"]["challenge_submissions"]["Row"]
-type WebTestQuestionRow = Database["public"]["Tables"]["webtest_questions"]["Row"]
+type WebTestQuestionRow = Database["public"]["Tables"]["question_bank"]["Row"]
 
 /* ---------- util ---------- */
 const fmtScore = (n: number | null | undefined) =>
@@ -70,8 +70,8 @@ export default function WebTestResultPage() {
 
         if (qIds.length) {
           const { data: qs, error: qErr } = await supabase
-            .from("webtest_questions")          // ← 質問テーブル名
-            .select("id, question, order_no, correct_choice")
+            .from("question_bank")                           // 設問マスタ
+            .select("id, stem, order_no, correct_choice")          // use stem directly
             .in("id", qIds)
             .order("order_no", { ascending: true });
 
@@ -199,8 +199,8 @@ export default function WebTestResultPage() {
                       <div className="flex-1">
                         <p className="font-medium">問題 {idx + 1}</p>
                         <p className="mt-1 text-sm text-gray-700">
-                          {(q.question ?? "").substring(0, 120)}
-                          {(q.question ?? "").length > 120 && "…"}
+                          {(q.stem ?? "").substring(0, 120)}
+                          {(q.stem ?? "").length > 120 && "…"}
                         </p>
                       </div>
                     </div>
