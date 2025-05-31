@@ -16,10 +16,20 @@ export const dynamic  = "force-dynamic";
 
 export async function POST(req: Request) {
   /* ---------- パラメータ取得 ---------- */
-  const { challengeId } = (await req.json()) as { challengeId?: string };
-  if (!challengeId) {
+  const {
+    challengeId,
+    challenge_id,
+    category,
+  } = (await req.json()) as {
+    challengeId?: string;
+    challenge_id?: string;
+    category?: string;
+  };
+
+  const cid = challengeId ?? challenge_id ?? null;
+  if (!cid) {
     return NextResponse.json(
-      { error: "challengeId required" },
+      { error: "challengeId (camelCase or snake_case) is required" },
       { status: 400 },
     );
   }
@@ -72,8 +82,9 @@ export async function POST(req: Request) {
   const { data: inserted, error: insErr } = await supabase
     .from("challenge_sessions")
     .insert({
-      challenge_id: challengeId,
+      challenge_id: cid,
       student_id:   user.id,
+      category:     category ?? null,
       started_at:   new Date().toISOString(),
     })
     .select("id")
@@ -85,7 +96,7 @@ export async function POST(req: Request) {
       const { data: existing, error: selErr } = await supabase
         .from("challenge_sessions")
         .select("id")
-        .eq("challenge_id", challengeId)
+        .eq("challenge_id", cid)
         .eq("student_id", user.id)
         .order("started_at", { ascending: false })
         .limit(1)
