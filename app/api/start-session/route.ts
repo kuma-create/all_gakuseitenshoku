@@ -117,15 +117,33 @@ export async function POST(req: Request) {
     sessionId = inserted.id;
   }
 
-  /* ---------- 空の回答行を準備 ---------- */
-  const { error: rpcErr } = await supabase.rpc(
-    "prepare_session_answers",
-    { p_session_uuid: sessionId }                      // ← パラメータ名を関数定義に合わせる
-  );
+  /* ---------- 空の回答行を準備（question_bank → session_answers） ---------- */
+  const { data: questions, error: qErr } = await supabase
+    .from("question_bank")
+    .select("id")
+    .eq("challenge_id", cid);
 
-  if (rpcErr) {
-    // セッション自体は作成済みなのでログだけ残す
-    console.error("prepare_session_answers error:", rpcErr);
+  if (qErr) {
+    console.error("fetch questions error:", qErr);
+  } else if (questions && questions.length) {
+    const answerRows = questions.map((q) => ({
+      session_id:  sessionId,
+      question_id: q.id,
+      answer_raw:  null,          // 未回答
+    }));
+
+    const { error: aErr } = await supabase
+      .from("session_answers")
+      .upsert(
+        answerRows as Database["public"]["Tables"]["session_answers"]["Insert"][],
+        {
+          onConflict: "session_id,question_id", // 重複時は無視
+        },
+      );
+
+    if (aErr) {
+      console.error("insert session_answers error:", aErr);
+    }
   }
 
   /* ---------- レスポンス ---------- */
