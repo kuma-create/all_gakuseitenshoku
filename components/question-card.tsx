@@ -8,6 +8,7 @@
 import { useCallback, useState, useEffect } from "react"
 import type { Database } from "@/lib/supabase/types"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
@@ -91,7 +92,8 @@ export function QuestionCard({
   )
 
   /* ---------- 択一式 ---------- */
-  if (question.category === "web_lang" || question.category === "web_math") {
+  const cat = question.category?.toString?.() ?? "";
+  if (["web_lang", "web-lang", "web_math", "web-math"].includes(cat)) {
     /* choice 配列が null / オブジェクト形式 / 素の文字列など混在しても落ちないように整形 */
     const rawChoices = question.choices as any
     const choices: { id: number | string; text: string }[] = Array.isArray(rawChoices)
@@ -118,11 +120,20 @@ export function QuestionCard({
             save({ choice: num })
           }}
         >
-          {choices.map((c) => (
-            <RadioGroupItem key={c.id} value={String(c.id)}>
-              {c.text}
-            </RadioGroupItem>
-          ))}
+          {choices.map((c) => {
+            const itemId = `q-${question.id}-${c.id}`
+            return (
+              <div key={c.id} className="flex items-center space-x-2">
+                <RadioGroupItem id={itemId} value={String(c.id)} />
+                <Label
+                  htmlFor={itemId}
+                  className="text-sm leading-relaxed"
+                >
+                  {c.text}
+                </Label>
+              </div>
+            )
+          })}
         </RadioGroup>
       </div>
     )
