@@ -5,7 +5,8 @@
 "use client"
 
 import {
-  ArrowLeft, ArrowRight, Clock, Save, Loader2, Timer, AlertCircle,
+  ArrowLeft, ArrowRight, Clock, Save, Loader2,
+  AlertCircle,
 } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -45,6 +46,9 @@ export default function WebTestPage() {
   const total = answers.length
   const [deadline,  setDeadline]  = useState<Date | null>(null)
   const [remaining, setRemaining] = useState(0)
+
+  // 提出済みかどうか
+  const [submitted, setSubmitted] = useState(false);
 
   /* ---------- fetch ---------- */
   useEffect(() => {
@@ -96,6 +100,18 @@ export default function WebTestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
+  /* ---------- ナビゲーション警告 ---------- */
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!submitted) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [submitted]);
+
   /* ---------- timer ---------- */
   useEffect(() => {
     if (!deadline) return
@@ -119,7 +135,8 @@ export default function WebTestPage() {
   )
   const remainStr = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(
     remaining % 60,
-  ).padStart(2, "0")}`
+  ).padStart(2, "0")}`;
+  const remainMin = Math.ceil(remaining / 60);
 
   /* ---------- submit ---------- */
   const handleSubmit = useCallback(async () => {
@@ -163,16 +180,20 @@ export default function WebTestPage() {
           {
             challenge_id: challengeId,
             student_id:   studentId,
-            answer:       "",                      // ← 非 null 文字列で埋める
-            answers:      answerMap as any,        // ← Json 型にキャスト
+            answer:       "",                       // text カラムが必須のため空文字で埋める
+            answers:      answerMap as any,         // JSONB
             status:       "未採点",
           },
         ]);
 
+      if (!insertErr) {
+        setSubmitted(true);
+        router.replace(`/grandprix/${category}/${sessionId}/result`);
+        return;
+      }
+
       if (insertErr) throw insertErr;
 
-      /* 採点トリガが走るので結果ページへ遷移 -------------------- */
-      router.replace(`/grandprix/${category}/${sessionId}/result`);
     } catch (e: any) {
       toast({ description: e.message ?? "送信に失敗しました" });
     }
@@ -208,7 +229,7 @@ export default function WebTestPage() {
           <div className="flex items-center gap-3 rounded-full bg-emerald-100 px-4 py-2">
             <Clock className="h-4 w-4 text-emerald-600" />
             <span className="text-sm font-medium text-emerald-700">
-              残り時間: {remainStr}
+              残り {remainMin} 分
             </span>
           </div>
         </div>
@@ -236,14 +257,8 @@ export default function WebTestPage() {
               />
 
               <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Timer className="h-4 w-4" />
-                <span>
-                  経過時間:{" "}
-                  {`${String(Math.floor((40 * 60 - remaining) / 60)).padStart(
-                    2,
-                    "0"
-                  )}:${String((40 * 60 - remaining) % 60).padStart(2, "0")}`}
-                </span>
+                <Clock className="h-4 w-4" />
+                <span>残り {remainMin} 分</span>
               </div>
             </div>
           </div>
