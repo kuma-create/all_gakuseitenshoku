@@ -1,5 +1,3 @@
-
-
 /* ------------------------------------------------------------------
    app/student/scouts/[id]/page.tsx ― スカウト詳細 (学生側)
 ------------------------------------------------------------------- */
@@ -35,6 +33,9 @@ type ScoutDetail = {
   offer_amount?: string | null
   companies?: { name: string; logo: string | null } | null
   jobs?: { title: string | null } | null
+  company_id: string
+  student_id: string
+  job_id: string | null
 }
 
 type CompanyInfo = {
@@ -68,6 +69,7 @@ export default function ScoutDetailPage({
 
   const [company, setCompany] = useState<CompanyInfo | null>(null)
   const [jobs, setJobs] = useState<JobSummary[]>([])
+  const [chatRoomId, setChatRoomId] = useState<string | null>(null)
 
   /* -------- Supabase Fetch -------- */
   useEffect(() => {
@@ -79,6 +81,7 @@ export default function ScoutDetailPage({
           `
             id, message, created_at, status,
             offer_position, offer_amount,
+            company_id, student_id, job_id,
             companies:companies!scouts_company_id_fkey(
               id, name, logo, industry, employee_count, location, description
             ),
@@ -106,6 +109,16 @@ export default function ScoutDetailPage({
             .eq("is_active", true)
           if (jobList) setJobs(jobList as JobSummary[])
         }
+
+        // 既存チャットルームがあれば取得
+        const { data: room } = await supabase
+          .from("chat_rooms")
+          .select("id")
+          .eq("company_id", (data as any).company_id)
+          .eq("student_id", (data as any).student_id)
+          .eq("job_id", (data as any).job_id)
+          .maybeSingle()
+        if (room?.id) setChatRoomId(room.id)
       }
       setLoading(false)
     })()
@@ -146,21 +159,57 @@ export default function ScoutDetailPage({
 
   /* -------- アクション -------- */
   const patchStatus = async (next: "accepted" | "declined") => {
-    const updates: any = { status: next };
     const now = new Date().toISOString();
+    const updates: any = { status: next };
     if (next === "accepted") updates.accepted_at = now;
     if (next === "declined") updates.declined_at = now;
 
+    // scouts.status 更新
     const { error } = await supabase
       .from("scouts")
       .update(updates)
       .eq("id", data.id);
 
-    if (!error) {
-      setData({ ...data, status: next } as ScoutDetail);
-    } else {
+    if (error) {
       alert("更新に失敗しました");
+      return;
     }
+
+    if (next === "accepted") {
+      const { data: chat } = await supabase
+        .from("chat_rooms")
+        .upsert(
+          {
+            company_id: data.company_id,
+            student_id: data.student_id,
+            job_id:     data.job_id,
+          },
+          { onConflict: "company_id,student_id,job_id" }
+        )
+        .select("id")
+        .single();
+
+      if (chat?.id) {
+        // 既に初回メッセージがあるかチェック
+        const { count } = await supabase
+          .from("messages")
+          .select("id", { count: "exact" })
+          .eq("chat_room_id", chat.id);
+
+        if ((count ?? 0) === 0) {
+          await supabase.from("messages").insert({
+            chat_room_id: chat.id,
+            sender_id: data.company_id,
+            content: data.message,
+            is_read: false,
+          });
+        }
+      }
+
+      setChatRoomId(chat?.id ?? null);
+    }
+
+    setData({ ...data, status: next } as ScoutDetail);
   };
 
   return (
@@ -311,6 +360,14 @@ export default function ScoutDetailPage({
                 </Button>
               </div>
             </>
+          )}
+          {data.status === "accepted" && chatRoomId && (
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => router.push(`/student/chats/${chatRoomId}`)}
+            >
+              チャットを開く
+            </Button>
           )}
         </div>
       </main>

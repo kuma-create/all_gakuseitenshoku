@@ -72,6 +72,7 @@ export type UIScout = {
   daysLeft?: number;
   companyLogo: string;
   student: UIStudent;
+  chatRoomId?: string;        // ★ 追加: チャットルームID
 };
 
 export type UIStudent = {
@@ -117,6 +118,17 @@ export default function ScoutsPage() {
   /* -------------------- Supabase → UIScout 変換 -------------------- */
   const fetchScouts = async () => {
     setLoading(true);
+
+    // 先にチャットルームを全部取得してマップ化 (company_id-student_id-job_id → roomId)
+    const { data: rooms } = await supabase
+      .from("chat_rooms")
+      .select("id, company_id, student_id, job_id");
+
+    const roomMap = new Map<string, string>();
+    (rooms ?? []).forEach((r: any) => {
+      const key = `${r.company_id}-${r.student_id}-${r.job_id}`;
+      roomMap.set(key, r.id);
+    });
 
     const { data, error } = await supabase
       .from("scouts")
@@ -192,6 +204,10 @@ export default function ScoutsPage() {
         if (left >= 0) daysLeft = left;
       }
 
+      // チャットルームIDを取得
+      const chatKey = `${row.company_id}-${row.student_id}-${row.job_id}`;
+      const chatRoomId = roomMap.get(chatKey);
+
       return {
         id: row.id,
         companyName: row.companies?.name ?? "Unknown Company",
@@ -204,6 +220,7 @@ export default function ScoutsPage() {
         daysLeft,
         companyLogo: row.companies?.logo ?? "/placeholder.svg",
         student,
+        chatRoomId,                 // ★ ここを追加
       };
     });
 
@@ -225,18 +242,61 @@ export default function ScoutsPage() {
     const updates: any = { status: next };
 
     if (next === "accepted") {
-      updates.accepted_at = now;   // ★ Supabase 側に accepted_at 列がある前提
+      // 対象スカウト行から必要なIDを取得
+      const { data: sRow } = await supabase
+        .from("scouts")
+        .select("company_id, student_id, job_id, message")
+        .eq("id", id)
+        .single();
+
+      if (sRow) {
+        // ① chat room upsert / fetch
+        const { data: chat } = await supabase
+          .from("chat_rooms")
+          .upsert(
+            {
+              company_id: sRow.company_id,
+              student_id: sRow.student_id,
+              job_id:     sRow.job_id,
+            },
+            { onConflict: "company_id,student_id,job_id" }
+          )
+          .select("id")
+          .single();
+
+        if (chat?.id) {
+          // ② make sure first message exists
+          const { count } = await supabase
+            .from("messages")
+            .select("id", { count: "exact" })
+            .eq("chat_room_id", chat.id);
+
+          if ((count ?? 0) === 0) {
+            await supabase.from("messages").insert({
+              chat_room_id: chat.id,
+              sender_id: sRow.company_id,   // 会社側からのスカウト文
+              content: sRow.message ?? "",
+              is_read: false,
+            });
+          }
+        }
+
+        // 楽観的 UI 更新
+        setScouts(prev =>
+          prev.map((s) =>
+            s.id === id ? { ...s, status: next, chatRoomId: chat?.id } : s
+          )
+        );
+      }
     } else if (next === "declined") {
       updates.declined_at = now;   // ★ Supabase 側に declined_at 列がある前提
-    }
-
-    const { error } = await supabase.from("scouts").update(updates).eq("id", id);
-
-    if (error) {
-      console.error(`Error updating scout status to ${next}:`, error);
-    } else {
-      // 楽観的 UI 更新
-      setScouts((prev) => prev.map((s) => (s.id === id ? { ...s, status: next } : s)));
+      const { error } = await supabase.from("scouts").update(updates).eq("id", id);
+      if (error) {
+        console.error(`Error updating scout status to ${next}:`, error);
+      } else {
+        // 楽観的 UI 更新
+        setScouts((prev) => prev.map((s) => (s.id === id ? { ...s, status: next } : s)));
+      }
     }
     setLoading(false);
   };
@@ -415,6 +475,18 @@ export default function ScoutsPage() {
                       承諾する
                     </Button>
                   </>
+                )}
+                {s.status === "accepted" && s.chatRoomId && (
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/student/chats/${s.chatRoomId}`);
+                    }}
+                  >
+                    チャットを開く
+                  </Button>
                 )}
                 <Button
                   size="sm"
