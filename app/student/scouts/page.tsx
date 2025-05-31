@@ -287,6 +287,11 @@ export default function ScoutsPage() {
             s.id === id ? { ...s, status: next, chatRoomId: chat?.id } : s
           )
         );
+
+        // ③ 承諾後ただちにチャット画面へ遷移
+        if (chat?.id) {
+          router.push(`/student/chats/${chat.id}`);
+        }
       }
     } else if (next === "declined") {
       updates.declined_at = now;   // ★ Supabase 側に declined_at 列がある前提

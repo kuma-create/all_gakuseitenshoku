@@ -207,6 +207,10 @@ export default function ScoutDetailPage({
       }
 
       setChatRoomId(chat?.id ?? null);
+      // 承諾後すぐにチャット画面へ遷移
+      if (chat?.id) {
+        router.push(`/student/chats/${chat.id}`);
+      }
     }
 
     setData({ ...data, status: next } as ScoutDetail);
