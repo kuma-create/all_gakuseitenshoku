@@ -153,10 +153,15 @@ export default function WebTestPage() {
         return acc;
       }, {});
 
-      /* 未回答がある場合は警告して中断 ------------------------- */
+      /* 未回答がある場合は確認ダイアログ ----------------------- */
       if (Object.keys(answerMap).length !== answers.length) {
-        toast({ description: "未回答の問題があります。すべて回答してください。" });
-        return;
+        const proceed = confirm(
+          "未回答の問題があります。このまま提出しますか？（採点は未回答を0点として計算されます）"
+        );
+        if (!proceed) {
+          toast({ description: "提出をキャンセルしました。" });
+          return;
+        }
       }
 
       /* ----------------------------------------------------------
