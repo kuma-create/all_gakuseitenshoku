@@ -49,9 +49,11 @@ export default function WebTestResultPage() {
       /* ---------- 1. submission ---------- */
       const { data: sub, error: subErr } = await supabase
         .from("challenge_submissions")
-        .select("id, answers, auto_score, final_score, challenge_id")
-        .eq("id", sessionId)
-        .single()
+        .select("id, session_id, answers, auto_score, final_score, challenge_id, created_at")
+        .eq("session_id", sessionId)                       // ← change target column
+        .order("created_at", { ascending: false })         // newest first
+        .limit(1)
+        .maybeSingle();                                    // avoid 406 when 0 row
 
       if (subErr) {
         toast({ description: subErr.message })
