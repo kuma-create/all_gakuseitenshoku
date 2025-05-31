@@ -241,12 +241,13 @@ export default function WebTestPage() {
             {
               challenge_id: finalChallengeId,
               student_id:   studentId,
-              answer:       "",                       // 必須列
+              session_id:   sessionId,           // <- NEW
+              answer:       "",                  // <- restore required col
               answers:      answerMap as any,
               status:       "未採点",
             },
           ],
-          { onConflict: "challenge_id,student_id" }
+          { onConflict: "session_id" }          // 1‑session = 1‑submission
         );
 
       if (!upsertErr) {
