@@ -141,6 +141,7 @@ export default function WebTestPage() {
   /* ---------- submit ---------- */
   const handleSubmit = useCallback(async () => {
     try {
+      console.log("[handleSubmit] invoked");
       /* ----------------------------------------------------------
          1. answers[] から設問 UUID → 選択肢番号 のマップを生成
       ---------------------------------------------------------- */
@@ -167,7 +168,8 @@ export default function WebTestPage() {
       const studentId   = (answers[0] as any)?.student_id;
 
       if (!challengeId || !studentId) {
-        toast({ description: "必要な情報が不足しています (challengeId / studentId)" });
+        console.error("[handleSubmit] missing ids", { challengeId, studentId });
+        toast({ description: "内部エラー: challengeId または studentId が取得できません。" });
         return;
       }
 
@@ -190,12 +192,18 @@ export default function WebTestPage() {
         );
 
       if (!upsertErr) {
+        console.log("[handleSubmit] submission saved:", { challengeId, studentId, answerMap });
+        toast({ description: "提出が完了しました。採点結果を表示します。" });
         setSubmitted(true);
         router.replace(`/grandprix/${category}/${sessionId}/result`);
         return;
       }
 
-      if (upsertErr) throw upsertErr;
+      if (upsertErr) {
+        console.error("[handleSubmit] upsert error", upsertErr);
+        toast({ description: upsertErr.message ?? "送信に失敗しました(Upsert)"} );
+        return;
+      }
 
     } catch (e: any) {
       toast({ description: e.message ?? "送信に失敗しました" });
