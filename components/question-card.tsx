@@ -35,6 +35,7 @@ interface Props {
   sessionId: string
   initialAnswer?: { choice?: number; text?: string }
   onSaved?: () => void
+  onAnswered?: (questionId: string, choice: number | null) => void
 }
 
 /**
@@ -47,6 +48,7 @@ export function QuestionCard({
   sessionId,
   initialAnswer,
   onSaved,
+  onAnswered,
 }: Props) {
   const { toast } = useToast()
 
@@ -118,6 +120,7 @@ export function QuestionCard({
             setChoice(val)
             const num = Number.isNaN(Number(val)) ? undefined : Number(val)
             save({ choice: num })
+            onAnswered?.(question.id, num ?? null)
           }}
         >
           {choices.map((c) => {

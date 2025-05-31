@@ -150,6 +150,18 @@ export default function WebTestPage() {
   ).padStart(2, "0")}`;
   const remainMin = Math.ceil(remaining / 60);
 
+  /* ---------- 子コンポーネントからの回答通知 ---------- */
+  const handleAnswered = useCallback(
+    (qid: string, choiceNum: number | null) => {
+      setAnswers((prev) =>
+        prev.map((row) =>
+          row.question_id === qid ? { ...row, answer_raw: choiceNum } : row,
+        ),
+      )
+    },
+    [],
+  )
+
   /* ---------- submit ---------- */
   const handleSubmit = useCallback(async () => {
     try {
@@ -342,7 +354,13 @@ export default function WebTestPage() {
               <QuestionCard
                 question={currentAnswer.question}
                 sessionId={sessionId}
-                initialAnswer={currentAnswer.answer_raw as any}
+                initialAnswer={{
+                  choice:
+                    typeof currentAnswer.answer_raw === "number"
+                      ? currentAnswer.answer_raw
+                      : undefined,
+                }}
+                onAnswered={handleAnswered}
               />
             </CardContent>
 
