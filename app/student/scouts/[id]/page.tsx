@@ -186,6 +186,18 @@ export default function ScoutDetailPage({
             </Badge>
           </div>
 
+          {/* Scout message */}
+          <div className="whitespace-pre-wrap text-gray-800">
+            {data.message}
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+            <Clock size={14} />
+            {data.created_at
+              ? new Date(data.created_at).toLocaleDateString()
+              : "--"}
+          </div>
+          <Separator className="my-4" />
+
           {/* Offer panel */}
           <div className="rounded-lg border bg-gray-50 p-4">
             <h3 className="mb-2 text-sm font-semibold text-gray-600">
@@ -255,17 +267,6 @@ export default function ScoutDetailPage({
               </div>
             </>
           )}
-
-          <Separator />
-
-          <p className="whitespace-pre-wrap text-gray-800">{data.message}</p>
-
-          <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-            <Clock size={14} />
-            {data.created_at
-              ? new Date(data.created_at).toLocaleDateString()
-              : "--"}
-          </div>
         </div>
       </main>
     </div>
