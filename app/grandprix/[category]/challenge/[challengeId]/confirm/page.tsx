@@ -70,7 +70,7 @@ export default function WebTestConfirmPage() {
       const res  = await fetch("/api/start-session", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ challengeId }),   // ← confirm 画面の param
+        body:    JSON.stringify({ challenge_id: challengeId }), // API は snake_case を期待
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);

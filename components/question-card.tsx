@@ -5,12 +5,26 @@
 ------------------------------------------------------------------- */
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import type { Database } from "@/lib/supabase/types"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
+
+/* ---------- 問題文を柔軟に取得 ---------- */
+function getDisplayText(q: any): string {
+  return (
+    q.stem ??
+    q.text ??
+    q.prompt ??
+    q.question_text ??
+    q.body ??
+    q.content ??
+    q.statement ??
+    ""
+  );
+}
 
 /* ---------- 型定義 ---------- */
 export type QuestionRow = Database["public"]["Tables"]["question_bank"]["Row"]
@@ -36,11 +50,19 @@ export function QuestionCard({
   const { toast } = useToast()
 
   /* ---------- state ---------- */
-  const [choice, setChoice] = useState<string | null>(
-    initialAnswer?.choice != null ? String(initialAnswer.choice) : null,
+  const [choice, setChoice] = useState<string>(
+    initialAnswer?.choice != null ? String(initialAnswer.choice) : "",
   )
   const [text, setText] = useState<string>(initialAnswer?.text ?? "")
   const [saving, setSaving] = useState(false)
+
+  /* Question が切り替わったら state をリセット */
+  useEffect(() => {
+    setChoice(
+      initialAnswer?.choice != null ? String(initialAnswer.choice) : "",
+    );
+    setText(initialAnswer?.text ?? "");
+  }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- 保存処理 ---------- */
   const save = useCallback(
@@ -84,13 +106,14 @@ export function QuestionCard({
 
     return (
       <div className="space-y-4">
-        <p className="font-medium" dangerouslySetInnerHTML={{ __html: question.stem }} />
+        <p className="font-medium" dangerouslySetInnerHTML={{ __html: getDisplayText(question) }} />
 
         <RadioGroup
-          value={choice ?? undefined}
+          name={`q-${question.id}`}
+          value={choice}
           onValueChange={(val) => {
+            if (val === "") return;       // 空選択は無視
             setChoice(val)
-            /* 数値で送るが、変換できなければ undefined にしておく */
             const num = Number.isNaN(Number(val)) ? undefined : Number(val)
             save({ choice: num })
           }}
@@ -108,7 +131,7 @@ export function QuestionCard({
   /* ---------- 自由記述 ---------- */
   return (
     <div className="space-y-4">
-      <p className="font-medium" dangerouslySetInnerHTML={{ __html: question.stem }} />
+      <p className="font-medium" dangerouslySetInnerHTML={{ __html: getDisplayText(question) }} />
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
