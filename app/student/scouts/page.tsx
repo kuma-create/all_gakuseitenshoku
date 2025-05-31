@@ -250,8 +250,8 @@ export default function ScoutsPage() {
         .single();
 
       if (sRow) {
-        // ① chat room upsert / fetch
-        const { data: chat } = await supabase
+        // ① chat room upsert / fetch  ────────────────────────────────
+        const { data: chat, error: chatError } = await supabase
           .from("chat_rooms")
           .upsert(
             {
@@ -261,34 +261,54 @@ export default function ScoutsPage() {
             },
             { onConflict: "company_id,student_id,job_id" }
           )
-          .select("id")
+          .select()       // ← 必ず行を返すように select() を付ける
           .single();
 
-        if (chat?.id) {
-          // ② make sure first message exists
-          const { count } = await supabase
-            .from("messages")
-            .select("id", { count: "exact" })
-            .eq("chat_room_id", chat.id);
+        if (chatError || !chat) {
+          console.error("Failed to upsert / fetch chat room:", chatError);
+          setLoading(false);
+          return;
+        }
 
-          if ((count ?? 0) === 0) {
-            await supabase.from("messages").insert({
-              chat_room_id: chat.id,
-              sender_id: sRow.company_id,   // 会社側からのスカウト文
-              content: sRow.message ?? "",
-              is_read: false,
-            });
+        // ② make sure first message exists  ──────────────────────────
+        const { count, error: countErr } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true }) // head:true で行数のみ取得
+          .eq("chat_room_id", chat.id);
+
+        if (countErr) {
+          console.error("Failed to count existing messages:", countErr);
+        }
+
+        if ((count ?? 0) === 0) {
+          const { error: insErr } = await supabase.from("messages").insert({
+            chat_room_id: chat.id,
+            sender_id: sRow.company_id,   // 会社側からのスカウト文
+            content: sRow.message ?? "",
+            is_read: false,
+          });
+
+          if (insErr) {
+            console.error("Failed to insert first message:", insErr);
           }
         }
 
+        // ★ Supabase 上の status/accepted_at も更新
+        const { error: statusErr } = await supabase
+          .from("scouts")
+          .update({ status: "accepted", accepted_at: now })
+          .eq("id", id);
+
+        if (statusErr) {
+          console.error("Failed to update scout row:", statusErr);
+        }
+        // ③ 承諾後ただちにチャット画面へ遷移
         // 楽観的 UI 更新
         setScouts(prev =>
           prev.map((s) =>
             s.id === id ? { ...s, status: next, chatRoomId: chat?.id } : s
           )
         );
-
-        // ③ 承諾後ただちにチャット画面へ遷移
         if (chat?.id) {
           router.push(`/student/chats/${chat.id}`);
         }

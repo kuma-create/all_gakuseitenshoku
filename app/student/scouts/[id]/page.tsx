@@ -176,7 +176,8 @@ export default function ScoutDetailPage({
     }
 
     if (next === "accepted") {
-      const { data: chat } = await supabase
+      // ① chat room upsert / fetch  ────────────────────────────────
+      const { data: chat, error: chatError } = await supabase
         .from("chat_rooms")
         .upsert(
           {
@@ -186,31 +187,40 @@ export default function ScoutDetailPage({
           },
           { onConflict: "company_id,student_id,job_id" }
         )
-        .select("id")
+        .select()        // 必ず行を返す
         .single();
 
-      if (chat?.id) {
-        // 既に初回メッセージがあるかチェック
-        const { count } = await supabase
-          .from("messages")
-          .select("id", { count: "exact" })
-          .eq("chat_room_id", chat.id);
+      if (chatError || !chat) {
+        console.error("Failed to upsert / fetch chat room:", chatError);
+        return;
+      }
 
-        if ((count ?? 0) === 0) {
-          await supabase.from("messages").insert({
-            chat_room_id: chat.id,
-            sender_id: data.company_id,
-            content: data.message,
-            is_read: false,
-          });
+      // ② make sure first message exists  ──────────────────────────
+      const { count, error: countErr } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true }) // head:true で行数のみ取得
+        .eq("chat_room_id", chat.id);
+
+      if (countErr) {
+        console.error("Failed to count existing messages:", countErr);
+      }
+
+      if ((count ?? 0) === 0) {
+        const { error: insErr } = await supabase.from("messages").insert({
+          chat_room_id: chat.id,
+          sender_id: data.company_id,
+          content: data.message ?? "",
+          is_read: false,
+        });
+
+        if (insErr) {
+          console.error("Failed to insert first message:", insErr);
         }
       }
 
-      setChatRoomId(chat?.id ?? null);
+      setChatRoomId(chat.id);
       // 承諾後すぐにチャット画面へ遷移
-      if (chat?.id) {
-        router.push(`/student/chats/${chat.id}`);
-      }
+      router.push(`/student/chats/${chat.id}`);
     }
 
     setData({ ...data, status: next } as ScoutDetail);
