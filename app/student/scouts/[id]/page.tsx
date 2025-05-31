@@ -30,7 +30,7 @@ type ScoutDetail = {
   id: string
   message: string
   created_at: string | null
-  status: "new" | "pending" | "accepted" | "declined"
+  status: "new" | "sent" | "accepted" | "declined"
   offer_position?: string | null
   offer_amount?: string | null
   companies?: { name: string; logo: string | null } | null
@@ -138,11 +138,30 @@ export default function ScoutDetailPage({
   const badgeColor =
     data.status === "new"
       ? "bg-blue-500"
-      : data.status === "pending"
+      : data.status === "sent"
       ? "bg-yellow-400 text-yellow-900"
       : data.status === "accepted"
       ? "bg-green-500"
       : "bg-gray-400"
+
+  /* -------- アクション -------- */
+  const patchStatus = async (next: "accepted" | "declined") => {
+    const updates: any = { status: next };
+    const now = new Date().toISOString();
+    if (next === "accepted") updates.accepted_at = now;
+    if (next === "declined") updates.declined_at = now;
+
+    const { error } = await supabase
+      .from("scouts")
+      .update(updates)
+      .eq("id", data.id);
+
+    if (!error) {
+      setData({ ...data, status: next } as ScoutDetail);
+    } else {
+      alert("更新に失敗しました");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -178,7 +197,7 @@ export default function ScoutDetailPage({
             <Badge className={`${badgeColor} text-white`}>
               {data.status === "new"
                 ? "新着"
-                : data.status === "pending"
+                : data.status === "sent"
                 ? "未対応"
                 : data.status === "accepted"
                 ? "承諾"
@@ -264,6 +283,32 @@ export default function ScoutDetailPage({
                     </div>
                   </div>
                 ))}
+              </div>
+            </>
+          )}
+
+          {/* ───────── Action footer ───────── */}
+          {data.status === "sent" && (
+            <>
+              <Separator className="my-6" />
+              <div className="flex justify-end gap-4">
+                <Button
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                  onClick={() => {
+                    if (confirm("本当に辞退しますか？　この操作は取り消せません。")) {
+                      patchStatus("declined");
+                    }
+                  }}
+                >
+                  辞退する
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => patchStatus("accepted")}
+                >
+                  承諾する
+                </Button>
               </div>
             </>
           )}
