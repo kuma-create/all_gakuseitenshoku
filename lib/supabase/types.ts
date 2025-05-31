@@ -246,6 +246,7 @@ export type Database = {
           id: string
           score: number | null
           score_source: string | null
+          session_id: string
           status: string
           student_id: string
           updated_at: string
@@ -261,6 +262,7 @@ export type Database = {
           id?: string
           score?: number | null
           score_source?: string | null
+          session_id: string
           status?: string
           student_id: string
           updated_at?: string
@@ -276,6 +278,7 @@ export type Database = {
           id?: string
           score?: number | null
           score_source?: string | null
+          session_id?: string
           status?: string
           student_id?: string
           updated_at?: string
@@ -297,6 +300,7 @@ export type Database = {
           created_at: string
           deadline: string | null
           description: string | null
+          event_id: string | null
           id: string
           question_count: number
           score: number
@@ -314,6 +318,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          event_id?: string | null
           id?: string
           question_count?: number
           score?: number
@@ -331,6 +336,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          event_id?: string | null
           id?: string
           question_count?: number
           score?: number
