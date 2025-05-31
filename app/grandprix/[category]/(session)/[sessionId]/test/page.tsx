@@ -196,9 +196,26 @@ export default function WebTestPage() {
         user?.id ??
         null;
 
-      if (!challengeId || !studentId) {
-        console.error("[handleSubmit] missing ids", { challengeId, studentId });
-        toast({ description: "内部エラー: challengeId または studentId が取得できません。" });
+      /* challengeId がまだ取れない場合は DB を直接再取得 -------- */
+      let finalChallengeId = challengeId;
+      if (!finalChallengeId) {
+        const { data: sessRow } = await supabase
+          .from("challenge_sessions")
+          .select("challenge_id")
+          .eq("id", sessionId)
+          .single();
+        finalChallengeId = sessRow?.challenge_id ?? null;
+      }
+
+      if (!finalChallengeId || !studentId) {
+        console.error("[handleSubmit] missing ids", {
+          challengeId: finalChallengeId,
+          studentId,
+        });
+        toast({
+          description:
+            "内部エラー: challengeId または studentId が取得できません。",
+        });
         return;
       }
 
@@ -210,7 +227,7 @@ export default function WebTestPage() {
         .upsert(
           [
             {
-              challenge_id: challengeId,
+              challenge_id: finalChallengeId,
               student_id:   studentId,
               answer:       "",                       // 必須列
               answers:      answerMap as any,
