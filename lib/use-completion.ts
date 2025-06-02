@@ -7,6 +7,13 @@ import { useEffect, useState } from "react";
 import { supabase }            from "@/lib/supabase/client";
 import type { Database }       from "@/lib/supabase/types";
 
+/** -------- numeric helper --------
+ * Supabase numeric/decimal comes back as string.
+ * Cast safely to number; null/undefined -> 0
+ */
+const toNumber = (v: number | string | null | undefined): number =>
+  v == null ? 0 : typeof v === "string" ? parseFloat(v) : v;
+
 type RawCompletion = { score: number; missing: string[] };
 export type CompletionScope = "overall" | "profile" | "resume";
 
@@ -72,13 +79,15 @@ export const useCompletion = (scope: CompletionScope = "overall") => {
         if (scope === "profile") {
           const p = await fetchOne("calculate_profile_completion");
           if (!cancelled) {
-            setScore(p.score ?? 0);
+            const pScore = toNumber(p.score);        // 0‑1 → %
+            setScore(Math.round(pScore * 100));
             setMissing(mapMissing(p.missing ?? []));
           }
         } else if (scope === "resume") {
           const r = await fetchOne("calculate_resume_completion");
           if (!cancelled) {
-            setScore(r.score ?? 0);
+            const rScore = toNumber(r.score);
+            setScore(Math.round(rScore * 100));
             setMissing(mapMissing(r.missing ?? []));
           }
         } else {
@@ -87,8 +96,11 @@ export const useCompletion = (scope: CompletionScope = "overall") => {
             fetchOne("calculate_resume_completion"),
           ]);
           if (!cancelled) {
-            const merged = [...new Set([...(p.missing ?? []), ...(r.missing ?? [])])];
-            setScore(Math.round((p.score ?? 0) * 0.7 + (r.score ?? 0) * 0.3));
+            const pScore = toNumber(p.score);
+            const rScore = toNumber(r.score);
+            const merged  = [...new Set([...(p.missing ?? []), ...(r.missing ?? [])])];
+            const weighted = pScore * 0.7 + rScore * 0.3;   // 0‑1 scale
+            setScore(Math.round(weighted * 100));           // convert to %
             setMissing(mapMissing(merged));
           }
         }
