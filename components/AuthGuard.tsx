@@ -11,7 +11,8 @@ export default function AuthGuard() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         await supabase.auth.signOut({ scope: "local" })  // Cookieも削除
-        router.replace("/auth/signin")
+        const next = encodeURIComponent(location.pathname + location.search)
+        router.replace(`/login?next=${next}`)
       }
     }
     check()

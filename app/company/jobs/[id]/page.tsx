@@ -5,6 +5,7 @@ const JOB_COVER_BUCKET = "job_covers"; // ← 実際に Dashboard で作成し�
 
 
 import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types"
 import type React from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -72,83 +73,73 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/lib/hooks/use-toast"
 
 /**
- * Supabase から選考 1 件を取得し、フロントで使いやすい shape に整形して返す
+ * Supabase から求人 1 件を取得し、フロントで使いやすい shape に整形して返す
  */
-const fetchSelection = async (id: string) => {
-  /* 1) selections_view から基本情報を取得（salary_range, cover_image_url は除外） */
+const fetchJob = async (id: string) => {
   const { data, error } = await supabase
-    .from("selections_view")
-    .select(
-      `
-        id,
-        title,
-        description,
-        location,
-        working_days,
-        start_date,
-        end_date,
-        duration_weeks,
-        work_days_per_week,
-        allowance,
-        event_date,
-        capacity,
-        venue,
-        format,
-        is_online,
-        published,
-        views,
-        company_id,
-        selection_type,
-        created_at
-      `
-    )
-    .eq("id", id)
-    .single()
-
-  if (error || !data) throw error ?? new Error("Selection not found")
-
-  /* 2) jobs テーブルから salary_range / cover_image_url を取得 */
-  const { data: jobData, error: jobError } = await supabase
     .from("jobs")
-    .select("salary_range, cover_image_url")
+    .select(`
+      id,
+      title,
+      description,
+      requirements,
+      location,
+      salary_range,
+      cover_image_url,
+      published,
+      views,
+      company_id,
+      created_at,
+      selection_type,
+      application_deadline,
+      fulltime_details (department, employment_type, working_days, working_hours, benefits),
+      internship_details (start_date, end_date, duration_weeks, work_days_per_week, allowance),
+      event_details (event_date, capacity, venue, format)
+    `)
     .eq("id", id)
     .single()
 
-  if (jobError || !jobData) throw jobError ?? new Error("Job extra fields not found")
+  if (error || !data) throw error ?? new Error("Job not found")
 
-  /* 3) フロント用の shape に整形して返す */
+  const full   = (data.fulltime_details ?? {}) as any
+  const intern = (data.internship_details ?? {}) as any
+  const event  = (data.event_details ?? {}) as any
+
   return {
     id        : data.id,
     title     : data.title,
     description: data.description ?? "",
-    requirements : "", // placeholder
-    department : "",
-    employmentType : "",     // ← added placeholder
-    workingHours   : "",     // ← added placeholder
-    benefits       : "",     // ← added placeholder
-    applicationDeadline: "", // ← added placeholder
+    requirements: data.requirements ?? "",
+    department : full.department ?? "",
+    employmentType: full.employment_type ?? "",
+    workingHours   : full.working_hours   ?? "",
+    benefits       : full.benefits        ?? "",
+    applicationDeadline: data.application_deadline ?? "",
     location   : data.location ?? "",
-    workingDays: data.working_days ?? "",
-    salary      : jobData.salary_range ?? "",
-    coverImageUrl: jobData.cover_image_url ?? "",
+    workingDays: full.working_days ?? "",
+    salary     : data.salary_range ?? "",
+    coverImageUrl: data.cover_image_url ?? "",
 
-    startDate        : data.start_date        ?? "",
-    endDate          : data.end_date          ?? "",
-    durationWeeks    : data.duration_weeks    ?? "",
-    workDaysPerWeek  : data.work_days_per_week ?? "",
-    allowance        : data.allowance         ?? "",
+    /* Internship */
+    startDate       : intern.start_date ?? "",
+    endDate         : intern.end_date ?? "",
+    durationWeeks   : intern.duration_weeks ?? "",
+    workDaysPerWeek : intern.work_days_per_week ?? "",
+    allowance       : intern.allowance ?? "",
 
-    eventDate : data.event_date ?? "",
-    capacity  : String(data.capacity ?? ""),
-    venue     : data.venue     ?? "",
-    format    : data.format    ?? "onsite",
-    selectionType: data.selection_type ?? "fulltime",
-    status : data.published ? "公開" : "非公開",
-    applicants: 0,
-    views     : data.views ?? 0,
-    companyId : data.company_id,
-    createdAt : data.created_at,
-    updatedAt : data.created_at,
+    /* Event */
+    eventDate : event.event_date ?? "",
+    capacity  : event.capacity ? String(event.capacity) : "",
+    venue     : event.venue ?? "",
+    format    : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
+
+    selectionType : data.selection_type ?? "fulltime",
+    status        : data.published ? "公開" : "非公開",
+    applicants    : 0,
+    views         : data.views ?? 0,
+    companyId     : data.company_id,
+    createdAt     : data.created_at,
+    updatedAt     : data.created_at,
   }
 }
 
@@ -242,40 +233,40 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
   })
 
   useEffect(() => {
-    const loadSelection = async () => {
+    const loadJob = async () => {
       try {
-        const selectionData = await fetchSelection(id)
-        setJob(selectionData)
+        const jobData = await fetchJob(id)
+        setJob(jobData)
         setFormData({
-          title      : selectionData.title,
-          description: selectionData.description,
-          requirements        : selectionData.requirements        ?? "",
-          department : selectionData.department,
-          location   : selectionData.location,
-          workingDays: selectionData.workingDays,
-          salary: selectionData.salary,
-          coverImageUrl: selectionData.coverImageUrl,
-          status     : selectionData.status,
-          employmentType      : selectionData.employmentType      ?? "正社員",
-          workingHours        : selectionData.workingHours        ?? "",
-          benefits            : selectionData.benefits            ?? "",
-          applicationDeadline : selectionData.applicationDeadline ?? "",
+          title      : jobData.title,
+          description: jobData.description,
+          requirements        : jobData.requirements,
+          department : jobData.department,
+          location   : jobData.location,
+          workingDays: jobData.workingDays,
+          salary     : jobData.salary,
+          coverImageUrl: jobData.coverImageUrl,
+          status     : jobData.status,
+          employmentType      : jobData.employmentType,
+          workingHours        : jobData.workingHours,
+          benefits            : jobData.benefits,
+          applicationDeadline : jobData.applicationDeadline,
           /* Internship */
-          startDate       : selectionData.startDate,
-          endDate         : selectionData.endDate,
-          durationWeeks   : selectionData.durationWeeks,
-          workDaysPerWeek : selectionData.workDaysPerWeek,
-          allowance       : selectionData.allowance,
+          startDate       : jobData.startDate,
+          endDate         : jobData.endDate,
+          durationWeeks   : jobData.durationWeeks,
+          workDaysPerWeek : jobData.workDaysPerWeek,
+          allowance       : jobData.allowance,
           /* Event */
-          eventDate : selectionData.eventDate,
-          capacity  : selectionData.capacity,
-          venue     : selectionData.venue,
-          format    : selectionData.format,
+          eventDate : jobData.eventDate,
+          capacity  : jobData.capacity,
+          venue     : jobData.venue,
+          format    : jobData.format,
         } as FormData)
       } catch (error) {
         toast({
           title: "エラー",
-          description: "選考情報の取得に失敗しました。",
+          description: "求人情報の取得に失敗しました。",
           variant: "destructive",
         })
       } finally {
@@ -283,7 +274,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
       }
     }
 
-    loadSelection()
+    loadJob()
   }, [id, toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -335,9 +326,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
   }
 
   /** ----------------------------------------------------------------
-   * 保存処理
-   *  ① selections テーブル → 選考の基本項目
-   *  ② jobs テーブル        → 給与レンジ / カバー画像 / 公開状態
+   * 保存処理 (jobs テーブルのみ)
    * --------------------------------------------------------------- */
   const handleSave = async () => {
     if (!validateForm()) {
@@ -352,39 +341,60 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     setIsSaving(true)
 
     try {
-      /* ---------- selections テーブル用ペイロード ---------------- */
-      const selPayload = {
-        title       : formData.title.trim(),
-        description : formData.description.trim(),
-        location    : formData.location.trim(),
-        working_days: job.selectionType === "fulltime" ? formData.workingDays.trim() : null,
-        start_date  : job.selectionType !== "fulltime" ? formData.startDate || null : null,
-        end_date    : job.selectionType !== "fulltime" ? formData.endDate   || null : null,
-        duration_weeks    : job.selectionType === "internship_short" ? formData.durationWeeks || null : null,
-        work_days_per_week: job.selectionType === "internship_short" ? formData.workDaysPerWeek || null : null,
-        allowance         : job.selectionType === "internship_short" ? formData.allowance || null : null,
-        event_date : job.selectionType === "event" ? formData.eventDate || null : null,
-        capacity   : job.selectionType === "event" ? (formData.capacity ? Number(formData.capacity) : null) : null,
-        venue      : job.selectionType === "event" ? formData.venue || null : null,
-        format     : job.selectionType === "event" ? formData.format : null,
-      }
-
       /* ---------- jobs テーブル用ペイロード ---------------------- */
       const jobPayload = {
-        salary_range    : formData.salary ? formData.salary.trim() : null,
-        cover_image_url : formData.coverImageUrl.trim(),
-        published       : formData.status === "公開",
+        title            : formData.title.trim(),
+        description      : formData.description.trim(),
+        requirements     : formData.requirements.trim(),
+        location         : formData.location.trim(),
+        salary_range     : formData.salary ? formData.salary.trim() : null,
+        cover_image_url  : formData.coverImageUrl.trim(),
+        published        : formData.status === "公開",
+        application_deadline: formData.applicationDeadline || null,
       }
 
-      /* ---------- ① selections 更新 ----------------------------- */
-      const { error: selErr } = await supabase
-        .from("jobs")
-        .update(selPayload)
-        .eq("id", id)
+      /* ---------- 各詳細テーブル用ペイロード -------------------- */
+      let detailTable: "fulltime_details" | "internship_details" | "event_details"
+      let detailPayload: Record<string, any> = { job_id: id }
 
-      if (selErr) throw selErr
+      switch (job.selectionType) {
+        case "fulltime":
+          detailTable = "fulltime_details"
+          detailPayload = {
+            ...detailPayload,
+            department      : formData.department,
+            employment_type : formData.employmentType,
+            working_days    : formData.workingDays,
+            working_hours   : formData.workingHours,
+            benefits        : formData.benefits,
+          }
+          break
+        case "internship_short":
+          detailTable = "internship_details"
+          detailPayload = {
+            ...detailPayload,
+            start_date        : formData.startDate || null,
+            end_date          : formData.endDate   || null,
+            duration_weeks    : formData.durationWeeks || null,
+            work_days_per_week: formData.workDaysPerWeek || null,
+            allowance         : formData.allowance || null,
+          }
+          break
+        case "event":
+          detailTable = "event_details"
+          detailPayload = {
+            ...detailPayload,
+            event_date : formData.eventDate || null,
+            capacity   : formData.capacity ? Number(formData.capacity) : null,
+            venue      : formData.venue || null,
+            format     : formData.format,
+          }
+          break
+        default:
+          throw new Error("Unknown selection type")
+      }
 
-      /* ---------- ② jobs 更新 ----------------------------------- */
+      /* ---------- DB 更新 (jobs → details) ---------------------- */
       const { error: jobErr } = await supabase
         .from("jobs")
         .update(jobPayload)
@@ -392,8 +402,13 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
 
       if (jobErr) throw jobErr
 
-      /* ---------- ローカル状態を同期 ----------------------------- */
-      setJob((prev: any) => ({ ...prev, ...selPayload, ...jobPayload }))
+      const { error: detailErr } = await supabase
+        .from(detailTable as any)                           // dynamic table name
+        .upsert(detailPayload as any, { onConflict: "job_id" } as any)
+
+      if (detailErr) throw detailErr
+
+      setJob((prev: any) => ({ ...prev, ...jobPayload }))
       setShowSuccessCard(true)
 
       toast({
