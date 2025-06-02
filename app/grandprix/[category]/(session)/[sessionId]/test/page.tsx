@@ -303,13 +303,6 @@ export default function WebTestPage() {
       <header className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
-            <LazyImage
-              src="/placeholder.svg?height=32&width=32"
-              alt="学生転職ロゴ"
-              width={32}
-              height={32}
-              className="h-8 w-8"
-            />
             <span className="text-xl font-bold text-red-600">学生転職</span>
           </Link>
 

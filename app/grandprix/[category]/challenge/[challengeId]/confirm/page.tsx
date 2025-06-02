@@ -97,22 +97,6 @@ export default function WebTestConfirmPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* ヘッダー */}
-      <header className="sticky top-0 z-10 bg-white shadow-sm">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-10">
-            <Link href="/" className="flex items-center gap-2">
-              <LazyImage
-                src="/placeholder.svg?height=32&width=32"
-                alt="学生転職ロゴ"
-                width={32}
-                height={32}
-                className="h-8 w-8"
-              />
-              <span className="text-xl font-bold text-red-600">学生転職</span>
-            </Link>
-          </div>
-        </div>
-      </header>
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center gap-2">
