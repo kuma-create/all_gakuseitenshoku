@@ -62,8 +62,10 @@ export async function middleware(req: NextRequest) {
   }
 
   /* ---------- ③ 公開ページかどうか ---------- */
-  // [removed]
-  const isPublic    = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+  // "/" は完全一致判定、それ以外は prefix 判定
+  const isPublic = PUBLIC_PREFIXES.some((p) =>
+    p === "/" ? pathname === "/" : pathname.startsWith(p)
+  );
 
   /* ログインしていない & 非公開ページ → /login?next=... */
   if (!session && !isPublic && !isLoginPage) {
@@ -73,14 +75,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ---------- ④ /login or /admin/login アクセス時：ロール別ダッシュボードへ ---------- */
+  /* ---------- ④ /login または /admin/login へのアクセス時 ---------- */
   if (session && isLoginPage) {
-    const dest =
-      isCompanyRole   ? "/company-dashboard"
-      : role === "admin" ? "/admin"
-      : "/student-dashboard";
-
-    return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
+    // /admin/login にアクセスした場合
+    if (pathname === "/admin/login") {
+      // Admin ロールはそのまま管理ダッシュボードへリダイレクト
+      if (role === "admin") {
+        return NextResponse.redirect(new URL("/admin", req.url), { status: 302 });
+      }
+      // それ以外のロールは /admin/login を表示させる（リダイレクトしない）
+    }
+    // /login にアクセスした場合
+    else if (pathname === "/login") {
+      const dest = isCompanyRole ? "/company-dashboard" : "/student-dashboard";
+      return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
+    }
   }
 
   return res;
