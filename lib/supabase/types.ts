@@ -1299,6 +1299,7 @@ export type Database = {
           id: string
           location: string | null
           published: boolean | null
+          requirements: string | null
           salary_max: number | null
           salary_min: number | null
           selection_type: Database["public"]["Enums"]["selection_type"]
@@ -1314,6 +1315,7 @@ export type Database = {
           id?: string
           location?: string | null
           published?: boolean | null
+          requirements?: string | null
           salary_max?: number | null
           salary_min?: number | null
           selection_type: Database["public"]["Enums"]["selection_type"]
@@ -1329,6 +1331,7 @@ export type Database = {
           id?: string
           location?: string | null
           published?: boolean | null
+          requirements?: string | null
           salary_max?: number | null
           salary_min?: number | null
           selection_type?: Database["public"]["Enums"]["selection_type"]
@@ -1397,6 +1400,7 @@ export type Database = {
           address: string | null
           address_line: string | null
           admission_month: string | null
+          auth_user_id: string | null
           avatar_url: string | null
           birth_date: string | null
           city: string | null
@@ -1450,6 +1454,7 @@ export type Database = {
           address?: string | null
           address_line?: string | null
           admission_month?: string | null
+          auth_user_id?: string | null
           avatar_url?: string | null
           birth_date?: string | null
           city?: string | null
@@ -1503,6 +1508,7 @@ export type Database = {
           address?: string | null
           address_line?: string | null
           admission_month?: string | null
+          auth_user_id?: string | null
           avatar_url?: string | null
           birth_date?: string | null
           city?: string | null
