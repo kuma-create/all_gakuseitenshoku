@@ -1,5 +1,3 @@
-
-
 "use client"
 
 import { useState, useMemo } from "react"
@@ -15,9 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 type Props = {
   /** 現在選択中（親フォームから渡す） */
-  value: string[]
+  values: string[];
   /** 選択が変わったら親に通知 */
-  onChange: (skills: string[]) => void
+  onChange: (skills: string[]) => void;
 }
 
 /** ──────────────── マスターデータ ────────────────
@@ -94,9 +92,9 @@ const SKILLS: Record<string, string[]> = {
   ],
 }
 
-export default function SkillPicker({ value, onChange }: Props) {
+export default function SkillPicker({ values, onChange }: Props) {
   const [open, setOpen] = useState(false)
-  const selected = useMemo(() => new Set(value), [value])
+  const selected = useMemo(() => new Set(values), [values])
 
   const toggle = (skill: string) => {
     const next = new Set(selected)
@@ -108,7 +106,7 @@ export default function SkillPicker({ value, onChange }: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          {value.length ? `${value.slice(0, 3).join(", ")}${value.length > 3 ? "… 他" : ""}` : "スキルを選択"}
+          {values.length ? `${values.slice(0, 3).join(", ")}${values.length > 3 ? "… 他" : ""}` : "スキルを選択"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">

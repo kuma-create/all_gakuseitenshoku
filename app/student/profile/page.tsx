@@ -649,7 +649,7 @@ export default function StudentProfilePage() {
               <Card className="border-t-0">
                 <CardContent className="space-y-4 p-4">
                   <SkillPicker
-                    value={profile.skills ?? []}
+                    values={profile.skills ?? []}
                     onChange={(vals) => {
                       updateMark({ skills: vals })
                       handleBlur()
