@@ -37,7 +37,7 @@ export default function AdminLogin() {
       return;
     }
 
-    /* ロール確認 – JWT / app_metadata から取得（DB アクセス不git 要） */
+    /* ロール確認 – JWT / app_metadata から取得（DB アクセス不要） */
     const role =
       data.user.user_metadata?.role ??
       (data.user.app_metadata as any)?.role ??
@@ -82,7 +82,7 @@ export default function AdminLogin() {
             />
           </CardContent>
           <CardFooter>
-            <Button className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </CardFooter>

@@ -14,7 +14,6 @@ import {
   Plus,
   Briefcase,
   Calendar,
-  Clock,
   MapPin,
   Edit,
   Eye,
@@ -61,10 +60,14 @@ import {
 /* ------------------------------------------------------------------
    Supabase 型定義
 ------------------------------------------------------------------ */
-type SelectionRow = Database["public"]["Views"]["selections_view"]["Row"]
+type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
+  fulltime_details?: { working_days?: string | null } | null
+  internship_details?: { start_date?: string | null } | null
+  event_details?: { event_date?: string | null } | null
+}
 
 /* UI 用に拡張した型 */
-interface JobItem extends SelectionRow {
+interface JobItem extends JobRow {
   applicants : number
   status     : "公開中" | "下書き" | "締切済"
   postedDate : string
@@ -125,37 +128,28 @@ export default function CompanyJobsPage() {
 const companyId = companyRow.id    // ★ ここで変数を定義
 
 
-      /* ❷ 選考取得（まず selections_view を試し、0 件なら旧 jobs にフォールバック） */
-      let { data: jobsData, error: jobsErr } = await supabase
-        .from("selections_view")
-        .select("*")
+      /* ❷ jobs ＋ detail テーブルを取得 */
+      const { data: jobsData, error: jobsErr } = await supabase
+        .from("jobs")
+        .select(`
+          id,
+          company_id,
+          title,
+          location,
+          published,
+          selection_type,
+          application_deadline,
+          created_at,
+          views,
+          fulltime_details ( working_days ),
+          internship_details ( start_date ),
+          event_details   ( event_date )
+        `)
         .eq("company_id", companyId)
+        .returns<JobRow[]>();
 
       if (jobsErr) { setError(jobsErr.message); setLoading(false); return }
-
-      /* 旧テーブルにまだデータが残っている場合の救済 */
-      if (!jobsData || jobsData.length === 0) {
-        const { data: legacy, error: legacyErr } = await supabase
-          .from("jobs")
-          .select(`
-            id,
-            company_id,
-            title,
-            description,
-            location,
-            salary_min,
-            salary_max,
-            published,
-            application_deadline:published_until,
-            created_at,
-            work_type,
-            views
-          `)
-          .eq("company_id", companyId)
-
-        if (legacyErr) { setError(legacyErr.message); setLoading(false); return }
-        jobsData = legacy as any[]
-      }
+      if (!jobsData) { setJobs([]); setLoading(false); return }
 
       /* ❸ 応募数取得 */
       const { data: appsData, error: appsErr } = await supabase
@@ -171,7 +165,8 @@ const companyId = companyRow.id    // ★ ここで変数を定義
       })
 
       /* ❹ 整形 */
-      const list: JobItem[] = jobsData.map(j => {
+      const rows = (jobsData as JobRow[]) ?? [];
+      const list: JobItem[] = rows.map(j => {
         const selId = j.id as string  // SelectionRow["id"] は string | null のため
         const deadline = j.application_deadline           // 新しい期限カラム
         const created   = j.created_at
@@ -179,6 +174,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
 
         return {
           ...j,
+          workingDays: j.fulltime_details?.working_days ?? null,
           applicants: counts[selId] ?? 0,
           status: !j.published
             ? "下書き"
