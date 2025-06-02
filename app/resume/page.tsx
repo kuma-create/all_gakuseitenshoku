@@ -272,9 +272,8 @@ export default function ResumePage() {
     };
     setSectionCompletion(newSectionCompletion);
 
-    const overall = Math.round(
-      (basic + education + work + skills + pr + conditions) / 6
-    );
+    // プロフィール完成度バーは「職歴」セクションだけを反映
+    const overall = work;
     setCompletionPercentage(overall);
   }, [formData, workExperiences]);
 
@@ -478,46 +477,6 @@ export default function ResumePage() {
         </div>
 
         <Progress value={completionPercentage} className={`h-2 ${getCompletionColor(completionPercentage)}`} />
-
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
-          {(Object.entries(sectionCompletion) as [SectionKey, number][]).map(([section, percentage]) => {
-            const sectionNames = {
-              basic: "基本情報",
-              education: "学歴",
-              work: "職歴",
-              skills: "スキル",
-              pr: "自己PR",
-              conditions: "希望条件",
-            }
-
-            return (
-              <div
-                key={section}
-                className={`flex cursor-pointer items-center justify-between rounded-md border p-2 ${
-                  activeTab === section ? "border-primary bg-primary/5" : "border-gray-200"
-                }`}
-                onClick={() => setActiveTab(section)}
-              >
-                <span className="text-xs">{sectionNames[section]}</span>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-medium">{percentage}%</span>
-                        {getSectionStatusIcon(percentage)}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        {percentage === 100 ? "完了しています" : percentage > 0 ? "入力中です" : "未入力です"}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            )
-          })}
-        </div>
       </div>
 
       {/* 職歴セクション - 最も目立つように最上部に配置 */}
