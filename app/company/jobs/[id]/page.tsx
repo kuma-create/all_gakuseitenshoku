@@ -344,22 +344,60 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     setIsSaving(true)
 
     try {
-      // In a real app, this would be an API call to update the selection
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      /* --- 保存対象を作成（空文字列は null に変換） ------------------- */
+      const toNull = (v: string) => (v?.trim() ? v : null)
 
-      // Update local state
-      setJob({ ...job, ...formData })
+      const payload = {
+        /* 共通 */
+        title          : formData.title.trim(),
+        description    : formData.description.trim(),
+        requirements   : toNull(formData.requirements),
+        department     : toNull(formData.department),
+        employment_type: toNull(formData.employmentType),
+        location       : formData.location.trim(),
+        working_days   : toNull(formData.workingDays),
+        working_hours  : toNull(formData.workingHours),
+        salary_range   : toNull(formData.salary),
+        cover_image_url: formData.coverImageUrl.trim(),
+        benefits       : toNull(formData.benefits),
+        application_deadline: toNull(formData.applicationDeadline),
 
+        /* Internship */
+        start_date        : toNull(formData.startDate),
+        end_date          : toNull(formData.endDate),
+        duration_weeks    : toNull(formData.durationWeeks),
+        work_days_per_week: toNull(formData.workDaysPerWeek),
+        allowance         : toNull(formData.allowance),
+
+        /* Event */
+        event_date : toNull(formData.eventDate),
+        capacity   : formData.capacity ? Number(formData.capacity) : null,
+        venue      : toNull(formData.venue),
+        format     : toNull(formData.format),
+
+        /* 公開状態 */
+        published: formData.status === "公開",
+      }
+
+      const { error: updateErr } = await supabase
+        .from("jobs")
+        .update(payload)
+        .eq("id", id)
+
+      if (updateErr) throw updateErr
+
+      /* --- 更新後のローカル状態を同期 ------------------------------ */
+      setJob((prev: any) => ({ ...prev, ...payload }))
       setShowSuccessCard(true)
 
       toast({
         title: "保存完了",
         description: "選考情報が更新されました。",
       })
-    } catch (error) {
+    } catch (err: any) {
       toast({
         title: "エラー",
-        description: "選考情報の更新に失敗しました。",
+        description: err?.message ?? "選考情報の更新に失敗しました。",
         variant: "destructive",
       })
     } finally {
