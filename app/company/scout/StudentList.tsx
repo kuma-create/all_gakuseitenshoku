@@ -6,6 +6,25 @@ import clsx from "clsx"
 import type { Database } from "@/lib/supabase/types"
 import { Card, CardContent } from "@/components/ui/card"
 
+/** 最終アクティブを「○分前 / ○時間前 / ○日前」に整形 */
+function formatLastActive(ts?: string | null): string | null {
+  if (!ts) return null
+  const date = new Date(ts)
+  if (Number.isNaN(date.getTime())) return null
+
+  const diffMs = Date.now() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+
+  if (diffMins < 1) return "たった今"
+  if (diffMins < 60) return `${diffMins}分前`
+
+  const diffHours = Math.floor(diffMins / 60)
+  if (diffHours < 24) return `${diffHours}時間前`
+
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays}日前`
+}
+
 /** 学生リストで追加メタ情報も扱えるよう intersection 型に */
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   /** 動的計算されたマッチ度 */
@@ -84,9 +103,9 @@ export default function StudentList({ students, selectedId, onSelect }: Props) {
                   </Badge>
                 )}
 
-                {stu.last_active && (
+                {formatLastActive(stu.last_active) && (
                   <Badge variant="outline" className="text-[10px]">
-                    {stu.last_active}
+                    {formatLastActive(stu.last_active)}
                   </Badge>
                 )}
 
