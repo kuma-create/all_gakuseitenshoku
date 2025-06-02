@@ -247,7 +247,17 @@ export default function ResumePage() {
 
     const basic = calculateSectionCompletion("basic", formData.basic);
     const education = calculateSectionCompletion("education", formData.education);
-    const work = workExperiences.length > 0 ? 50 : 0; // デモ簡易計算
+    // 職歴: 1 行でも会社名・役職・成果が埋まっていれば 100 %
+    const isWorkComplete = (w: WorkExperience) =>
+      w.company.trim() !== "" &&
+      w.position.trim() !== "" &&
+      w.achievements.trim() !== "";
+
+    const work = workExperiences.some(isWorkComplete)
+      ? 100                     // 完了
+      : workExperiences.length > 0
+        ? 50                    // 行はあるが未完了
+        : 0;                    // 行も無し
     const skills = calculateSectionCompletion("skills", formData.skills);
     const pr = calculateSectionCompletion("pr", formData.pr);
     const conditions = calculateSectionCompletion("conditions", formData.conditions);
