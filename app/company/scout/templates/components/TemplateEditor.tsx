@@ -104,7 +104,7 @@ export default function TemplateEditor({ mode }: Props) {
       if (!cmp?.id) return;
 
       const { data } = await supabase
-        .from("selections")
+        .from("jobs")
         .select("id, title")
         .eq("company_id", cmp.id)
         .order("created_at", { ascending: false });

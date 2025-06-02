@@ -121,6 +121,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "applications_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -399,6 +406,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "chat_rooms_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "chat_rooms_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -536,22 +550,7 @@ export type Database = {
           target_grad_years?: number[] | null
           venue?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "event_details_selection_id_fkey"
-            columns: ["selection_id"]
-            isOneToOne: true
-            referencedRelation: "selections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_details_selection_id_fkey"
-            columns: ["selection_id"]
-            isOneToOne: true
-            referencedRelation: "selections_view"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       event_participants: {
         Row: {
@@ -576,20 +575,6 @@ export type Database = {
           student_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "event_participants_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "selections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_participants_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "selections_view"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "event_participants_student_id_fkey"
             columns: ["student_id"]
@@ -671,22 +656,7 @@ export type Database = {
           is_ongoing?: boolean | null
           selection_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "fulltime_details_selection_id_fkey"
-            columns: ["selection_id"]
-            isOneToOne: true
-            referencedRelation: "selections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fulltime_details_selection_id_fkey"
-            columns: ["selection_id"]
-            isOneToOne: true
-            referencedRelation: "selections_view"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       internship_details: {
         Row: {
@@ -745,7 +715,7 @@ export type Database = {
             foreignKeyName: "internship_details_selection_id_fkey"
             columns: ["selection_id"]
             isOneToOne: true
-            referencedRelation: "selections"
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
           {
@@ -785,6 +755,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_interests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "job_interests_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -817,10 +794,18 @@ export type Database = {
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "job_tags_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       jobs: {
         Row: {
+          application_deadline: string | null
           company_id: string | null
           cover_image_url: string | null
           created_at: string
@@ -834,11 +819,13 @@ export type Database = {
           salary_max: number | null
           salary_min: number | null
           salary_range: string | null
+          selection_type: Database["public"]["Enums"]["selection_type"] | null
           title: string
           views: number
           work_type: string | null
         }
         Insert: {
+          application_deadline?: string | null
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
@@ -852,11 +839,13 @@ export type Database = {
           salary_max?: number | null
           salary_min?: number | null
           salary_range?: string | null
+          selection_type?: Database["public"]["Enums"]["selection_type"] | null
           title: string
           views?: number
           work_type?: string | null
         }
         Update: {
+          application_deadline?: string | null
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
@@ -870,6 +859,7 @@ export type Database = {
           salary_max?: number | null
           salary_min?: number | null
           salary_range?: string | null
+          selection_type?: Database["public"]["Enums"]["selection_type"] | null
           title?: string
           views?: number
           work_type?: string | null
@@ -1282,69 +1272,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "scouts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scouts_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      selections: {
-        Row: {
-          application_deadline: string | null
-          company_id: string
-          created_at: string | null
-          description: string | null
-          id: string
-          location: string | null
-          published: boolean | null
-          requirements: string | null
-          salary_max: number | null
-          salary_min: number | null
-          selection_type: Database["public"]["Enums"]["selection_type"]
-          title: string
-          views: number | null
-          work_type: string | null
-        }
-        Insert: {
-          application_deadline?: string | null
-          company_id: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          location?: string | null
-          published?: boolean | null
-          requirements?: string | null
-          salary_max?: number | null
-          salary_min?: number | null
-          selection_type: Database["public"]["Enums"]["selection_type"]
-          title: string
-          views?: number | null
-          work_type?: string | null
-        }
-        Update: {
-          application_deadline?: string | null
-          company_id?: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          location?: string | null
-          published?: boolean | null
-          requirements?: string | null
-          salary_max?: number | null
-          salary_min?: number | null
-          selection_type?: Database["public"]["Enums"]["selection_type"]
-          title?: string
-          views?: number | null
-          work_type?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "selections_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1696,34 +1634,56 @@ export type Database = {
       }
       selections_view: {
         Row: {
-          allowance: string | null
           application_deadline: string | null
-          capacity: number | null
           company_id: string | null
           created_at: string | null
           description: string | null
-          duration_weeks: number | null
-          end_date: string | null
-          event_date: string | null
-          format: string | null
           id: string | null
-          is_ongoing: boolean | null
-          is_paid: boolean | null
           location: string | null
           published: boolean | null
+          requirements: string | null
           salary_max: number | null
           salary_min: number | null
           selection_type: Database["public"]["Enums"]["selection_type"] | null
-          start_date: string | null
           title: string | null
-          venue: string | null
           views: number | null
-          work_days_per_week: number | null
           work_type: string | null
+        }
+        Insert: {
+          application_deadline?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          location?: string | null
+          published?: boolean | null
+          requirements?: string | null
+          salary_max?: never
+          salary_min?: never
+          selection_type?: Database["public"]["Enums"]["selection_type"] | null
+          title?: string | null
+          views?: number | null
+          work_type?: string | null
+        }
+        Update: {
+          application_deadline?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          location?: string | null
+          published?: boolean | null
+          requirements?: string | null
+          salary_max?: never
+          salary_min?: never
+          selection_type?: Database["public"]["Enums"]["selection_type"] | null
+          title?: string | null
+          views?: number | null
+          work_type?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "selections_company_id_fkey"
+            foreignKeyName: "jobs_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"

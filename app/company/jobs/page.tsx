@@ -239,7 +239,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
 
   const deleteJob = async(id:string)=>{
     if(!confirm("この求人を削除しますか？")) return
-    await supabase.from("selections").delete().eq("id", id)
+    await supabase.from("jobs").delete().eq("id", id)
     setJobs(prev=>prev.filter(j=>j.id!==id))
   }
 

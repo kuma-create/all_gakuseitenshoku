@@ -185,7 +185,7 @@ export default function NewJobPage() {
       } as const
     
       const { error: insertErr } = await supabase
-        .from("selections")
+        .from("jobs")
         .insert(payload)
         .select()
     

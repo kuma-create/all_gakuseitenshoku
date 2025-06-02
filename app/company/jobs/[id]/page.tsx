@@ -247,7 +247,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
 
     try {
       // In a real app, this would be an API call to delete the selection
-      await supabase.from("selections").delete().eq("id", id)
+      await supabase.from("jobs").delete().eq("id", id)
 
       setIsDeleteDialogOpen(false)
       router.push("/company/selections")
