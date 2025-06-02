@@ -115,6 +115,16 @@ export default function ScoutsPage() {
 
   const router = useRouter();
 
+  // 現在ログインしている Supabase Auth UID
+  const [authUid, setAuthUid] = useState<string | null>(null);
+
+  // マウント時に取得
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setAuthUid(user?.id ?? null);
+    });
+  }, []);
+
   /* -------------------- Supabase → UIScout 変換 -------------------- */
   const fetchScouts = async () => {
     setLoading(true);
@@ -125,10 +135,12 @@ export default function ScoutsPage() {
       .select("id, company_id, student_id, job_id");
 
     const roomMap = new Map<string, string>();
-    (rooms ?? []).forEach((r: any) => {
-      const key = `${r.company_id}-${r.student_id}-${r.job_id}`;
-      roomMap.set(key, r.id);
-    });
+    if (authUid) {
+      (rooms ?? []).forEach((r: any) => {
+        const key = `${r.company_id}-${r.student_id}-${r.job_id}`;
+        roomMap.set(key, r.id);
+      });
+    }
 
     const { data, error } = await supabase
       .from("scouts")
@@ -204,8 +216,8 @@ export default function ScoutsPage() {
         if (left >= 0) daysLeft = left;
       }
 
-      // チャットルームIDを取得
-      const chatKey = `${row.company_id}-${row.student_id}-${row.job_id}`;
+      // ログイン UID を使ったキーでチャットルーム検索
+      const chatKey = authUid ? `${row.company_id}-${authUid}-${row.job_id}` : "";
       const chatRoomId = roomMap.get(chatKey);
 
       return {
@@ -230,7 +242,8 @@ export default function ScoutsPage() {
 
   useEffect(() => {
     fetchScouts();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUid]);
 
   /* ------------------------- アクション ---------------------------- */
   const patchStatus = async (id: string, next: UIScout["status"]) => {
@@ -242,6 +255,11 @@ export default function ScoutsPage() {
     const updates: any = { status: next };
 
     if (next === "accepted") {
+      if (!authUid) {
+        console.error("No auth UID. Are you logged in?");
+        setLoading(false);
+        return;
+      }
       // 対象スカウト行から必要なIDを取得
       const { data: sRow } = await supabase
         .from("scouts")
@@ -256,7 +274,7 @@ export default function ScoutsPage() {
           .upsert(
             {
               company_id: sRow.company_id,
-              student_id: sRow.student_id,
+              student_id: authUid,   // ← Auth UID を挿入
               job_id:     sRow.job_id,
             },
             { onConflict: "company_id,student_id,job_id" }
