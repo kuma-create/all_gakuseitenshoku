@@ -254,10 +254,12 @@ export default function CompanyDashboard() {
               スカウト画面へ
             </Button>
           </Link>
-          <Button className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" />
-            新規求人作成
-          </Button>
+          <Link href="/company/jobs/new">
+            <Button className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              新規求人作成
+            </Button>
+          </Link>
           <Button variant="outline" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
             通知
