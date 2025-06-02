@@ -14,7 +14,27 @@ import type { Database }       from "@/lib/supabase/types";
 const toNumber = (v: number | string | null | undefined): number =>
   v == null ? 0 : typeof v === "string" ? parseFloat(v) : v;
 
-type RawCompletion = { score: number; missing: string[] };
+/** -------- completion parser --------
+ * RPC が数値だけ返す場合と {score, missing[]} のレコードを返す場合
+ * の両方を吸収して RawCompletion 形に整える
+ */
+const parseCompletion = (row: unknown): RawCompletion => {
+  if (row == null) return { score: 0, missing: [] };
+  if (typeof row === "number" || typeof row === "string") {
+    return { score: row, missing: [] };
+  }
+  if (typeof row === "object" && "score" in row) {
+    const r = row as any;
+    return { score: r.score ?? 0, missing: r.missing ?? [] };
+  }
+  // fallback
+  return { score: 0, missing: [] };
+};
+
+type RawCompletion = {
+  score: number | string | null;
+  missing?: string[] | null;
+};
 export type CompletionScope = "overall" | "profile" | "resume";
 
 /* 呼び出す RPC 名 */
@@ -70,10 +90,18 @@ export const useCompletion = (scope: CompletionScope = "overall") => {
               name as keyof Database["public"]["Functions"],
               { p_user_id: user.id },
             )
-            .single<RawCompletion>();
+            .single();
 
-          if (error || !data) throw error ?? new Error("no data");
-          return data;
+          if (error) {
+            console.error(`[useCompletion] RPC ${name} error:`, error);
+            return { score: 0, missing: [] } as RawCompletion;
+          }
+
+          // data には numeric / string / object どれかが来る可能性がある
+          const row = Array.isArray(data) ? data[0] : data;
+          const parsed = parseCompletion(row);
+          console.log(`[useCompletion] ${name} returned:`, parsed);
+          return parsed;
         };
 
         if (scope === "profile") {
