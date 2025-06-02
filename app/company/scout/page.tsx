@@ -19,6 +19,8 @@ import ScoutDrawer from "./ScoutDrawer"
 import clsx from "clsx"
 
 import { Checkbox } from "@/components/ui/checkbox"
+import SkillPicker from "@/components/SkillPicker"
+import QualificationPicker from "@/components/QualificationPicker"
 
 /* ──────────────── 型定義 ──────────────── */
 type StudentRow = Database["public"]["Tables"]["student_profiles"]["Row"]
@@ -46,6 +48,7 @@ type Student = StudentRow & {
   major?: string | null
   location?: string | null
   skills?: string[] | null
+  qualifications?: string[] | null
   has_internship_experience?: boolean | null
   graduation_year?: number | null
   status?: string | null
@@ -77,6 +80,7 @@ export default function ScoutPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>("all")
   const [hasInternship, setHasInternship] = useState<boolean>(false)
   const [skills, setSkills]               = useState<string[]>([])
+  const [qualificationsFilter, setQualificationsFilter] = useState<string[]>([])
 
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
@@ -224,6 +228,15 @@ export default function ScoutPage() {
       )
     }
 
+    /* 7) 資格 */
+    if (qualificationsFilter.length) {
+      list = list.filter((s) =>
+        qualificationsFilter.every((q) =>
+          (s.qualifications ?? []).includes(q),
+        ),
+      )
+    }
+
     return list
   }, [
     students,
@@ -235,6 +248,7 @@ export default function ScoutPage() {
     selectedLocation,
     hasInternship,
     skills,
+    qualificationsFilter,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -379,37 +393,18 @@ export default function ScoutPage() {
               </div>
 
               {/* スキル */}
+              <h4 className="font-semibold mb-2">スキル</h4>
+              <SkillPicker
+                value={skills}
+                onChange={setSkills}
+              />
+
+              {/* 資格 */}
               <div>
-                <h4 className="font-semibold mb-2">スキル</h4>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {skills.map((sk) => (
-                    <span
-                      key={sk}
-                      className="text-xs flex items-center bg-gray-200 px-2 py-1 rounded"
-                    >
-                      {sk}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() =>
-                          setSkills((prev) => prev.filter((s) => s !== sk))
-                        }
-                      />
-                    </span>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  placeholder="Enterで追加"
-                  className="w-full border rounded px-2 py-1 text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.currentTarget.value.trim()) {
-                      const val = e.currentTarget.value.trim()
-                      setSkills((prev) =>
-                        prev.includes(val) ? prev : [...prev, val],
-                      )
-                      e.currentTarget.value = ""
-                    }
-                  }}
+                <h4 className="font-semibold mb-2">資格</h4>
+                <QualificationPicker
+                  values={qualificationsFilter}
+                  onChange={setQualificationsFilter}
                 />
               </div>
 
@@ -424,6 +419,7 @@ export default function ScoutPage() {
                   setSelectedLocation("all")
                   setHasInternship(false)
                   setSkills([])
+                  setQualificationsFilter([])
                 }}
               >
                 リセット
