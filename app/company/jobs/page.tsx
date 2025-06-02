@@ -62,8 +62,6 @@ import {
 ------------------------------------------------------------------ */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   fulltime_details?: { working_days?: string | null } | null
-  internship_details?: { start_date?: string | null } | null
-  event_details?: { event_date?: string | null } | null
 }
 
 /* UI 用に拡張した型 */
@@ -141,9 +139,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
           application_deadline,
           created_at,
           views,
-          fulltime_details ( working_days ),
-          internship_details ( start_date ),
-          event_details   ( event_date )
+          fulltime_details ( working_days )
         `)
         .eq("company_id", companyId)
         .returns<JobRow[]>();
