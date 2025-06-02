@@ -126,6 +126,13 @@ export default function ScoutPage() {
               ? `${Math.round((now - new Date(row.created_at).getTime()) / 60000)}分前`
               : "",
           }
+          // grad_year という列名で来るケースを補完
+          if (
+            normalized.graduation_year == null &&
+            (row as any).grad_year != null
+          ) {
+            normalized.graduation_year = (row as any).grad_year
+          }
           const existed = mergedById.get(normalized.id)
           // 既に同じ id があれば、resumes を持っている方を優先（常に履歴を持つ行を優先）
           if (!existed) {
@@ -162,44 +169,55 @@ export default function ScoutPage() {
     init()
   }, [router, toast])
 
-  /* ── フィルタリング（検索のみ今回は実装） ───────────── */
+  /* ── フィルタリング ───────────── */
   const filtered = useMemo(() => {
+    let list = students
+
+    /* 0) フリーワード */
     const term = search.trim().toLowerCase()
-    if (!term) return students
+    if (term) {
+      list = list.filter((s) =>
+        [s.full_name, s.university, s.major]
+          .join(" ")
+          .toLowerCase()
+          .includes(term),
+      )
+    }
 
-    let list = students.filter((s) =>
-      [s.full_name, s.university, s.major]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
-
-    /* 卒業年フィルタ */
+    /* 1) 卒業年 */
     if (gradYears.length) {
-      list = list.filter((s) => gradYears.includes(s.graduation_year ?? 0))
+      list = list.filter((s) =>
+        gradYears.includes(s.graduation_year ?? 0),
+      )
     }
 
-    /* ステータスフィルタ */
+    /* 2) ステータス（送信済み vs 未スカウト） */
     if (statuses.length) {
-      list = list.filter((s) => statuses.includes(s.status ?? ""))
+      list = list.filter((s) => {
+        const sent = sentScouts.some((sc) => sc.student_id === s.id)
+        return (
+          (sent && statuses.includes("送信済み")) ||
+          (!sent && statuses.includes("未スカウト"))
+        )
+      })
     }
 
-    /* major */
+    /* 3) 専攻 */
     if (selectedMajor !== "all") {
       list = list.filter((s) => (s.major ?? "") === selectedMajor)
     }
 
-    /* location */
+    /* 4) 地域 */
     if (selectedLocation !== "all") {
       list = list.filter((s) => (s.location ?? "") === selectedLocation)
     }
 
-    /* internship */
+    /* 5) インターン経験 */
     if (hasInternship) {
       list = list.filter((s) => s.has_internship_experience)
     }
 
-    /* skills */
+    /* 6) スキル */
     if (skills.length) {
       list = list.filter((s) =>
         skills.every((sk) => (s.skills ?? []).includes(sk)),
@@ -207,7 +225,17 @@ export default function ScoutPage() {
     }
 
     return list
-  }, [students, search, gradYears, statuses, selectedMajor, selectedLocation, hasInternship, skills])
+  }, [
+    students,
+    sentScouts,
+    search,
+    gradYears,
+    statuses,
+    selectedMajor,
+    selectedLocation,
+    hasInternship,
+    skills,
+  ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
   const handleSent = useCallback(
