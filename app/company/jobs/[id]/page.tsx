@@ -331,6 +331,11 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     return Object.keys(newErrors).length === 0
   }
 
+  /** ----------------------------------------------------------------
+   * 保存処理
+   *  ① selections テーブル → 選考の基本項目
+   *  ② jobs テーブル        → 給与レンジ / カバー画像 / 公開状態
+   * --------------------------------------------------------------- */
   const handleSave = async () => {
     if (!validateForm()) {
       toast({
@@ -344,50 +349,48 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     setIsSaving(true)
 
     try {
-      /* --- 保存対象を作成（空文字列は null に変換） ------------------- */
-      const toNull = (v: string) => (v?.trim() ? v : null)
-
-      const payload = {
-        /* 共通 */
-        title          : formData.title.trim(),
-        description    : formData.description.trim(),
-        requirements   : toNull(formData.requirements),
-        department     : toNull(formData.department),
-        employment_type: toNull(formData.employmentType),
-        location       : formData.location.trim(),
-        working_days   : toNull(formData.workingDays),
-        working_hours  : toNull(formData.workingHours),
-        salary_range   : toNull(formData.salary),
-        cover_image_url: formData.coverImageUrl.trim(),
-        benefits       : toNull(formData.benefits),
-        application_deadline: toNull(formData.applicationDeadline),
-
-        /* Internship */
-        start_date        : toNull(formData.startDate),
-        end_date          : toNull(formData.endDate),
-        duration_weeks    : toNull(formData.durationWeeks),
-        work_days_per_week: toNull(formData.workDaysPerWeek),
-        allowance         : toNull(formData.allowance),
-
-        /* Event */
-        event_date : toNull(formData.eventDate),
-        capacity   : formData.capacity ? Number(formData.capacity) : null,
-        venue      : toNull(formData.venue),
-        format     : toNull(formData.format),
-
-        /* 公開状態 */
-        published: formData.status === "公開",
+      /* ---------- selections テーブル用ペイロード ---------------- */
+      const selPayload = {
+        title       : formData.title.trim(),
+        description : formData.description.trim(),
+        location    : formData.location.trim(),
+        working_days: job.selectionType === "fulltime" ? formData.workingDays.trim() : null,
+        start_date  : job.selectionType !== "fulltime" ? formData.startDate || null : null,
+        end_date    : job.selectionType !== "fulltime" ? formData.endDate   || null : null,
+        duration_weeks    : job.selectionType === "internship_short" ? formData.durationWeeks || null : null,
+        work_days_per_week: job.selectionType === "internship_short" ? formData.workDaysPerWeek || null : null,
+        allowance         : job.selectionType === "internship_short" ? formData.allowance || null : null,
+        event_date : job.selectionType === "event" ? formData.eventDate || null : null,
+        capacity   : job.selectionType === "event" ? (formData.capacity ? Number(formData.capacity) : null) : null,
+        venue      : job.selectionType === "event" ? formData.venue || null : null,
+        format     : job.selectionType === "event" ? formData.format : null,
       }
 
-      const { error: updateErr } = await supabase
+      /* ---------- jobs テーブル用ペイロード ---------------------- */
+      const jobPayload = {
+        salary_range    : formData.salary ? formData.salary.trim() : null,
+        cover_image_url : formData.coverImageUrl.trim(),
+        published       : formData.status === "公開",
+      }
+
+      /* ---------- ① selections 更新 ----------------------------- */
+      const { error: selErr } = await supabase
         .from("jobs")
-        .update(payload)
+        .update(selPayload)
         .eq("id", id)
 
-      if (updateErr) throw updateErr
+      if (selErr) throw selErr
 
-      /* --- 更新後のローカル状態を同期 ------------------------------ */
-      setJob((prev: any) => ({ ...prev, ...payload }))
+      /* ---------- ② jobs 更新 ----------------------------------- */
+      const { error: jobErr } = await supabase
+        .from("jobs")
+        .update(jobPayload)
+        .eq("id", id)
+
+      if (jobErr) throw jobErr
+
+      /* ---------- ローカル状態を同期 ----------------------------- */
+      setJob((prev: any) => ({ ...prev, ...selPayload, ...jobPayload }))
       setShowSuccessCard(true)
 
       toast({
@@ -395,6 +398,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
         description: "選考情報が更新されました。",
       })
     } catch (err: any) {
+      console.error(err)
       toast({
         title: "エラー",
         description: err?.message ?? "選考情報の更新に失敗しました。",
@@ -409,7 +413,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     setIsDeleting(true)
 
     try {
-      // In a real app, this would be an API call to delete the selection
+      // In a real app, this would be an API call to delete the jobs
       await supabase.from("jobs").delete().eq("id", id)
 
       setIsDeleteDialogOpen(false)
