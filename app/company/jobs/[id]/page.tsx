@@ -250,7 +250,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
       await supabase.from("jobs").delete().eq("id", id)
 
       setIsDeleteDialogOpen(false)
-      router.push("/company/selections")
+      router.push("/company/jobs")
 
       toast({
         title: "削除完了",
@@ -283,7 +283,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     return (
       <div className="container mx-auto py-8 px-4">
         <h1 className="text-2xl font-bold">選考が見つかりませんでした</h1>
-        <Button variant="outline" className="mt-4" onClick={() => router.push("/company/selections")}>
+        <Button variant="outline" className="mt-4" onClick={() => router.push("/company/jobs")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           選考一覧に戻る
         </Button>
@@ -304,11 +304,11 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button variant="default" className="flex-1" onClick={() => router.push("/company/selections")}>
+              <Button variant="default" className="flex-1" onClick={() => router.push("/company/jobs")}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 選考一覧に戻る
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => router.push(`/company/scout?selectionId=${id!}`)}>
+              <Button variant="outline" className="flex-1" onClick={() => router.push(`/company/scout?jobID=${id!}`)}>
                 <Users className="mr-2 h-4 w-4" />
                 この選考でスカウトを送る
               </Button>
@@ -328,7 +328,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
         {/* Header with back button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={() => router.push("/company/selections")} className="w-fit">
+          <Button variant="outline" onClick={() => router.push("/company/jobs")} className="w-fit">
             <ArrowLeft className="mr-2 h-4 w-4" />
             選考一覧へ戻る
           </Button>
@@ -644,7 +644,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
                 </>
               )}
             </Button>
-            <Button variant="outline" onClick={() => router.push("/company/selections")} className="flex-1 sm:flex-none">
+            <Button variant="outline" onClick={() => router.push("/company/jobs")} className="flex-1 sm:flex-none">
               キャンセル
             </Button>
           </div>

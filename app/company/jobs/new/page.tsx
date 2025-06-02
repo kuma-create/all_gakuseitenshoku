@@ -35,7 +35,12 @@ export default function NewJobPage() {
     /* 共通 */
     title: "",
     department: "",
-    employmentType: "正社員",
+    employmentType:
+      selectionType === "internship_short"
+        ? "インターン"
+        : selectionType === "event"
+        ? "説明会"
+        : "正社員",
     description: "",
     requirements: "",
     location: "",
@@ -100,6 +105,18 @@ export default function NewJobPage() {
       newErrors.workingDays = "勤務日を入力してください"
     if (selectionType === "fulltime" && !formData.salary.trim())
       newErrors.salary = "給与を入力してください"
+
+    // internship_short 必須
+    if (selectionType === "internship_short") {
+      if (!formData.startDate.trim()) newErrors.startDate = "開始日を入力してください"
+      if (!formData.endDate.trim())   newErrors.endDate   = "終了日を入力してください"
+    }
+
+    // event 必須
+    if (selectionType === "event") {
+      if (!formData.eventDate.trim()) newErrors.eventDate = "開催日を入力してください"
+      if (!formData.capacity.trim())  newErrors.capacity  = "定員を入力してください"
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -422,12 +439,12 @@ export default function NewJobPage() {
                   {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
                 </div>
 
-                {selectionType !== "event" && (
+                {selectionType === "fulltime" && (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="workingDays" className="flex items-center gap-1">
-                          勤務日{selectionType === "fulltime" && <span className="text-red-500">*</span>}
+                          勤務日<span className="text-red-500">*</span>
                         </Label>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
@@ -481,17 +498,19 @@ export default function NewJobPage() {
                   </div>
                 )}
 
-                <div>
-                  <Label htmlFor="benefits">福利厚生</Label>
-                  <Textarea
-                    id="benefits"
-                    name="benefits"
-                    value={formData.benefits}
-                    onChange={handleInputChange}
-                    className="mt-1"
-                    placeholder="例: 社会保険完備、交通費支給、リモートワーク可、フレックスタイム制など"
-                  />
-                </div>
+                {selectionType === "fulltime" && (
+                  <div>
+                    <Label htmlFor="benefits">福利厚生</Label>
+                    <Textarea
+                      id="benefits"
+                      name="benefits"
+                      value={formData.benefits}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="例: 社会保険完備、交通費支給、リモートワーク可、フレックスタイム制など"
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

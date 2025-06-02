@@ -250,7 +250,7 @@ function ProfileCard({ userId }: { userId: string }) {
     (async () => {
       const { data: p } = await supabase
         .from("student_profiles")
-        .select("full_name, first_name, last_name, avatar, profile_image")
+        .select("full_name, first_name, last_name, avatar_url")
         .eq("user_id", userId)
         .maybeSingle();
 
@@ -259,7 +259,7 @@ function ProfileCard({ userId }: { userId: string }) {
         `${p?.last_name ?? ""} ${p?.first_name ?? ""}`.trim() ||
         "学生";
       setName(display);
-      setAvatar(p?.avatar ?? p?.profile_image ?? null);
+      setAvatar(p?.avatar_url ?? null);
     })();
   }, [userId]);
 
@@ -282,7 +282,7 @@ function ProfileCard({ userId }: { userId: string }) {
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
       await supabase
         .from("student_profiles")
-        .update({ avatar: publicUrl })
+        .update({ avatar_url: publicUrl })
         .eq("user_id", userId);
       setAvatar(publicUrl);
       setSaving(false);

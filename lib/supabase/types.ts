@@ -1421,9 +1421,11 @@ export type Database = {
           preference_note: string | null
           preferred_industries: string[] | null
           qualification_text: string | null
+          qualifications: string[] | null
           research_theme: string | null
           salary_range: string | null
           skill_text: string | null
+          skills: string[] | null
           status: string
           strength1: string | null
           strength2: string | null
@@ -1475,9 +1477,11 @@ export type Database = {
           preference_note?: string | null
           preferred_industries?: string[] | null
           qualification_text?: string | null
+          qualifications?: string[] | null
           research_theme?: string | null
           salary_range?: string | null
           skill_text?: string | null
+          skills?: string[] | null
           status?: string
           strength1?: string | null
           strength2?: string | null
@@ -1529,9 +1533,11 @@ export type Database = {
           preference_note?: string | null
           preferred_industries?: string[] | null
           qualification_text?: string | null
+          qualifications?: string[] | null
           research_theme?: string | null
           salary_range?: string | null
           skill_text?: string | null
+          skills?: string[] | null
           status?: string
           strength1?: string | null
           strength2?: string | null

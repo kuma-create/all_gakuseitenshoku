@@ -41,41 +41,70 @@ export const useCompletion = (scope: CompletionScope = "overall") => {
   const [score,   setScore]   = useState<number | null>(null);
   const [missing, setMissing] = useState<MissingField[]>([]);
 
+  /* ===================================================================== */
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          if (!cancelled) {
+            setScore(0);
+            setMissing([]);
+          }
+          return;
+        }
 
-      /* 個別 RPC 呼び出し（キャストがポイント） */
-      const fetchOne = async (name: CompletionFn) => {
-        const { data, error } = await supabase
-          .rpc(
-            name as keyof Database["public"]["Functions"], // ← ここで型を合わせる
-            { p_user_id: user.id },
-          )
-          .single<RawCompletion>();
+        /* 個別 RPC 呼び出し（キャストがポイント） */
+        const fetchOne = async (name: CompletionFn) => {
+          const { data, error } = await supabase
+            .rpc(
+              name as keyof Database["public"]["Functions"],
+              { p_user_id: user.id },
+            )
+            .single<RawCompletion>();
 
-        if (error || !data) throw error ?? new Error("no data");
-        return data;
-      };
+          if (error || !data) throw error ?? new Error("no data");
+          return data;
+        };
 
-      if (scope === "profile") {
-        const p = await fetchOne("calculate_profile_completion");
-        setScore(p.score);
-        setMissing(mapMissing(p.missing));
-      } else if (scope === "resume") {
-        const r = await fetchOne("calculate_resume_completion");
-        setScore(r.score);
-        setMissing(mapMissing(r.missing));
-      } else {
-        const [p, r] = await Promise.all([
-          fetchOne("calculate_profile_completion"),
-          fetchOne("calculate_resume_completion"),
-        ]);
-        setScore(Math.round(p.score * 0.7 + r.score * 0.3));
-        setMissing(mapMissing([...new Set([...p.missing, ...r.missing])]));
+        if (scope === "profile") {
+          const p = await fetchOne("calculate_profile_completion");
+          if (!cancelled) {
+            setScore(p.score ?? 0);
+            setMissing(mapMissing(p.missing ?? []));
+          }
+        } else if (scope === "resume") {
+          const r = await fetchOne("calculate_resume_completion");
+          if (!cancelled) {
+            setScore(r.score ?? 0);
+            setMissing(mapMissing(r.missing ?? []));
+          }
+        } else {
+          const [p, r] = await Promise.all([
+            fetchOne("calculate_profile_completion"),
+            fetchOne("calculate_resume_completion"),
+          ]);
+          if (!cancelled) {
+            const merged = [...new Set([...(p.missing ?? []), ...(r.missing ?? [])])];
+            setScore(Math.round((p.score ?? 0) * 0.7 + (r.score ?? 0) * 0.3));
+            setMissing(mapMissing(merged));
+          }
+        }
+      } catch (err) {
+        console.error("useCompletion error:", err);
+        if (!cancelled) {
+          /* 失敗時は 0 % 表示 & 未入力項目なし */
+          setScore(0);
+          setMissing([]);
+        }
       }
-    })().catch(console.error);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [scope]);
 
   return { score, missing };
