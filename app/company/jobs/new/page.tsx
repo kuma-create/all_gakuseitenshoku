@@ -341,14 +341,6 @@ export default function NewJobPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             選考一覧へ戻る
           </Button>
-
-          <h1 className="text-2xl font-bold">
-            {selectionType === "internship_short"
-              ? "新しい短期インターンを作成"
-              : selectionType === "event"
-              ? "新しいイベントを作成"
-              : "新しい本選考を作成"}
-          </h1>
         </div>
 
         {showSuccessOptions ? (

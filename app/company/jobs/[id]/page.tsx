@@ -10,6 +10,7 @@ type FormData = {
   /* 共通 */
   title: string
   description: string
+  requirements: string
   department: string
   employmentType: string
   location: string
@@ -117,6 +118,7 @@ const fetchSelection = async (id: string) => {
     id        : data.id,
     title     : data.title,
     description: data.description ?? "",
+    requirements : "", // placeholder
     department : "",
     employmentType : "",     // ← added placeholder
     workingHours   : "",     // ← added placeholder
@@ -210,6 +212,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     /* 共通 */
     title: "",
     description: "",
+    requirements: "",
     department: "",
     employmentType: "正社員",      // 追加
     location: "",
@@ -243,6 +246,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
         setFormData({
           title      : selectionData.title,
           description: selectionData.description,
+          requirements        : selectionData.requirements        ?? "",
           department : selectionData.department,
           location   : selectionData.location,
           workingDays: selectionData.workingDays,
@@ -317,6 +321,11 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     }
     if (job.selectionType === "fulltime" && !formData.salary.trim())
       newErrors.salary = "給与は必須です"
+
+    if (job.selectionType === "internship_short") {
+      if (!formData.startDate.trim()) newErrors.startDate = "開始日は必須です"
+      if (!formData.endDate.trim())   newErrors.endDate   = "終了日は必須です"
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -480,6 +489,38 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title}</p>}
             </div>
 
+            {/* --- Move: Cover image upload block after title --- */}
+            <div>
+              <Label className="flex items-center gap-1">
+                背景写真アップロード <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex items-center gap-4 mt-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm"
+                  onChange={handleCoverUpload}
+                />
+                {isUploadingCover && (
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                )}
+              </div>
+              {formData.coverImageUrl && (
+                <img
+                  src={formData.coverImageUrl}
+                  alt="cover preview"
+                  className="mt-2 h-24 w-full object-cover rounded"
+                />
+              )}
+              {errors.coverImageUrl && (
+                <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>
+              )}
+              <p className="text-sm text-muted-foreground mt-1">
+                画像をアップロードすると自動で URL が設定されます
+              </p>
+            </div>
+
             {job.selectionType !== "event" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -534,35 +575,17 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               <p className="text-sm text-gray-500 mt-1">見出しや箇条書きを使用すると読みやすくなります。</p>
             </div>
 
+            {/* --- Add: requirements textarea after description --- */}
             <div>
-              <Label className="flex items-center gap-1">
-                背景写真アップロード <span className="text-red-500">*</span>
-              </Label>
-              <div className="flex items-center gap-4 mt-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="block w-full text-sm"
-                  onChange={handleCoverUpload}
-                />
-                {isUploadingCover && (
-                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
-                )}
-              </div>
-              {formData.coverImageUrl && (
-                <img
-                  src={formData.coverImageUrl}
-                  alt="cover preview"
-                  className="mt-2 h-24 w-full object-cover rounded"
-                />
-              )}
-              {errors.coverImageUrl && (
-                <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>
-              )}
-              <p className="text-sm text-muted-foreground mt-1">
-                画像をアップロードすると自動で URL が設定されます
-              </p>
+              <Label htmlFor="requirements">応募要件</Label>
+              <Textarea
+                id="requirements"
+                name="requirements"
+                value={formData.requirements}
+                onChange={handleInputChange}
+                className="mt-1 min-h-[100px]"
+                placeholder="必須スキル、経験年数、学歴、資格などの応募要件を記入してください。"
+              />
             </div>
           </CardContent>
         </Card>
@@ -592,20 +615,34 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
             </div>
 
-            {job.selectionType !== "event" && (
-              <div>
-                <Label htmlFor="workingDays" className="flex items-center">
-                  勤務日 <span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input
-                  id="workingDays"
-                  name="workingDays"
-                  value={formData.workingDays}
-                  onChange={handleInputChange}
-                  className={`mt-1 ${errors.workingDays ? "border-red-500" : ""}`}
-                  placeholder="例: 月曜日〜金曜日（週休2日）"
-                />
-                {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
+            {job.selectionType === "fulltime" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="workingDays" className="flex items-center">
+                    勤務日 <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  <Input
+                    id="workingDays"
+                    name="workingDays"
+                    value={formData.workingDays}
+                    onChange={handleInputChange}
+                    className={`mt-1 ${errors.workingDays ? "border-red-500" : ""}`}
+                    placeholder="例: 月曜日〜金曜日（週休2日）"
+                  />
+                  {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
+                </div>
+
+                <div>
+                  <Label htmlFor="workingHours">勤務時間</Label>
+                  <Input
+                    id="workingHours"
+                    name="workingHours"
+                    value={formData.workingHours}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 9:00〜18:00（休憩1時間）"
+                  />
+                </div>
               </div>
             )}
 
@@ -625,11 +662,61 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
                   />
                   {errors.salary && <p className="text-sm text-red-500 mt-1">{errors.salary}</p>}
                 </div>
+                {/* 福利厚生 */}
+                <div>
+                  <Label htmlFor="benefits">福利厚生</Label>
+                  <Textarea
+                    id="benefits"
+                    name="benefits"
+                    value={formData.benefits}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 社会保険完備、交通費支給、リモートワーク可 など"
+                  />
+                </div>
+                {/* 応募締切日/勤務開始日 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="applicationDeadline">応募締切日</Label>
+                    <Input
+                      id="applicationDeadline"
+                      name="applicationDeadline"
+                      type="date"
+                      value={formData.applicationDeadline}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                    />
+                    <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="startDate">勤務開始日</Label>
+                    <Input
+                      id="startDate"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="例: 2023年4月1日 または 応相談"
+                    />
+                  </div>
+                </div>
               </>
             )}
 
             {job.selectionType === "internship_short" && (
               <>
+                <div>
+                  <Label htmlFor="applicationDeadline">応募締切日</Label>
+                  <Input
+                    id="applicationDeadline"
+                    name="applicationDeadline"
+                    type="date"
+                    value={formData.applicationDeadline}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="startDate">開始日</Label>
@@ -664,6 +751,33 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
 
             {job.selectionType === "event" && (
               <>
+                {/* 応募締切日 & 勤務開始日 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="applicationDeadline">応募締切日</Label>
+                    <Input
+                      id="applicationDeadline"
+                      name="applicationDeadline"
+                      type="date"
+                      value={formData.applicationDeadline}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                    />
+                    <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="startDate">勤務開始日</Label>
+                    <Input
+                      id="startDate"
+                      name="startDate"
+                      type="date"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="例: 2023年4月1日 または 応相談"
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="eventDate">開催日</Label>
