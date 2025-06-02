@@ -39,8 +39,9 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   job_type?: string | null;
   selection_type?: string | null;      // ★ 追加
   is_featured?: boolean | null;
-  salary_min?: number | null;
-  salary_max?: number | null;
+  salary_range?: string | null;
+  salary_min?: number | null;   // 派生フィールド (computed)
+  salary_max?: number | null;   // 派生フィールド (computed)
   tags?: string[] | null;
   cover_image_url?: string | null;
   job_tags?: { tag: string }[] | null;
@@ -96,8 +97,7 @@ description,
 created_at,
 work_type,
 is_recommended,
-salary_min,
-salary_max,
+salary_range,
 location,
 cover_image_url,
 companies!jobs_company_id_fkey (
@@ -129,6 +129,14 @@ job_tags!job_tags_job_id_fkey (
             selection_type: sel,
             industry: row.companies?.industry ?? null,
             tags: (row.job_tags ?? []).map((t) => t.tag),
+            ...(() => {
+              const rgx = /^(\d+)[^\d]+(\d+)?/;
+              const m = (row.salary_range ?? "").match(rgx);
+              const min = m ? Number(m[1]) : null;
+              const max = m && m[2] ? Number(m[2]) : null;
+              return { salary_min: min, salary_max: max };
+            })(),
+            salary_range: row.salary_range ?? null,
           }
         });
         setJobs(normalized);
@@ -168,7 +176,7 @@ job_tags!job_tags_job_id_fkey (
 
       const matchesSalary =
         salaryMin === "all" ||
-        (j.salary_max ?? SALARY_MAX) >= Number(salaryMin);
+        (j.salary_max ?? j.salary_min ?? 0) >= Number(salaryMin);
 
       const matchesCategory =
         selectionType === "all" ||
@@ -526,7 +534,7 @@ function JobGrid({
                   <span>{j.location}</span>
                   <Briefcase size={12} />
                   <span>
-                    {j.salary_min}万 – {j.salary_max ?? "応相談"}万
+                    {j.salary_min ?? "-"}万 – {j.salary_max ?? "応相談"}万
                   </span>
                 </div>
               </div>
@@ -590,7 +598,7 @@ function JobGrid({
                 ))}
               </div>
               <div className="mt-3 text-xs text-gray-500">
-                {j.salary_min}万 – {j.salary_max ?? "応相談"}万
+                {j.salary_min ?? "-"}万 – {j.salary_max ?? "応相談"}万
               </div>
             </div>
           </Link>

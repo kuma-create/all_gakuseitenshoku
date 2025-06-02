@@ -416,11 +416,11 @@ export default function ResumePage() {
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  // 完了率バーの色を返す
+  // 完了率バーの色を返す（明るい色バージョン）
   const getCompletionColor = (percentage: number): string => {
-    if (percentage < 30) return "bg-red-500";
-    if (percentage < 70) return "bg-yellow-500";
-    return "bg-green-500";
+    if (percentage < 30) return "bg-red-400";     // 明るい赤
+    if (percentage < 70) return "bg-yellow-300";  // 明るい黄
+    return "bg-green-400";                        // 明るい緑
   };
 
   // セクションステータスアイコン
