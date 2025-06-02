@@ -522,6 +522,8 @@ export type Database = {
           contact_email: string | null
           event_date: string | null
           format: string | null
+          is_online: boolean | null
+          job_id: string | null
           notes: string | null
           selection_id: string
           sessions: Json | null
@@ -533,6 +535,8 @@ export type Database = {
           contact_email?: string | null
           event_date?: string | null
           format?: string | null
+          is_online?: boolean | null
+          job_id?: string | null
           notes?: string | null
           selection_id: string
           sessions?: Json | null
@@ -544,13 +548,30 @@ export type Database = {
           contact_email?: string | null
           event_date?: string | null
           format?: string | null
+          is_online?: boolean | null
+          job_id?: string | null
           notes?: string | null
           selection_id?: string
           sessions?: Json | null
           target_grad_years?: number[] | null
           venue?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_event_job"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_event_job"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_participants: {
         Row: {
@@ -646,17 +667,44 @@ export type Database = {
       fulltime_details: {
         Row: {
           is_ongoing: boolean | null
-          selection_id: string
+          job_id: string
+          salary_max: number | null
+          salary_min: number | null
+          selection_id: string | null
+          working_days: string | null
         }
         Insert: {
           is_ongoing?: boolean | null
-          selection_id: string
+          job_id: string
+          salary_max?: number | null
+          salary_min?: number | null
+          selection_id?: string | null
+          working_days?: string | null
         }
         Update: {
           is_ongoing?: boolean | null
-          selection_id?: string
+          job_id?: string
+          salary_max?: number | null
+          salary_min?: number | null
+          selection_id?: string | null
+          working_days?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_fulltime_job"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_fulltime_job"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       internship_details: {
         Row: {
@@ -667,6 +715,7 @@ export type Database = {
           end_date: string | null
           format: Database["public"]["Enums"]["event_format"] | null
           is_paid: boolean | null
+          job_id: string | null
           notes: string | null
           perks: string | null
           selection_flow: Json | null
@@ -684,6 +733,7 @@ export type Database = {
           end_date?: string | null
           format?: Database["public"]["Enums"]["event_format"] | null
           is_paid?: boolean | null
+          job_id?: string | null
           notes?: string | null
           perks?: string | null
           selection_flow?: Json | null
@@ -701,6 +751,7 @@ export type Database = {
           end_date?: string | null
           format?: Database["public"]["Enums"]["event_format"] | null
           is_paid?: boolean | null
+          job_id?: string | null
           notes?: string | null
           perks?: string | null
           selection_flow?: Json | null
@@ -711,6 +762,20 @@ export type Database = {
           work_days_per_week?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_internship_job"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_internship_job"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "internship_details_selection_id_fkey"
             columns: ["selection_id"]
@@ -816,8 +881,6 @@ export type Database = {
           published: boolean | null
           published_until: string | null
           requirements: string | null
-          salary_max: number | null
-          salary_min: number | null
           salary_range: string | null
           selection_type: Database["public"]["Enums"]["selection_type"] | null
           title: string
@@ -836,8 +899,6 @@ export type Database = {
           published?: boolean | null
           published_until?: string | null
           requirements?: string | null
-          salary_max?: number | null
-          salary_min?: number | null
           salary_range?: string | null
           selection_type?: Database["public"]["Enums"]["selection_type"] | null
           title: string
@@ -856,8 +917,6 @@ export type Database = {
           published?: boolean | null
           published_until?: string | null
           requirements?: string | null
-          salary_max?: number | null
-          salary_min?: number | null
           salary_range?: string | null
           selection_type?: Database["public"]["Enums"]["selection_type"] | null
           title?: string
@@ -1747,52 +1806,30 @@ export type Database = {
       }
       selections_view: {
         Row: {
+          allowance: string | null
           application_deadline: string | null
+          capacity: number | null
           company_id: string | null
+          cover_image_url: string | null
           created_at: string | null
           description: string | null
+          duration_weeks: number | null
+          end_date: string | null
+          event_date: string | null
+          format: string | null
           id: string | null
+          is_online: boolean | null
           location: string | null
           published: boolean | null
-          requirements: string | null
           salary_max: number | null
           salary_min: number | null
           selection_type: Database["public"]["Enums"]["selection_type"] | null
+          start_date: string | null
           title: string | null
+          venue: string | null
           views: number | null
-          work_type: string | null
-        }
-        Insert: {
-          application_deadline?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          location?: string | null
-          published?: boolean | null
-          requirements?: string | null
-          salary_max?: never
-          salary_min?: never
-          selection_type?: Database["public"]["Enums"]["selection_type"] | null
-          title?: string | null
-          views?: number | null
-          work_type?: string | null
-        }
-        Update: {
-          application_deadline?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          location?: string | null
-          published?: boolean | null
-          requirements?: string | null
-          salary_max?: never
-          salary_min?: never
-          selection_type?: Database["public"]["Enums"]["selection_type"] | null
-          title?: string | null
-          views?: number | null
-          work_type?: string | null
+          work_days_per_week: number | null
+          working_days: string | null
         }
         Relationships: [
           {

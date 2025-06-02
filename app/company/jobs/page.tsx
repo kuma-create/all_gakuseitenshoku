@@ -69,6 +69,7 @@ interface JobItem extends SelectionRow {
   status     : "公開中" | "下書き" | "締切済"
   postedDate : string
   expiryDate : string
+  workingDays?: string | null
   /* ↓ SelectionRow に含まれていない場合の型エラー回避 */
 }
 
@@ -405,7 +406,7 @@ function JobGrid({
               <div className="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
                 <div className="flex items-center">
                   <Briefcase className="h-4 w-4 mr-1.5 text-gray-500"/> 
-                  <span>{job.work_type ?? "-"}</span>
+                  <span>{job.workingDays || "-"}</span>
                 </div>
                 <div className="flex items-center">
                   <MapPin className="h-4 w-4 mr-1.5 text-gray-500"/> 

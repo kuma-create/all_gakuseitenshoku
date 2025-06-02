@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { supabase } from "@/lib/supabase/client"
 import { useAuth }  from "@/lib/auth-context"
+import type { Database } from "@/lib/supabase/types"
 
 export default function NewJobPage() {
   const searchParams   = useSearchParams()
@@ -200,6 +201,8 @@ export default function NewJobPage() {
         published         : formData.status === "公開",
         application_deadline: formData.applicationDeadline || null,
       } as const
+
+      const jobId = payload.id;    // ← 新しく追加
     
       const { error: insertErr } = await supabase
         .from("jobs")
@@ -207,7 +210,44 @@ export default function NewJobPage() {
         .select()
     
       if (insertErr) throw insertErr
-    
+
+      // ---- 子テーブルへ詳細を保存 --------------------------
+      if (selectionType === "fulltime") {
+        await supabase
+          .from("fulltime_details")
+          .upsert({
+            job_id      : jobId,
+            working_days: formData.workingDays || null,
+            salary_min  : null,
+            salary_max  : null,
+            is_ongoing  : false,
+          } as Database["public"]["Tables"]["fulltime_details"]["Insert"])
+      } else if (selectionType === "internship_short") {
+        await supabase
+          .from("internship_details")
+          .upsert({
+            job_id            : jobId,
+            start_date        : formData.startDate        || null,
+            end_date          : formData.endDate          || null,
+            duration_weeks    : formData.durationWeeks
+                                  ? Number(formData.durationWeeks) : null,
+            work_days_per_week: formData.workDaysPerWeek
+                                  ? Number(formData.workDaysPerWeek) : null,
+            allowance         : formData.allowance        || null,
+          } as Database["public"]["Tables"]["internship_details"]["Insert"])
+      } else if (selectionType === "event") {
+        await supabase
+          .from("event_details")
+          .upsert({
+            job_id    : jobId,
+            event_date: formData.eventDate || null,
+            capacity  : formData.capacity ? Number(formData.capacity) : null,
+            venue     : formData.venue     || null,
+            format    : formData.format,
+            is_online : formData.format !== "onsite",
+          } as Database["public"]["Tables"]["event_details"]["Insert"])
+      }
+
       toast({ title: "作成完了", description: "新しい選考が作成されました。" })
       setShowSuccessOptions(true)
     } catch (err: any) {

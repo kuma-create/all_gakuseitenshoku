@@ -4,6 +4,30 @@
 import { supabase } from "@/lib/supabase/client";
 import type React from "react"
 
+// ---------- local form type ----------
+type FormData = {
+  /* 共通 */
+  title: string
+  description: string
+  department: string
+  location: string
+  workingDays: string
+  salaryMin: string
+  salaryMax: string
+  status: string
+  /* Internship */
+  startDate: string
+  endDate: string
+  durationWeeks: string
+  workDaysPerWeek: string
+  allowance: string
+  /* Event */
+  eventDate: string
+  capacity: string
+  venue: string
+  format: "onsite" | "online" | "hybrid"
+}
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -51,8 +75,19 @@ const fetchSelection = async (id: string) => {
         title,
         description,
         location,
+        working_days,
         salary_min,
         salary_max,
+        start_date,
+        end_date,
+        duration_weeks,
+        work_days_per_week,
+        allowance,
+        event_date,
+        capacity,
+        venue,
+        format,
+        is_online,
         published,
         views,
         company_id,
@@ -69,12 +104,23 @@ const fetchSelection = async (id: string) => {
     id: data.id,
     title: data.title,
     description: data.description ?? "",
-    department: "",                     // column無し → 空
+    department: "",                     
     location: data.location ?? "",
+    workingDays : data.working_days  ?? "",
+    salaryMin   : data.salary_min    ?? "",
+    salaryMax   : data.salary_max    ?? "",
+
+    startDate        : data.start_date        ?? "",
+    endDate          : data.end_date          ?? "",
+    durationWeeks    : data.duration_weeks    ?? "",
+    workDaysPerWeek  : data.work_days_per_week ?? "",
+    allowance        : data.allowance         ?? "",
+
+    eventDate : data.event_date ?? "",
+    capacity  : String(data.capacity ?? ""),
+    venue     : data.venue     ?? "",
+    format    : data.format    ?? "onsite",
     selectionType: data.selection_type ?? "fulltime",
-    workingDays: "",                    // selections_view には work_type 無し
-    salaryMin: data.salary_min ?? "",
-    salaryMax: data.salary_max ?? "",
     status: data.published ? "公開" : "非公開",
     applicants: 0,
     views: data.views ?? 0,
@@ -98,7 +144,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     /* 共通 */
     title: "",
     description: "",
@@ -129,25 +175,26 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
         const selectionData = await fetchSelection(id)
         setJob(selectionData)
         setFormData({
-          title      : selectionData.title        ?? "",
-          description: selectionData.description  ?? "",
-          department : selectionData.department   ?? "",
-          location   : selectionData.location     ?? "",
-          workingDays: selectionData.workingDays  ?? "",
-          salaryMin  : String(selectionData.salaryMin ?? ""),
-          salaryMax  : String(selectionData.salaryMax ?? ""),
+          title      : selectionData.title,
+          description: selectionData.description,
+          department : selectionData.department,
+          location   : selectionData.location,
+          workingDays: selectionData.workingDays,
+          salaryMin  : String(selectionData.salaryMin),
+          salaryMax  : String(selectionData.salaryMax),
           status     : selectionData.status,
-          /* 追加フィールドは API が未対応のため空値で初期化 */
-          startDate: "",
-          endDate: "",
-          durationWeeks: "",
-          workDaysPerWeek: "",
-          allowance: "",
-          eventDate: "",
-          capacity: "",
-          venue: "",
-          format: "onsite",
-        })
+          /* Internship */
+          startDate       : selectionData.startDate,
+          endDate         : selectionData.endDate,
+          durationWeeks   : selectionData.durationWeeks,
+          workDaysPerWeek : selectionData.workDaysPerWeek,
+          allowance       : selectionData.allowance,
+          /* Event */
+          eventDate : selectionData.eventDate,
+          capacity  : selectionData.capacity,
+          venue     : selectionData.venue,
+          format    : selectionData.format,
+        } as FormData)
       } catch (error) {
         toast({
           title: "エラー",
@@ -529,7 +576,7 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
                   <RadioGroup
                     className="mt-2 flex gap-4"
                     value={formData.format}
-                    onValueChange={(v) => setFormData((p) => ({ ...p, format: v }))}
+                    onValueChange={(v) => setFormData((p) => ({ ...p, format: v as FormData["format"] }))}
                   >
                     <div className="flex items-center space-x-1">
                       <RadioGroupItem value="onsite" id="onsite" />

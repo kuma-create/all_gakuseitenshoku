@@ -39,6 +39,8 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   job_type?: string | null;
   selection_type?: string | null;      // ★ 追加
   is_featured?: boolean | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
   tags?: string[] | null;
   cover_image_url?: string | null;
   job_tags?: { tag: string }[] | null;
