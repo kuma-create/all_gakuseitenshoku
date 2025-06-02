@@ -73,13 +73,11 @@ export default function ResumePage() {
   /* SQL 由来の完成度 (0–100) */
   const { score } = useCompletion("resume");   // ← 生の score を受け取る
 
-  /* 1 社でもフル入力があれば 100% と判定する */
+  /* 1 社でもフル入力があれば 100% と判定する（会社名・役職・成果/実績が必須、開始日は必須でない） */
   const isCompleteRow = (r: Row) =>
-    !!r.company_name &&
-    !!r.role &&
-    !!r.start_date &&
-    !!r.achievements &&
-    r.achievements.trim() !== "";
+    Boolean((r.company_name ?? "").trim()) &&
+    Boolean((r.role ?? "").trim()) &&
+    Boolean((r.achievements ?? "").trim());
 
   const completion =
     rows && rows.some(isCompleteRow) ? 100 : score ?? 0;   // ← 条件を満たせば強制 100
