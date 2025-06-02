@@ -9,6 +9,7 @@ import "./globals.css";
 import Providers from "./providers";
 import Header               from "@/components/header";
 import { MobileNavigation } from "@/components/mobile-navigation";
+import AuthGuard from "@/components/AuthGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,6 +31,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="ja" className="scroll-smooth antialiased">
       <body className={`${inter.className} overflow-x-hidden bg-background text-foreground`}>
         <Providers>
+          {/* セッション切れを検知して自動サインアウト */}
+          <AuthGuard />
           <div className="flex min-h-screen flex-col">
             <Header />
             <main className="flex-1 pb-16 md:pb-0">{children}</main>
