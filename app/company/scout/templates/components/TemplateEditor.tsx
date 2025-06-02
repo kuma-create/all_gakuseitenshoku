@@ -15,7 +15,7 @@ type Form = {
   position: string;
   offer_range: string;
   content: string;
-  job_id?: string | null;
+  selection_id?: string | null;
   is_global: boolean;
 };
 
@@ -31,10 +31,10 @@ export default function TemplateEditor({ mode }: Props) {
     position: "",
     offer_range: "",
     content: "",
-    job_id: null,
+    selection_id: null,
     is_global: false,
   });
-  const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
+  const [selections, setSelections] = useState<{ id: string; title: string }[]>([]);
   const isSaving =
     tpl.title.trim() === "" ||
     tpl.position.trim() === "" ||
@@ -70,13 +70,13 @@ export default function TemplateEditor({ mode }: Props) {
         .maybeSingle()
         .then(({ data }) => {
           if (data) {
-            const row = data as unknown as { job_id?: string | null } & typeof data;
+            const row = data as unknown as { selection_id?: string | null } & typeof data;
             setTpl({
               title: row.title ?? "",
               position: row.position ?? "",
               offer_range: row.offer_range ?? "",
               content: row.content ?? "",
-              job_id: row.job_id ?? null,
+              selection_id: row.selection_id ?? null,
               is_global: row.is_global ?? false,
             });
           }
@@ -104,12 +104,12 @@ export default function TemplateEditor({ mode }: Props) {
       if (!cmp?.id) return;
 
       const { data } = await supabase
-        .from("jobs")
+        .from("selections")
         .select("id, title")
         .eq("company_id", cmp.id)
         .order("created_at", { ascending: false });
 
-      if (data) setJobs(data as { id: string; title: string }[]);
+      if (data) setSelections(data as { id: string; title: string }[]);
     })();
   }, []);
 
@@ -139,12 +139,12 @@ export default function TemplateEditor({ mode }: Props) {
     }
 
     /* 3) 作成 / 更新ペイロード */
-    const payload: Database["public"]["Tables"]["scout_templates"]["Insert"] & { job_id?: string | null } = {
+    const payload: Database["public"]["Tables"]["scout_templates"]["Insert"] & { selection_id?: string | null } = {
       title: tpl.title,
       position: tpl.position,
       offer_range: tpl.offer_range,
       content: tpl.content,
-      job_id: tpl.job_id,
+      selection_id: tpl.selection_id,
       is_global: tpl.is_global,
       company_id: companyRow.id, // 外部キー制約を満たす companies.id
     };
@@ -190,12 +190,12 @@ export default function TemplateEditor({ mode }: Props) {
         />
       </div>
 
-      {/* 紐づけ求人（任意） */}
+      {/* 紐づけ選考（任意） */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">紐づけ求人 (任意)</label>
+        <label className="text-sm font-medium">紐づけ選考 (任意)</label>
         <Select
-          value={tpl.job_id ?? "none"}
-          onValueChange={(v) => setTpl({ ...tpl, job_id: v === "none" ? null : v })}
+          value={tpl.selection_id ?? "none"}
+          onValueChange={(v) => setTpl({ ...tpl, selection_id: v === "none" ? null : v })}
         >
           <SelectTrigger>
             <SelectValue placeholder="未選択 (汎用テンプレ)" />
@@ -204,9 +204,9 @@ export default function TemplateEditor({ mode }: Props) {
             <SelectItem key="none" value="none">
               未選択
             </SelectItem>
-            {jobs.map((j) => (
-              <SelectItem key={j.id} value={j.id}>
-                {j.title}
+            {selections.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.title}
               </SelectItem>
             ))}
           </SelectContent>
