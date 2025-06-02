@@ -40,13 +40,21 @@ import {
 
 /* ---------- 新規行テンプレ ---------- */
 const emptyRow = (): Row => ({
-  id: "",
-  user_id: "",
+  id: "",            // Supabase で upsert 時に自動採番
+  user_id: "",       // 現在のユーザー UID を保存時に付与
   company_name: "",
   role: "",
   start_date: null,
   end_date: null,
   achievements: "",
+  /* --- 追加カラム (nullable) --------------------- */
+  kind: null,               // string | null
+  order: null,              // number | null
+  payload: null,            // Json | null
+  qualification_text: "",   // string | null
+  skill_text: "",           // string | null
+  summary_text: "",         // string | null
+  /* ---------------------------------------------- */
   created_at: null,
 });
 
@@ -64,7 +72,17 @@ export default function ResumePage() {
 
   /* SQL 由来の完成度 (0–100) */
   const { score } = useCompletion("resume");   // ← 生の score を受け取る
-  const completion = score ?? 0;               // ← null を 0 に丸める
+
+  /* 1 社でもフル入力があれば 100% と判定する */
+  const isCompleteRow = (r: Row) =>
+    !!r.company_name &&
+    !!r.role &&
+    !!r.start_date &&
+    !!r.achievements &&
+    r.achievements.trim() !== "";
+
+  const completion =
+    rows && rows.some(isCompleteRow) ? 100 : score ?? 0;   // ← 条件を満たせば強制 100
 
   /* 編集ローカル state */
   const [local, setLocal]       = useState<Row[]>([]);

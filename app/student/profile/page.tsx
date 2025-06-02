@@ -30,6 +30,7 @@ import { Input }    from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label }    from "@/components/ui/label"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import SkillPicker from "@/components/SkillPicker"
 import QualificationPicker from "@/components/QualificationPicker"
 import type { Database } from "@/lib/supabase/types"
@@ -81,6 +82,21 @@ const LOCATION_OPTIONS = [
 const WORK_PREF_OPTIONS = [
   "フレックスタイム制","リモートワーク可","副業可","残業少なめ",
   "土日祝休み","有給取得しやすい","育児支援制度あり","研修制度充実",
+] as const;
+
+const WORK_STYLE_CHOICES = [
+  "正社員",
+  "インターン",
+  "アルバイト",
+  "契約社員",
+] as const;
+
+const EMPLOYMENT_TYPE_CHOICES = [
+  "フルタイム",
+  "パートタイム",
+  "契約",
+  "業務委託",
+  "インターン",
 ] as const;
 
 function CheckboxGroup({
@@ -343,10 +359,12 @@ export default function StudentProfilePage() {
     profile.pr_text,
     profile.about,
   ]
+  /* 希望条件タブで完了判定に使う 4 つの配列 */
   const prefList = [
-    profile.desired_locations,
-    profile.work_style,
-    profile.desired_industries,
+    profile.desired_positions,     // 希望職種
+    profile.work_style_options,    // 働き方オプション
+    profile.preferred_industries,  // 希望業界
+    profile.desired_locations,     // 希望勤務地
   ]
 
   const pct = (arr: unknown[]) =>
@@ -698,7 +716,7 @@ export default function StudentProfilePage() {
                 rows={2}
                 max={200}
                 value={profile.about ?? ''}
-                placeholder="140文字以内で自己紹介"
+                placeholder="200文字以内で自己紹介"
                 onChange={(v) => updateMark({ about: v })}
                 onBlur={handleBlur}
               />
@@ -756,14 +774,27 @@ export default function StudentProfilePage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 p-4">
-              <FieldInput
-                id="work_style"
-                label="希望勤務形態"
-                value={profile.work_style ?? ''}
-                placeholder="正社員 / インターン など"
-                onChange={(v) => updateMark({ work_style: v })}
-                onBlur={handleBlur}
-              />
+              <div className="space-y-1">
+                <Label htmlFor="work_style" className="text-xs sm:text-sm">希望勤務形態</Label>
+                <Select
+                  value={profile.work_style ?? ""}
+                  onValueChange={(v) => {
+                    updateMark({ work_style: v })
+                    handleBlur()
+                  }}
+                >
+                  <SelectTrigger id="work_style" className="w-full h-8 sm:h-10 text-xs sm:text-sm">
+                    <SelectValue placeholder="選択してください" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORK_STYLE_CHOICES.map((opt) => (
+                      <SelectItem key={opt} value={opt} className="text-xs sm:text-sm">
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <FieldInput
                 id="salary_range"
                 label="希望年収"
@@ -773,14 +804,27 @@ export default function StudentProfilePage() {
                 onBlur={handleBlur}
               />
 
-              <FieldInput
-                id="employment_type"
-                label="雇用形態の希望"
-                value={profile.employment_type ?? ''}
-                placeholder="正社員 / 契約社員 / インターン"
-                onChange={(v) => updateMark({ employment_type: v })}
-                onBlur={handleBlur}
-              />
+              <div className="space-y-1">
+                <Label htmlFor="employment_type" className="text-xs sm:text-sm">雇用形態の希望</Label>
+                <Select
+                  value={profile.employment_type ?? ""}
+                  onValueChange={(v) => {
+                    updateMark({ employment_type: v })
+                    handleBlur()
+                  }}
+                >
+                  <SelectTrigger id="employment_type" className="w-full h-8 sm:h-10 text-xs sm:text-sm">
+                    <SelectValue placeholder="選択してください" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EMPLOYMENT_TYPE_CHOICES.map((opt) => (
+                      <SelectItem key={opt} value={opt} className="text-xs sm:text-sm">
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* --- 希望職種 --- */}
               <div className="space-y-1 sm:space-y-2">
@@ -836,21 +880,6 @@ export default function StudentProfilePage() {
                   インターン経験あり
                 </Label>
               </div>
-
-              <FieldInput
-                id="interests"
-                label="興味・関心（カンマ区切り）"
-                value={(profile.interests ?? []).join(', ')}
-                onChange={(v) =>
-                  updateMark({
-                    interests: v.split(',').map((s) => s.trim()).filter(Boolean),
-                  })
-                }
-                onBlur={handleBlur}
-              />
-              {profile.interests?.length ? (
-                <TagPreview items={profile.interests} color="blue" />
-              ) : null}
 
               {/* locations */}
               {/* --- 希望勤務地 --- */}
