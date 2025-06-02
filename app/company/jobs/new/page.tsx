@@ -256,7 +256,7 @@ export default function NewJobPage() {
                   <p className="text-sm text-muted-foreground mt-1">次に何をしますか？</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                  <Button variant="outline" onClick={() => router.push("/company/selections")} className="w-full sm:w-auto">
+                  <Button variant="outline" onClick={() => router.push("/company/job")} className="w-full sm:w-auto">
                     選考一覧へ戻る
                   </Button>
                   <Button
