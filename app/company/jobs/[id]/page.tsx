@@ -1,4 +1,7 @@
+
 "use client"
+/** Supabase Storage bucket used for求人カバー画像 */
+const JOB_COVER_BUCKET = "job_covers"; // ← 実際に Dashboard で作成したバケット名
 
 
 import { supabase } from "@/lib/supabase/client";
@@ -174,12 +177,12 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
       const filePath = `${user.id}/${fileName}`
 
       const { error: uploadErr } = await supabase.storage
-        .from("job-covers")
+        .from(JOB_COVER_BUCKET)
         .upload(filePath, file, { upsert: true })
 
       if (uploadErr) throw uploadErr
 
-      const { data: pub } = supabase.storage.from("job-covers").getPublicUrl(filePath)
+      const { data: pub } = supabase.storage.from(JOB_COVER_BUCKET).getPublicUrl(filePath)
 
       setFormData(prev => ({ ...prev, coverImageUrl: pub.publicUrl }))
 
