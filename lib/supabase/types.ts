@@ -1012,6 +1012,21 @@ export type Database = {
           },
         ]
       }
+      qualifications: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       question_bank: {
         Row: {
           category: Database["public"]["Enums"]["question_category"] | null
@@ -1155,6 +1170,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_global: boolean | null
+          job_id: string | null
           offer_range: string | null
           position: string | null
           title: string
@@ -1165,6 +1181,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_global?: boolean | null
+          job_id?: string | null
           offer_range?: string | null
           position?: string | null
           title: string
@@ -1175,6 +1192,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_global?: boolean | null
+          job_id?: string | null
           offer_range?: string | null
           position?: string | null
           title?: string
@@ -1192,6 +1210,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scout_templates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scout_templates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1331,6 +1363,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      skills: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       student_profiles: {
         Row: {
@@ -1496,6 +1543,66 @@ export type Database = {
           work_style_options?: string[] | null
         }
         Relationships: []
+      }
+      student_qualifications: {
+        Row: {
+          qualification_id: string
+          student_id: string
+        }
+        Insert: {
+          qualification_id: string
+          student_id: string
+        }
+        Update: {
+          qualification_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_qualifications_qualification_id_fkey"
+            columns: ["qualification_id"]
+            isOneToOne: false
+            referencedRelation: "qualifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_qualifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_skills: {
+        Row: {
+          skill_id: string
+          student_id: string
+        }
+        Insert: {
+          skill_id: string
+          student_id: string
+        }
+        Update: {
+          skill_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skills_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

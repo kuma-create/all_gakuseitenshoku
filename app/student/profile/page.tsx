@@ -30,6 +30,17 @@ import { Input }    from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label }    from "@/components/ui/label"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import SkillPicker from "@/components/SkillPicker"
+import QualificationPicker from "@/components/QualificationPicker"
+import type { Database } from "@/lib/supabase/types"
+
+
+/* ---------- type patch: extend generated row ---------- */
+type StudentProfileRow = Database["public"]["Tables"]["student_profiles"]["Row"] & {
+  /** 新カラム: 配列型で追加 */
+  skills?: string[] | null
+  qualifications?: string[] | null
+}
 
 /* ── zod Schema ─────────────────────────────── */
 const schema = z.object({
@@ -48,9 +59,6 @@ const schema = z.object({
   desired_industries : z.array(z.string()).default([]).optional(),
 })
 
-/* ── suggestion master data ─*/
-const SKILL_OPTIONS = ["Java", "Python", "JavaScript", "TypeScript", "React", "AWS", "Figma"];
-const QUALIFICATION_OPTIONS = ["TOEIC 800", "基本情報技術者", "簿記2級", "AWS SAA", "応用情報技術者"];
 
 /* ── checkbox master data ───────────────────────────── */
 const INDUSTRY_OPTIONS = [
@@ -198,14 +206,16 @@ export default function StudentProfilePage() {
   /* 🚩 1) すべてのフックを **無条件で先頭** で呼ぶ */
   const ready = useAuthGuard("student")
   const {
-    data: profile, loading, error, saving,
+    data: rawProfile, loading, error, saving,
     updateLocal, save,
   } = useStudentProfile()
+  // Cast to the extended type so skills / qualifications are recognized
+  const profile = rawProfile as StudentProfileRow
   // dirtyRef, updateMark, handleBlur
   const dirtyRef = useRef(false)
 
   // 値を変更 → ローカルだけ更新し dirty フラグ
-  const updateMark = (partial: Partial<typeof profile>) => {
+  const updateMark = (partial: Partial<StudentProfileRow>) => {
     updateLocal(partial)
     dirtyRef.current = true
   }
@@ -378,7 +388,7 @@ export default function StudentProfilePage() {
 
   /* ================= RENDER ========================================== */
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8 pb-48">
+    <div className="container mx-auto px-4 py-6 sm:py-8 pb-28 md:pb-8">
       {/* ---------- header ---------- */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
@@ -638,41 +648,27 @@ export default function StudentProfilePage() {
             <CollapsibleContent className="animate-accordion-down">
               <Card className="border-t-0">
                 <CardContent className="space-y-4 p-4">
-                  <FieldInput
-                    id="skill_text"
-                    label="スキル（カンマ区切り）"
-                    value={profile.skill_text ?? ''}
-                    placeholder="例: Java, Python, AWS"
-                    onChange={(v) => updateMark({ skill_text: v })}
-                    onBlur={handleBlur}
-                    type="text"
-                    // @ts-expect-error web only attr
-                    list="skillOptions"
+                  <SkillPicker
+                    value={profile.skills ?? []}
+                    onChange={(vals) => {
+                      updateMark({ skills: vals })
+                      handleBlur()
+                    }}
                   />
-                  {profile.skill_text && (
-                    <TagPreview items={profile.skill_text.split(',')} color="blue" />
+                  {(profile.skills?.length ?? 0) > 0 && (
+                    <TagPreview items={profile.skills as string[]} color="blue" />
                   )}
 
-                  <FieldInput
-                    id="qualification_text"
-                    label="資格（カンマ区切り）"
-                    value={profile.qualification_text ?? ''}
-                    placeholder="例: 基本情報技術者, TOEIC 800"
-                    onChange={(v) => updateMark({ qualification_text: v })}
-                    onBlur={handleBlur}
-                    type="text"
-                    // @ts-expect-error web only attr
-                    list="qualificationOptions"
+                  <QualificationPicker
+                    values={profile.qualifications ?? []}
+                    onChange={(vals) => {
+                      updateMark({ qualifications: vals })
+                      handleBlur()
+                    }}
                   />
-                  <FieldTextarea
-                    id="language_skill"
-                    label="語学力"
-                    rows={2}
-                    value={profile.language_skill ?? ''}
-                    max={300}
-                    onChange={(v) => updateMark({ language_skill: v })}
-                    onBlur={handleBlur}
-                  />
+                  {(profile.qualifications?.length ?? 0) > 0 && (
+                    <TagPreview items={profile.qualifications as string[]} color="green" />
+                  )}
                 </CardContent>
               </Card>
             </CollapsibleContent>
@@ -885,7 +881,7 @@ export default function StudentProfilePage() {
       </Tabs>
 
       {/* sticky footer -------------------------------------------------- */}
-      <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4">
+      <footer className="fixed inset-x-0 bottom-0 z-10 border-t bg-white p-4 md:static md:border-0 md:p-0">
         <div className="container mx-auto flex items-center gap-2">
           <span className="text-xs sm:text-sm">完成度 {completionScore}%</span>
           <div className="h-1 w-24 rounded bg-gray-200">
@@ -898,13 +894,6 @@ export default function StudentProfilePage() {
         </div>
       </footer>
 
-      {/* datalist for autocomplete */}
-      <datalist id="skillOptions">
-        {SKILL_OPTIONS.map((s) => <option key={s} value={s} />)}
-      </datalist>
-      <datalist id="qualificationOptions">
-        {QUALIFICATION_OPTIONS.map((q) => <option key={q} value={q} />)}
-      </datalist>
     </div>
   )
 }
