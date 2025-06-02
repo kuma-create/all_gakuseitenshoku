@@ -344,7 +344,7 @@ export default function StudentProfilePage() {
     profile.about,
   ]
   const prefList = [
-    profile.desired_positions,
+    profile.desired_locations,
     profile.work_style,
     profile.desired_industries,
   ]
