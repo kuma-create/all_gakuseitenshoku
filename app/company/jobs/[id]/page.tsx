@@ -28,7 +28,7 @@ type FormData = {
   format: "onsite" | "online" | "hybrid"
 }
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -143,7 +143,52 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { toast } = useToast()
 
+  const [isUploadingCover, setIsUploadingCover] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [job, setJob] = useState<any>(null)
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      toast({ title: "未ログイン", description: "再度ログインしてください", variant: "destructive" })
+      return
+    }
+
+    setIsUploadingCover(true)
+    try {
+      const ext = file.name.split(".").pop()
+      const fileName = `${crypto.randomUUID()}.${ext}`
+      const filePath = `${user.id}/${fileName}`
+
+      const { error: uploadErr } = await supabase.storage
+        .from("job-covers")
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadErr) throw uploadErr
+
+      const { data: pub } = supabase.storage.from("job-covers").getPublicUrl(filePath)
+
+      setFormData(prev => ({ ...prev, coverImageUrl: pub.publicUrl }))
+
+      // エラークリア
+      setErrors(prev => {
+        const ne = { ...prev }
+        delete ne.coverImageUrl
+        return ne
+      })
+    } catch (err: any) {
+      console.error(err)
+      toast({
+        title: "アップロード失敗",
+        description: err?.message ?? "画像のアップロードに失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploadingCover(false)
+    }
+  }
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -240,6 +285,10 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
 
     if (!formData.description.trim()) {
       newErrors.description = "職務内容は必須です"
+    }
+
+    if (!formData.coverImageUrl.trim()) {
+      newErrors.coverImageUrl = "背景写真は必須です"
     }
 
     if (!formData.location.trim()) {
@@ -414,17 +463,19 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title}</p>}
             </div>
 
-            <div>
-              <Label htmlFor="department">部署</Label>
-              <Input
-                id="department"
-                name="department"
-                value={formData.department}
-                onChange={handleInputChange}
-                className="mt-1"
-                placeholder="例: 開発部"
-              />
-            </div>
+            {job.selectionType !== "event" && (
+              <div>
+                <Label htmlFor="department">部署</Label>
+                <Input
+                  id="department"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleInputChange}
+                  className="mt-1"
+                  placeholder="例: 開発部"
+                />
+              </div>
+            )}
 
             <div>
               <Label htmlFor="description" className="flex items-center">
@@ -443,19 +494,34 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
             </div>
 
             <div>
-              <Label htmlFor="coverImageUrl" className="flex items-center">
-                背景写真URL <span className="text-red-500 ml-1">*</span>
+              <Label className="flex items-center gap-1">
+                背景写真アップロード <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="coverImageUrl"
-                name="coverImageUrl"
-                type="url"
-                value={formData.coverImageUrl}
-                onChange={handleInputChange}
-                className={`mt-1 ${errors.coverImageUrl ? "border-red-500" : ""}`}
-                placeholder="例: https://example.com/banner.jpg"
-              />
-              {errors.coverImageUrl && <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>}
+              <div className="flex items-center gap-4 mt-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm"
+                  onChange={handleCoverUpload}
+                />
+                {isUploadingCover && (
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                )}
+              </div>
+              {formData.coverImageUrl && (
+                <img
+                  src={formData.coverImageUrl}
+                  alt="cover preview"
+                  className="mt-2 h-24 w-full object-cover rounded"
+                />
+              )}
+              {errors.coverImageUrl && (
+                <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>
+              )}
+              <p className="text-sm text-muted-foreground mt-1">
+                画像をアップロードすると自動で URL が設定されます
+              </p>
             </div>
           </CardContent>
         </Card>

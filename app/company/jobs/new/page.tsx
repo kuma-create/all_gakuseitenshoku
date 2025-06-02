@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Save, MapPin, Calendar, DollarSign, Eye, EyeOff, Briefcase, Clock, Building2 } from "lucide-react"
@@ -32,6 +33,9 @@ export default function NewJobPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [showSuccessOptions, setShowSuccessOptions] = useState(false)
 
+  const [isUploadingCover, setIsUploadingCover] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  
   const [formData, setFormData] = useState({
     /* 共通 */
     title: "",
@@ -85,7 +89,6 @@ export default function NewJobPage() {
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
-
     // Clear error when field is edited
     if (errors[name]) {
       setErrors((prev) => {
@@ -93,6 +96,48 @@ export default function NewJobPage() {
         delete newErrors[name]
         return newErrors
       })
+    }
+  }
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!user) {
+      toast({ title: "未ログイン", description: "再度ログインしてください", variant: "destructive" })
+      return
+    }
+
+    setIsUploadingCover(true)
+    try {
+      const ext = file.name.split(".").pop()
+      const fileName = `${crypto.randomUUID()}.${ext}`
+      const filePath = `${user.id}/${fileName}`
+
+      // アップロード（upsert: true で同名を上書き）
+      const { error: uploadErr } = await supabase.storage
+        .from("job-covers")
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadErr) throw uploadErr
+
+      // 公開 URL を取得
+      const { data: pub } = supabase.storage.from("job-covers").getPublicUrl(filePath)
+      setFormData(prev => ({ ...prev, coverImageUrl: pub.publicUrl }))
+
+      // エラークリア
+      setErrors(prev => {
+        const ne = { ...prev }
+        delete ne.coverImageUrl
+        return ne
+      })
+    } catch (err: any) {
+      console.error(err)
+      toast({
+        title: "アップロード失敗",
+        description: err?.message ?? "画像のアップロードに失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploadingCover(false)
     }
   }
 
@@ -412,61 +457,73 @@ export default function NewJobPage() {
                   <p className="text-sm text-muted-foreground mt-1">求職者が検索しやすいタイトルを設定してください</p>
                 </div>
                 <div>
-                  <Label htmlFor="coverImageUrl" className="flex items-center gap-1">
-                    背景写真URL<span className="text-red-500">*</span>
+                  <Label className="flex items-center gap-1">
+                    背景写真アップロード<span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="coverImageUrl"
-                    name="coverImageUrl"
-                    type="url"
-                    value={formData.coverImageUrl}
-                    onChange={handleInputChange}
-                    className={`mt-1 ${errors.coverImageUrl ? "border-red-500" : ""}`}
-                    placeholder="例: https://example.com/banner.jpg"
-                  />
+                  <div className="flex items-center gap-4 mt-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="block w-full text-sm"
+                      onChange={handleCoverUpload}
+                    />
+                    {isUploadingCover && (
+                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                    )}
+                  </div>
+                  {formData.coverImageUrl && (
+                    <img
+                      src={formData.coverImageUrl}
+                      alt="cover preview"
+                      className="mt-2 h-24 w-full object-cover rounded"
+                    />
+                  )}
                   {errors.coverImageUrl && (
                     <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>
                   )}
                   <p className="text-sm text-muted-foreground mt-1">
-                    求人カードに表示される背景画像のURLを指定してください
+                    画像をアップロードすると自動で URL が入力されます
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="department">部署</Label>
-                    <div className="relative">
-                      <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                      <Input
-                        id="department"
-                        name="department"
-                        value={formData.department}
-                        onChange={handleInputChange}
-                        className="pl-10 mt-1"
-                        placeholder="例: 開発部"
-                      />
+                {selectionType !== "event" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="department">部署</Label>
+                      <div className="relative">
+                        <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                        <Input
+                          id="department"
+                          name="department"
+                          value={formData.department}
+                          onChange={handleInputChange}
+                          className="pl-10 mt-1"
+                          placeholder="例: 開発部"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="employmentType">雇用形態</Label>
+                      <Select
+                        value={formData.employmentType}
+                        onValueChange={(value) => handleSelectChange("employmentType", value)}
+                      >
+                        <SelectTrigger id="employmentType" className="mt-1">
+                          <SelectValue placeholder="雇用形態を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="正社員">正社員</SelectItem>
+                          <SelectItem value="契約社員">契約社員</SelectItem>
+                          <SelectItem value="パート・アルバイト">パート・アルバイト</SelectItem>
+                          <SelectItem value="インターン">インターン</SelectItem>
+                          <SelectItem value="業務委託">業務委託</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-
-                  <div>
-                    <Label htmlFor="employmentType">雇用形態</Label>
-                    <Select
-                      value={formData.employmentType}
-                      onValueChange={(value) => handleSelectChange("employmentType", value)}
-                    >
-                      <SelectTrigger id="employmentType" className="mt-1">
-                        <SelectValue placeholder="雇用形態を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="正社員">正社員</SelectItem>
-                        <SelectItem value="契約社員">契約社員</SelectItem>
-                        <SelectItem value="パート・アルバイト">パート・アルバイト</SelectItem>
-                        <SelectItem value="インターン">インターン</SelectItem>
-                        <SelectItem value="業務委託">業務委託</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                )}
 
                 <div>
                   <Label htmlFor="description" className="flex items-center gap-1">
