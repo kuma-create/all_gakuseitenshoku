@@ -194,14 +194,14 @@ export default function TemplateEditor({ mode }: Props) {
       <div className="space-y-2">
         <label className="text-sm font-medium">紐づけ求人 (任意)</label>
         <Select
-          value={tpl.job_id ?? ""}
-          onValueChange={(v) => setTpl({ ...tpl, job_id: v || null })}
+          value={tpl.job_id ?? "none"}
+          onValueChange={(v) => setTpl({ ...tpl, job_id: v === "none" ? null : v })}
         >
           <SelectTrigger>
             <SelectValue placeholder="未選択 (汎用テンプレ)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem key="" value="">
+            <SelectItem key="none" value="none">
               未選択
             </SelectItem>
             {jobs.map((j) => (
