@@ -3,6 +3,7 @@
 
 import { supabase } from "@/lib/supabase/client";
 import type React from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // ---------- local form type ----------
 type FormData = {
@@ -10,10 +11,14 @@ type FormData = {
   title: string
   description: string
   department: string
+  employmentType: string
   location: string
   workingDays: string
+  workingHours: string          // 追加
   salary: string
   coverImageUrl: string
+  benefits: string              // 追加
+  applicationDeadline: string   // 追加
   status: string
   /* Internship */
   startDate: string
@@ -113,6 +118,10 @@ const fetchSelection = async (id: string) => {
     title     : data.title,
     description: data.description ?? "",
     department : "",
+    employmentType : "",     // ← added placeholder
+    workingHours   : "",     // ← added placeholder
+    benefits       : "",     // ← added placeholder
+    applicationDeadline: "", // ← added placeholder
     location   : data.location ?? "",
     workingDays: data.working_days ?? "",
     salary      : jobData.salary_range ?? "",
@@ -202,10 +211,14 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     title: "",
     description: "",
     department: "",
+    employmentType: "正社員",      // 追加
     location: "",
     workingDays: "",
+    workingHours: "",             // 追加
     salary: "",
     coverImageUrl: "",
+    benefits: "",                 // 追加
+    applicationDeadline: "",      // 追加
     status: "",
 
     /* インターン専用 */
@@ -236,6 +249,10 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           salary: selectionData.salary,
           coverImageUrl: selectionData.coverImageUrl,
           status     : selectionData.status,
+          employmentType      : selectionData.employmentType      ?? "正社員",
+          workingHours        : selectionData.workingHours        ?? "",
+          benefits            : selectionData.benefits            ?? "",
+          applicationDeadline : selectionData.applicationDeadline ?? "",
           /* Internship */
           startDate       : selectionData.startDate,
           endDate         : selectionData.endDate,
@@ -464,16 +481,40 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
             </div>
 
             {job.selectionType !== "event" && (
-              <div>
-                <Label htmlFor="department">部署</Label>
-                <Input
-                  id="department"
-                  name="department"
-                  value={formData.department}
-                  onChange={handleInputChange}
-                  className="mt-1"
-                  placeholder="例: 開発部"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="department">部署</Label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                    <Input
+                      id="department"
+                      name="department"
+                      value={formData.department}
+                      onChange={handleInputChange}
+                      className="pl-10 mt-1"
+                      placeholder="例: 開発部"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="employmentType">雇用形態</Label>
+                  <Select
+                    value={formData.employmentType}
+                    onValueChange={(v) => setFormData((p) => ({ ...p, employmentType: v }))}
+                  >
+                    <SelectTrigger id="employmentType" className="mt-1">
+                      <SelectValue placeholder="雇用形態を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="正社員">正社員</SelectItem>
+                      <SelectItem value="契約社員">契約社員</SelectItem>
+                      <SelectItem value="パート・アルバイト">パート・アルバイト</SelectItem>
+                      <SelectItem value="インターン">インターン</SelectItem>
+                      <SelectItem value="業務委託">業務委託</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
 
