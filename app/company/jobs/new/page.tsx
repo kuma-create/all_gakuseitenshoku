@@ -48,6 +48,7 @@ export default function NewJobPage() {
     workingDays: "",
     workingHours: "",
     salary: "",
+    coverImageUrl: "",
     benefits: "",
     applicationDeadline: "",
     status: "非公開",
@@ -101,6 +102,8 @@ export default function NewJobPage() {
     // Required fields
     if (!formData.title.trim()) newErrors.title = "求人タイトルを入力してください"
     if (!formData.description.trim()) newErrors.description = "職務内容を入力してください"
+    if (!formData.coverImageUrl.trim())
+      newErrors.coverImageUrl = "背景写真URLを入力してください"
     if (!formData.location.trim()) newErrors.location = "勤務地を入力してください"
     if (selectionType === "fulltime" && !formData.workingDays.trim())
       newErrors.workingDays = "勤務日を入力してください"
@@ -188,17 +191,17 @@ export default function NewJobPage() {
     
       /* 2) selections へ INSERT  */
       const payload = {
-        id                : crypto.randomUUID(),
-        company_id        : companyId,
-        selection_type    : selectionType,
-        title             : formData.title,
-        description       : formData.description,
-        requirements      : formData.requirements || null,
-        location          : formData.location    || null,
-        work_type         : formData.employmentType,
-        salary_min        : null,                // ← 現行フォームは単一入力なので min/max は null
-        salary_max        : null,
-        published         : formData.status === "公開",
+        id                 : crypto.randomUUID(),
+        company_id         : companyId,
+        selection_type     : selectionType,
+        title              : formData.title,
+        description        : formData.description,
+        requirements       : formData.requirements || null,
+        location           : formData.location || null,
+        work_type          : formData.employmentType,
+        salary_range       : formData.salary || null,
+        cover_image_url    : formData.coverImageUrl,
+        published          : formData.status === "公開",
         application_deadline: formData.applicationDeadline || null,
       } as const
 
@@ -215,37 +218,59 @@ export default function NewJobPage() {
       if (selectionType === "fulltime") {
         await supabase
           .from("fulltime_details")
-          .upsert({
-            job_id      : jobId,
-            working_days: formData.workingDays || null,
-            salary_min  : null,
-            salary_max  : null,
-            is_ongoing  : false,
-          } as Database["public"]["Tables"]["fulltime_details"]["Insert"])
+          .upsert(
+            {
+              selection_id : jobId,
+              job_id       : jobId,
+              working_days : formData.workingDays || null,
+              salary_min   : null,
+              salary_max   : null,
+              is_ongoing   : false,
+            } as Database["public"]["Tables"]["fulltime_details"]["Insert"]
+          )
       } else if (selectionType === "internship_short") {
         await supabase
           .from("internship_details")
-          .upsert({
-            job_id            : jobId,
-            start_date        : formData.startDate        || null,
-            end_date          : formData.endDate          || null,
-            duration_weeks    : formData.durationWeeks
-                                  ? Number(formData.durationWeeks) : null,
-            work_days_per_week: formData.workDaysPerWeek
-                                  ? Number(formData.workDaysPerWeek) : null,
-            allowance         : formData.allowance        || null,
-          } as Database["public"]["Tables"]["internship_details"]["Insert"])
+          .upsert(
+            {
+              selection_id      : jobId,
+              job_id            : jobId,
+              start_date        : formData.startDate || null,
+              end_date          : formData.endDate   || null,
+              duration_weeks    : formData.durationWeeks
+                                    ? Number(formData.durationWeeks) : null,
+              work_days_per_week: formData.workDaysPerWeek
+                                    ? Number(formData.workDaysPerWeek) : null,
+              is_paid           : !!formData.allowance,
+              allowance         : formData.allowance || null,
+              capacity          : null,
+              format            : null,
+              target_grad_years : null,
+              sessions          : null,
+              selection_flow    : null,
+              perks             : null,
+              contact_email     : null,
+              notes             : null,
+            } as Database["public"]["Tables"]["internship_details"]["Insert"]
+          )
       } else if (selectionType === "event") {
         await supabase
           .from("event_details")
-          .upsert({
-            job_id    : jobId,
-            event_date: formData.eventDate || null,
-            capacity  : formData.capacity ? Number(formData.capacity) : null,
-            venue     : formData.venue     || null,
-            format    : formData.format,
-            is_online : formData.format !== "onsite",
-          } as Database["public"]["Tables"]["event_details"]["Insert"])
+          .upsert(
+            {
+              selection_id      : jobId,
+              job_id            : jobId,
+              event_date        : formData.eventDate || null,
+              capacity          : formData.capacity ? Number(formData.capacity) : null,
+              venue             : formData.venue || null,
+              format            : formData.format,
+              is_online         : formData.format !== "onsite",
+              target_grad_years : null,
+              sessions          : null,
+              contact_email     : null,
+              notes             : null,
+            } as Database["public"]["Tables"]["event_details"]["Insert"]
+          )
       }
 
       toast({ title: "作成完了", description: "新しい選考が作成されました。" })
@@ -329,6 +354,7 @@ export default function NewJobPage() {
                         workingDays: "",
                         workingHours: "",
                         salary: "",
+                        coverImageUrl: "",
                         benefits: "",
                         applicationDeadline: "",
                         status: "非公開",
@@ -384,6 +410,26 @@ export default function NewJobPage() {
                   />
                   {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title}</p>}
                   <p className="text-sm text-muted-foreground mt-1">求職者が検索しやすいタイトルを設定してください</p>
+                </div>
+                <div>
+                  <Label htmlFor="coverImageUrl" className="flex items-center gap-1">
+                    背景写真URL<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="coverImageUrl"
+                    name="coverImageUrl"
+                    type="url"
+                    value={formData.coverImageUrl}
+                    onChange={handleInputChange}
+                    className={`mt-1 ${errors.coverImageUrl ? "border-red-500" : ""}`}
+                    placeholder="例: https://example.com/banner.jpg"
+                  />
+                  {errors.coverImageUrl && (
+                    <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>
+                  )}
+                  <p className="text-sm text-muted-foreground mt-1">
+                    求人カードに表示される背景画像のURLを指定してください
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

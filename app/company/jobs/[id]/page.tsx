@@ -12,8 +12,8 @@ type FormData = {
   department: string
   location: string
   workingDays: string
-  salaryMin: string
-  salaryMax: string
+  salary: string
+  coverImageUrl: string
   status: string
   /* Internship */
   startDate: string
@@ -66,7 +66,7 @@ import { useToast } from "@/lib/hooks/use-toast"
  * Supabase から選考 1 件を取得し、フロントで使いやすい shape に整形して返す
  */
 const fetchSelection = async (id: string) => {
-  // 必要なカラムと、応募者数をカウントするリレーションを取得
+  /* 1) selections_view から基本情報を取得（salary_range, cover_image_url は除外） */
   const { data, error } = await supabase
     .from("selections_view")
     .select(
@@ -76,8 +76,6 @@ const fetchSelection = async (id: string) => {
         description,
         location,
         working_days,
-        salary_min,
-        salary_max,
         start_date,
         end_date,
         duration_weeks,
@@ -96,19 +94,29 @@ const fetchSelection = async (id: string) => {
       `
     )
     .eq("id", id)
-    .single();
+    .single()
 
-  if (error || !data) throw error ?? new Error("Selection not found");
+  if (error || !data) throw error ?? new Error("Selection not found")
 
+  /* 2) jobs テーブルから salary_range / cover_image_url を取得 */
+  const { data: jobData, error: jobError } = await supabase
+    .from("jobs")
+    .select("salary_range, cover_image_url")
+    .eq("id", id)
+    .single()
+
+  if (jobError || !jobData) throw jobError ?? new Error("Job extra fields not found")
+
+  /* 3) フロント用の shape に整形して返す */
   return {
-    id: data.id,
-    title: data.title,
+    id        : data.id,
+    title     : data.title,
     description: data.description ?? "",
-    department: "",                     
-    location: data.location ?? "",
-    workingDays : data.working_days  ?? "",
-    salaryMin   : data.salary_min    ?? "",
-    salaryMax   : data.salary_max    ?? "",
+    department : "",
+    location   : data.location ?? "",
+    workingDays: data.working_days ?? "",
+    salary      : jobData.salary_range ?? "",
+    coverImageUrl: jobData.cover_image_url ?? "",
 
     startDate        : data.start_date        ?? "",
     endDate          : data.end_date          ?? "",
@@ -121,13 +129,13 @@ const fetchSelection = async (id: string) => {
     venue     : data.venue     ?? "",
     format    : data.format    ?? "onsite",
     selectionType: data.selection_type ?? "fulltime",
-    status: data.published ? "公開" : "非公開",
+    status : data.published ? "公開" : "非公開",
     applicants: 0,
-    views: data.views ?? 0,
-    companyId: data.company_id,
-    createdAt: data.created_at,
-    updatedAt: data.created_at,
-  };
+    views     : data.views ?? 0,
+    companyId : data.company_id,
+    createdAt : data.created_at,
+    updatedAt : data.created_at,
+  }
 }
 
 export default function JobEditPage({ params }: { params: { id: string } }) {
@@ -151,8 +159,8 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     department: "",
     location: "",
     workingDays: "",
-    salaryMin: "",
-    salaryMax: "",
+    salary: "",
+    coverImageUrl: "",
     status: "",
 
     /* インターン専用 */
@@ -180,8 +188,8 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           department : selectionData.department,
           location   : selectionData.location,
           workingDays: selectionData.workingDays,
-          salaryMin  : String(selectionData.salaryMin),
-          salaryMax  : String(selectionData.salaryMax),
+          salary: selectionData.salary,
+          coverImageUrl: selectionData.coverImageUrl,
           status     : selectionData.status,
           /* Internship */
           startDate       : selectionData.startDate,
@@ -241,13 +249,8 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
     if (job.selectionType === "fulltime" && !formData.workingDays.trim()) {
       newErrors.workingDays = "勤務日は必須です"
     }
-
-    if (job.selectionType === "fulltime" && !formData.salaryMin.trim()) {
-      newErrors.salaryMin = "最低給与は必須です"
-    }
-    if (job.selectionType === "fulltime" && !formData.salaryMax.trim()) {
-      newErrors.salaryMax = "最高給与は必須です"
-    }
+    if (job.selectionType === "fulltime" && !formData.salary.trim())
+      newErrors.salary = "給与は必須です"
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -438,6 +441,22 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
               <p className="text-sm text-gray-500 mt-1">見出しや箇条書きを使用すると読みやすくなります。</p>
             </div>
+
+            <div>
+              <Label htmlFor="coverImageUrl" className="flex items-center">
+                背景写真URL <span className="text-red-500 ml-1">*</span>
+              </Label>
+              <Input
+                id="coverImageUrl"
+                name="coverImageUrl"
+                type="url"
+                value={formData.coverImageUrl}
+                onChange={handleInputChange}
+                className={`mt-1 ${errors.coverImageUrl ? "border-red-500" : ""}`}
+                placeholder="例: https://example.com/banner.jpg"
+              />
+              {errors.coverImageUrl && <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>}
+            </div>
           </CardContent>
         </Card>
 
@@ -485,35 +504,19 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
 
             {job.selectionType === "fulltime" && (
               <>
-                {/* 最低給与 */}
                 <div>
-                  <Label htmlFor="salaryMin" className="flex items-center">
-                    最低給与 <span className="text-red-500 ml-1">*</span>
+                  <Label htmlFor="salary" className="flex items-center">
+                    給与 <span className="text-red-500 ml-1">*</span>
                   </Label>
                   <Input
-                    id="salaryMin"
-                    name="salaryMin"
-                    value={formData.salaryMin}
+                    id="salary"
+                    name="salary"
+                    value={formData.salary}
                     onChange={handleInputChange}
-                    className={`mt-1 ${errors.salaryMin ? "border-red-500" : ""}`}
-                    placeholder="例: 500"
+                    className={`mt-1 ${errors.salary ? "border-red-500" : ""}`}
+                    placeholder="例: 500〜800"
                   />
-                  {errors.salaryMin && <p className="text-sm text-red-500 mt-1">{errors.salaryMin}</p>}
-                </div>
-                {/* 最高給与 */}
-                <div>
-                  <Label htmlFor="salaryMax" className="flex items-center">
-                    最高給与 <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  <Input
-                    id="salaryMax"
-                    name="salaryMax"
-                    value={formData.salaryMax}
-                    onChange={handleInputChange}
-                    className={`mt-1 ${errors.salaryMax ? "border-red-500" : ""}`}
-                    placeholder="例: 800"
-                  />
-                  {errors.salaryMax && <p className="text-sm text-red-500 mt-1">{errors.salaryMax}</p>}
+                  {errors.salary && <p className="text-sm text-red-500 mt-1">{errors.salary}</p>}
                 </div>
               </>
             )}

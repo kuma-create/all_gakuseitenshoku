@@ -166,8 +166,6 @@ if (offersErr) console.error("scouts fetch error →", offersErr);  // ← 失�
       {/* ---- Greeting ---- */}
       <GreetingHero userName={user.name ?? "学生"} />
 
-      {/* ---- 統合完成度ウィジェット ---- */}
-      <CompletionWidget scope="overall" />
 
       {/* ---- 1:2 レイアウト ---- */}
       <section className="grid gap-8 md:grid-cols-3">
