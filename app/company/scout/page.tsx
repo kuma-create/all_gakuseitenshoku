@@ -395,7 +395,7 @@ export default function ScoutPage() {
               {/* スキル */}
               <h4 className="font-semibold mb-2">スキル</h4>
               <SkillPicker
-                value={skills}
+                values={skills}
                 onChange={setSkills}
               />
 
