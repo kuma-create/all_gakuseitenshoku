@@ -10,9 +10,13 @@ export default function AuthGuard() {
     const check = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        await supabase.auth.signOut({ scope: "local" })  // Cookieも削除
-        const next = encodeURIComponent(location.pathname + location.search)
-        router.replace(`/login?next=${next}`)
+        // ログイン不要で表示したいパス
+        const publicRoutes = ["/login", "/admin/login", "/auth/reset"];
+        if (publicRoutes.includes(location.pathname)) return;
+
+        await supabase.auth.signOut({ scope: "local" }); // Cookie も削除
+        const next = encodeURIComponent(location.pathname + location.search);
+        router.replace(`/login?next=${next}`);
       }
     }
     check()
