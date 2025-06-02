@@ -22,8 +22,10 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   major?: string | null
   location?: string | null
   skills?: string[] | null
+  qualifications?: string[] | null
   has_internship_experience?: boolean | null
   graduation_year?: number | null
+  profile_completion?: number | null
   status?: string | null
 }
 
@@ -57,6 +59,11 @@ export default function StudentList({ students, selectedId, onSelect }: Props) {
             <div className="flex-1 min-w-0">
               <p className="font-semibold truncate">{stu.full_name}</p>
               <p className="text-xs text-gray-500 truncate">{stu.university}</p>
+              {(stu.major || stu.location) && (
+                <p className="text-[11px] text-gray-500 truncate">
+                  {[stu.major, stu.location].filter(Boolean).join(" / ")}
+                </p>
+              )}
 
               <div className="flex flex-wrap gap-1 mt-2">
                 {stu.skills?.slice(0, 2).map((sk) => (
@@ -64,9 +71,37 @@ export default function StudentList({ students, selectedId, onSelect }: Props) {
                     {sk}
                   </Badge>
                 ))}
-                <Badge variant="outline" className="text-[10px]">
-                  {stu.graduation_year}卒
-                </Badge>
+
+                {stu.qualifications?.slice(0, 1).map((ql) => (
+                  <Badge key={ql} variant="secondary" className="text-[10px]">
+                    {ql}
+                  </Badge>
+                ))}
+
+                {stu.has_internship_experience && (
+                  <Badge variant="outline" className="text-[10px]">
+                    インターン
+                  </Badge>
+                )}
+
+                {stu.last_active && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {stu.last_active}
+                  </Badge>
+                )}
+
+                {stu.graduation_year && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {stu.graduation_year}卒
+                  </Badge>
+                )}
+
+                {typeof stu.profile_completion === "number" && (
+                  <Badge variant="outline" className="text-[10px]">
+                    記載率{stu.profile_completion}%
+                  </Badge>
+                )}
+
                 {typeof stu.match_score === "number" && (
                   <Badge variant="outline" className="text-[10px]">
                     {stu.match_score}%
