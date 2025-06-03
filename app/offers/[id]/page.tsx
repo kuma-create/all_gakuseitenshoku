@@ -134,7 +134,7 @@ export default function OfferDetailPage({
           message,
           status,
           created_at,
-          companies (
+          companies!fk_scouts_company (
             name,
             logo,
             description,
@@ -143,7 +143,7 @@ export default function OfferDetailPage({
             industry,
             website
           ),
-          jobs (
+          jobs!scouts_job_id_fkey (
             title
           )
         `
