@@ -31,11 +31,15 @@ export function useAuthGuard(
 
     /* ② 未ログイン */
     if (!isLoggedIn || !user) {
-      if (mode === "required") {
+      // "required" かつ 特定ロールを要求するページのみリダイレクトさせる
+      const loginRequired = mode === "required" && requiredRole !== "any";
+
+      if (loginRequired) {
         router.replace(`/login?next=${encodeURIComponent(pathname)}`);
         return;
       }
-      // optional ⇒ ゲスト閲覧を許可
+
+      // optional または パブリックページ ("any" ロール) はゲスト閲覧を許可
       setReady(true);
       return;
     }
