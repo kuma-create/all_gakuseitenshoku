@@ -126,7 +126,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           const { data: r } = await supabase
             .from("selections_view")
             .select(`id,title,location,salary_min,salary_max,selection_type,
-                     company:companies(name,logo)`)
+                     company:companies(name, logo as logo_url)`)
             .eq("company_id", sel.company_id)
             .neq("id", params.id)
             .limit(3)
