@@ -35,45 +35,12 @@ export async function middleware(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = req.nextUrl;
 
+  const isLoginPage = pathname === "/login" || pathname === "/admin/login";
+
   /* ---------- 0. トップページはゲスト公開 (早期リターン) ---------- */
   if (pathname === "/") {
     return res;            // "/" だけは必ず通過させる
   }
-
-  const isAdminArea   = pathname.startsWith("/admin") && pathname !== "/admin/login";
-  const isLoginPage   = pathname === "/login" || pathname === "/admin/login";
-
-  /* ---------- ロール判定 ---------- */
-  let role: string | null = null;
-
-  if (session) {
-    // ① metadata の role（無ければ null）
-    role =
-      (session.user.user_metadata as any)?.user_role ??
-      (session.user.user_metadata as any)?.role ??
-      (session.user.app_metadata  as any)?.user_role ??
-      (session.user.app_metadata  as any)?.role ??
-      (session.user as any).role ??
-      null;
-
-    // ② user_roles テーブルを常に参照し、値があればメタデータより優先
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .single();
-
-    if (!error && data?.role) {
-      role = data.role;   // テーブルの値を最優先
-    }
-
-    // ③ フォールバック
-    if (!role) role = "student";
-  } else {
-    role = "guest";
-  }
-
-  const isCompanyRole = role === "company_admin" || role === "company";
 
   /* ---------- ① 静的アセットは即通過 ---------- */
   if (STATIC_RE.test(pathname)) return res;
@@ -83,7 +50,7 @@ export async function middleware(req: NextRequest) {
     .some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (needsLogin && !session) {
-    const loginPath = isAdminArea ? "/admin/login" : "/login";
+    const loginPath = "/login";
     const login = new URL(loginPath, req.url);
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login, { status: 302 });
@@ -97,27 +64,10 @@ export async function middleware(req: NextRequest) {
 
   /* ログインしていない & 非公開ページ → /login?next=... */
   if (!session && !isPublic && !isLoginPage) {
-    const loginPath = isAdminArea ? "/admin/login" : "/login";
+    const loginPath = "/login";
     const login = new URL(loginPath, req.url);
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login, { status: 302 });
-  }
-
-  /* ---------- ④ /login または /admin/login へのアクセス時 ---------- */
-  if (session && isLoginPage) {
-    // /admin/login にアクセスした場合
-    if (pathname === "/admin/login") {
-      // Admin ロールはそのまま管理ダッシュボードへリダイレクト
-      if (role === "admin") {
-        return NextResponse.redirect(new URL("/admin", req.url), { status: 302 });
-      }
-      // それ以外のロールは /admin/login を表示させる（リダイレクトしない）
-    }
-    // /login にアクセスした場合
-    else if (pathname === "/login") {
-      const dest = isCompanyRole ? "/company-dashboard" : "/student-dashboard";
-      return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
-    }
   }
 
   return res;
