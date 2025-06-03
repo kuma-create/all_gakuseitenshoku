@@ -30,8 +30,8 @@ type NavItem = { href: string; label: string; icon: React.ElementType };
 const studentMain: NavItem[] = [
   { href: "/student-dashboard", label: "マイページ", icon: LayoutDashboard },
   { href: "/jobs",              label: "選考",       icon: Search },
-  { href: "/student/offers",    label: "スカウト",   icon: Mail },
-  { href: "/student/chat",      label: "チャット",   icon: MessageSquare },
+  { href: "offers",    label: "スカウト",   icon: Mail },
+  { href: "chat",      label: "チャット",   icon: MessageSquare },
   { href: "/grandprix",         label: "就活GP",    icon: Trophy },
 ];
 /* ---------- マイページ配下 ---------- */
