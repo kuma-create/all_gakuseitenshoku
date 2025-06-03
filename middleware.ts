@@ -137,6 +137,6 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs).*)",
   ],
 };

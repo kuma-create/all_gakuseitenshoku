@@ -40,11 +40,11 @@ export default function OffersPage() {
           message,
           status,
           created_at,
-          companies (
+          companies!fk_scouts_company (
             name,
             logo
           ),
-          jobs (
+          jobs!scouts_job_id_fkey (
             title
           )
         `)
@@ -56,8 +56,8 @@ export default function OffersPage() {
       } else {
         const mapped: Offer[] = (data ?? []).map((s) => ({
           id:         s.id,
-          company:    s.companies.name,
-          logo:       s.companies.logo ?? "/placeholder.svg",
+          company:    s.companies?.name ?? "",
+          logo:       s.companies?.logo ?? "/placeholder.svg",
           position:   s.jobs?.title ?? "",
           message:    s.message,
           created_at: s.created_at ?? "",
