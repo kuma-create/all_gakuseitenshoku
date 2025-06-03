@@ -25,32 +25,42 @@ export default function AdminLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true); setErr(null);
+    setErr(null);
+    setLoading(true);
 
-    /* Supabase Auth -------------- */
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email, password,
-    });
-    if (error || !data.session) {
-      setErr("ログインに失敗しました");
+    try {
+      /* Supabase Auth -------------------------------------------------- */
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error || !data.session) {
+        setErr(error?.message ?? "ログインに失敗しました");
+        return;
+      }
+
+      /* ロール確認 – JWT / app_metadata から取得（DB アクセス不要） */
+      const role =
+        data.session.user.user_metadata?.role ??
+        (data.session.user.app_metadata as any)?.role ??
+        "student";
+
+      if (role !== "admin") {
+        setErr("管理者権限がありません");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      /* 成功したら管理画面へ遷移 */
+      router.replace(nextPath);
+    } catch (err: any) {
+      setErr(err.message ?? "ログインに失敗しました");
+    } finally {
+      /* いずれの場合もローディングを解除し、SSR を最新化 */
       setLoading(false);
-      return;
+      router.refresh();
     }
-
-    /* ロール確認 – JWT / app_metadata から取得（DB アクセス不要） */
-    const role =
-      data.user.user_metadata?.role ??
-      (data.user.app_metadata as any)?.role ??
-      (data.user as any).role;
-
-    if (role !== "admin") {
-      setErr("管理者権限がありません");
-      await supabase.auth.signOut();
-      setLoading(false);
-      return;
-    }
-
-    router.replace(nextPath);
   };
 
   return (
