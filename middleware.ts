@@ -17,14 +17,11 @@ const LOGIN_REQUIRED_PREFIXES: string[] = [];
 
 /** 誰でもアクセスできるパス */
 const PUBLIC_PREFIXES = [
-  "/",                     // トップページ
-  "/login",                // 学生・企業共通ログイン
-  "/signup",               // 新規登録
-  "/auth/student/register",// 学生登録フロー
-  "/auth/reset",           // パスワードリセット
-  "/grandprix",            // グランプリ一覧
-  "/api",                  // API ルート
-  "/admin/login",          // 管理者ログイン
+  "/",              // トップ
+  "/grandprix",     // グランプリ一覧
+  "/api",           // API ルート
+  "/auth/reset",    // パスワードリセット
+  "/admin/login",   // 管理者ログイン
 ];
 
 /* ------------------------------------------------------------------ */
