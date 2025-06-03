@@ -82,10 +82,11 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           .select(`
             *,
             company:companies(
-              id,name,logo,cover_image_url,industry,location,website
+              id, name, logo, cover_image_url, industry, location, website
             ),
-            internship:internship_details(*),
-            event:event_details(*)
+            internship:internship_details!job_id(*),
+            fulltime:fulltime_details!job_id(*),
+            event:event_details!job_id(*)
           `)
           .eq("id", params.id)
           .limit(1)              // まず 1 件に絞る
@@ -95,7 +96,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           throw new Error("選考が見つかりませんでした")
         }
 
-        const sel = selRows[0] as SelectionWithCompany
+        const sel = selRows[0] as unknown as SelectionWithCompany
 
         /* tags */
         const { data: tagRows } = await supabase
