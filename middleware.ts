@@ -7,6 +7,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient }          from "@supabase/auth-helpers-nextjs";
 import type { Database }                   from "@/lib/supabase/types";
+import { createClient } from "@supabase/supabase-js";
+
+// サービスロールキーで RLS をバイパスして取得
+const adminSupabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
 
 /* ---------- 定数 ---------- */
 /** 静的アセット拡張子 */
@@ -44,19 +51,31 @@ export async function middleware(req: NextRequest) {
   const isLoginPage   = pathname === "/login" || pathname === "/admin/login";
 
   /* ---------- ロール判定 ---------- */
-  const role = session
-    ? (
-        // --- user_metadata ---
-        (session.user.user_metadata as any)?.user_role ??
-        (session.user.user_metadata as any)?.role ??
-        // --- app_metadata ---
-        (session.user.app_metadata as any)?.user_role ??
-        (session.user.app_metadata as any)?.role ??
-        // --- fallback (旧実装)
-        (session.user as any).role ??
-        "student"
-      )
-    : "guest";
+  let role: string | null = null;
+
+  if (session) {
+    // ① metadata から試す
+    role =
+      (session.user.user_metadata as any)?.user_role ??
+      (session.user.user_metadata as any)?.role ??
+      (session.user.app_metadata  as any)?.user_role ??
+      (session.user.app_metadata  as any)?.role ??
+      (session.user as any).role ??
+      null;
+
+    // ② metadata に無ければ user_roles テーブルから取得
+    if (!role) {
+      const { data, error } = await adminSupabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .single();
+
+      role = !error && data?.role ? data.role : "student";
+    }
+  } else {
+    role = "guest";
+  }
 
   const isCompanyRole = role === "company_admin" || role === "company";
 
