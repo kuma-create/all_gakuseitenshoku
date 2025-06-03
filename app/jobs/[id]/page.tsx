@@ -40,11 +40,17 @@ import { FulltimeInfo, InternInfo, EventInfo } from "./_variants"
 
 /* ---------- 型 (簡略) ---------- */
 type SelectionRow = Database["public"]["Views"]["selections_view"]["Row"]
-type CompanyRow   = {
+type CompanyRow = {
   id: string
   name: string | null
-  logo: string | null
+  logo_url: string | null
   cover_image_url: string | null
+  industry: string | null
+  founded_year: number | null
+  employee_count: number | null
+  location: string | null
+  website: string | null
+  description: string | null
 }
 type SelectionWithCompany = SelectionRow & { company?: CompanyRow | null }
 
@@ -82,7 +88,16 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
           .select(`
             *,
             company:companies(
-              id, name, logo, cover_image_url, industry, location, website
+              id,
+              name,
+              logo_url,
+              cover_image_url,
+              industry,
+              founded_year,
+              employee_count,
+              location,
+              website,
+              description
             ),
             internship:internship_details!job_id(*),
             fulltime:fulltime_details!job_id(*),
@@ -132,7 +147,9 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
         /* set */
         setJob(sel)
-        setCompany(sel.company ?? null)
+        // cast sel.company to the extended CompanyRow shape
+        const comp = sel.company as unknown as CompanyRow
+        setCompany(comp ?? null)
         setTags(tagList)
         setRelated(rel)
         setHasApplied(Boolean(applied))

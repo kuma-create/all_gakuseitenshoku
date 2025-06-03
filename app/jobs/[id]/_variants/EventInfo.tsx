@@ -1,13 +1,19 @@
 "use client"
 
+import React from "react"
 import Image from "next/image"
 import type { Dispatch, SetStateAction } from "react"
 
 type Company = {
   id: string
   name: string | null
-  logo: string | null
+  logo_url: string | null
   cover_image_url: string | null
+  industry: string | null
+  founded_year: number | null
+  employee_count: number | null
+  location: string | null
+  description: string | null
 }
 
 type Props = {
@@ -35,9 +41,9 @@ export default function EventInfo({
     <div className="space-y-8 px-6 py-10 max-w-3xl mx-auto">
       {/* --- header --- */}
       <div className="flex items-center space-x-3">
-        {company.logo && (
+        {company.logo_url && (
           <Image
-            src={company.logo}
+            src={company.logo_url}
             alt={company.name ?? "company logo"}
             width={40}
             height={40}
