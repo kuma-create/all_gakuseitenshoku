@@ -270,9 +270,9 @@ export default function CompanyDashboard() {
 
       {/* ── サマリー ───────────────────────────── */}
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        <SummaryCard title="求人"      main={pubJobs}     sub={draftJobs}   subLabel="下書き" link="/jobs/manage" />
-        <SummaryCard title="応募者"    main={applications.length} link="/applications" />
-        <SummaryCard title="メッセージ" main={unreadCnt}    sub={messages.length} subLabel="取得件数" link="/chat" />
+        <SummaryCard title="求人"      main={pubJobs}     sub={draftJobs}   subLabel="下書き" link="/company/jobs/manage" />
+        <SummaryCard title="応募者"    main={applications.length} link="/company/applications" />
+        <SummaryCard title="メッセージ" main={unreadCnt}    sub={messages.length} subLabel="取得件数" link="/company/chat" />
         <SummaryCard title="スカウト"  main={scoutCount}   link="/company/scout" />
       </section>
 
