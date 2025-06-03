@@ -90,7 +90,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
             company:companies(
               id,
               name,
-              logo_url,
+              logo_url:logo,
               cover_image_url,
               industry,
               founded_year,
