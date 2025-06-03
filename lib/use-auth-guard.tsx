@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 
@@ -28,6 +29,8 @@ export function useAuthGuard(
     mode ?? (requiredRole === "any" ? "optional" : "required");
 
   const [ready, setReady] = useState(false);
+  // Auth ユーザーに role 情報が無い場合、user_roles テーブルから取得
+  const [dbRole, setDbRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
     /* ① Auth Provider の初期化待ち */
@@ -49,8 +52,29 @@ export function useAuthGuard(
       return;
     }
 
+    /* ②-1 Auth ユーザーに role が無ければ DB から取得して state に保存 */
+    if (isLoggedIn && user && !user.role && !dbRole) {
+      (async () => {
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!error && data?.role) {
+          setDbRole(data.role as UserRole);
+        }
+      })();
+      // DB フェッチが終わるまで待機
+      return;
+    }
+
     /* ③ ロール判定 */
-    const currentRole: UserRole = (user.role ?? "student") as UserRole;
+    const currentRole: UserRole = (
+      user.role ??                // Auth user 直付け
+      dbRole ??                   // user_roles テーブルから取得した値
+      "student"                   // フォールバック
+    ) as UserRole;
 
     if (requiredRole !== "any" && currentRole !== requiredRole) {
       // 権限違い ⇒ 自身ロールのダッシュボードへリダイレクト
@@ -69,7 +93,7 @@ export function useAuthGuard(
 
     /* ④ 通過 */
     setReady(true);
-  }, [authReady, isLoggedIn, user, requiredRole, effectiveMode, pathname, router]);
+  }, [authReady, isLoggedIn, user, dbRole, requiredRole, effectiveMode, pathname, router]);
 
   return ready;
 }
