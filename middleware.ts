@@ -47,7 +47,7 @@ export async function middleware(req: NextRequest) {
   let role: string | null = null;
 
   if (session) {
-    // ① metadata から試す
+    // ① metadata の role（無ければ null）
     role =
       (session.user.user_metadata as any)?.user_role ??
       (session.user.user_metadata as any)?.role ??
@@ -56,17 +56,19 @@ export async function middleware(req: NextRequest) {
       (session.user as any).role ??
       null;
 
-    // ② metadata に無ければ user_roles テーブルから取得
-    if (!role) {
-      // RLS で user_id = auth.uid() を許可していれば anon でも取得可能
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .single();
+    // ② user_roles テーブルを常に参照し、値があればメタデータより優先
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .single();
 
-      role = !error && data?.role ? data.role : "student";
+    if (!error && data?.role) {
+      role = data.role;   // テーブルの値を最優先
     }
+
+    // ③ フォールバック
+    if (!role) role = "student";
   } else {
     role = "guest";
   }
