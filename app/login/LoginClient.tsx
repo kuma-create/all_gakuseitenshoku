@@ -59,7 +59,7 @@ const IconInput = ({
 );
 
 /* ---------- 専用フォーム ---------- */
-type Role = "student" | "company" | "admin";
+type Role = "student" | "company" | "company_admin" | "admin";
 
 // --- helper ---------------------------------------------------------------
 // DB から本物の role を取得（見つからなければ "student" 扱い）
@@ -196,18 +196,28 @@ export default function LoginClient() {
   const [showPW, setShowPW] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  /* ----- 既ログインなら速攻リダイレクト ----- */
+  /* ----- 既ログインなら role を取得してリダイレクト ----- */
   useEffect(() => {
-    if (!ready || !isLoggedIn || !user) return;
-    const dest = nextPath
-      ? nextPath
-      : user.role === "company"
-      ? "/company-dashboard"
-      : user.role === "admin"
-      ? "/admin-dashboard"
-      : "/student-dashboard";
-    router.replace(dest);
-  }, [ready, isLoggedIn, user, nextPath, router]);
+    const redirectIfLoggedIn = async () => {
+      if (!ready || !isLoggedIn || !user) return;
+
+      // DB から本当のロールを取得 (metadata に無い場合も考慮)
+      const realRole = await fetchUserRole(user.id);
+
+      const dest = nextPath
+        ? nextPath
+        : realRole === "company" || realRole === "company_admin"
+        ? "/company-dashboard"
+        : realRole === "admin"
+        ? "/admin-dashboard"
+        : "/student-dashboard";
+
+      router.replace(dest);
+    };
+
+    redirectIfLoggedIn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, isLoggedIn, user, nextPath]);
 
   /* ----- submit ----- */
   const handleLogin = async (e: FormEvent) => {
