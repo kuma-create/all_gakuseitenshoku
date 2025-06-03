@@ -129,7 +129,9 @@ export const config = {
     /*
       - 静的アセット (_next/static 等) は除外
       - ルート "/" は除外
+      - /admin 配下は除外（クライアント側ガードに任せる）
+      - /company 配下も除外（クライアント側ガードに任せる）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company).*)",
   ],
 };
