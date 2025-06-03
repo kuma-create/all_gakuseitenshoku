@@ -7,13 +7,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient }          from "@supabase/auth-helpers-nextjs";
 import type { Database }                   from "@/lib/supabase/types";
-import { createClient } from "@supabase/supabase-js";
-
-// サービスロールキーで RLS をバイパスして取得
-const adminSupabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 /* ---------- 定数 ---------- */
 /** 静的アセット拡張子 */
@@ -65,7 +58,8 @@ export async function middleware(req: NextRequest) {
 
     // ② metadata に無ければ user_roles テーブルから取得
     if (!role) {
-      const { data, error } = await adminSupabase
+      // RLS で user_id = auth.uid() を許可していれば anon でも取得可能
+      const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
