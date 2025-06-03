@@ -17,11 +17,15 @@ export type GuardMode = "required" | "optional";
  */
 export function useAuthGuard(
   requiredRole: RequiredRole = "any",
-  mode: GuardMode = "required",
+  mode?: GuardMode,
 ): boolean {
   const router = useRouter();
   const pathname = usePathname();
   const { ready: authReady, isLoggedIn, user } = useAuth();
+
+  // 「mode」を省略した場合は requiredRole に応じて自動判定
+  const effectiveMode: GuardMode =
+    mode ?? (requiredRole === "any" ? "optional" : "required");
 
   const [ready, setReady] = useState(false);
 
@@ -32,7 +36,8 @@ export function useAuthGuard(
     /* ② 未ログイン */
     if (!isLoggedIn || !user) {
       // "required" かつ 特定ロールを要求するページのみリダイレクトさせる
-      const loginRequired = mode === "required" && requiredRole !== "any";
+      const loginRequired =
+        effectiveMode === "required" && requiredRole !== "any";
 
       if (loginRequired) {
         router.replace(`/login?next=${encodeURIComponent(pathname)}`);
@@ -64,7 +69,7 @@ export function useAuthGuard(
 
     /* ④ 通過 */
     setReady(true);
-  }, [authReady, isLoggedIn, user, requiredRole, mode, pathname, router]);
+  }, [authReady, isLoggedIn, user, requiredRole, effectiveMode, pathname, router]);
 
   return ready;
 }
