@@ -103,7 +103,14 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-/* _next 等は除外 */
+/* _next 等は除外。さらに "/" (トップ) はミドルウェア対象外 */
 export const config = {
-  matcher: "/((?!_next/static|_next/image|favicon.ico).*)",
+  matcher: [
+    /*
+      1. 静的アセット系は除外 (_next/static 等)
+      2. ルート "/" 自体も除外するため、Negative Lookahead で
+         先頭が終端 "$" となるパスをマッチさせない
+    */
+    "/((?!_next/static|_next/image|favicon.ico|$).*)",
+  ],
 };
