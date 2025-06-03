@@ -42,7 +42,7 @@ import React, { useState } from "react"
 type Company = {
   id: string
   name: string | null
-  logo_url: string | null
+  logo: string | null
   cover_image_url: string | null
   industry: string | null
   founded_year: number | null
@@ -119,7 +119,7 @@ export default function FulltimeInfo({
                 <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                   <div className="relative h-20 w-20 overflow-hidden rounded-xl border-4 border-white bg-white shadow-md">
                     <Image
-                      src={company?.logo_url ?? "/placeholder.svg?height=128&width=128&query=company logo"}
+                      src={company?.logo ?? "/placeholder.svg?height=128&width=128&query=company logo"}
                       alt={`${company?.name} のロゴ`}
                       width={128}
                       height={128}
@@ -366,7 +366,7 @@ function RightColumn({
           <div className="mb-4 flex items-center gap-3">
             <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-gray-200">
               <Image
-                src={company?.logo_url ?? "/placeholder.svg?height=64&width=64&query=company logo"}
+                src={company?.logo ?? "/placeholder.svg?height=64&width=64&query=company logo"}
                 alt={`${company?.name}のロゴ`}
                 width={64}
                 height={64}
@@ -424,7 +424,7 @@ function RightColumn({
                   <div className="relative h-12 w-12 overflow-hidden rounded-md border border-gray-200">
                     <Image
                       src={
-                        rel.company?.logo_url ||
+                        rel.company?.logo ||
                         "/placeholder.svg?height=48&width=48&query=company logo"
                       }
                       alt={rel.company?.name || "logo"}
