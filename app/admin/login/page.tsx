@@ -53,7 +53,7 @@ export default function AdminLogin() {
       }
 
       /* 成功したら管理画面へ遷移 */
-      router.replace(nextPath);
+      router.push(nextPath);      // push に変更して確実に遷移
     } catch (err: any) {
       setErr(err.message ?? "ログインに失敗しました");
     } finally {
