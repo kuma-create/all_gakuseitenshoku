@@ -1,47 +1,19 @@
+"use client";
 /* ------------------------------------------------------------------
-   app/admin/(protected)/layout.tsx  –  Protect /admin with JWT role
+   app/admin/(protected)/layout.tsx – Client‑side auth guard for /admin
 ------------------------------------------------------------------ */
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import type { Database } from "@/lib/supabase/types";
+import { useAuthGuard } from "@/lib/use-auth-guard";
 
-export const dynamic = "force-dynamic";
-
-export default async function AdminProtectedLayout({
+export default function AdminProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createServerComponentClient<Database>({ cookies });
+  // admin ロールのみ許可。ログイン必須。
+  const ready = useAuthGuard("admin", "required");
 
-  /* ❶ セッション取得 */
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  /* ❷ 未ログイン → /admin/login へ */
-  if (!session) {
-    redirect("/admin/login?next=/admin");
-  }
-
-  /* ❸ JWT / app_metadata / user_metadata から role を取得 */
-  const role =
-    // --- user_metadata: prefer `user_role`, fallback to `role`
-    session.user.user_metadata?.user_role ??
-    session.user.user_metadata?.role ??
-    // --- app_metadata: prefer `user_role`, fallback to `role`
-    (session.user.app_metadata as any)?.user_role ??
-    (session.user.app_metadata as any)?.role ??
-    // --- 旧実装 fallback
-    (session.user as any).role ??
-    "student";
-
-  /* ❹ 管理者以外は強制ログアウト → /login */
-  if (role !== "admin") {
-    await supabase.auth.signOut();
-    redirect("/login");
-  }
+  // 認証判定が終わるまで描画しない
+  if (!ready) return null;
 
   return <>{children}</>;
 }
