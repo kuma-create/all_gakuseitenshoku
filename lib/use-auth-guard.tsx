@@ -53,12 +53,13 @@ export function useAuthGuard(
     }
 
     /* ②-0 metadata からロール取得（あれば最優先で使う） */
+    const rawUser: any = user;
     const metaRole: UserRole | null = (
-      (user?.user_metadata as any)?.user_role ??
-      (user?.user_metadata as any)?.role ??
-      (user?.app_metadata  as any)?.user_role ??
-      (user?.app_metadata  as any)?.role ??
-      (user as any)?.role ??
+      rawUser?.user_metadata?.user_role ??
+      rawUser?.user_metadata?.role ??
+      rawUser?.app_metadata?.user_role ??
+      rawUser?.app_metadata?.role ??
+      rawUser?.role ??
       null
     ) as UserRole | null;
 
@@ -103,7 +104,7 @@ export function useAuthGuard(
 
     /* ④ 通過 */
     setReady(true);
-  }, [authReady, isLoggedIn, user, metaRole, dbRole, requiredRole, effectiveMode, pathname, router]);
+  }, [authReady, isLoggedIn, user, dbRole, requiredRole, effectiveMode, pathname, router]);
 
   return ready;
 }
