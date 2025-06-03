@@ -38,7 +38,7 @@ type RawChatRow = {
     id: string
     full_name: string
     university: string
-    major: string
+    department: string
     graduation_year: number
     avatar_url: string | null
     status: "オンライン" | "オフライン"
@@ -120,7 +120,7 @@ const fetchChats = useCallback(async () => {
           id,
           full_name,
           university,
-          major,
+          department,
           graduation_year,
           avatar_url,
           status
@@ -165,7 +165,7 @@ const fetchChats = useCallback(async () => {
             id: r.student_profiles.id,
             name: r.student_profiles.full_name,
             university: r.student_profiles.university,
-            major: r.student_profiles.major,
+            major: r.student_profiles.department,
             graduationYear: r.student_profiles.graduation_year,
             avatar: r.student_profiles.avatar_url || "/placeholder.svg",
             status: r.student_profiles.status,
