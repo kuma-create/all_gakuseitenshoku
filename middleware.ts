@@ -131,7 +131,8 @@ export const config = {
       - ルート "/" は除外
       - /admin 配下は除外（クライアント側ガードに任せる）
       - /company 配下も除外（クライアント側ガードに任せる）
+      - /student 配下も除外（クライアント側ガードに任せる）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student).*)",
   ],
 };
