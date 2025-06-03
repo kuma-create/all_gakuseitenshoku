@@ -17,11 +17,14 @@ const LOGIN_REQUIRED_PREFIXES: string[] = [];
 
 /** 誰でもアクセスできるパス */
 const PUBLIC_PREFIXES = [
-  "/",              // トップ
-  "/grandprix",     // グランプリ一覧
-  "/api",           // API ルート
-  "/auth/reset",    // パスワードリセット
-  "/admin/login",   // 管理者ログイン
+  "/",                     // トップページ
+  "/login",                // 共通ログイン
+  "/signup",               // 新規登録
+  "/auth/student/register",// 学生登録フロー
+  "/auth/reset",           // パスワードリセット
+  "/grandprix",            // グランプリ一覧
+  "/api",                  // API ルート
+  "/admin/login",          // 管理者ログイン
 ];
 
 /* ------------------------------------------------------------------ */
@@ -31,6 +34,11 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient<Database>({ req, res });
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = req.nextUrl;
+
+  /* ---------- 0. トップページはゲスト公開 (早期リターン) ---------- */
+  if (pathname === "/") {
+    return res;            // "/" だけは必ず通過させる
+  }
 
   const isAdminArea   = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isLoginPage   = pathname === "/login" || pathname === "/admin/login";
