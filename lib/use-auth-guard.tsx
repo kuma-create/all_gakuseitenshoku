@@ -52,8 +52,18 @@ export function useAuthGuard(
       return;
     }
 
+    /* ②-0 metadata からロール取得（あれば最優先で使う） */
+    const metaRole: UserRole | null = (
+      (user?.user_metadata as any)?.user_role ??
+      (user?.user_metadata as any)?.role ??
+      (user?.app_metadata  as any)?.user_role ??
+      (user?.app_metadata  as any)?.role ??
+      (user as any)?.role ??
+      null
+    ) as UserRole | null;
+
     /* ②-1 Auth ユーザーに role が無ければ DB から取得して state に保存 */
-    if (isLoggedIn && user && !user.role && !dbRole) {
+    if (isLoggedIn && user && !metaRole && !dbRole) {
       (async () => {
         const { data, error } = await supabase
           .from("user_roles")
@@ -71,8 +81,8 @@ export function useAuthGuard(
 
     /* ③ ロール判定 */
     const currentRole: UserRole = (
-      user.role ??                // Auth user 直付け
-      dbRole ??                   // user_roles テーブルから取得した値
+      metaRole ??                 // metadata / app_metadata 優先
+      dbRole   ??                 // user_roles テーブル
       "student"                   // フォールバック
     ) as UserRole;
 
@@ -93,7 +103,7 @@ export function useAuthGuard(
 
     /* ④ 通過 */
     setReady(true);
-  }, [authReady, isLoggedIn, user, dbRole, requiredRole, effectiveMode, pathname, router]);
+  }, [authReady, isLoggedIn, user, metaRole, dbRole, requiredRole, effectiveMode, pathname, router]);
 
   return ready;
 }

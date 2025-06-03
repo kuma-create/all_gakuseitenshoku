@@ -10,17 +10,31 @@ export default function AuthGuard() {
     const check = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        // ログイン不要で表示したいパス
-        const publicRoutes = [
-          "/",                        // トップページ
-          "/login",                   // 共通ログイン
-          "/signup",                  // 新規登録
-          "/admin/login",             // 管理者ログイン
-          "/auth/student/register",   // 学生登録フロー
-          "/auth/reset",              // パスワードリセット
-          "/grandprix",               // 公開一覧
+        // ゲスト閲覧を許可するパス（接頭辞マッチ）
+        const publicPrefixes = [
+          "/",                         // トップ
+          "/login",                    // 共通ログイン
+          "/signup",                   // 新規登録
+          "/admin/login",              // 管理者ログイン
+          "/auth/student/register",    // 学生登録
+          "/auth/reset",               // パスワードリセット
+          "/grandprix",                // グランプリ一覧
+          /* --- 以下はクライアント側ガードで制御 --- */
+          "/offers",                   // 学生スカウト
+          "/applications",             // 学生応募履歴
+          "/chat",                     // 学生チャット
+          "/company",                  // 企業配下
+          "/student",                  // 学生配下
         ];
-        if (publicRoutes.includes(location.pathname)) return;
+        if (
+          publicPrefixes.some(
+            (p) =>
+              location.pathname === p ||
+              location.pathname.startsWith(p + "/")
+          )
+        ) {
+          return;
+        }
 
         await supabase.auth.signOut({ scope: "local" }); // Cookie も削除
         const next = encodeURIComponent(location.pathname + location.search);

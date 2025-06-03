@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
-import type { Database } from "@/lib/supabase/types"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -39,7 +38,7 @@ type RawChatRow = {
     full_name: string
     university: string
     department: string
-    graduation_year: number
+    graduation_month: string         // ISO date string
     avatar_url: string | null
     status: "オンライン" | "オフライン"
   }
@@ -121,7 +120,7 @@ const fetchChats = useCallback(async () => {
           full_name,
           university,
           department,
-          graduation_year,
+          graduation_month,
           avatar_url,
           status
         ),
@@ -166,7 +165,9 @@ const fetchChats = useCallback(async () => {
             name: r.student_profiles.full_name,
             university: r.student_profiles.university,
             major: r.student_profiles.department,
-            graduationYear: r.student_profiles.graduation_year,
+            graduationYear: r.student_profiles.graduation_month
+              ? new Date(r.student_profiles.graduation_month).getFullYear()
+              : NaN,
             avatar: r.student_profiles.avatar_url || "/placeholder.svg",
             status: r.student_profiles.status,
           },

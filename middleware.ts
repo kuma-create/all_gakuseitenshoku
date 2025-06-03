@@ -17,14 +17,18 @@ const LOGIN_REQUIRED_PREFIXES: string[] = [];
 
 /** 誰でもアクセスできるパス */
 const PUBLIC_PREFIXES = [
-  "/",                     // トップページ
-  "/login",                // 共通ログイン
-  "/signup",               // 新規登録
-  "/auth/student/register",// 学生登録フロー
-  "/auth/reset",           // パスワードリセット
-  "/grandprix",            // グランプリ一覧
-  "/api",                  // API ルート
-  "/admin/login",          // 管理者ログイン
+  "/",                       // トップページ
+  "/login",                  // 共通ログイン
+  "/signup",                 // 新規登録
+  "/auth/student/register",  // 学生登録フロー
+  "/auth/reset",             // パスワードリセット
+  "/grandprix",              // グランプリ一覧
+  "/api",                    // API ルート
+  "/admin/login",            // 管理者ログイン
+  /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
+  "/offers",                 // スカウト /offers(/...)
+  "/applications",           // 応募履歴 /applications(/...)
+  "/chat",                   // 学生チャット /chat(/...)
 ];
 
 /* ------------------------------------------------------------------ */
@@ -129,10 +133,9 @@ export const config = {
     /*
       - 静的アセット (_next/static 等) は除外
       - ルート "/" は除外
-      - /admin 配下は除外（クライアント側ガードに任せる）
-      - /company 配下も除外（クライアント側ガードに任せる）
-      - /student 配下も除外（クライアント側ガードに任せる）
+      - /admin, /company, /student, /offers, /applications, /chat を除外
+        （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat).*)",
   ],
 };
