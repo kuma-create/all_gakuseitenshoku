@@ -127,10 +127,9 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     /*
-      1. 静的アセット系は除外 (_next/static 等)
-      2. ルート "/" 自体も除外するため、Negative Lookahead で
-         先頭が終端 "$" となるパスをマッチさせない
+      - 静的アセット (_next/static 等) は除外
+      - ルート "/" は除外
     */
-    "/((?!_next/static|_next/image|favicon.ico|$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin).*)",
   ],
 };
