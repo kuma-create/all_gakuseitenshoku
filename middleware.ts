@@ -46,8 +46,13 @@ export async function middleware(req: NextRequest) {
   /* ---------- ロール判定 ---------- */
   const role = session
     ? (
-        session.user.user_metadata?.role ??
+        // --- user_metadata ---
+        (session.user.user_metadata as any)?.user_role ??
+        (session.user.user_metadata as any)?.role ??
+        // --- app_metadata ---
+        (session.user.app_metadata as any)?.user_role ??
         (session.user.app_metadata as any)?.role ??
+        // --- fallback (旧実装)
         (session.user as any).role ??
         "student"
       )
