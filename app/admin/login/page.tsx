@@ -40,10 +40,15 @@ export default function AdminLogin() {
         return;
       }
 
-      /* ロール確認 – JWT / app_metadata から取得（DB アクセス不要） */
+      /* ロール確認 – JWT / user_metadata / app_metadata から取得 */
       const role =
+        // --- user_metadata: prefer user_role, fallback to role
+        data.session.user.user_metadata?.user_role ??
         data.session.user.user_metadata?.role ??
+        // --- app_metadata: prefer user_role, fallback to role
+        (data.session.user.app_metadata as any)?.user_role ??
         (data.session.user.app_metadata as any)?.role ??
+        // --- fallback
         "student";
 
       if (role !== "admin") {

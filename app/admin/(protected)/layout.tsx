@@ -25,11 +25,17 @@ export default async function AdminProtectedLayout({
     redirect("/admin/login?next=/admin");
   }
 
-  /* ❸ JWT / app_metadata から role を取得（DB アクセス不要） */
+  /* ❸ JWT / app_metadata / user_metadata から role を取得 */
   const role =
+    // --- user_metadata: prefer `user_role`, fallback to `role`
+    session.user.user_metadata?.user_role ??
     session.user.user_metadata?.role ??
+    // --- app_metadata: prefer `user_role`, fallback to `role`
+    (session.user.app_metadata as any)?.user_role ??
     (session.user.app_metadata as any)?.role ??
-    (session.user as any).role;
+    // --- 旧実装 fallback
+    (session.user as any).role ??
+    "student";
 
   /* ❹ 管理者以外は強制ログアウト → /login */
   if (role !== "admin") {
