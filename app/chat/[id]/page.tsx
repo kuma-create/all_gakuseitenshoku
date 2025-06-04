@@ -12,13 +12,36 @@ import React, {
   useRef,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, MapPin, Users, Calendar, ExternalLink } from "lucide-react";
+import { MessageSquare, Briefcase } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 /* ---- StudentChatPage の冒頭付近 ---- */
 import { ModernChatUI } from "@/components/chat/modern-chat-ui";  // ← {} を付ける
 import { ThemeToggle } from "@/components/theme-toggle";
 import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import type { Message } from "@/types/message";
+
+/* ---------- 共通アイコン行コンポーネント ---------- */
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value?: string | number | null
+}) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+      <Icon className="h-4 w-4 text-gray-400" />
+      <span className="font-medium text-foreground">{label}:</span>
+      <span>{value}</span>
+    </div>
+  );
+}
 
 /* ───────────── Supabase 型エイリアス ───────────── */
 type ChatRoomRow = Database["public"]["Tables"]["chat_rooms"]["Row"];
@@ -290,24 +313,116 @@ export default function StudentChatPage() {
     );
   }
 
-  /* ───────────── 画面描画 ───────────── */
+  /* ---------- Layout ---------- */
+  const isStudent = currentUserId === studentUserIdRef.current;
+
   return (
-    <div className="relative flex h-full flex-col">
-      <header className="flex items-center justify-between border-b p-4">
-        <h1 className="text-lg font-semibold">{chat.company.name}</h1>
-        <ThemeToggle />
+    /* 2行×2列グリッド: [header] / [chat | sidebar] */
+    <div className="grid h-full grid-rows-[auto_1fr] md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-[auto_1fr]">
+      {/* ── Header (row 0, col-span 2) ── */}
+      <header className="relative col-span-full row-start-1 row-end-2 flex h-16 items-center justify-between border-b bg-background px-4 shadow-sm">
+        {/* 左: ロゴ + 会社名 + ステータス */}
+        <div className="flex items-center gap-3">
+          {chat.company.logo ? (
+            <img
+              src={chat.company.logo}
+              alt={chat.company.name}
+              className="h-8 w-8 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm">
+              {chat.company.name.slice(0, 1)}
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="text-base font-semibold">{chat.company.name}</span>
+            <Badge
+              variant="outline"
+              className="w-fit border-green-600 text-xs text-green-600"
+            >
+              オンライン
+            </Badge>
+          </div>
+        </div>
+
+        {/* 右: アクションボタン */}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm">
+            <MessageSquare className="mr-2 h-4 w-4" />
+            チャット
+          </Button>
+          <Button variant="outline" size="sm">
+            <Briefcase className="mr-2 h-4 w-4" />
+            求人詳細
+          </Button>
+          <ThemeToggle />
+        </div>
       </header>
 
-      {/* ---- JSX 返却部 ---- */}
-      <ModernChatUI
-        messages={chat.messages}
-        onSendMessage={handleSendMessage}
-        currentUser={currentUserId === chat.room.student_id ? "student" : "company"}
-        recipient={{ id: chat.company.id, name: chat.company.name }}
-        className="flex-1"
-      />
+      {/* ── Chat column (row 1, col 0) ── */}
+      <div className="flex h-full flex-col border-r">
+        <ModernChatUI
+          messages={chat.messages}
+          onSendMessage={handleSendMessage}
+          currentUser={isStudent ? "student" : "company"}
+          recipient={{ id: chat.company.id, name: chat.company.name }}
+          className="flex-1"
+        />
+        <div ref={bottomRef} />
+      </div>
 
-      <div ref={bottomRef} />
+      {/* ── Sidebar (row 1, col 1) ── */}
+      <aside className="hidden h-full overflow-y-auto bg-background md:block">
+        <div className="space-y-6 p-4">
+          {isStudent ? (
+            /* ---- Company Info ---- */
+            <>
+              <h2 className="text-base font-semibold">会社情報</h2>
+              <div className="flex items-center gap-3">
+                <img
+                  src={chat.company.logo ?? "/placeholder.svg"}
+                  alt={chat.company.name}
+                  className="h-10 w-10 rounded-lg object-cover"
+                />
+                <div>
+                  <p className="font-medium">{chat.company.name}</p>
+                  {chat.company.industry && (
+                    <p className="text-xs text-muted-foreground">
+                      {chat.company.industry}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <InfoRow icon={MapPin}   label="所在地"   value={chat.company.location} />
+                <InfoRow icon={Users}    label="社員数"   value={chat.company.employee_count?.toString()} />
+                <InfoRow icon={Calendar} label="設立"     value={chat.company.founded_year?.toString()} />
+                {chat.company.website && (
+                  <a
+                    href={chat.company.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    公式サイト
+                  </a>
+                )}
+              </div>
+              {chat.company.description && (
+                <p className="rounded-lg bg-gray-50 p-3 text-sm">
+                  {chat.company.description.split("\n")[0]}...
+                </p>
+              )}
+            </>
+          ) : (
+            /* ---- Placeholder for company view (show student profile) ---- */
+            <p className="text-sm text-muted-foreground">
+              学生プロフィールをここに表示
+            </p>
+          )}
+        </div>
+      </aside>
     </div>
   );
 }
