@@ -320,6 +320,15 @@ export default function StudentChatPage() {
   /* ---------- Layout ---------- */
   const isStudent = currentUserId === studentUserIdRef.current;
 
+  // 一時的にグローバルヘッダーを隠す
+  useEffect(() => {
+    const siteHeader = document.getElementById("siteHeader"); // サイト共通ヘッダーの id を想定
+    if (siteHeader) siteHeader.style.display = "none";
+    return () => {
+      if (siteHeader) siteHeader.style.display = "";
+    };
+  }, []);
+
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
     <div className="grid h-screen grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
