@@ -330,7 +330,7 @@ export default function StudentChatPage() {
             onSendMessage={handleSendMessage}
             currentUser={isStudent ? "student" : "company"}
             recipient={{ id: chat.company.id, name: chat.company.name }}
-            className="flex flex-col min-h-full"
+            className="flex flex-col flex-1 min-h-0"
           />
           <div ref={bottomRef} className="h-px" />
         </div>
