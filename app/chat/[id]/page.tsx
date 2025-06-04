@@ -13,6 +13,8 @@ import React, {
 } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { MapPin, Users, Calendar, ExternalLink } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 /* ---- StudentChatPage の冒頭付近 ---- */
 import { ModernChatUI } from "@/components/chat/modern-chat-ui";  // ← {} を付ける
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -30,6 +32,26 @@ interface ChatData {
   room:     ChatRoomRow;
   company:  CompanyRow;
   messages: Message[];
+}
+
+/* ---------- 汎用アイコン行 ---------- */
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value?: string | number | null
+}) {
+  if (!value) return null
+  return (
+    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+      <Icon className="h-4 w-4 text-gray-400" />
+      <span className="font-medium text-foreground">{label}: </span>
+      <span>{value}</span>
+    </div>
+  )
 }
 
 export default function StudentChatPage() {
@@ -292,92 +314,92 @@ export default function StudentChatPage() {
 
   /* ───────────── 画面描画 ───────────── */
   return (
-    /* 画面全体を2カラム (md 以上) にし、左:チャット 右:会社概要 */
-    <div className="relative h-full w-full md:grid md:grid-cols-[1fr_320px] md:gap-6">
-      {/* ---------- チャット ---------- */}
-      <div className="flex h-full flex-col border-r md:border-none">
-        {/* ヘッダー */}
-        <header className="flex items-center justify-between border-b p-4">
-          <div className="flex items-center gap-3">
-            {chat.company.logo ? (
-              /* company logo */
-              <img
-                src={chat.company.logo}
-                alt={chat.company.name}
-                className="h-8 w-8 rounded-full object-cover"
-              />
-            ) : (
-              /* fallback circle */
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm">
-                {chat.company.name.slice(0, 1)}
-              </div>
-            )}
-            <h1 className="text-lg font-semibold">{chat.company.name}</h1>
-          </div>
+    <div className="relative flex h-full flex-col md:flex-row">
+      {/* ─── 上部バナー ─── */}
+      <header className="relative h-28 w-full md:w-[calc(100%-320px)]">
+        <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 opacity-80" />
+        <div className="relative z-10 flex h-full items-center gap-3 pl-4">
+          {chat.company.logo ? (
+            <img
+              src={chat.company.logo}
+              alt={chat.company.name}
+              className="h-12 w-12 rounded-lg border-2 border-white object-cover"
+            />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/60 text-sm font-bold text-red-600">
+              {chat.company.name.slice(0, 1)}
+            </div>
+          )}
+          <h1 className="text-xl font-bold text-white drop-shadow">{chat.company.name}</h1>
+        </div>
+        <div className="absolute right-4 top-4 z-10">
           <ThemeToggle />
-        </header>
+        </div>
+      </header>
 
-        {/* チャットUI (メッセージエリアは flex-1 でスクロール) */}
-        <ModernChatUI
-          messages={chat.messages}
-          onSendMessage={handleSendMessage}
-          currentUser={
-            currentUserId === studentUserIdRef.current ? "student" : "company"
-          }
-          recipient={{ id: chat.company.id, name: chat.company.name }}
-          className="flex-1 overflow-y-auto"
-        />
+      <main className="flex flex-1 flex-col md:flex-row">
+        {/* ---------- チャット本体 ---------- */}
+        <div className="flex h-full flex-col md:w-2/3 md:border-r">
+          <Card className="flex h-full flex-col rounded-none md:rounded-lg">
+            <CardContent className="flex-1 overflow-y-auto p-0">
+              <ModernChatUI
+                messages={chat.messages}
+                onSendMessage={handleSendMessage}
+                currentUser={
+                  currentUserId === studentUserIdRef.current ? "student" : "company"
+                }
+                recipient={{ id: chat.company.id, name: chat.company.name }}
+                className="flex-1"
+              />
+              <div ref={bottomRef} />
+            </CardContent>
+          </Card>
+        </div>
 
-        <div ref={bottomRef} />
-      </div>
+        {/* ---------- サイドバー: 会社情報 ---------- */}
+        <aside className="hidden w-80 flex-shrink-0 md:block md:h-full">
+          <div className="sticky top-0 space-y-6 p-4">
+            <h2 className="text-base font-semibold">会社情報</h2>
 
-      {/* ---------- 会社概要パネル (md 以上で表示) ---------- */}
-      <aside className="hidden h-full flex-col md:flex">
-        <div className="sticky top-0 space-y-4 p-4">
-          <h2 className="text-base font-semibold">会社情報</h2>
+            <div className="flex items-center gap-3">
+              <img
+                src={chat.company.logo ?? "/placeholder.svg"}
+                alt={chat.company.name}
+                className="h-10 w-10 rounded-lg object-cover"
+              />
+              <div>
+                <p className="font-medium">{chat.company.name}</p>
+                {chat.company.industry && (
+                  <p className="text-xs text-muted-foreground">{chat.company.industry}</p>
+                )}
+              </div>
+            </div>
 
-          {/* 業界 /所在地 /HP など後で増やせる */}
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>
-              <span className="font-medium text-foreground">会社名: </span>
-              {chat.company.name}
-            </li>
-            {chat.company.industry && (
-              <li>
-                <span className="font-medium text-foreground">業界: </span>
-                {chat.company.industry}
-              </li>
-            )}
-            {chat.company.location && (
-              <li>
-                <span className="font-medium text-foreground">所在地: </span>
-                {chat.company.location}
-              </li>
-            )}
-            {chat.company.website && (
-              <li>
+            <div className="space-y-2">
+              <InfoRow icon={MapPin}   label="所在地"   value={chat.company.location} />
+              <InfoRow icon={Users}    label="社員数"   value={chat.company.employee_count?.toString()} />
+              <InfoRow icon={Calendar} label="設立"     value={chat.company.founded_year?.toString()} />
+              {chat.company.website && (
                 <a
                   href={chat.company.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary underline"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                 >
+                  <ExternalLink className="h-4 w-4" />
                   公式サイト
                 </a>
-              </li>
-            )}
-          </ul>
+              )}
+            </div>
 
-          {chat.company.description && (
-            <>
-              <h3 className="text-sm font-semibold">会社概要</h3>
-              <p className="whitespace-pre-wrap text-sm">
-                {chat.company.description}
-              </p>
-            </>
-          )}
-        </div>
-      </aside>
+            {chat.company.description && (
+              <div className="rounded-lg bg-gray-50 p-3 text-sm">
+                {chat.company.description.split("\n")[0]}...
+              </div>
+            )}
+          </div>
+        </aside>
+      </main>
     </div>
   );
 }
