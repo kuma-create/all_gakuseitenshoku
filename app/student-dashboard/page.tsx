@@ -213,7 +213,7 @@ function GreetingHero({ userName }: { userName: string }) {
           <SheetContent side="right" className="w-64">
             <nav className="mt-8 space-y-4">
               <NavLink href="/jobs">求人を探す</NavLink>
-              <NavLink href="/student/offers">オファー</NavLink>
+              <NavLink href="/offers">オファー</NavLink>
               <NavLink href="/student/chat">チャット</NavLink>
               <NavLink href="/grandprix">就活グランプリ一覧</NavLink>
               <NavLink href="/student/profile">プロフィール編集</NavLink>
@@ -416,7 +416,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
         {offers.map((offer) => (
           <Link
             key={offer.id}
-            href={`/student/offers/${offer.company_id}`}
+            href={`/offers/${offer.company_id}`}
             className="relative flex gap-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
           >
             {!offer.is_read && (
@@ -469,7 +469,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
       </CardContent>
 
       <CardFooter>
-        <Link href="/student/offers" className="w-full">
+        <Link href="/offers" className="w-full">
           <Button
             variant="outline"
             className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
@@ -494,7 +494,7 @@ function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
         icon={<Mail className="h-5 w-5 text-red-600" />}
         loading={loading}
         stats={[{ label: "累計", value: stats.scouts, badge: true }]}
-        href="/student/offers"
+        href="/offers"
       />
       <StatCard
         title="応募履歴"
