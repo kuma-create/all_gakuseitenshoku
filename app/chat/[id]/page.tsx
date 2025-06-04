@@ -37,6 +37,7 @@ export default function StudentChatPage() {
   const { id: chatId } = useParams() as { id: string };
   const router = useRouter();
   const [chat, setChat] = useState<ChatData | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +48,7 @@ export default function StudentChatPage() {
     const loadChat = async () => {
       /* 1) 認証チェック */
       const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
       if (!user) {
         console.warn("no auth user – redirecting to /login");
         router.push("/login");
@@ -70,14 +72,14 @@ export default function StudentChatPage() {
       /* 会社メンバー or 学生本人でなければアクセス不可 */
       const isStudent = user.id === roomData.student_id;
       let isCompanyMember = false;
-
-      if (!isStudent) {
+      if (!isStudent && roomData.company_id) {
         const { data: memberRow, error: memErr } = await supabase
           .from("company_members")
           .select("user_id")
-          .eq("company_id", roomData.company_id)
+          .eq("company_id", roomData.company_id as string)
           .eq("user_id", user.id)
           .maybeSingle();
+
         if (memErr) {
           console.error("company_members fetch error", memErr);
         }
@@ -91,10 +93,15 @@ export default function StudentChatPage() {
       }
 
       /* 3) companies 取得 */
+      if (!roomData.company_id) {
+        console.error("roomData.company_id is null");
+        router.push("/chat");
+        return;
+      }
       const { data: companyData, error: compErr } = await supabase
         .from("companies")
         .select("*")
-        .eq("id", roomData.company_id)
+        .eq("id", roomData.company_id as string)
         .maybeSingle();
       if (compErr || !companyData) {
         console.error("company fetch error", compErr);
@@ -275,7 +282,7 @@ export default function StudentChatPage() {
       <ModernChatUI
         messages={chat.messages}
         onSendMessage={handleSendMessage}
-        currentUser={user?.id === chat.room.student_id ? "student" : "company"}
+        currentUser={currentUserId === chat.room.student_id ? "student" : "company"}
         recipient={{ id: chat.company.id, name: chat.company.name }}
         className="flex-1"
       />
