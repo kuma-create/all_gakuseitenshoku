@@ -322,13 +322,13 @@ export default function StudentChatPage() {
       {/* ── Header (row 0, col-span 2) ── */}
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex flex-col h-full min-h-0 min-w-0 border-r">
+      <div className="flex flex-col h-full min-h-0 min-w-0 border-r overflow-hidden">
         <ModernChatUI
           messages={chat.messages}
           onSendMessage={handleSendMessage}
           currentUser={isStudent ? "student" : "company"}
           recipient={{ id: chat.company.id, name: chat.company.name }}
-          className="flex flex-col flex-1 overflow-y-auto"
+          className="flex flex-col flex-1"
         />
         <div ref={bottomRef} />
       </div>
