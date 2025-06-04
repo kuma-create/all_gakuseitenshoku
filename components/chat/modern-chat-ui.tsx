@@ -276,8 +276,8 @@ export function ModernChatUI({
     "18:30",
   ]
 
-  // Calculate main content padding based on active tab and screen size
-  const mainContentStyle = !isMobile && activeTab !== "chat" ? { paddingRight: "350px" } : {}
+  // PC はページ側でサイドバーを常時表示しているので padding 調整はモバイル時のみ
+  const mainContentStyle = isMobile && activeTab !== "chat" ? { paddingRight: "350px" } : {}
 
   return (
     <div className={cn("flex flex-col h-full bg-gray-50 dark:bg-gray-900", className)}>
@@ -332,7 +332,7 @@ export function ModernChatUI({
                   </>
                 )}
                 {currentUser === "student" && (
-                  <TabsTrigger value="job" className="h-7 px-3 text-xs">
+                  <TabsTrigger value="job" className="h-7 px-3 text-xs md:hidden">
                     <Briefcase className="h-3.5 w-3.5 mr-1.5" />
                     求人詳細
                   </TabsTrigger>
@@ -934,7 +934,7 @@ export function ModernChatUI({
         {/* Job details tab - now fixed to the right side on desktop */}
         <TabsContent
           value="job"
-          className="fixed top-0 right-0 w-full md:w-[350px] h-full overflow-y-auto p-4 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10 md:pt-[60px]"
+          className="fixed top-0 right-0 w-full md:w-[350px] h-full overflow-y-auto p-4 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10 md:pt-[60px] md:hidden"
         >
           <div className="space-y-4">
             <div className="flex items-center gap-4">
