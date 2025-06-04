@@ -62,7 +62,9 @@ export default function StudentChatPage() {
   const { id: chatId } = useParams() as { id: string };
   const router = useRouter();
   const [chat, setChat] = useState<ChatData | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // タブ状態: "chat" or "job"
+  const [tab, setTab] = useState<"chat" | "job">("chat");
   const [, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
   const studentUserIdRef = useRef<string | null>(null);
@@ -317,9 +319,6 @@ export default function StudentChatPage() {
 
   /* ---------- Layout ---------- */
   const isStudent = currentUserId === studentUserIdRef.current;
-
-  // タブ状態: "chat" or "job"
-  const [tab, setTab] = useState<"chat" | "job">("chat");
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
