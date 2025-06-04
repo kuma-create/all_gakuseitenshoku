@@ -40,6 +40,7 @@ export default function StudentChatPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const studentUserIdRef = useRef<string | null>(null);
 
   /* ───────────── 初期ロード & 購読 ───────────── */
   useEffect(() => {
@@ -69,8 +70,25 @@ export default function StudentChatPage() {
         return;
       }
 
+      /* 2-a) 学生側 user_id を取得 */
+      let studentUserId: string | null = null;
+      if (roomData.student_id) {
+        const { data: stuRow, error: stuErr } = await supabase
+          .from("student_profiles")
+          .select("user_id")
+          .eq("id", roomData.student_id as string)
+          .maybeSingle();
+        if (stuErr) {
+          console.error("student_profiles fetch error", stuErr);
+        } else if (stuRow) {
+          studentUserId = stuRow.user_id;
+        }
+      }
+      studentUserIdRef.current = studentUserId;
+
+      const isStudent = user.id === studentUserId;
+
       /* 会社メンバー or 学生本人でなければアクセス不可 */
-      const isStudent = user.id === roomData.student_id;
       let isCompanyMember = false;
       if (!isStudent && roomData.company_id) {
         const { data: memberRow, error: memErr } = await supabase
@@ -120,7 +138,7 @@ export default function StudentChatPage() {
       /* 5) MessageRow → Message へマッピング */
       const mapped: Message[] = msgs.map((m) => ({
         id:        m.id,                                   // string
-        sender:    m.sender_id === roomData.student_id ? "student" : "company",
+        sender:    m.sender_id === studentUserId ? "student" : "company",
         content:   m.content,
         timestamp: m.created_at ?? "",
         status:    m.is_read ? "read" : "delivered",
@@ -152,7 +170,7 @@ export default function StudentChatPage() {
             const m = payload.new as MessageRow;
             const newMsg: Message = {
               id:        m.id,
-              sender:    m.sender_id === roomData.student_id ? "student" : "company",
+              sender:    m.sender_id === studentUserId ? "student" : "company",
               content:   m.content,
               timestamp: m.created_at ?? "",
               status:    "delivered",
@@ -228,10 +246,12 @@ export default function StudentChatPage() {
         return;
       }
 
+      const isStudent = currentUserId === studentUserIdRef.current;
+
       /* 楽観的 UI 反映 */
       const newMsg: Message = {
         id:        inserted.id,
-        sender:    "student",
+        sender:    isStudent ? "student" : "company",
         content:   inserted.content,
         timestamp: inserted.created_at ?? "",
         status:    "sent",
@@ -258,7 +278,7 @@ export default function StudentChatPage() {
         }, 1000);
       });
     },
-    [chat, chatId, startTransition]
+    [chat, chatId, currentUserId, startTransition]
   );
 
   /* ───────────── ローディング表示 ───────────── */

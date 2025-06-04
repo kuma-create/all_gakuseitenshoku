@@ -1906,6 +1906,20 @@ export type Database = {
           avatar: string
         }[]
       }
+      get_my_chat_rooms: {
+        Args: { p_user: string }
+        Returns: {
+          id: string
+          company_id: string
+          student_id: string
+          updated_at: string
+          company_name: string
+          company_logo: string
+          last_message: string
+          last_created: string
+          is_unread: boolean
+        }[]
+      }
       grade_session: {
         Args: { p_session_id: string }
         Returns: number

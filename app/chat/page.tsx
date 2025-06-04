@@ -7,7 +7,6 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import Link from "next/link"
 import dynamic from "next/dynamic"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -15,11 +14,6 @@ import { Search, Plus, Filter } from "lucide-react"
 
 import { supabase } from "@/lib/supabase/client"
 import { useAuth } from "@/lib/auth-context"
-import {
-  SkeletonCircle,
-  SkeletonText,
-} from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,22 +24,6 @@ import {
 } from "@/components/ui/tabs"
 
 /* ───── 型定義 ───────────────────────────── */
-type ChatRoomWithRelations = {
-  id: string
-  company_id: string | null
-  student_id: string | null
-  job_id: string | null
-  updated_at: string | null
-  companies: { name: string; logo: string | null } | null
-  jobs: { title: string | null } | null
-  messages: {
-    content: string
-    created_at: string
-    is_read: boolean
-    sender_id: string
-  }[]
-}
-
 type ChatItem = {
   id: string
   company: string
@@ -57,26 +35,19 @@ type ChatItem = {
   type: "scout" | "apply"
 }
 
-/* ───── Skeleton (インライン定義) ─────────── */
-function SkeletonChatItem() {
-  return (
-    <li className="flex items-center gap-4 rounded-lg p-4">
-      <SkeletonCircle />
-      <div className="flex-1 space-y-2">
-        <SkeletonText w="w-1/2" />
-        <SkeletonText w="w-1/3" />
-      </div>
-      <SkeletonText w="w-16" />
-    </li>
-  )
-}
-
 /* ───── dynamic import: ChatList ─────────── */
 const ChatList = dynamic(() => import("./ChatList"), {
   loading: () => (
     <ul className="space-y-4">
       {Array.from({ length: 5 }).map((_, i) => (
-        <SkeletonChatItem key={i} />
+        <li key={i} className="flex items-center gap-4 rounded-lg p-4">
+          <div className="h-10 w-10 rounded-full bg-gray-300 animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-1/2 bg-gray-300 rounded animate-pulse" />
+            <div className="h-4 w-1/3 bg-gray-300 rounded animate-pulse" />
+          </div>
+          <div className="h-4 w-16 bg-gray-300 rounded animate-pulse" />
+        </li>
       ))}
     </ul>
   ),
@@ -94,103 +65,44 @@ export default function ChatPage() {
   const fetchChats = useCallback(async () => {
     if (!user?.id) return
 
-    /* 1-a) 学生プロフィール ID を取得（存在しない場合は null） */
-    let studentProfileId: string | null = null
-    const { data: studentRow } = await supabase
-      .from("student_profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (studentRow) {
-      studentProfileId = studentRow.id
-    }
-
     setLoading(true)
 
-    /* 2) 自分が company_members に登録されている company_id を取得 */
-    const { data: companyRows, error: cmErr } = await supabase
-      .from("company_members")
-      .select("company_id")
-      .eq("user_id", user.id)
-
-    if (cmErr) {
-      console.error("company_members fetch error", cmErr)
-    }
-
-    const companyIds = (companyRows ?? []).map((r) => r.company_id)
-
-    /* 3) chat_rooms を取得
-          - 学生本人として所属するルーム
-          - または company_members に紐づく会社のルーム */
-    let roomsQuery = supabase
-      .from("chat_rooms")
-      .select(
-        `
-        id,
-        company_id,
-        student_id,
-        job_id,
-        updated_at,
-        companies ( name, logo ),
-        jobs      ( title ),
-        messages:messages!messages_chat_room_id_fkey (
-          content,
-          created_at,
-          is_read,
-          sender_id
-        )
-      `
-      )
-      .order("updated_at", { ascending: false });
-
-    if (studentProfileId && companyIds.length) {
-      roomsQuery = roomsQuery.or(
-        `student_id.eq.${studentProfileId},company_id.in.(${companyIds
-          .map((id) => `"${id}"`)
-          .join(",")})`,
-      );
-    } else if (studentProfileId) {
-      roomsQuery = roomsQuery.eq("student_id", studentProfileId);
-    } else if (companyIds.length) {
-      roomsQuery = roomsQuery.in("company_id", companyIds);
-    } else {
-      setChats([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await roomsQuery.returns<ChatRoomWithRelations[]>()
+    /* RPC: get_my_chat_rooms でルーム一覧取得 */
+    const { data, error } = await supabase.rpc("get_my_chat_rooms", {
+      p_user: user.id,
+    })
 
     if (error) {
-      console.error(error)
+      console.error("get_my_chat_rooms error", error)
       setLoading(false)
       return
     }
 
-    const items: ChatItem[] = (data ?? []).map((r) => {
-      const latest = r.messages?.[0] ?? null
-      const isStudentSide = r.student_id === studentProfileId
-      const unread =
-        latest && !latest.is_read && latest.sender_id !== user.id
+    type RpcRow = {
+      id: string
+      company_name: string | null
+      company_logo: string | null
+      last_message: string | null
+      last_created: string | null
+      is_unread: boolean
+      job_id?: string | null
+      [key: string]: any  // extra columns are allowed (company_id, student_id, etc.)
+    }
 
-      return {
-        id: r.id,
-        company: isStudentSide
-          ? r.companies?.name ?? "不明"
-          : "学生",
-        logo: isStudentSide ? r.companies?.logo ?? null : null,
-        lastMessage: latest?.content ?? "(メッセージなし)",
-        time: latest
-          ? format(new Date(latest.created_at), "yyyy/MM/dd HH:mm", {
-              locale: ja,
-            })
-          : "-",
-        unread,
-        position: r.jobs?.title ?? null,
-        type: r.job_id ? "apply" : "scout",
-      }
-    })
+    const items: ChatItem[] = (data as RpcRow[]).map((r) => ({
+      id: r.id,
+      company: r.company_name ?? "学生",
+      logo: r.company_logo,
+      lastMessage: r.last_message ?? "(メッセージなし)",
+      time: r.last_created
+        ? format(new Date(r.last_created), "yyyy/MM/dd HH:mm", {
+            locale: ja,
+          })
+        : "-",
+      unread: r.is_unread,
+      position: null,
+      type: r.job_id ? "apply" : "scout",
+    }))
 
     setChats(items)
     setLoading(false)
