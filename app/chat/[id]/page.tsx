@@ -332,7 +332,7 @@ export default function StudentChatPage() {
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
-    <div className="grid h-screen grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid h-[calc(100vh-4rem)] grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
 
       {/* ── Chat column (row 1, col 0) ── */}
       <div className={clsx(
