@@ -322,7 +322,7 @@ export default function StudentChatPage() {
       {/* ── Header (row 0, col-span 2) ── */}
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex h-screen flex-col min-h-0 border-r">
+      <div className="flex flex-col min-h-0 min-w-0 border-r">
         {/* メッセージリストをスクロールさせる領域 */}
         <div className="flex-1 overflow-y-auto">
           <ModernChatUI
@@ -330,7 +330,7 @@ export default function StudentChatPage() {
             onSendMessage={handleSendMessage}
             currentUser={isStudent ? "student" : "company"}
             recipient={{ id: chat.company.id, name: chat.company.name }}
-            className="h-full"
+            className="flex flex-col h-full"
           />
           <div ref={bottomRef} />
         </div>
