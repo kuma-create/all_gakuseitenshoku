@@ -354,7 +354,6 @@ export function ModernChatUI({
           <div
             ref={chatContainerRef}
             className="flex-1 overflow-y-auto p-4"
-            style={{ maxHeight: "calc(100vh - 220px)" }}
           >
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center text-gray-500 dark:text-gray-400">
