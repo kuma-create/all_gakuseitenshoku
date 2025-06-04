@@ -65,8 +65,6 @@ export default function StudentChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const studentUserIdRef = useRef<string | null>(null);
 
-  const [sidebarMode, setSidebarMode] = useState<"company" | "job">("company");
-
   /* ───────────── 初期ロード & 購読 ───────────── */
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -320,30 +318,11 @@ export default function StudentChatPage() {
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
-    <div className="grid h-full grid-rows-[auto_1fr] md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-[auto_1fr]">
+    <div className="grid h-screen grid-rows-[auto_1fr] md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-[auto_1fr]">
       {/* ── Header (row 0, col-span 2) ── */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant={sidebarMode === "company" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSidebarMode("company")}
-        >
-          <MessageSquare className="mr-2 h-4 w-4" />
-          チャット
-        </Button>
-        <Button
-          variant={sidebarMode === "job" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSidebarMode("job")}
-        >
-          <Briefcase className="mr-2 h-4 w-4" />
-          求人詳細
-        </Button>
-        <ThemeToggle />
-      </div>
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex h-full flex-col min-h-0 border-r">
+      <div className="flex h-screen flex-col min-h-0 border-r">
         {/* メッセージリストをスクロールさせる領域 */}
         <div className="flex-1 overflow-y-auto">
           <ModernChatUI
@@ -358,9 +337,9 @@ export default function StudentChatPage() {
       </div>
 
       {/* ── Sidebar (row 1, col 1) ── */}
-      <aside className="hidden h-full w-80 overflow-y-auto bg-background md:block">
+      <aside className="hidden h-full overflow-y-auto bg-background md:block">
         <div className="space-y-6 p-4">
-          {sidebarMode === "company" ? (
+          {isStudent ? (
             /* ---- Company Info ---- */
             <>
               <h2 className="text-base font-semibold">会社情報</h2>
@@ -402,19 +381,10 @@ export default function StudentChatPage() {
               )}
             </>
           ) : (
-            /* ---- Job Detail ---- */
-            <>
-              <h2 className="text-base font-semibold">求人詳細</h2>
-              {/* ダミーの求人詳細。実際には job データをフェッチして表示 */}
-              <p className="text-sm font-medium">{chat.company.name} - フロントエンドエンジニア</p>
-              <div className="space-y-2 text-sm">
-                <p>勤務地: 東京都渋谷区</p>
-                <p>給与: 年収450万〜700万円</p>
-                <p className="rounded-lg bg-gray-50 p-3">
-                  当社Webアプリ開発チームでReact/TypeScriptを用いた開発を担当。UI コンポーネント設計やパフォーマンス最適化などに取り組んでいただきます。
-                </p>
-              </div>
-            </>
+            /* ---- Placeholder for company view (show student profile) ---- */
+            <p className="text-sm text-muted-foreground">
+              学生プロフィールをここに表示
+            </p>
           )}
         </div>
       </aside>
