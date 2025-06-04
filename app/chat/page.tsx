@@ -123,7 +123,7 @@ export default function ChatPage() {
     /* 3) chat_rooms を取得
           - 学生本人として所属するルーム
           - または company_members に紐づく会社のルーム */
-    const { data, error } = await supabase
+    let roomsQuery = supabase
       .from("chat_rooms")
       .select(
         `
@@ -140,21 +140,27 @@ export default function ChatPage() {
           is_read,
           sender_id
         )
-      `,
+      `
       )
-      .or(
-        `${
-          studentProfileId ? `student_id.eq.${studentProfileId}` : ""
-        }${
-          companyIds.length
-            ? `${studentProfileId ? "," : ""}company_id.in.(${companyIds
-                .map((id) => `"${id}"`)
-                .join(",")})`
-            : ""
-        }`
-      )
-      .order("updated_at", { ascending: false })
-      .returns<ChatRoomWithRelations[]>()
+      .order("updated_at", { ascending: false });
+
+    if (studentProfileId && companyIds.length) {
+      roomsQuery = roomsQuery.or(
+        `student_id.eq.${studentProfileId},company_id.in.(${companyIds
+          .map((id) => `"${id}"`)
+          .join(",")})`,
+      );
+    } else if (studentProfileId) {
+      roomsQuery = roomsQuery.eq("student_id", studentProfileId);
+    } else if (companyIds.length) {
+      roomsQuery = roomsQuery.in("company_id", companyIds);
+    } else {
+      setChats([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await roomsQuery.returns<ChatRoomWithRelations[]>()
 
     if (error) {
       console.error(error)
