@@ -322,7 +322,7 @@ export default function StudentChatPage() {
       {/* ── Header (row 0, col-span 2) ── */}
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex flex-col min-h-0 min-w-0 border-r">
+      <div className="flex flex-col h-full min-h-0 min-w-0 border-r">
         {/* メッセージリストをスクロールさせる領域 */}
         <div className="flex-1 overflow-y-auto">
           <ModernChatUI
