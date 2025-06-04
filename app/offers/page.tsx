@@ -1,7 +1,7 @@
 // app/offers/page.tsx
 "use client"
 
-import { Calendar, Filter, MessageSquare, Search as SearchIcon } from "lucide-react"
+import { Calendar, Filter, Loader2, MessageSquare, Search as SearchIcon } from "lucide-react"
 import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 import { useEffect, useState, ChangeEvent } from "react"
@@ -21,6 +21,9 @@ interface Offer {
   message: string
   created_at: string
   date: string
+  status: "sent" | "accepted" | "declined"
+  company_id: string
+  room_id?: string  // optional, returned from RPC after accept
   isUnread: boolean
 }
 
@@ -29,6 +32,7 @@ export default function OffersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchKeyword, setSearchKeyword] = useState("")
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchOffers() {
@@ -37,8 +41,9 @@ export default function OffersPage() {
         .from("scouts")
         .select(`
           id,
-          message,
           status,
+          company_id,
+          message,
           created_at,
           companies!fk_scouts_company (
             name,
@@ -56,10 +61,12 @@ export default function OffersPage() {
       } else {
         const mapped: Offer[] = (data ?? []).map((s) => ({
           id:         s.id,
+          company_id: s.company_id,
           company:    s.companies?.name ?? "",
           logo:       s.companies?.logo ?? "/placeholder.svg",
           position:   s.jobs?.title ?? "",
           message:    s.message,
+          status:     (s.status as "sent" | "accepted" | "declined") ?? "sent",
           created_at: s.created_at ?? "",
           date:       s.created_at
                         ? new Date(s.created_at).toLocaleDateString("ja-JP")
@@ -74,6 +81,59 @@ export default function OffersPage() {
     fetchOffers()
   }, [])
 
+  const acceptOffer = async (offer: Offer) => {
+    if (offer.status !== "sent") return
+    setProcessingId(offer.id)
+    // Supabase types already know the return shape of accept_offer.
+    // If your generated types are up‑to‑date this will be strongly typed.
+    const { data, error } = await supabase.rpc("accept_offer", {
+      p_scout_id: offer.id,
+    })
+    setProcessingId(null)
+
+    if (error) {
+      alert(`承諾に失敗しました: ${error.message}`)
+      return
+    }
+
+    // data は [{ room_id: uuid }] 形式を想定
+    const roomId = (data as { room_id: string }[] | null)?.[0]?.room_id
+
+    setOffers((prev) =>
+      prev.map((o) =>
+        o.id === offer.id ? { ...o, status: "accepted", isUnread: false } : o
+      )
+    )
+    if (roomId) {
+      window.location.href = `/chat/${roomId}`
+    } else {
+      console.warn("room_id が取得できませんでした")
+    }
+  }
+
+  const declineOffer = async (offer: Offer) => {
+    if (offer.status !== "sent") return
+    if (!confirm("このオファーを辞退します。よろしいですか？")) return
+
+    setProcessingId(offer.id)
+    const { error } = await supabase
+      .from("scouts")
+      .update({ status: "declined" })
+      .eq("id", offer.id)
+    setProcessingId(null)
+
+    if (error) {
+      alert(`辞退に失敗しました: ${error.message}`)
+      return
+    }
+
+    setOffers((prev) =>
+      prev.map((o) =>
+        o.id === offer.id ? { ...o, status: "declined", isUnread: false } : o
+      )
+    )
+  }
+
   // フィルタリング
   const filteredOffers = offers.filter((o) => {
     const kw = searchKeyword.trim().toLowerCase()
@@ -85,8 +145,8 @@ export default function OffersPage() {
     )
   })
 
-  const unreadOffers = filteredOffers.filter((o) => o.isUnread)
-  const readOffers   = filteredOffers.filter((o) => !o.isUnread)
+  const unreadOffers = filteredOffers.filter((o) => o.status === "sent")
+  const readOffers   = filteredOffers.filter((o) => o.status !== "sent")
 
   if (loading) return <p className="p-6 text-center">読み込み中…</p>
   if (error)   return <p className="p-6 text-center text-red-600">エラー: {error}</p>
@@ -138,7 +198,13 @@ export default function OffersPage() {
             {filteredOffers.length > 0 ? (
               <div className="grid gap-4">
                 {filteredOffers.map((offer) => (
-                  <OfferCard key={offer.id} offer={offer} />
+                  <OfferCard
+                    key={offer.id}
+                    offer={offer}
+                    onAccept={acceptOffer}
+                    onDecline={declineOffer}
+                    processingId={processingId}
+                  />
                 ))}
               </div>
             ) : (
@@ -151,7 +217,13 @@ export default function OffersPage() {
             {unreadOffers.length > 0 ? (
               <div className="grid gap-4">
                 {unreadOffers.map((offer) => (
-                  <OfferCard key={offer.id} offer={offer} />
+                  <OfferCard
+                    key={offer.id}
+                    offer={offer}
+                    onAccept={acceptOffer}
+                    onDecline={declineOffer}
+                    processingId={processingId}
+                  />
                 ))}
               </div>
             ) : (
@@ -164,7 +236,13 @@ export default function OffersPage() {
             {readOffers.length > 0 ? (
               <div className="grid gap-4">
                 {readOffers.map((offer) => (
-                  <OfferCard key={offer.id} offer={offer} />
+                  <OfferCard
+                    key={offer.id}
+                    offer={offer}
+                    onAccept={acceptOffer}
+                    onDecline={declineOffer}
+                    processingId={processingId}
+                  />
                 ))}
               </div>
             ) : (
@@ -177,12 +255,17 @@ export default function OffersPage() {
   )
 }
 
-interface OfferCardProps { offer: Offer }
-function OfferCard({ offer }: OfferCardProps) {
+interface OfferCardProps {
+  offer: Offer
+  onAccept: (offer: Offer) => void
+  onDecline: (offer: Offer) => void
+  processingId: string | null
+}
+function OfferCard({ offer, onAccept, onDecline, processingId }: OfferCardProps) {
   return (
     <Card
       className={`overflow-hidden transition-all hover:shadow-md ${
-        offer.isUnread ? "border-l-4 border-l-blue-500" : ""
+        offer.isUnread && offer.status === "sent" ? "border-l-4 border-l-blue-500" : ""
       }`}
     >
       <div className="flex flex-col md:flex-row">
@@ -211,18 +294,24 @@ function OfferCard({ offer }: OfferCardProps) {
         <div className="flex-1 p-4">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {offer.isUnread && (
+              {offer.status === "sent" && (
                 <Badge className="bg-blue-500 text-xs font-medium">新着</Badge>
               )}
               <Badge
-                variant={offer.isUnread ? "outline" : "secondary"}
+                variant="outline"
                 className={
-                  offer.isUnread
+                  offer.status === "sent"
                     ? "border-blue-200 bg-blue-50 text-blue-700"
-                    : "bg-gray-100 text-gray-700"
+                    : offer.status === "accepted"
+                    ? "border-green-200 bg-green-50 text-green-700"
+                    : "border-gray-200 bg-gray-50 text-gray-600"
                 }
               >
-                {offer.isUnread ? "未読" : "既読"}
+                {offer.status === "sent"
+                  ? "未読"
+                  : offer.status === "accepted"
+                  ? "承諾済み"
+                  : "辞退済み"}
               </Badge>
             </div>
             <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -250,6 +339,29 @@ function OfferCard({ offer }: OfferCardProps) {
               </Button>
             </Link>
           </div>
+
+          {offer.status === "sent" && (
+            <div className="mt-4 flex gap-2">
+              <Button
+                disabled={processingId === offer.id}
+                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                onClick={() => onAccept(offer)}
+              >
+                {processingId === offer.id ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                承諾する
+              </Button>
+              <Button
+                disabled={processingId === offer.id}
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => onDecline(offer)}
+              >
+                辞退する
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </Card>

@@ -1843,6 +1843,12 @@ export type Database = {
       }
     }
     Functions: {
+      accept_offer: {
+        Args: { p_scout_id: string }
+        Returns: {
+          room_id: string
+        }[]
+      }
       auto_grade_answer: {
         Args: { p_question_id: string; p_answer_raw: Json }
         Returns: number
