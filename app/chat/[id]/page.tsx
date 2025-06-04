@@ -318,11 +318,11 @@ export default function StudentChatPage() {
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
-    <div className="grid h-screen grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_minmax(300px,35%)]">
+    <div className="grid h-screen grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
       {/* ── Header (row 0, col-span 2) ── */}
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex flex-col h-full min-h-0 min-w-0 border-r overflow-hidden">
+      <div className="flex flex-col h-full min-h-0 min-w-0 border-r overflow-y-auto">
         <ModernChatUI
           messages={chat.messages}
           onSendMessage={handleSendMessage}
