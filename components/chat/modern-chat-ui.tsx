@@ -314,25 +314,37 @@ export function ModernChatUI({
 
           <div className="flex items-center gap-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
-              <TabsList className="h-8 p-0.5">
-                <TabsTrigger value="chat" className="h-7 px-3 text-xs">
+              <TabsList className="h-8 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex gap-0.5">
+                <TabsTrigger
+                  value="chat"
+                  className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
+                >
                   <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
                   チャット
                 </TabsTrigger>
                 {currentUser === "company" && (
                   <>
-                    <TabsTrigger value="profile" className="h-7 px-3 text-xs">
+                    <TabsTrigger
+                      value="profile"
+                      className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
+                    >
                       <User className="h-3.5 w-3.5 mr-1.5" />
                       プロフィール
                     </TabsTrigger>
-                    <TabsTrigger value="documents" className="h-7 px-3 text-xs">
+                    <TabsTrigger
+                      value="documents"
+                      className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
+                    >
                       <FileText className="h-3.5 w-3.5 mr-1.5" />
                       書類
                     </TabsTrigger>
                   </>
                 )}
                 {currentUser === "student" && (
-                  <TabsTrigger value="job" className="h-7 px-3 text-xs md:hidden">
+                  <TabsTrigger
+                    value="job"
+                    className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80 md:hidden"
+                  >
                     <Briefcase className="h-3.5 w-3.5 mr-1.5" />
                     求人詳細
                   </TabsTrigger>
