@@ -318,22 +318,19 @@ export default function StudentChatPage() {
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
-    <div className="grid h-screen grid-rows-[auto_1fr] md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-[auto_1fr]">
+    <div className="grid h-screen md:grid-cols-[minmax(0,1fr)_minmax(300px,35%)]">
       {/* ── Header (row 0, col-span 2) ── */}
 
       {/* ── Chat column (row 1, col 0) ── */}
       <div className="flex flex-col h-full min-h-0 min-w-0 border-r">
-        {/* メッセージリストをスクロールさせる領域 */}
-        <div className="flex-1 overflow-y-auto">
-          <ModernChatUI
-            messages={chat.messages}
-            onSendMessage={handleSendMessage}
-            currentUser={isStudent ? "student" : "company"}
-            recipient={{ id: chat.company.id, name: chat.company.name }}
-            className="flex flex-col h-full"
-          />
-          <div ref={bottomRef} />
-        </div>
+        <ModernChatUI
+          messages={chat.messages}
+          onSendMessage={handleSendMessage}
+          currentUser={isStudent ? "student" : "company"}
+          recipient={{ id: chat.company.id, name: chat.company.name }}
+          className="flex flex-col flex-1 overflow-y-auto"
+        />
+        <div ref={bottomRef} />
       </div>
 
       {/* ── Sidebar (row 1, col 1) ── */}
