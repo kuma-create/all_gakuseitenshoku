@@ -349,18 +349,21 @@ export default function StudentChatPage() {
 
       {/* ── Chat column (row 1, col 0) ── */}
       <div className={clsx(
-        "flex flex-col h-full min-h-0 min-w-0 border-r overflow-y-auto",
+        "flex flex-col h-full min-h-0 min-w-0 border-r overflow-hidden",
         "md:flex",
         tab !== "chat" && "hidden md:flex"
       )}>
-        <ModernChatUI
-          messages={chat.messages}
-          onSendMessage={handleSendMessage}
-          currentUser={isStudent ? "student" : "company"}
-          recipient={{ id: chat.company.id, name: chat.company.name }}
-          className="flex flex-col flex-1 min-h-0"
-        />
-        <div ref={bottomRef} className="h-0" />
+        {/* --- 内部スクロール領域 --- */}
+        <div className="flex-1 overflow-y-auto">
+          <ModernChatUI
+            messages={chat.messages}
+            onSendMessage={handleSendMessage}
+            currentUser={isStudent ? "student" : "company"}
+            recipient={{ id: chat.company.id, name: chat.company.name }}
+            className="flex flex-col flex-1 min-h-0"
+          />
+          <div ref={bottomRef} className="h-0" />
+        </div> {/* end scroll container */}
       </div>
 
       {/* ── Sidebar (row 1, col 1) ── */}
