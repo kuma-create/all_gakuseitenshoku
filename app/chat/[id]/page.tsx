@@ -347,7 +347,7 @@ export default function StudentChatPage() {
             onSendMessage={handleSendMessage}
             currentUser={isStudent ? "student" : "company"}
             recipient={{ id: chat.company.id, name: chat.company.name }}
-            className="flex flex-col flex-1 min-h-0"
+            className="flex flex-col flex-1 min-h-0 h-full overflow-y-auto"
           />
           <div ref={bottomRef} className="h-0" />
         </div> {/* end scroll container */}
