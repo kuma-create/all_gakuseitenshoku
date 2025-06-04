@@ -106,11 +106,12 @@ export default function StudentDashboard() {
         supabase.from("scouts")
           .select(`
             id,
+            company_id,
             message,
             is_read,
             created_at,
-            company:company_id ( id, name, logo ),
-            job:job_id         ( title )
+            companies:company_id ( id, name, logo ),
+            jobs:job_id         ( title )
           `)
           .eq("student_id", studentId)
           .order("created_at", { ascending: false })
