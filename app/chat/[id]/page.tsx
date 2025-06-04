@@ -318,11 +318,11 @@ export default function StudentChatPage() {
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
-    <div className="grid h-full grid-rows-[auto_1fr] md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-[auto_1fr]">
+    <div className="grid h-screen grid-rows-[auto_1fr] md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-[auto_1fr]">
       {/* ── Header (row 0, col-span 2) ── */}
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex h-full flex-col min-h-0 border-r">
+      <div className="flex h-screen flex-col min-h-0 border-r">
         {/* メッセージリストをスクロールさせる領域 */}
         <div className="flex-1 overflow-y-auto">
           <ModernChatUI
