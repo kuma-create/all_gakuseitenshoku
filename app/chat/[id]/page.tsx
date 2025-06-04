@@ -336,7 +336,7 @@ export default function StudentChatPage() {
 
       {/* ── Chat column (row 1, col 0) ── */}
       <div className={clsx(
-        "flex flex-col h-full min-h-0 min-w-0 border-r overflow-y-auto",
+        "flex flex-col h-full min-h-0 min-w-0 border-r overflow-hidden",
         "md:flex",
         tab !== "chat" && "hidden md:flex"
       )}>
