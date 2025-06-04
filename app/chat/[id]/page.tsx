@@ -333,29 +333,6 @@ export default function StudentChatPage() {
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
     <div className="grid h-screen grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
-      {/* ── Header (row 0, col-span 2) ── */}
-      <header className="flex items-center justify-between gap-2 border-b bg-background px-4 py-2 md:col-span-2">
-        {/* 左側：スレッドタイトルなど。必要なら変更 */}
-        <h1 className="text-sm font-medium truncate">{chat.company.name}</h1>
-
-        {/* 右側：モバイル限定タブ */}
-        <div className="flex gap-1 md:hidden">
-          <Button
-            variant={tab === "chat" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setTab("chat")}
-          >
-            <MessageSquare className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={tab === "job" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setTab("job")}
-          >
-            <Briefcase className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
 
       {/* ── Chat column (row 1, col 0) ── */}
       <div className={clsx(
