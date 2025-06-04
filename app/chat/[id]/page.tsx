@@ -4,6 +4,8 @@
 ────────────────────────────────────────────── */
 "use client";
 
+import clsx from "clsx";
+
 import React, {
   useState,
   useEffect,
@@ -316,13 +318,42 @@ export default function StudentChatPage() {
   /* ---------- Layout ---------- */
   const isStudent = currentUserId === studentUserIdRef.current;
 
+  // タブ状態: "chat" or "job"
+  const [tab, setTab] = useState<"chat" | "job">("chat");
+
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
     <div className="grid h-screen grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
       {/* ── Header (row 0, col-span 2) ── */}
+      <header className="flex items-center justify-between gap-2 border-b bg-background px-4 py-2 md:col-span-2">
+        {/* 左側：スレッドタイトルなど。必要なら変更 */}
+        <h1 className="text-sm font-medium truncate">{chat.company.name}</h1>
+
+        {/* 右側：モバイル限定タブ */}
+        <div className="flex gap-1 md:hidden">
+          <Button
+            variant={tab === "chat" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setTab("chat")}
+          >
+            <MessageSquare className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={tab === "job" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setTab("job")}
+          >
+            <Briefcase className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex flex-col h-full min-h-0 min-w-0 border-r overflow-y-auto">
+      <div className={clsx(
+        "flex flex-col h-full min-h-0 min-w-0 border-r overflow-y-auto",
+        "md:flex",
+        tab !== "chat" && "hidden md:flex"
+      )}>
         <ModernChatUI
           messages={chat.messages}
           onSendMessage={handleSendMessage}
@@ -334,7 +365,11 @@ export default function StudentChatPage() {
       </div>
 
       {/* ── Sidebar (row 1, col 1) ── */}
-      <aside className="hidden h-full overflow-y-auto bg-background md:block">
+      <aside className={clsx(
+        "h-full overflow-y-auto bg-background",
+        "hidden md:block",
+        tab === "job" && "block"
+      )}>
         <div className="space-y-6 p-4">
           {isStudent ? (
             /* ---- Company Info ---- */
