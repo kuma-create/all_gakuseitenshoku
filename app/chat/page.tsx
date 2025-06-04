@@ -95,9 +95,25 @@ export default function ChatPage() {
     if (!user?.id) return
     setLoading(true)
 
+    /* 2) 自分が company_members に登録されている company_id を取得 */
+    const { data: companyRows, error: cmErr } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("user_id", user.id)
+
+    if (cmErr) {
+      console.error("company_members fetch error", cmErr)
+    }
+
+    const companyIds = (companyRows ?? []).map((r) => r.company_id)
+
+    /* 3) chat_rooms を取得
+          - 学生本人として所属するルーム
+          - または company_members に紐づく会社のルーム */
     const { data, error } = await supabase
       .from("chat_rooms")
-      .select(`
+      .select(
+        `
         id,
         company_id,
         student_id,
@@ -113,7 +129,13 @@ export default function ChatPage() {
         )
       `,
       )
-      .eq("student_id", user.id)
+      .or(
+        `student_id.eq.${user.id}${
+          companyIds.length
+            ? `,company_id.in.(${companyIds.map((id) => `"${id}"`).join(",")})`
+            : ""
+        }`
+      )
       .order("updated_at", { ascending: false })
       .returns<ChatRoomWithRelations[]>()
 
@@ -123,16 +145,18 @@ export default function ChatPage() {
       return
     }
 
-    /* 整形 */
     const items: ChatItem[] = (data ?? []).map((r) => {
       const latest = r.messages?.[0] ?? null
+      const isStudentSide = r.student_id === user.id
       const unread =
         latest && !latest.is_read && latest.sender_id !== user.id
 
       return {
         id: r.id,
-        company: r.companies?.name ?? "不明",
-        logo: r.companies?.logo ?? null,
+        company: isStudentSide
+          ? r.companies?.name ?? "不明"
+          : "学生",
+        logo: isStudentSide ? r.companies?.logo ?? null : null,
         lastMessage: latest?.content ?? "(メッセージなし)",
         time: latest
           ? format(new Date(latest.created_at), "yyyy/MM/dd HH:mm", {

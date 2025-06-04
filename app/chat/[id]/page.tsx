@@ -47,32 +47,54 @@ export default function StudentChatPage() {
     const loadChat = async () => {
       /* 1) 認証チェック */
       const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !user) {
-        router.push("/chat");
+      if (!user) {
+        console.warn("no auth user – redirecting to /login");
+        router.push("/login");
         return;
       }
 
-      /* 2) chat_rooms 取得 */
+      /* 2) chat_rooms を取得し、本人がアクセス権を持つか判定
+         ───────────────────────────── */
       const { data: roomData, error: roomErr } = await supabase
         .from("chat_rooms")
         .select("*")
         .eq("id", chatId)
         .maybeSingle();
+
       if (roomErr || !roomData) {
+        console.error("chat_rooms fetch error", roomErr);
+        router.push("/chat");
+        return;
+      }
+
+      /* 会社メンバー or 学生本人でなければアクセス不可 */
+      const isStudent = user.id === roomData.student_id;
+      let isCompanyMember = false;
+
+      if (!isStudent) {
+        const { data: memberRow, error: memErr } = await supabase
+          .from("company_members")
+          .select("user_id")
+          .eq("company_id", roomData.company_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (memErr) {
+          console.error("company_members fetch error", memErr);
+        }
+        isCompanyMember = !!memberRow;
+      }
+
+      if (!isStudent && !isCompanyMember) {
+        console.warn("no permission to view this chat");
         router.push("/chat");
         return;
       }
 
       /* 3) companies 取得 */
-      const companyId = roomData.company_id;
-      if (!companyId) {
-        console.error("company_id が設定されていません");
-        return;
-      }
       const { data: companyData, error: compErr } = await supabase
         .from("companies")
         .select("*")
-        .eq("id", companyId)
+        .eq("id", roomData.company_id)
         .maybeSingle();
       if (compErr || !companyData) {
         console.error("company fetch error", compErr);
@@ -91,7 +113,7 @@ export default function StudentChatPage() {
       /* 5) MessageRow → Message へマッピング */
       const mapped: Message[] = msgs.map((m) => ({
         id:        m.id,                                   // string
-        sender:    m.sender_id === user.id ? "student" : "company",
+        sender:    m.sender_id === roomData.student_id ? "student" : "company",
         content:   m.content,
         timestamp: m.created_at ?? "",
         status:    m.is_read ? "read" : "delivered",
@@ -123,7 +145,7 @@ export default function StudentChatPage() {
             const m = payload.new as MessageRow;
             const newMsg: Message = {
               id:        m.id,
-              sender:    m.sender_id === user.id ? "student" : "company",
+              sender:    m.sender_id === roomData.student_id ? "student" : "company",
               content:   m.content,
               timestamp: m.created_at ?? "",
               status:    "delivered",
@@ -249,15 +271,14 @@ export default function StudentChatPage() {
         <ThemeToggle />
       </header>
 
-      /* ---- JSX 返却部 ---- */
+      {/* ---- JSX 返却部 ---- */}
       <ModernChatUI
         messages={chat.messages}
         onSendMessage={handleSendMessage}
-        currentUser="student"                                   /* ← 文字列に変更 */
+        currentUser={user?.id === chat.room.student_id ? "student" : "company"}
         recipient={{ id: chat.company.id, name: chat.company.name }}
         className="flex-1"
       />
-
 
       <div ref={bottomRef} />
     </div>
