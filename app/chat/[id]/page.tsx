@@ -320,55 +320,20 @@ export default function StudentChatPage() {
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
     <div className="grid h-full grid-rows-[auto_1fr] md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-[auto_1fr]">
       {/* ── Header (row 0, col-span 2) ── */}
-      <header className="relative col-span-full row-start-1 row-end-2 flex h-16 items-center justify-between border-b bg-background px-4 shadow-sm">
-        {/* 左: ロゴ + 会社名 + ステータス */}
-        <div className="flex items-center gap-3">
-          {chat.company.logo ? (
-            <img
-              src={chat.company.logo}
-              alt={chat.company.name}
-              className="h-8 w-8 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm">
-              {chat.company.name.slice(0, 1)}
-            </div>
-          )}
-          <div className="flex flex-col">
-            <span className="text-base font-semibold">{chat.company.name}</span>
-            <Badge
-              variant="outline"
-              className="w-fit border-green-600 text-xs text-green-600"
-            >
-              オンライン
-            </Badge>
-          </div>
-        </div>
-
-        {/* 右: アクションボタン */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <MessageSquare className="mr-2 h-4 w-4" />
-            チャット
-          </Button>
-          <Button variant="outline" size="sm">
-            <Briefcase className="mr-2 h-4 w-4" />
-            求人詳細
-          </Button>
-          <ThemeToggle />
-        </div>
-      </header>
 
       {/* ── Chat column (row 1, col 0) ── */}
-      <div className="flex h-full flex-col border-r">
-        <ModernChatUI
-          messages={chat.messages}
-          onSendMessage={handleSendMessage}
-          currentUser={isStudent ? "student" : "company"}
-          recipient={{ id: chat.company.id, name: chat.company.name }}
-          className="flex-1"
-        />
-        <div ref={bottomRef} />
+      <div className="flex h-full flex-col min-h-0 border-r">
+        {/* メッセージリストをスクロールさせる領域 */}
+        <div className="flex-1 overflow-y-auto">
+          <ModernChatUI
+            messages={chat.messages}
+            onSendMessage={handleSendMessage}
+            currentUser={isStudent ? "student" : "company"}
+            recipient={{ id: chat.company.id, name: chat.company.name }}
+            className="h-full"
+          />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* ── Sidebar (row 1, col 1) ── */}
