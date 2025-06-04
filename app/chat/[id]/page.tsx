@@ -308,6 +308,15 @@ export default function StudentChatPage() {
     [chat, chatId, currentUserId, startTransition]
   );
 
+  // 一時的にグローバルヘッダーを隠す
+  useEffect(() => {
+    const siteHeader = document.getElementById("siteHeader"); // サイト共通ヘッダーの id を想定
+    if (siteHeader) siteHeader.style.display = "none";
+    return () => {
+      if (siteHeader) siteHeader.style.display = "";
+    };
+  }, []);
+
   /* ───────────── ローディング表示 ───────────── */
   if (!chat) {
     return (
@@ -320,14 +329,6 @@ export default function StudentChatPage() {
   /* ---------- Layout ---------- */
   const isStudent = currentUserId === studentUserIdRef.current;
 
-  // 一時的にグローバルヘッダーを隠す
-  useEffect(() => {
-    const siteHeader = document.getElementById("siteHeader"); // サイト共通ヘッダーの id を想定
-    if (siteHeader) siteHeader.style.display = "none";
-    return () => {
-      if (siteHeader) siteHeader.style.display = "";
-    };
-  }, []);
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
