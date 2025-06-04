@@ -346,10 +346,10 @@ export function ModernChatUI({
       {/* Main content area with dynamic padding for sidebar */}
       <Tabs
         value={activeTab}
-        className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
+        className="flex-1 flex flex-col min-h-0 transition-all duration-300"
         style={mainContentStyle}
       >
-        <TabsContent value="chat" className="flex-1 flex flex-col p-0 m-0 data-[state=active]:flex-1 w-full">
+        <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 p-0 m-0 data-[state=active]:flex-1 w-full">
           {/* Messages area */}
           <div
             ref={chatContainerRef}
