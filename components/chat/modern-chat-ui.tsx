@@ -343,7 +343,7 @@ export function ModernChatUI({
                 {currentUser === "student" && (
                   <TabsTrigger
                     value="job"
-                    className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80 md:hidden"
+                    className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
                   >
                     <Briefcase className="h-3.5 w-3.5 mr-1.5" />
                     求人詳細
@@ -946,7 +946,7 @@ export function ModernChatUI({
         {/* Job details tab - now fixed to the right side on desktop */}
         <TabsContent
           value="job"
-          className="fixed top-0 right-0 w-full md:w-[350px] h-full overflow-y-auto p-4 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10 md:pt-[60px] md:hidden"
+          className="fixed top-0 right-0 w-full md:w-[350px] h-full overflow-y-auto p-4 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10 md:pt-[60px]"
         >
           <div className="space-y-4">
             <div className="flex items-center gap-4">

@@ -456,7 +456,7 @@ export default function OfferDetailPage({
                 </CardDescription>
               </CardHeader>
               <CardFooter>
-                <InterestButtons offerId={offer.id} />
+                <InterestButtons offerId={offer.id} offerStatus={offer.status} />
               </CardFooter>
             </Card>
           </div>
@@ -465,7 +465,7 @@ export default function OfferDetailPage({
 
       {/* モバイル固定アクション */}
       <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-4 md:hidden">
-        <InterestButtons offerId={offer.id} isMobile />
+        <InterestButtons offerId={offer.id} offerStatus={offer.status} isMobile />
       </div>
     </div>
   )
@@ -476,74 +476,89 @@ export default function OfferDetailPage({
 /* ------------------------------------------------------------------ */
 function InterestButtons({
   offerId,
+  offerStatus,
   isMobile = false,
 }: {
   offerId: string
+  offerStatus: string
   isMobile?: boolean
 }) {
-  const [interest, setInterest] = useState<
-    "none" | "interested" | "not_interested"
-  >("none")
+  const [status, setStatus] = useState<"sent" | "accepted" | "declined">(
+    (offerStatus as any) === "sent" ? "sent" : "accepted"
+  )
   const [showDialog, setShowDialog] = useState(false)
 
-  const handleInterest = () => setInterest("interested")
-  const handleNotInterested = () => setShowDialog(true)
-  const confirmNotInterested = () => {
-    setInterest("not_interested")
+  /* ------------- handlers ------------- */
+  const handleAccept = () => {
+    setStatus("accepted")
+    /** TODO: supabase PATCH で status を accepted に更新 */
+  }
+  const handleDecline = () => setShowDialog(true)
+  const confirmDecline = () => {
+    setStatus("declined")
     setShowDialog(false)
-    /** TODO: supabase に PATCH 処理を追加する場合はここ */
+    /** TODO: supabase PATCH で status を declined に更新 */
   }
 
-  return (
-    <>
-      <div className={isMobile ? "" : "grid grid-cols-2 gap-3"}>
-        <Button
-          variant="outline"
-          onClick={handleNotInterested}
-          disabled={interest === "not_interested"}
-        >
-          <ThumbsDown className="h-4 w-4" />
-          興味がない
-        </Button>
-        <Button
-          variant={interest === "interested" ? "default" : "outline"}
-          onClick={handleInterest}
-          disabled={interest === "interested"}
-        >
-          <ThumbsUp className="h-4 w-4" />
-          興味がある
-        </Button>
-      </div>
+  /* ------------- UI ------------- */
+  if (status === "declined") {
+    return <p className="text-sm text-gray-500">辞退済みのオファーです。</p>
+  }
 
-      <Button
-        className="mt-3 w-full gap-1.5 bg-red-600 hover:bg-red-700"
-        disabled={interest !== "interested"}
-        asChild
-      >
-        <Link href={`/chat/${offerId}`} className="flex items-center gap-1">
-          <MessageSquare className="h-4 w-4" />
-          チャットを開始する
-        </Link>
-      </Button>
-      {/* 確認ダイアログ */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>興味がないを確定</DialogTitle>
-            <DialogDescription>
-              このオファーに興味がないことを企業に通知します。取り消せません。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
-              キャンセル
-            </Button>
-            <Button variant="destructive" onClick={confirmNotInterested}>
-              確定する
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+  if (status === "sent") {
+    return (
+      <>
+        <div className={isMobile ? "flex flex-col gap-3" : "grid grid-cols-2 gap-3"}>
+          <Button
+            variant="outline"
+            onClick={handleDecline}
+            className="flex items-center gap-1.5"
+          >
+            <ThumbsDown className="h-4 w-4" />
+            辞退する
+          </Button>
+          <Button
+            onClick={handleAccept}
+            className="flex items-center gap-1.5"
+          >
+            <ThumbsUp className="h-4 w-4" />
+            承諾する
+          </Button>
+        </div>
+
+        {/* 確認ダイアログ */}
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>オファーを辞退しますか？</DialogTitle>
+              <DialogDescription>
+                辞退すると取り消せません。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDialog(false)}>
+                キャンセル
+              </Button>
+              <Button variant="destructive" onClick={confirmDecline}>
+                辞退する
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    )
+  }
+
+  /* status === "accepted" */
+  return (
+    <Button
+      className="w-full gap-1.5 bg-red-600 hover:bg-red-700"
+      asChild
+    >
+      <Link href={`/chat/${offerId}`} className="flex items-center gap-1">
+        <MessageSquare className="h-4 w-4" />
+        チャットに移動する
+      </Link>
+    </Button>
   )
 }
