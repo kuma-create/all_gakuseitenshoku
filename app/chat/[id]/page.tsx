@@ -336,12 +336,12 @@ export default function StudentChatPage() {
 
       {/* ── Chat column (row 1, col 0) ── */}
       <div className={clsx(
-        "flex flex-col h-full min-h-0 min-w-0 border-r overflow-hidden",
+        "flex flex-col h-full min-h-0 min-w-0 border-r overflow-y-auto",
         "md:flex",
         tab !== "chat" && "hidden md:flex"
       )}>
         {/* --- 内部スクロール領域 --- */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           <ModernChatUI
             messages={chat.messages}
             onSendMessage={handleSendMessage}
