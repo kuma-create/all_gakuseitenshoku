@@ -314,9 +314,9 @@ export default function StudentChatPage() {
 
   /* ───────────── 画面描画 ───────────── */
   return (
-    <div className="relative flex h-full flex-col md:flex-row">
+    <div className="relative h-full w-full md:grid md:grid-cols-[1fr_320px] md:gap-0">
       {/* ─── 上部バナー ─── */}
-      <header className="relative h-28 w-full md:w-[calc(100%-320px)]">
+      <header className="relative h-28 w-full">
         <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 opacity-80" />
         <div className="relative z-10 flex h-full items-center gap-3 pl-4">
           {chat.company.logo ? (
@@ -337,10 +337,10 @@ export default function StudentChatPage() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col md:flex-row">
+      <main className="flex h-[calc(100%-7rem)] flex-col">
         {/* ---------- チャット本体 ---------- */}
         <div className="flex h-full flex-col md:w-2/3 md:border-r">
-          <Card className="flex h-full flex-col rounded-none md:rounded-lg">
+          <Card className="flex h-full w-full flex-col rounded-none md:rounded-lg">
             <CardContent className="flex-1 overflow-y-auto p-0">
               <ModernChatUI
                 messages={chat.messages}
@@ -357,8 +357,8 @@ export default function StudentChatPage() {
         </div>
 
         {/* ---------- サイドバー: 会社情報 ---------- */}
-        <aside className="hidden w-80 flex-shrink-0 md:block md:h-full">
-          <div className="sticky top-0 space-y-6 p-4">
+        <aside className="hidden md:block h-full w-80 overflow-y-auto">
+          <div className="space-y-6 p-4">
             <h2 className="text-base font-semibold">会社情報</h2>
 
             <div className="flex items-center gap-3">
