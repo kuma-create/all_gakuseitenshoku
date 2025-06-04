@@ -93,6 +93,19 @@ export default function ChatPage() {
   /* ------- 共通取得関数 --------------------------------- */
   const fetchChats = useCallback(async () => {
     if (!user?.id) return
+
+    /* 1-a) 学生プロフィール ID を取得（存在しない場合は null） */
+    let studentProfileId: string | null = null
+    const { data: studentRow } = await supabase
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (studentRow) {
+      studentProfileId = studentRow.id
+    }
+
     setLoading(true)
 
     /* 2) 自分が company_members に登録されている company_id を取得 */
@@ -130,9 +143,13 @@ export default function ChatPage() {
       `,
       )
       .or(
-        `student_id.eq.${user.id}${
+        `${
+          studentProfileId ? `student_id.eq.${studentProfileId}` : ""
+        }${
           companyIds.length
-            ? `,company_id.in.(${companyIds.map((id) => `"${id}"`).join(",")})`
+            ? `${studentProfileId ? "," : ""}company_id.in.(${companyIds
+                .map((id) => `"${id}"`)
+                .join(",")})`
             : ""
         }`
       )
@@ -147,7 +164,7 @@ export default function ChatPage() {
 
     const items: ChatItem[] = (data ?? []).map((r) => {
       const latest = r.messages?.[0] ?? null
-      const isStudentSide = r.student_id === user.id
+      const isStudentSide = r.student_id === studentProfileId
       const unread =
         latest && !latest.is_read && latest.sender_id !== user.id
 
