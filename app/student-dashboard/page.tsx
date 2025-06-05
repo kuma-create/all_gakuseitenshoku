@@ -83,7 +83,7 @@ export default function StudentDashboard() {
         { count: appsCnt },
         { count: roomsCnt },
       ] = await Promise.all([
-        supabase.from("scouts")
+        supabase.from("offers")
           .select("id", { head: true, count: "exact" })
           .eq("student_id", studentId),
         supabase.from("applications")
@@ -103,14 +103,14 @@ export default function StudentDashboard() {
           .order("deadline", { ascending: true })
           .limit(3),
 
-        supabase.from("scouts")
+        supabase.from("offers")
           .select(`
             id,
             company_id,
             message,
             is_read,
             created_at,
-            companies!scouts_company_id_fkey ( id, name, logo ),
+            companies!offers_company_id_fkey ( id, name, logo ),
             jobs:job_id ( title )
           `)
           .eq("student_id", studentId)
