@@ -358,8 +358,7 @@ function ProfileCard({ userId }: { userId: string }) {
 
       const resumeBasic = [
         b.lastName, b.firstName, b.lastNameKana, b.firstNameKana,
-        b.birthdate, b.gender,
-        b.postalCode, b.prefecture, b.city, b.address,
+        b.birthdate, b.gender, b.address,
       ];
       const resumePR   = [pr.title, pr.content, pr.motivation];
       const cArrKeys   = ["jobTypes","locations","industries","workPreferences"];
