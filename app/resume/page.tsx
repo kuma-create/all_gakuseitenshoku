@@ -40,14 +40,23 @@ import { Badge } from "@/components/ui/badge";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-// Create a single Supabase client instance for the component to avoid multiple GoTrue instances
-const supabase = createClientComponentClient();
+import { supabase } from "@/lib/supabase/client";
 
 
 
 // ─── 型定義 ──────────────────────────────────────────────────────
+/**
+ * Supabase が期待する JSON 型
+ * (supabase-js v2 のユーティリティ型をローカルで定義)
+ */
+type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json }
+  | Json[];
 
 // 職歴アイテムの型
 interface WorkExperience {
@@ -219,9 +228,13 @@ export default function ResumePage() {
           .single();
 
         if (!error && data) {
-          if (data.form_data) setFormData(data.form_data as FormData);
+          if (data.form_data)
+            setFormData(data.form_data as unknown as FormData);
+
           if (Array.isArray(data.work_experiences))
-            setWorkExperiences(data.work_experiences as WorkExperience[]);
+            setWorkExperiences(
+              data.work_experiences as unknown as WorkExperience[]
+            );
           console.log("📄 Resume loaded from DB");
         } else {
           console.log("ℹ️ No existing resume found / fetch error:", error?.message);
@@ -434,8 +447,8 @@ export default function ResumePage() {
       const { error } = await supabase
         .from("resumes")
         .update({
-          form_data: formData,
-          work_experiences: workExperiences,
+          form_data: formData as unknown as Json,
+          work_experiences: workExperiences as unknown as Json,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -444,8 +457,8 @@ export default function ResumePage() {
       /* insert */
       const { error } = await supabase.from("resumes").insert({
         user_id: uid,
-        form_data: formData,
-        work_experiences: workExperiences,
+        form_data: formData as unknown as Json,
+        work_experiences: workExperiences as unknown as Json,
         updated_at: new Date().toISOString(),
       });
       saveErr = error;
