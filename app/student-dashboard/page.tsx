@@ -324,7 +324,9 @@ function ProfileCard({ userId }: { userId: string }) {
       const basicArr = [
         sp?.last_name, sp?.first_name,
         sp?.last_name_kana, sp?.first_name_kana,
-        sp?.birth_date, sp?.gender, sp?.address_line,
+        sp?.birth_date, sp?.gender,
+        sp?.postal_code, sp?.prefecture,
+        sp?.city, sp?.address_line,
       ];
       const prArr    = [sp?.pr_title, sp?.pr_text, sp?.about];
       const prefArr  = [
@@ -353,7 +355,8 @@ function ProfileCard({ userId }: { userId: string }) {
 
       const resumeBasic = [
         b.lastName, b.firstName, b.lastNameKana, b.firstNameKana,
-        b.birthdate, b.gender, b.address,
+        b.birthdate, b.gender,
+        b.postalCode, b.prefecture, b.city, b.address,
       ];
       const resumePR   = [pr.title, pr.content, pr.motivation];
       const cArrKeys   = ["jobTypes","locations","industries","workPreferences"];
@@ -376,10 +379,17 @@ function ProfileCard({ userId }: { userId: string }) {
         if (filled(w.achievements)) f++;
         if (w.isCurrent || filled(w.endDate)) f++;
       });
-      const workPct = t ? Math.round((f / t) * 100) : 0;
+      const workPct = works.length
+        ? Math.round((f / t) * 100)
+        : 0;
 
-      /* resume overall = form 70% + work 30% */
-      const resumeOverall = Math.round(resumeFormPct * 0.7 + workPct * 0.3);
+      /* resumeOverall
+         - if workExperiences.length === 0 → use formPct only
+         - else → weighted form 70% + work 30%
+      */
+      const resumeOverall = works.length === 0
+        ? resumeFormPct
+        : Math.round(resumeFormPct * 0.7 + workPct * 0.3);
 
       /* Final overall = profile 70% + resumeOverall 30% */
       const overall = Math.round(profilePct * 0.7 + resumeOverall * 0.3);
