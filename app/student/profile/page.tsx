@@ -309,27 +309,29 @@ export default function StudentProfilePage() {
       /* --- resume.form_data を同期 (basic/pr/conditions) --- */
       const uid = profile.user_id;
       if (uid) {
-        /* JSON 変換: snake_case ⇒ camelCase ネスト構造 */
+        /* JSON に camelCase で保存する */
         const basic = {
-          lastName:         profile.last_name ?? "",
-          firstName:        profile.first_name ?? "",
-          lastNameKana:     profile.last_name_kana ?? "",
-          firstNameKana:    profile.first_name_kana ?? "",
-          birthdate:        profile.birth_date ?? "",
-          gender:           profile.gender ?? "",
-          address:          profile.address_line ?? "",
+          lastName:        profile.last_name ?? "",
+          firstName:       profile.first_name ?? "",
+          lastNameKana:    profile.last_name_kana ?? "",
+          firstNameKana:   profile.first_name_kana ?? "",
+          birthdate:       profile.birth_date ?? "",
+          gender:          profile.gender ?? "",
+          address:         profile.address_line ?? "",
         };
+
         const pr = {
           title:      profile.pr_title ?? "",
           content:    profile.pr_text ?? "",
           motivation: profile.motive ?? "",
         };
+
         const conditions = {
-          jobTypes:         profile.desired_positions ?? [],
-          locations:        profile.desired_locations ?? [],
-          industries:       profile.preferred_industries ?? [],
-          workPreferences:  profile.work_style_options ?? [],
-          workStyle:        profile.work_style ?? "",
+          jobTypes:        profile.desired_positions ?? [],
+          locations:       profile.desired_locations ?? [],
+          industries:      profile.preferred_industries ?? [],
+          workPreferences: profile.work_style_options ?? [],
+          workStyle:       profile.work_style ?? "",
         };
 
         await supabase
