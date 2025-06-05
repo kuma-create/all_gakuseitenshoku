@@ -413,7 +413,7 @@ function ProfileCard({ userId }: { userId: string }) {
   }, [userId]);
 
   return (
-    <Card className="sticky top-20">
+    <Card className="lg:sticky lg:top-20">
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <AvatarBlock url={avatarUrl} onUpload={handleUpload} saving={saving} />
@@ -487,6 +487,23 @@ function AvatarBlock({
    GrandPrixCard – 左カラム用シンプルカード
 ================================================================ */
 function GrandPrixCard({ events }: { events: GrandPrix[] }) {
+  // --- helper: choose banner --- //
+  const bannerFor = (e: GrandPrix) => {
+    if (e.banner_url) return e.banner_url;
+    const title = (e.title ?? "").toLowerCase();
+
+    if (title.includes("マーケ") || title.includes("market")) {
+      return "/icons/gp_marketing.svg";
+    }
+    if (title.includes("エンジニア") || title.includes("engineer") || title.includes("開発")) {
+      return "/icons/gp_engineer.svg";
+    }
+    if (title.includes("デザイン") || title.includes("design")) {
+      return "/icons/gp_design.svg";
+    }
+    // default
+    return "/icons/gp_default.svg";
+  };
   return events.length === 0 ? (
     <Card>
       <CardContent className="p-6 text-center text-gray-600">
@@ -507,7 +524,7 @@ function GrandPrixCard({ events }: { events: GrandPrix[] }) {
           >
             <div className="relative h-10 w-16 flex-shrink-0 overflow-hidden rounded">
               <Image
-                src={e.banner_url ?? "/placeholder-banner.jpg"}
+                src={bannerFor(e)}
                 alt={e.title}
                 fill
                 className="object-cover"
