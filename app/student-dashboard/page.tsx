@@ -62,6 +62,7 @@ export default function StudentDashboard() {
   const [grandPrix, setGP]  = useState<GrandPrix[]>([]);
   const [offers,    setOffers] = useState<Scout[]>([]);
   const [cardsLoad, setCL]     = useState(true);
+  const [displayName, setDisplayName] = useState<string>("学生");
 
   /* ---- ③ 未ログインならリダイレクト -------------------------- */
   useEffect(() => {
@@ -77,11 +78,18 @@ export default function StudentDashboard() {
       // fetch student_profiles.id (some tables reference this instead of auth.users.id)
       const { data: sp } = await supabase
         .from("student_profiles")
-        .select("id")
+        .select("id,full_name,first_name,last_name")
         .eq("user_id", studentId)
         .maybeSingle();
 
       const sid = sp?.id ?? studentId;   // use profile.id if exists, otherwise fallback to auth.uid
+
+      // decide display name for greeting
+      const dname =
+        sp?.full_name ||
+        `${sp?.last_name ?? ""} ${sp?.first_name ?? ""}`.trim() ||
+        "学生";
+      setDisplayName(dname);
 
       /* ---- stats ---- */
       setSL(true);
@@ -171,7 +179,7 @@ export default function StudentDashboard() {
   return (
     <main className="container mx-auto space-y-10 px-4 py-8">
       {/* ---- Greeting ---- */}
-      <GreetingHero userName={user.name ?? "学生"} />
+      <GreetingHero userName={displayName} />
 
 
       {/* ---- 1:2 レイアウト ---- */}
@@ -613,7 +621,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
 ================================================================ */
 function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
   return (
-    <div className="grid gap-6 md:grid-cols-3">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <StatCard
         title="スカウト状況"
         desc="企業からのオファー"
@@ -653,7 +661,7 @@ function StatCard(props: {
 }) {
   const { title, desc, icon, loading, stats, href } = props;
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md">
+    <Card className="flex h-full flex-col overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
         <CardTitle className="flex items-center gap-2 text-lg">
           {icon}
@@ -661,7 +669,7 @@ function StatCard(props: {
         </CardTitle>
         <CardDescription>{desc}</CardDescription>
       </CardHeader>
-      <CardContent className="pt-6">
+      <CardContent className="flex-1 pt-6">
         {loading ? (
           <p>読み込み中…</p>
         ) : (
