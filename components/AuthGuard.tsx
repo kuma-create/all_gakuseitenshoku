@@ -25,7 +25,8 @@ export default function AuthGuard() {
           "/chat",                     // 学生チャット
           "/company",                  // 企業配下
           "/student",   
-          "/jobs",               // 学生配下
+          "/jobs", 
+          "/resume",               // 学生配下
         ];
         if (
           publicPrefixes.some(
