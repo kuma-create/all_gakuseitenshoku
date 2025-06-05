@@ -103,14 +103,14 @@ export default function StudentDashboard() {
 
         supabase.from("offers")
           .select(`
-            id,
-            company_id,
-            message,
-            is_read,
-            created_at,
-            companies!offers_company_id_fkey ( id, name, logo ),
-            jobs:job_id ( title )
-          `)
+    id,
+    company_id,
+    message,
+    is_read,
+    created_at,
+    company:companies ( id, name, logo ),
+    job:jobs ( id, title )
+  `)
           .eq("student_id", studentId)
           .order("created_at", { ascending: false })
           .limit(10),
@@ -131,9 +131,9 @@ if (offersErr) console.error("scouts fetch error →", offersErr);  // ← 失�
         (offersRaw as any[] | null)?.map(r => ({
           id: r.id,
           company_id    : r.company_id,
-          company_name  : r.companies?.name ?? null,
-          company_logo  : r.companies?.logo ?? null,
-          position      : r.jobs?.title ?? null,
+          company_name  : r.company?.name ?? null,
+          company_logo  : r.company?.logo ?? null,
+          position      : r.job?.title ?? null,
           message       : r.message ?? null,
           created_at    : r.created_at,
           is_read       : r.is_read,
