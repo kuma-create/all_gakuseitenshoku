@@ -8,7 +8,7 @@ import React from "react";
 import Link   from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { Button   } from "@/components/ui/button";
-import { useProfileCompletion } from "@/lib/hooks/useProfileCompletion";
+import { useCompletion } from "@/lib/use-completion";
 import { Check, X } from "lucide-react";
 
 /* ----------- 日本語ラベル辞書 ----------- */
@@ -35,10 +35,10 @@ const labels: Record<string, string> = {
 ================================================================ */
 export function ProfileCompletionCard() {
   /* ① フックは常にトップレベルで呼び出す */
-  const completion = useProfileCompletion();   // null → 読み込み中
+  const { score, missing = [] } = useCompletion("overall"); // score === null → 読み込み中
 
   /* ② 読み込み中 Skeleton – 早期 return を避ける */
-  if (!completion) {
+  if (score === null) {
     return (
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div className="mb-3 flex items-center justify-between animate-pulse">
@@ -54,9 +54,6 @@ export function ProfileCompletionCard() {
       </div>
     );
   }
-
-  /* ③ データ表示 */
-  const { score, missing } = completion;
 
   return (
     <div className="rounded-lg border bg-white p-6 shadow-sm">
@@ -79,9 +76,9 @@ export function ProfileCompletionCard() {
           </p>
 
           <ul className="space-y-1 text-sm">
-            {missing.map((key) => (
-              <li key={key} className="flex items-center gap-1 text-red-600">
-                <X size={14} /> {labels[key] ?? key} が未入力です
+            {missing.map((f) => (
+              <li key={f.key} className="flex items-center gap-1 text-red-600">
+                <X size={14} /> {labels[f.key] ?? f.label ?? f.key} が未入力です
               </li>
             ))}
           </ul>
