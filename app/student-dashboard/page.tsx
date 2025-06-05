@@ -23,8 +23,6 @@ import { Button }   from "@/components/ui/button";
 import { Badge }    from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-import { CompletionWidget }         from "@/components/completion-widget";
-import { useCompletion }            from "@/lib/use-completion";
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
@@ -241,10 +239,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 function ProfileCard({ userId }: { userId: string }) {
   const [avatarUrl, setAvatar] = useState<string | null>(null);
   const [name,      setName]   = useState<string>("学生");
-  // 履歴書 70％ + 職務経歴書 30％ の加重平均を表示
-  const { score: overallScore = 0 } = useCompletion("overall");
-  const completion = Math.min(100, overallScore ?? 0);
-  const [saving,    setSaving] = useState(false);
+  const [completion, setCompletion] = useState<number>(0);   // front‑side calc value
+  const [saving, setSaving] = useState(false);
 
   /* 初回 fetch：名前 & アイコン */
   useEffect(() => {
@@ -291,6 +287,107 @@ function ProfileCard({ userId }: { userId: string }) {
     [userId],
   );
 
+  /* ── Front‑side completion
+        overall = profilePct * 0.7 + (resumeForm *0.7 + work *0.3) * 0.3 ── */
+  useEffect(() => {
+    (async () => {
+      if (!userId) return;
+
+      /* fetch profile & resume in parallel */
+      const [{ data: sp }, { data: resume }] = await Promise.all([
+        supabase
+          .from("student_profiles")
+          .select(`
+            last_name, first_name, last_name_kana, first_name_kana,
+            birth_date, gender, address_line,
+            pr_title, pr_text, about,
+            desired_positions, work_style_options,
+            preferred_industries, desired_locations
+          `)
+          .eq("user_id", userId)
+          .maybeSingle(),
+
+        supabase
+          .from("resumes")
+          .select("form_data, work_experiences")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      /* helper */
+      const filled = (v: any) =>
+        Array.isArray(v) ? v.length > 0 : v != null && v !== "";
+
+      /* ==== profilePct (basic / pr / pref) =================================== */
+      const basicArr = [
+        sp?.last_name, sp?.first_name,
+        sp?.last_name_kana, sp?.first_name_kana,
+        sp?.birth_date, sp?.gender, sp?.address_line,
+      ];
+      const prArr    = [sp?.pr_title, sp?.pr_text, sp?.about];
+      const prefArr  = [
+        sp?.desired_positions,
+        sp?.work_style_options,
+        sp?.preferred_industries,
+        sp?.desired_locations,
+      ];
+
+      const pct = (arr: any[]) =>
+        Math.round((arr.filter(filled).length / arr.length) * 100);
+
+      const profilePct =
+        Math.round((pct(basicArr) + pct(prArr) + pct(prefArr)) / 3);
+
+      /* form_data は JSON 型なので any キャストで型エラーを回避 */
+      const form  = (resume?.form_data as any) ?? {};
+      /* work_experiences も JSON 配列なので any[] キャスト */
+      const works = Array.isArray(resume?.work_experiences)
+        ? (resume!.work_experiences as any[])
+        : [];
+
+      const b  = form.basic ?? {};
+      const pr = form.pr ?? {};
+      const cd = form.conditions ?? {};
+
+      const resumeBasic = [
+        b.lastName, b.firstName, b.lastNameKana, b.firstNameKana,
+        b.birthdate, b.gender, b.address,
+      ];
+      const resumePR   = [pr.title, pr.content, pr.motivation];
+      const cArrKeys   = ["jobTypes","locations","industries","workPreferences"];
+      const condArr    = cArrKeys.map((k) => (cd[k] ?? []).length > 0);
+      const condScalar = filled(cd.workStyle);
+
+      const resumeFormPct =
+        Math.round((pct(resumeBasic) + pct(resumePR) +
+                    Math.round(((condArr.filter(Boolean).length + (condScalar?1:0)) / 5) * 100)
+                   ) / 3);
+
+      /* workPct */
+      let t = 0, f = 0;
+      (works as any[]).forEach((w) => {
+        t += 6;
+        if (filled(w.company))      f++;
+        if (filled(w.position))     f++;
+        if (filled(w.startDate))    f++;
+        if (filled(w.description))  f++;
+        if (filled(w.achievements)) f++;
+        if (w.isCurrent || filled(w.endDate)) f++;
+      });
+      const workPct = t ? Math.round((f / t) * 100) : 0;
+
+      /* resume overall = form 70% + work 30% */
+      const resumeOverall = Math.round(resumeFormPct * 0.7 + workPct * 0.3);
+
+      /* Final overall = profile 70% + resumeOverall 30% */
+      const overall = Math.round(profilePct * 0.7 + resumeOverall * 0.3);
+
+      setCompletion(overall);
+    })();
+  }, [userId]);
+
   return (
     <Card className="sticky top-20">
       <CardHeader>
@@ -304,9 +401,7 @@ function ProfileCard({ userId }: { userId: string }) {
         </CardDescription>
       </CardHeader>
 
-      <CardContent>
-        <CompletionWidget scope="overall" />
-      </CardContent>
+      {/* CompletionWidget removed */}
 
       <CardFooter className="flex flex-col gap-2">
         <Button asChild variant="outline" className="w-full">
