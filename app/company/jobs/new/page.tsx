@@ -236,18 +236,27 @@ export default function NewJobPage() {
     
       /* 2) selections へ INSERT  */
       const payload = {
-        id                 : crypto.randomUUID(),
-        company_id         : companyId,
-        selection_type     : selectionType,
-        title              : formData.title,
-        description        : formData.description,
-        requirements       : formData.requirements || null,
-        location           : formData.location || null,
-        work_type          : formData.employmentType,
-        salary_range       : formData.salary || null,
-        cover_image_url    : formData.coverImageUrl,
-        published          : formData.status === "公開",
-        application_deadline: formData.applicationDeadline || null,
+        id                   : crypto.randomUUID(),
+        company_id           : companyId,
+        selection_type       : selectionType,
+        /* ★ 追加: 表示用カテゴリ (一覧で利用) */
+        category             :
+          selectionType === "internship_short"
+            ? "インターン"
+            : selectionType === "event"
+            ? "イベント"
+            : "本選考",
+        title                : formData.title,
+        description          : formData.description,
+        requirements         : formData.requirements || null,
+        location             : formData.location || null,
+        work_type            : formData.employmentType,
+        salary_range         : formData.salary || null,
+        cover_image_url      : formData.coverImageUrl,
+        published            : formData.status === "公開",
+        application_deadline : formData.applicationDeadline || null,
+        /* ★ 追加: 勤務開始日 (jobs.start_date へ) */
+        start_date           : formData.startDate || null,
       } as const
 
       const jobId = payload.id;    // ← 新しく追加

@@ -399,6 +399,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "chat_rooms_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "chat_rooms_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
@@ -439,6 +446,7 @@ export type Database = {
           recruit_website: string | null
           status: string
           user_id: string | null
+          video_url: string | null
           website: string | null
         }
         Insert: {
@@ -458,6 +466,7 @@ export type Database = {
           recruit_website?: string | null
           status?: string
           user_id?: string | null
+          video_url?: string | null
           website?: string | null
         }
         Update: {
@@ -477,9 +486,175 @@ export type Database = {
           recruit_website?: string | null
           status?: string
           user_id?: string | null
+          video_url?: string | null
           website?: string | null
         }
         Relationships: []
+      }
+      company_business_areas: {
+        Row: {
+          area: string | null
+          company_id: string
+          ordinal: number
+        }
+        Insert: {
+          area?: string | null
+          company_id: string
+          ordinal: number
+        }
+        Update: {
+          area?: string | null
+          company_id?: string
+          ordinal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_business_areas_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_business_areas_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_events: {
+        Row: {
+          company_id: string | null
+          datetime: string | null
+          id: string
+          location: string | null
+          title: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          datetime?: string | null
+          id?: string
+          location?: string | null
+          title?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          datetime?: string | null
+          id?: string
+          location?: string | null
+          title?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_highlights: {
+        Row: {
+          body: string | null
+          company_id: string | null
+          icon: string | null
+          id: string
+          ordinal: number | null
+          title: string | null
+        }
+        Insert: {
+          body?: string | null
+          company_id?: string | null
+          icon?: string | null
+          id?: string
+          ordinal?: number | null
+          title?: string | null
+        }
+        Update: {
+          body?: string | null
+          company_id?: string | null
+          icon?: string | null
+          id?: string
+          ordinal?: number | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_highlights_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_highlights_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_interviews: {
+        Row: {
+          answer_hint: string | null
+          company_id: string | null
+          experience_text: string | null
+          graduation_year: number | null
+          id: string
+          posted_at: string | null
+          question: string | null
+        }
+        Insert: {
+          answer_hint?: string | null
+          company_id?: string | null
+          experience_text?: string | null
+          graduation_year?: number | null
+          id?: string
+          posted_at?: string | null
+          question?: string | null
+        }
+        Update: {
+          answer_hint?: string | null
+          company_id?: string | null
+          experience_text?: string | null
+          graduation_year?: number | null
+          id?: string
+          posted_at?: string | null
+          question?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_interviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_interviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_members: {
         Row: {
@@ -512,6 +687,157 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_philosophy: {
+        Row: {
+          company_id: string
+          ordinal: number
+          paragraph: string | null
+        }
+        Insert: {
+          company_id: string
+          ordinal: number
+          paragraph?: string | null
+        }
+        Update: {
+          company_id?: string
+          ordinal?: number
+          paragraph?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_philosophy_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_philosophy_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_positions: {
+        Row: {
+          company_id: string
+          ordinal: number
+          position: string | null
+        }
+        Insert: {
+          company_id: string
+          ordinal: number
+          position?: string | null
+        }
+        Update: {
+          company_id?: string
+          ordinal?: number
+          position?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_positions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_positions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_recruit_info: {
+        Row: {
+          company_id: string
+          message: string | null
+        }
+        Insert: {
+          company_id: string
+          message?: string | null
+        }
+        Update: {
+          company_id?: string
+          message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_recruit_info_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_recruit_info_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_reviews: {
+        Row: {
+          body: string | null
+          company_id: string | null
+          id: string
+          posted_at: string | null
+          rating: number | null
+          role: string | null
+          tenure_years: number | null
+          title: string | null
+        }
+        Insert: {
+          body?: string | null
+          company_id?: string | null
+          id?: string
+          posted_at?: string | null
+          rating?: number | null
+          role?: string | null
+          tenure_years?: number | null
+          title?: string | null
+        }
+        Update: {
+          body?: string | null
+          company_id?: string | null
+          id?: string
+          posted_at?: string | null
+          rating?: number | null
+          role?: string | null
+          tenure_years?: number | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
         ]
@@ -871,6 +1197,7 @@ export type Database = {
       jobs: {
         Row: {
           application_deadline: string | null
+          category: string | null
           company_id: string | null
           cover_image_url: string | null
           created_at: string
@@ -883,12 +1210,14 @@ export type Database = {
           requirements: string | null
           salary_range: string | null
           selection_type: Database["public"]["Enums"]["selection_type"] | null
+          start_date: string | null
           title: string
           views: number
           work_type: string | null
         }
         Insert: {
           application_deadline?: string | null
+          category?: string | null
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
@@ -901,12 +1230,14 @@ export type Database = {
           requirements?: string | null
           salary_range?: string | null
           selection_type?: Database["public"]["Enums"]["selection_type"] | null
+          start_date?: string | null
           title: string
           views?: number
           work_type?: string | null
         }
         Update: {
           application_deadline?: string | null
+          category?: string | null
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
@@ -919,6 +1250,7 @@ export type Database = {
           requirements?: string | null
           salary_range?: string | null
           selection_type?: Database["public"]["Enums"]["selection_type"] | null
+          start_date?: string | null
           title?: string
           views?: number
           work_type?: string | null
@@ -929,6 +1261,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1015,6 +1354,7 @@ export type Database = {
           created_at: string | null
           expiration_date: string | null
           id: string
+          job_id: string | null
           salary: number | null
           start_date: string | null
           status: Database["public"]["Enums"]["offer_status"] | null
@@ -1028,6 +1368,7 @@ export type Database = {
           created_at?: string | null
           expiration_date?: string | null
           id?: string
+          job_id?: string | null
           salary?: number | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["offer_status"] | null
@@ -1041,6 +1382,7 @@ export type Database = {
           created_at?: string | null
           expiration_date?: string | null
           id?: string
+          job_id?: string | null
           salary?: number | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["offer_status"] | null
@@ -1060,6 +1402,27 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
             referencedColumns: ["id"]
           },
           {
@@ -1265,10 +1628,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_templates_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scout_templates_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scout_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
           {
@@ -1342,6 +1719,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_scouts_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_scouts_student"
             columns: ["student_id"]
             isOneToOne: false
@@ -1353,6 +1737,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scouts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
           {
@@ -1781,6 +2172,32 @@ export type Database = {
       }
     }
     Views: {
+      companies_view: {
+        Row: {
+          address: string | null
+          business_areas: string[] | null
+          contact_email: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          description: string | null
+          employee_count: number | null
+          founded_year: number | null
+          id: string | null
+          industry: string | null
+          location: string | null
+          logo: string | null
+          name: string | null
+          philosophy: string[] | null
+          phone: string | null
+          positions: string[] | null
+          recruit_message: string | null
+          recruit_website: string | null
+          status: string | null
+          user_id: string | null
+          website: string | null
+        }
+        Relationships: []
+      }
       gp_rank: {
         Row: {
           rank: number | null
@@ -1837,6 +2254,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
         ]

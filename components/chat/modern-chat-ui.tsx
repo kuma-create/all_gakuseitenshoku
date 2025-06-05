@@ -231,24 +231,43 @@ export function ModernChatUI({
     )
   }
 
-  const renderAttachment = (attachment: NonNullable<Message["attachment"]>) => {
+  const renderAttachment = (
+    attachment: NonNullable<Message["attachment"]>,
+    isOwn: boolean
+  ) => {
     if (attachment.type.startsWith("image/")) {
       return (
-        <div className="mt-2 rounded-md overflow-hidden">
+        <a
+          href={attachment.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group mt-2 inline-block max-w-xs overflow-hidden rounded-md"
+        >
           <img
             src={attachment.url || "/placeholder.svg"}
             alt={attachment.name}
-            className="max-w-full h-auto max-h-60 object-contain"
+            className="max-h-60 w-full object-contain transition-transform group-hover:scale-105"
           />
-        </div>
+        </a>
       )
     }
 
     return (
-      <div className="mt-2 flex items-center gap-2 rounded-md bg-gray-100 p-2 dark:bg-gray-700">
-        <div className="text-blue-500">📎</div>
-        <span className="text-sm truncate max-w-[200px]">{attachment.name}</span>
-      </div>
+      <a
+        href={attachment.url}
+        download={attachment.name}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(
+          "mt-2 inline-flex max-w-xs items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+          isOwn
+            ? "bg-white/90 text-foreground hover:bg-white shadow"
+            : "bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+        )}
+      >
+        <Paperclip className="h-4 w-4 shrink-0" />
+        <span className="truncate">{attachment.name}</span>
+      </a>
     )
   }
 
@@ -340,7 +359,7 @@ export function ModernChatUI({
                     </TabsTrigger>
                   </>
                 )}
-                {currentUser === "student" && (
+                {/* {currentUser === "student" && (
                   <TabsTrigger
                     value="job"
                     className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
@@ -348,7 +367,7 @@ export function ModernChatUI({
                     <Briefcase className="h-3.5 w-3.5 mr-1.5" />
                     求人詳細
                   </TabsTrigger>
-                )}
+                )} */}
               </TabsList>
             </Tabs>
           </div>
@@ -361,7 +380,10 @@ export function ModernChatUI({
         className="flex-1 flex flex-col min-h-0 transition-all duration-300"
         style={mainContentStyle}
       >
-        <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 p-0 m-0 data-[state=active]:flex-1 w-full">
+        <TabsContent
+          value="chat"
+          className="flex-1 flex flex-col min-h-0 p-0 m-0 w-full"
+        >
           {/* Messages area */}
           <div
             ref={chatContainerRef}
@@ -425,7 +447,7 @@ export function ModernChatUI({
                       >
                         <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
 
-                        {message.attachment && renderAttachment(message.attachment)}
+                        {message.attachment && renderAttachment(message.attachment, isCurrentUser)}
 
                         <div
                           className={cn(
@@ -943,75 +965,7 @@ export function ModernChatUI({
           </div>
         </TabsContent>
 
-        {/* Job details tab - now fixed to the right side on desktop */}
-        <TabsContent
-          value="job"
-          className="fixed top-0 right-0 w-full md:w-[350px] h-full overflow-y-auto p-4 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10 md:pt-[60px]"
-        >
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src="/abstract-geometric-logo.png" alt="会社ロゴ" />
-                <AvatarFallback>CO</AvatarFallback>
-              </Avatar>
-              <div>
-                <h4 className="text-xl font-medium">フロントエンドエンジニア</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">株式会社テクノロジー</p>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <h5 className="font-medium">募集要項</h5>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400">雇用形態</p>
-                  <p>正社員</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400">勤務地</p>
-                  <p>東京都渋谷区</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400">給与</p>
-                  <p>年収450万円〜700万円</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400">勤務時間</p>
-                  <p>フレックスタイム制</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <h5 className="font-medium">必須スキル</h5>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary">React</Badge>
-                <Badge variant="secondary">TypeScript</Badge>
-                <Badge variant="secondary">HTML/CSS</Badge>
-                <Badge variant="secondary">Git</Badge>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <h5 className="font-medium">歓迎スキル</h5>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="outline">Next.js</Badge>
-                <Badge variant="outline">GraphQL</Badge>
-                <Badge variant="outline">UI/UXデザイン</Badge>
-                <Badge variant="outline">テスト自動化</Badge>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <h5 className="font-medium">仕事内容</h5>
-              <p className="text-sm">
-                当社のWebアプリケーション開発チームの一員として、フロントエンド開発を担当していただきます。
-                ReactとTypeScriptを用いたモダンなUI開発、コンポーネント設計、パフォーマンス最適化などを行っていただきます。
-                また、バックエンドエンジニアやデザイナーと協力して、ユーザー体験の向上に取り組んでいただきます。
-              </p>
-            </div>
-          </div>
-        </TabsContent>
+        {/* Job details tab removed. */}
       </Tabs>
 
       {/* Date picker dialog */}

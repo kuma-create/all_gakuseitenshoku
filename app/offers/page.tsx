@@ -1,7 +1,17 @@
 // app/offers/page.tsx
 "use client"
 
-import { Calendar, Filter, Loader2, MessageSquare, Search as SearchIcon } from "lucide-react"
+import {
+  Calendar,
+  Check,
+  Clock,
+  Eye,
+  Filter,
+  Loader2,
+  MessageSquare,
+  Search as SearchIcon,
+  X
+} from "lucide-react"
 import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 import { useEffect, useState, ChangeEvent } from "react"
@@ -21,6 +31,8 @@ interface Offer {
   message: string
   created_at: string
   date: string
+  /** created_at + 14 days, formatted */
+  deadline: string
   status: "sent" | "accepted" | "declined"
   company_id: string
   room_id?: string  // optional, returned from RPC after accept
@@ -59,20 +71,29 @@ export default function OffersPage() {
         console.error("Error fetching scouts:", error)
         setError(error.message)
       } else {
-        const mapped: Offer[] = (data ?? []).map((s) => ({
-          id:         s.id,
-          company_id: s.company_id,
-          company:    s.companies?.name ?? "",
-          logo:       s.companies?.logo ?? "/placeholder.svg",
-          position:   s.jobs?.title ?? "",
-          message:    s.message,
-          status:     (s.status as "sent" | "accepted" | "declined") ?? "sent",
-          created_at: s.created_at ?? "",
-          date:       s.created_at
-                        ? new Date(s.created_at).toLocaleDateString("ja-JP")
+        const mapped: Offer[] = (data ?? []).map((s) => {
+          const createdDate = s.created_at ? new Date(s.created_at) : null
+          const deadlineDate = createdDate
+            ? new Date(createdDate.getTime() + 14 * 24 * 60 * 60 * 1000)
+            : null
+          return {
+            id:         s.id,
+            company_id: s.company_id,
+            company:    s.companies?.name ?? "",
+            logo:       s.companies?.logo ?? "/placeholder.svg",
+            position:   s.jobs?.title ?? "",
+            message:    s.message,
+            status: s.status as "sent" | "accepted" | "declined",
+            created_at: s.created_at ?? "",
+            date:       s.created_at
+                          ? new Date(s.created_at).toLocaleDateString("ja-JP")
+                          : "",
+            deadline: deadlineDate
+                        ? deadlineDate.toLocaleDateString("ja-JP")
                         : "",
-          isUnread:   s.status === "sent",
-        }))
+            isUnread:   s.status === "sent",
+          }
+        })
         setOffers(mapped)
       }
       setLoading(false)
@@ -101,7 +122,7 @@ export default function OffersPage() {
 
     setOffers((prev) =>
       prev.map((o) =>
-        o.id === offer.id ? { ...o, status: "accepted", isUnread: false } : o
+        o.id === offer.id ? { ...o, status: "accepted", isUnread: false, room_id: roomId } : o
       )
     )
     if (roomId) {
@@ -118,7 +139,10 @@ export default function OffersPage() {
     setProcessingId(offer.id)
     const { error } = await supabase
       .from("scouts")
-      .update({ status: "declined" })
+      .update({
+        status:      "declined",
+        declined_at: new Date().toISOString()
+      })
       .eq("id", offer.id)
     setProcessingId(null)
 
@@ -291,7 +315,7 @@ function OfferCard({ offer, onAccept, onDecline, processingId }: OfferCardProps)
         </div>
 
         {/* Offer Content */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-4 flex flex-col">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {offer.status === "sent" && (
@@ -314,9 +338,17 @@ function OfferCard({ offer, onAccept, onDecline, processingId }: OfferCardProps)
                   : "辞退済み"}
               </Badge>
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <Calendar size={14} />
-              <span>{offer.date}</span>
+            <div className="flex flex-col items-end gap-1 text-xs">
+              <div className="flex items-center gap-1 text-gray-500">
+                <Calendar size={14} />
+                <span>{offer.date}</span>
+              </div>
+              {offer.status === "sent" && offer.deadline && (
+                <div className="flex items-center gap-1 text-red-600">
+                  <Clock size={14} />
+                  <span>締切 {offer.deadline}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -326,42 +358,58 @@ function OfferCard({ offer, onAccept, onDecline, processingId }: OfferCardProps)
               : offer.message}
           </p>
 
-          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+          <div className="mt-auto ml-auto flex flex-wrap gap-3 sm:flex-nowrap justify-end">
+            {/* 詳細を見る – secondary button */}
             <Link href={`/offers/${offer.id}`} className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2 border-gray-300"
+              >
+                <Eye size={16} />
                 詳細を見る
               </Button>
             </Link>
-            <Link href={`/chat/${offer.id}`} className="w-full sm:w-auto">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                <MessageSquare size={16} className="mr-2" />
-                チャットを開始
-              </Button>
-            </Link>
-          </div>
 
-          {offer.status === "sent" && (
-            <div className="mt-4 flex gap-2">
-              <Button
-                disabled={processingId === offer.id}
-                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                onClick={() => onAccept(offer)}
-              >
-                {processingId === offer.id ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                承諾する
-              </Button>
-              <Button
-                disabled={processingId === offer.id}
-                variant="outline"
+            {/* 未読状態: 承諾する / 辞退する */}
+            {offer.status === "sent" && (
+              <>
+                <Button
+                  disabled={processingId === offer.id}
+                  onClick={() => onAccept(offer)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700"
+                >
+                  {processingId === offer.id ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check size={16} />
+                  )}
+                  承諾する
+                </Button>
+
+                <Button
+                  disabled={processingId === offer.id}
+                  onClick={() => onDecline(offer)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  <X size={16} />
+                  辞退する
+                </Button>
+              </>
+            )}
+
+            {/* 承諾済み: チャットを開始 */}
+            {offer.status === "accepted" && (
+              <Link
+                href={`/chat/${offer.room_id ?? offer.id}`}
                 className="w-full sm:w-auto"
-                onClick={() => onDecline(offer)}
               >
-                辞退する
-              </Button>
-            </div>
-          )}
+                <Button className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">
+                  <MessageSquare size={16} />
+                  チャットを開始
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </Card>

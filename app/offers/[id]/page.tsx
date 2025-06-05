@@ -164,7 +164,10 @@ export default function OfferDetailPage({
         /** scouts */
         id: data.id,
         message: data.message,
-        status: data.status ?? "",
+        status:
+          data.status === "rejected"
+            ? "declined"
+            : (data.status as "sent" | "accepted" | "declined") ?? "sent",
         created_at: data.created_at,
 
         /** jobs */
@@ -484,23 +487,47 @@ function InterestButtons({
   isMobile?: boolean
 }) {
   const [status, setStatus] = useState<"sent" | "accepted" | "declined">(
-    (offerStatus as any) === "sent" ? "sent" : "accepted"
+    offerStatus === "declined"
+      ? "declined"
+      : (offerStatus as "sent" | "accepted" | "declined")
   )
   const [showDialog, setShowDialog] = useState(false)
 
-  /* ------------- handlers ------------- */
-  const handleAccept = () => {
+  // handlers
+  const handleAccept = async () => {
+    const { error } = await supabase
+      .from("scouts")
+      .update({
+        status:      "accepted",
+        accepted_at: new Date().toISOString(),
+      })
+      .eq("id", offerId)
+
+    if (error) {
+      alert(`承諾に失敗しました: ${error.message}`)
+      return
+    }
     setStatus("accepted")
-    /** TODO: supabase PATCH で status を accepted に更新 */
   }
   const handleDecline = () => setShowDialog(true)
-  const confirmDecline = () => {
+  const confirmDecline = async () => {
+    const { error } = await supabase
+      .from("scouts")
+      .update({
+        status:      "declined",
+        declined_at: new Date().toISOString(),
+      })
+      .eq("id", offerId)
+
+    if (error) {
+      alert(`辞退に失敗しました: ${error.message}`)
+      return
+    }
     setStatus("declined")
     setShowDialog(false)
-    /** TODO: supabase PATCH で status を declined に更新 */
   }
 
-  /* ------------- UI ------------- */
+  // UI
   if (status === "declined") {
     return <p className="text-sm text-gray-500">辞退済みのオファーです。</p>
   }
@@ -549,7 +576,7 @@ function InterestButtons({
     )
   }
 
-  /* status === "accepted" */
+  // status === "accepted"
   return (
     <Button
       className="w-full gap-1.5 bg-red-600 hover:bg-red-700"

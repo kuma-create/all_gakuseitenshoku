@@ -4,7 +4,7 @@
 ──────────────────────────────────────────────── */
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { use as usePromise, useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
@@ -55,7 +55,8 @@ type CompanyRow = {
 type SelectionWithCompany = SelectionRow & { company?: CompanyRow | null }
 
 /* ---------- メイン ---------- */
-export default function JobDetailPage({ params }: { params: { id: string } }) {
+export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = usePromise(params)           // unwrap the promise
   const { userType } = useAuth()
   const router        = useRouter()
 
@@ -77,7 +78,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
   /* ---------- fetch ---------- */
   useEffect(() => {
-    if (!params.id) return
+    if (!id) return
     ;(async () => {
       try {
         setLoading(true)
@@ -103,7 +104,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
             fulltime:fulltime_details!job_id(*),
             event:event_details!job_id(*)
           `)
-          .eq("id", params.id)
+          .eq("id", id)
           .limit(1)              // まず 1 件に絞る
 
         if (selErr) throw selErr
@@ -117,7 +118,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         const { data: tagRows } = await supabase
           .from("job_tags")
           .select("tag")
-          .eq("job_id", params.id)
+          .eq("job_id", id)
         const tagList = tagRows?.map(t => t.tag) ?? []
 
         /* related */
@@ -128,7 +129,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
             .select(`id,title,location,salary_min,salary_max,selection_type,
                      company:companies(name,logo)`)
             .eq("company_id", sel.company_id)
-            .neq("id", params.id)
+            .neq("id", id)
             .limit(3)
           rel = (r ?? []) as unknown as SelectionRow[]
         }
@@ -138,12 +139,12 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         const { data: applied } = await supabase
           .from("applications")
           .select("id")
-          .eq("job_id", params.id)
+          .eq("job_id", id)
           .eq("student_id", user?.id ?? "")
           .maybeSingle()
 
         /* view count */
-        trackView(params.id)
+        trackView(id)
 
         /* set */
         setJob(sel)
@@ -160,7 +161,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         setLoading(false)
       }
     })()
-  }, [params.id, trackView])
+  }, [id, trackView])
 
   /* ---------- apply ---------- */
   const handleApply = async () => {
@@ -170,7 +171,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
       if (job?.selection_type === "event") {
         const participant: Database["public"]["Tables"]["event_participants"]["Insert"] = {
-          event_id   : params.id,
+          event_id   : id,
           student_id : user.id,
           status     : "reserved",
         }
@@ -178,7 +179,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         if (error) throw error
       } else {
         const appRow: Database["public"]["Tables"]["applications"]["Insert"] = {
-          job_id     : params.id,
+          job_id     : id,
           student_id : user.id,
         }
         const { error } = await supabase.from("applications").insert(appRow)

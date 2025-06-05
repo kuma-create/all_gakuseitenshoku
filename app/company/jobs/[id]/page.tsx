@@ -91,6 +91,8 @@ const fetchJob = async (id: string) => {
       company_id,
       created_at,
       selection_type,
+      category,
+      start_date,
       application_deadline,
       fulltime_details (department, employment_type, working_days, working_hours, benefits),
       internship_details (start_date, end_date, duration_weeks, work_days_per_week, allowance),
@@ -121,7 +123,7 @@ const fetchJob = async (id: string) => {
     coverImageUrl: data.cover_image_url ?? "",
 
     /* Internship */
-    startDate       : intern.start_date ?? "",
+    startDate       : data.start_date ?? intern.start_date ?? "",
     endDate         : intern.end_date ?? "",
     durationWeeks   : intern.duration_weeks ?? "",
     workDaysPerWeek : intern.work_days_per_week ?? "",
@@ -351,6 +353,14 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
         cover_image_url  : formData.coverImageUrl.trim(),
         published        : formData.status === "公開",
         application_deadline: formData.applicationDeadline || null,
+        /* 追加: カテゴリと開始日 */
+        category           :
+          job.selectionType === "internship_short"
+            ? "インターン"
+            : job.selectionType === "event"
+            ? "イベント"
+            : "本選考",
+        start_date         : formData.startDate || null,
       }
 
       /* ---------- 各詳細テーブル用ペイロード -------------------- */
