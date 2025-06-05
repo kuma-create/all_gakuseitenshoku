@@ -108,8 +108,8 @@ export default function StudentDashboard() {
     message,
     is_read,
     created_at,
-    company:companies ( id, name, logo ),
-    job:jobs ( id, title )
+    company:companies!scouts_company_id_fkey ( id, name, logo ),
+    job:jobs!scouts_job_id_fkey            ( id, title )
   `)
           .eq("student_id", studentId)
           .order("created_at", { ascending: false })
