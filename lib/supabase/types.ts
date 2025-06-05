@@ -1867,12 +1867,16 @@ export type Database = {
       }
       calculate_profile_completion: {
         Args: { p_user_id: string }
+        Returns: number
+      }
+      calculate_resume_completion: {
+        Args: { p_user_id: string }
         Returns: {
           score: number
           missing: string[]
         }[]
       }
-      calculate_resume_completion: {
+      calculate_work_history_completion: {
         Args: { p_user_id: string }
         Returns: {
           score: number

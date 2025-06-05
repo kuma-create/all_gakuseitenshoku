@@ -35,10 +35,13 @@ type RawCompletion = {
   score: number | string | null;
   missing?: string[] | null;
 };
-export type CompletionScope = "overall" | "profile" | "resume";
+export type CompletionScope = "overall" | "profile" | "resume" | "work_history";
 
 /* 呼び出す RPC 名 */
-type CompletionFn = "calculate_profile_completion" | "calculate_resume_completion";
+type CompletionFn =
+  | "calculate_profile_completion"
+  | "calculate_resume_completion"
+  | "calculate_work_history_completion";
 
 export type MissingField = {
   key: string;
@@ -118,17 +121,24 @@ export const useCompletion = (scope: CompletionScope = "overall") => {
             setScore(Math.round(rScore * 100));
             setMissing(mapMissing(r.missing ?? []));
           }
+        } else if (scope === "work_history") {
+          const w = await fetchOne("calculate_work_history_completion");
+          if (!cancelled) {
+            const wScore = toNumber(w.score);
+            setScore(Math.round(wScore * 100));
+            setMissing(mapMissing(w.missing ?? []));
+          }
         } else {
-          const [p, r] = await Promise.all([
-            fetchOne("calculate_profile_completion"),
+          const [r, w] = await Promise.all([
             fetchOne("calculate_resume_completion"),
+            fetchOne("calculate_work_history_completion"),
           ]);
           if (!cancelled) {
-            const pScore = toNumber(p.score);
             const rScore = toNumber(r.score);
-            const merged  = [...new Set([...(p.missing ?? []), ...(r.missing ?? [])])];
-            const weighted = pScore * 0.7 + rScore * 0.3;   // 0‑1 scale
-            setScore(Math.round(weighted * 100));           // convert to %
+            const wScore = toNumber(w.score);
+            const merged  = [...new Set([...(r.missing ?? []), ...(w.missing ?? [])])];
+            const weighted = rScore * 0.7 + wScore * 0.3;   // 0‑1 scale (resume 70%, work 30%)
+            setScore(Math.round(weighted * 100));
             setMissing(mapMissing(merged));
           }
         }

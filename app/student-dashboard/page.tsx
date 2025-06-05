@@ -241,7 +241,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 function ProfileCard({ userId }: { userId: string }) {
   const [avatarUrl, setAvatar] = useState<string | null>(null);
   const [name,      setName]   = useState<string>("学生");
-  const { score: completion = 0 } = useCompletion("profile");
+  // 2 つのセクションの平均を表示
+  const { score: profileScore = 0 } = useCompletion("profile");   // 基本プロフィール
+  const completion = Math.min(100, profileScore ?? 0);
   const [saving,    setSaving] = useState(false);
 
   /* 初回 fetch：名前 & アイコン */
