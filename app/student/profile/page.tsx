@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { z } from "zod"
 import { toast } from "@/components/ui/use-toast"
+import { supabase } from "@/lib/supabase/client";
 
 /* ---------- hooks ---------- */
 import { useAuthGuard }        from "@/lib/use-auth-guard"
@@ -304,6 +305,44 @@ export default function StudentProfilePage() {
     try {
       // まず DB にコミット
       await save()
+
+      /* --- resume.form_data を同期 (basic/pr/conditions) --- */
+      const uid = profile.user_id;
+      if (uid) {
+        /* JSON 変換: snake_case ⇒ camelCase ネスト構造 */
+        const basic = {
+          lastName:         profile.last_name ?? "",
+          firstName:        profile.first_name ?? "",
+          lastNameKana:     profile.last_name_kana ?? "",
+          firstNameKana:    profile.first_name_kana ?? "",
+          birthdate:        profile.birth_date ?? "",
+          gender:           profile.gender ?? "",
+          address:          profile.address_line ?? "",
+        };
+        const pr = {
+          title:      profile.pr_title ?? "",
+          content:    profile.pr_text ?? "",
+          motivation: profile.motive ?? "",
+        };
+        const conditions = {
+          jobTypes:         profile.desired_positions ?? [],
+          locations:        profile.desired_locations ?? [],
+          industries:       profile.preferred_industries ?? [],
+          workPreferences:  profile.work_style_options ?? [],
+          workStyle:        profile.work_style ?? "",
+        };
+
+        await supabase
+          .from("resumes")
+          .upsert(
+            {
+              user_id: uid,
+              form_data: { basic, pr, conditions },
+            },
+            { onConflict: "user_id" }
+          )
+          .throwOnError();
+      }
 
       // 成功トースト
       toast({
