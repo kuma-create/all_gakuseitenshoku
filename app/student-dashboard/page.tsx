@@ -215,7 +215,7 @@ function GreetingHero({ userName }: { userName: string }) {
           <h1 className="text-2xl font-bold sm:text-3xl">
             こんにちは、{userName} さん！
           </h1>
-          <p className="mt-1 text-gray-600">今日も就活を頑張りましょう。</p>
+          <p className="mt-1 text-gray-600">今日もいい1日になりますように。</p>
         </div>
 
         {/* モバイル用ドロワーメニュー */}
@@ -505,13 +505,13 @@ function GrandPrixCard({ events }: { events: GrandPrix[] }) {
     return "/icons/gp_default.svg";
   };
   return events.length === 0 ? (
-    <Card>
+    <Card className="lg:sticky lg:top-[12rem]">
       <CardContent className="p-6 text-center text-gray-600">
         現在開催中の就活グランプリはありません
       </CardContent>
     </Card>
   ) : (
-    <Card>
+    <Card className="lg:sticky lg:top-[12rem]">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">開催中の就活グランプリ</CardTitle>
       </CardHeader>
