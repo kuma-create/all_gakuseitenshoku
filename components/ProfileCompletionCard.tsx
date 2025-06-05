@@ -4,11 +4,11 @@
 ------------------------------------------------------------------ */
 "use client";
 
-import React from "react";
 import Link   from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { Button   } from "@/components/ui/button";
-import { useCompletion } from "@/lib/use-completion";
+import { supabase } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
 
 /* ----------- 日本語ラベル辞書 ----------- */
@@ -30,15 +30,83 @@ const labels: Record<string, string> = {
   skill_or_qualification: "スキルまたは資格",
 };
 
+type MissingField = { key: string; label?: string; href?: string };
+
 /* ================================================================
    ProfileCompletionCard
 ================================================================ */
 export function ProfileCompletionCard() {
-  /* ① フックは常にトップレベルで呼び出す */
-  const { score, missing = [] } = useCompletion("overall"); // score === null → 読み込み中
+  const [loading, setLoading] = useState(true);
+  const [score,   setScore]   = useState<number>(0);
+  const [missing, setMissing] = useState<MissingField[]>([]);
 
-  /* ② 読み込み中 Skeleton – 早期 return を避ける */
-  if (score === null) {
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+
+      // ---- fetch resume row ----
+      const { data: resume } = await supabase
+        .from("resumes")
+        .select("form_data, work_experiences")
+        .eq("user_id", user.id)
+        .single();
+
+      /* ---------- 履歴書 (profile) 進捗 ---------- */
+      // form_data は JSON 型なので型を緩くキャストして扱う
+      const form = (resume?.form_data as any) ?? {};
+      const isFilled = (v: any) =>
+        Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
+
+      const pct = (arr: any[]) =>
+        Math.round((arr.filter(isFilled).length / arr.length) * 100);
+
+      const basic = [
+        form.last_name, form.first_name, form.postal_code,
+        form.prefecture, form.city, form.address_line,
+        form.birth_date, form.gender,
+      ];
+      const pr   = [form.pr_title, form.pr_text, form.about];
+      const pref = [
+        form.desired_positions,
+        form.work_style_options,
+        form.preferred_industries,
+        form.desired_locations,
+      ];
+
+      const resumePct = Math.round((pct(basic) + pct(pr) + pct(pref)) / 3);
+
+      /* ---------- 職務経歴書 (work) 進捗 ---------- */
+      // work_experiences も JSON 配列なので any[] として扱う
+      const works = (resume?.work_experiences as any[]) ?? [];
+      let total = 0, filled = 0;
+      const missSet = new Set<string>();
+
+      works.forEach(w => {
+        const check = (k: string, v: any) => {
+          total += 1;
+          if (v && String(v).trim() !== "") filled += 1;
+          else missSet.add(k);
+        };
+        check("company",     w?.company);
+        check("position",    w?.position);
+        check("startDate",   w?.startDate);
+        check("endDate",     w?.endDate || (w?.isCurrent ? "current" : ""));
+        check("description", w?.description);
+      });
+      const workPct = total ? Math.round((filled / total) * 100) : 0;
+
+      /* ---------- 加重平均 70:30 ---------- */
+      const overall = Math.round(resumePct * 0.7 + workPct * 0.3);
+
+      setScore(overall);
+      setMissing(Array.from(missSet).map(k => ({ key: k })));
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) {
     return (
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <div className="mb-3 flex items-center justify-between animate-pulse">
