@@ -299,7 +299,8 @@ function ProfileCard({ userId }: { userId: string }) {
           .from("student_profiles")
           .select(`
             last_name, first_name, last_name_kana, first_name_kana,
-            birth_date, gender, address_line,
+            birth_date, gender,
+            postal_code, prefecture, city, address_line,
             pr_title, pr_text, about,
             desired_positions, work_style_options,
             preferred_industries, desired_locations
@@ -316,24 +317,26 @@ function ProfileCard({ userId }: { userId: string }) {
           .maybeSingle(),
       ]);
 
+      const spi = sp as any;   /* loose object for optional props */
+
       /* helper */
       const filled = (v: any) =>
         Array.isArray(v) ? v.length > 0 : v != null && v !== "";
 
       /* ==== profilePct (basic / pr / pref) =================================== */
       const basicArr = [
-        sp?.last_name, sp?.first_name,
-        sp?.last_name_kana, sp?.first_name_kana,
-        sp?.birth_date, sp?.gender,
-        sp?.postal_code, sp?.prefecture,
-        sp?.city, sp?.address_line,
+        spi?.last_name, spi?.first_name,
+        spi?.last_name_kana, spi?.first_name_kana,
+        spi?.birth_date, spi?.gender,
+        spi?.postal_code, spi?.prefecture,
+        spi?.city, spi?.address_line,
       ];
-      const prArr    = [sp?.pr_title, sp?.pr_text, sp?.about];
+      const prArr    = [spi?.pr_title, spi?.pr_text, spi?.about];
       const prefArr  = [
-        sp?.desired_positions,
-        sp?.work_style_options,
-        sp?.preferred_industries,
-        sp?.desired_locations,
+        spi?.desired_positions,
+        spi?.work_style_options,
+        spi?.preferred_industries,
+        spi?.desired_locations,
       ];
 
       const pct = (arr: any[]) =>
