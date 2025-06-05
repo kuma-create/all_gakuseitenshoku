@@ -385,13 +385,9 @@ function ProfileCard({ userId }: { userId: string }) {
         ? Math.round((f / t) * 100)
         : 0;
 
-      /* resumeOverall
-         - if workExperiences.length === 0 → use formPct only
-         - else → weighted form 70% + work 30%
-      */
-      const resumeOverall = works.length === 0
-        ? resumeFormPct
-        : Math.round(resumeFormPct * 0.7 + workPct * 0.3);
+      /* resumeOverall = 職務経歴書ページのロジックに合わせ
+         Work 完了率のみで評価する  */
+      const resumeOverall = workPct;
 
       /* Final overall = profile 70% + resumeOverall 30% */
       const overall = Math.round(profilePct * 0.7 + resumeOverall * 0.3);
