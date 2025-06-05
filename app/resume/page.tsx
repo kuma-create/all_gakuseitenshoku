@@ -205,7 +205,11 @@ export default function ResumePage() {
         data: { session },
       } = await supabase.auth.getSession();
       const uid = session?.user?.id;
-      if (!uid) return;
+      if (!uid) {
+        // ユーザーが未ログインでも初期ロード完了フラグを立てる
+        setInitialLoaded(true);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("resumes")
