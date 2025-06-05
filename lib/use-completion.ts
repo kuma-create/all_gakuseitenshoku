@@ -77,84 +77,123 @@ export const useCompletion = (scope: CompletionScope = "overall") => {
 
     (async () => {
       try {
+        /* 1️⃣ 認証ユーザー取得 -------------------------------------------------- */
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          if (!cancelled) {
-            setScore(0);
-            setMissing([]);
-          }
+          if (!cancelled) { setScore(0); setMissing([]); }
           return;
         }
+        const uid = user.id;
 
-        /* 個別 RPC 呼び出し（キャストがポイント） */
-        const fetchOne = async (name: CompletionFn) => {
-          const { data, error } = await supabase
-            .rpc(
-              name as keyof Database["public"]["Functions"],
-              { p_user_id: user.id },
-            )
-            .single();
+        /* 2️⃣ student_profiles & resumes を並列取得 ----------------------------- */
+        const [{ data: sp }, { data: rs }] = await Promise.all([
+          supabase
+            .from("student_profiles")
+            .select(`
+              last_name, first_name, last_name_kana, first_name_kana,
+              birth_date, gender, address_line,
+              pr_title, pr_text, about,
+              desired_positions, work_style_options,
+              preferred_industries, desired_locations
+            `)
+            .eq("user_id", uid)
+            .maybeSingle(),
+          supabase
+            .from("resumes")
+            .select("form_data, work_experiences")
+            .eq("user_id", uid)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
 
-          if (error) {
-            console.error(`[useCompletion] RPC ${name} error:`, error);
-            return { score: 0, missing: [] } as RawCompletion;
-          }
+        /* safety casts */
+        const form  = (rs?.form_data as any) ?? {};
+        const works = Array.isArray(rs?.work_experiences)
+          ? (rs!.work_experiences as any[])
+          : [];
 
-          // data には numeric / string / object どれかが来る可能性がある
-          const row = Array.isArray(data) ? data[0] : data;
-          const parsed = parseCompletion(row);
-          console.log(`[useCompletion] ${name} returned:`, parsed);
-          return parsed;
-        };
+        /* ---------- helpers ---------- */
+        const filled = (v: any) =>
+          Array.isArray(v) ? v.length > 0 : v != null && v !== "";
 
+        const pct = (arr: any[]) =>
+          Math.round((arr.filter(filled).length / arr.length) * 100);
+
+        /* ==========  プロフィール ========== */
+        const pBasic = [
+          sp?.last_name, sp?.first_name,
+          sp?.last_name_kana, sp?.first_name_kana,
+          sp?.birth_date, sp?.gender, sp?.address_line,
+        ];
+        const pPR  = [sp?.pr_title, sp?.pr_text, sp?.about];
+        const pPref = [
+          sp?.desired_positions,
+          sp?.work_style_options,
+          sp?.preferred_industries,
+          sp?.desired_locations,
+        ];
+        const profilePct = Math.round((pct(pBasic) + pct(pPR) + pct(pPref)) / 3);
+
+        /* ==========  履歴書フォーム ========== */
+        const rBasic = [
+          form.basic?.lastName, form.basic?.firstName,
+          form.basic?.lastNameKana, form.basic?.firstNameKana,
+          form.basic?.birthdate,  form.basic?.gender,
+          form.basic?.address,
+        ];
+        const rPR = [
+          form.pr?.title, form.pr?.content, form.pr?.motivation,
+        ];
+        const condArrKeys = ["jobTypes","locations","industries","workPreferences"];
+        const rCondArr = condArrKeys.map((k) => (form.conditions?.[k] ?? []).length > 0);
+        const rCondScalar = filled(form.conditions?.workStyle);
+        const resumeFormPct = Math.round(
+          (pct(rBasic) + pct(rPR) +
+           Math.round(((rCondArr.filter(Boolean).length + (rCondScalar ? 1 : 0)) / 5) * 100)
+          ) / 3
+        );
+
+        /* ==========  職務経歴書（work_experiences） ========== */
+        let totalReq = 0, totalFilled = 0;
+        works.forEach((w) => {
+          totalReq += 6;
+          if (filled(w.company))      totalFilled++;
+          if (filled(w.position))     totalFilled++;
+          if (filled(w.startDate))    totalFilled++;
+          if (filled(w.description))  totalFilled++;
+          if (filled(w.achievements)) totalFilled++;
+          if (w.isCurrent || filled(w.endDate)) totalFilled++;
+        });
+        const workPct = totalReq ? Math.round((totalFilled / totalReq) * 100) : 0;
+
+        /* ========== scope 別スコア ========== */
+        let finalScore = 0;
         if (scope === "profile") {
-          const p = await fetchOne("calculate_profile_completion");
-          if (!cancelled) {
-            const pScore = toNumber(p.score);        // 0‑1 → %
-            setScore(Math.round(pScore * 100));
-            setMissing(mapMissing(p.missing ?? []));
-          }
+          finalScore = profilePct;
         } else if (scope === "resume") {
-          const r = await fetchOne("calculate_resume_completion");
-          if (!cancelled) {
-            const rScore = toNumber(r.score);
-            setScore(Math.round(rScore * 100));
-            setMissing(mapMissing(r.missing ?? []));
-          }
+          finalScore = resumeFormPct;
         } else if (scope === "work_history") {
-          const w = await fetchOne("calculate_work_history_completion");
-          if (!cancelled) {
-            const wScore = toNumber(w.score);
-            setScore(Math.round(wScore * 100));
-            setMissing(mapMissing(w.missing ?? []));
-          }
+          finalScore = workPct;
         } else {
-          const [r, w] = await Promise.all([
-            fetchOne("calculate_resume_completion"),
-            fetchOne("calculate_work_history_completion"),
-          ]);
-          if (!cancelled) {
-            const rScore = toNumber(r.score);
-            const wScore = toNumber(w.score);
-            const merged  = [...new Set([...(r.missing ?? []), ...(w.missing ?? [])])];
-            const weighted = rScore * 0.7 + wScore * 0.3;   // 0‑1 scale (resume 70%, work 30%)
-            setScore(Math.round(weighted * 100));
-            setMissing(mapMissing(merged));
-          }
+          const resumeOverall = works.length === 0
+            ? resumeFormPct
+            : Math.round(resumeFormPct * 0.7 + workPct * 0.3);
+
+          finalScore = Math.round(profilePct * 0.7 + resumeOverall * 0.3);
+        }
+
+        if (!cancelled) {
+          setScore(finalScore);
+          setMissing([]);          /* フロント版では missing 未対応 */
         }
       } catch (err) {
-        console.error("useCompletion error:", err);
-        if (!cancelled) {
-          /* 失敗時は 0 % 表示 & 未入力項目なし */
-          setScore(0);
-          setMissing([]);
-        }
+        console.error("useCompletion (front calc) error:", err);
+        if (!cancelled) { setScore(0); setMissing([]); }
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [scope]);
 
   return { score, missing };

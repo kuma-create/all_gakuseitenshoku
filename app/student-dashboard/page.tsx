@@ -399,9 +399,21 @@ function ProfileCard({ userId }: { userId: string }) {
           プロフィール完成度
           <span className="ml-1 font-medium text-gray-800">{completion}%</span>
         </CardDescription>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded bg-gray-200">
+          <div
+            className={`h-full rounded transition-all ${
+              completion < 50
+                ? "bg-red-500"
+                : completion < 80
+                ? "bg-yellow-400"
+                : completion < 95
+                ? "bg-green-400"
+                : "bg-green-600"
+            }`}
+            style={{ width: `${completion || 2}%` }}   /* 0% → 2px 視認用 */
+          />
+        </div>
       </CardHeader>
-
-      {/* CompletionWidget removed */}
 
       <CardFooter className="flex flex-col gap-2">
         <Button asChild variant="outline" className="w-full">
