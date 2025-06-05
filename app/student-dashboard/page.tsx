@@ -74,6 +74,15 @@ export default function StudentDashboard() {
     const studentId = user.id;
 
     (async () => {
+      // fetch student_profiles.id (some tables reference this instead of auth.users.id)
+      const { data: sp } = await supabase
+        .from("student_profiles")
+        .select("id")
+        .eq("user_id", studentId)
+        .maybeSingle();
+
+      const sid = sp?.id ?? studentId;   // use profile.id if exists, otherwise fallback to auth.uid
+
       /* ---- stats ---- */
       setSL(true);
       const [
@@ -83,18 +92,18 @@ export default function StudentDashboard() {
       ] = await Promise.all([
         supabase.from("scouts")
           .select("id", { head: true, count: "exact" })
-          .eq("student_id", studentId),
+          .eq("student_id", sid),
         supabase.from("applications")
           .select("id", { head: true, count: "exact" })
-          .eq("student_id", studentId),
+          .eq("student_id", sid),
         supabase.from("chat_rooms")
           .select("id", { head: true, count: "exact" })
-          .eq("student_id", studentId),
+          .eq("student_id", sid),
       ]);
       setStats({ scouts: scoutsCnt ?? 0, applications: appsCnt ?? 0, chatRooms: roomsCnt ?? 0 });
       setSL(false);
 
-/* ---- grand prix & offers ---- */
+      /* ---- grand prix & offers ---- */
       const [{ data: gpRaw }, { data: offersRaw, error: offersErr }] = await Promise.all([
         supabase.from("challenges")
           .select("id,title,deadline")
@@ -111,13 +120,12 @@ export default function StudentDashboard() {
     company:companies!scouts_company_id_fkey ( id, name, logo ),
     job:jobs!scouts_job_id_fkey            ( id, title )
   `)
-          .eq("student_id", studentId)
+          .eq("student_id", sid)
           .order("created_at", { ascending: false })
           .limit(10),
       ]);
 
-if (offersErr) console.error("scouts fetch error →", offersErr);  // ← 失敗してもツリーを壊さない
-
+      if (offersErr) console.error("scouts fetch error →", offersErr);  // ← 失敗してもツリーを壊さない
 
       setGP(
         (gpRaw as ChallengeRow[] | null)?.map(c => ({
