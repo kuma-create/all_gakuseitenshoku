@@ -254,17 +254,36 @@ export default function ResumePage() {
 
     const basic = calculateSectionCompletion("basic", formData.basic);
     const education = calculateSectionCompletion("education", formData.education);
-    // 職歴: 1 行でも会社名・役職・成果が埋まっていれば 100 %
-    const isWorkComplete = (w: WorkExperience) =>
-      w.company.trim() !== "" &&
-      w.position.trim() !== "" &&
-      w.achievements.trim() !== "";
+    // ───── 職歴セクション完了度 (0–100) ─────────
+    // 「使用技術」を除外し、下記 6 要素を均等配点とする：
+    // 1. 企業名
+    // 2. 役職
+    // 3. 開始年月
+    // 4. 終了年月 *or* 「現在も在籍中」のどちらか
+    // 5. 業務内容
+    // 6. 成果・実績
+    let work = 0;
+    if (workExperiences.length > 0) {
+      const requiredPerRow = 6; // 必須フィールド数
+      const totalRequired = workExperiences.length * requiredPerRow;
 
-    const work = workExperiences.some(isWorkComplete)
-      ? 100                     // 完了
-      : workExperiences.length > 0
-        ? 50                    // 行はあるが未完了
-        : 0;                    // 行も無し
+      const filled = workExperiences.reduce((cnt, w) => {
+        if (w.company.trim() !== "") cnt++;                 // 1. company
+        if (w.position.trim() !== "") cnt++;                // 2. position
+        if (w.startDate.trim() !== "") cnt++;               // 3. startDate
+
+        // 4. endDate OR isCurrent が true
+        const hasEndInfo =
+          w.isCurrent || w.endDate.trim() !== "";
+        if (hasEndInfo) cnt++;
+
+        if (w.description.trim() !== "") cnt++;             // 5. description
+        if (w.achievements.trim() !== "") cnt++;            // 6. achievements
+        return cnt;
+      }, 0);
+
+      work = Math.round((filled / totalRequired) * 100);
+    }
     const skills = calculateSectionCompletion("skills", formData.skills);
     const pr = calculateSectionCompletion("pr", formData.pr);
     const conditions = calculateSectionCompletion("conditions", formData.conditions);
@@ -378,10 +397,10 @@ export default function ResumePage() {
 
   // 保存／自動保存
   const handleSave = async (): Promise<void> => {
-    console.log("🟡 Auto‑save fired");          // ← デバッグ用
+    console.log("🟡 Auto‑save fired");
     setSaving(true);
 
-    // 1) セッションから UID を取得
+    /* 1) Auth セッション取得 */
     const {
       data: { session },
       error: sessionErr,
@@ -392,27 +411,49 @@ export default function ResumePage() {
       setSaving(false);
       return;
     }
-
     const uid = session.user.id;
 
-    // 2) resumes を upsert
-    const { error } = await supabase
+    /* 2) 既存行があるかチェック */
+    const { data: existing, error: selectErr } = await supabase
       .from("resumes")
-      .upsert(
-        {
-          user_id: uid,
+      .select("id")
+      .eq("user_id", uid)
+      .single();
+
+    if (selectErr && selectErr.code !== "PGRST116") {
+      // PGRST116 = Row not found
+      console.error("❌ resumes select error:", selectErr);
+      setSaving(false);
+      return;
+    }
+
+    /* 3) insert か update か分岐 */
+    let saveErr = null;
+    if (existing?.id) {
+      /* update */
+      const { error } = await supabase
+        .from("resumes")
+        .update({
           form_data: formData,
           work_experiences: workExperiences,
           updated_at: new Date().toISOString(),
-        } as any, // 👈 型をゆるめる
-        {
-          onConflict: "user_id",
-        }
-      );
+        })
+        .eq("id", existing.id);
+      saveErr = error;
+    } else {
+      /* insert */
+      const { error } = await supabase.from("resumes").insert({
+        user_id: uid,
+        form_data: formData,
+        work_experiences: workExperiences,
+        updated_at: new Date().toISOString(),
+      });
+      saveErr = error;
+    }
 
-    if (error) {
-      console.error("❌ Auto‑save error:", error);
-      alert("自動保存に失敗しました: " + error.message); // 一時的に可視化
+    if (saveErr) {
+      console.error("❌ Auto‑save error:", saveErr);
+      alert("自動保存に失敗しました: " + saveErr.message);
       setSaving(false);
       return;
     }
