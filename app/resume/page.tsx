@@ -201,34 +201,37 @@ export default function ResumePage() {
   // ─── 既存レジュメを取得 ─────────────────────────────────────
   useEffect(() => {
     const loadResume = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
-      if (!uid) {
-        // ユーザーが未ログインでも初期ロード完了フラグを立てる
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const uid = session?.user?.id;
+        if (!uid) {
+          console.warn("⚠️ No session – skipping resume fetch");
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("resumes")
+          .select("form_data, work_experiences")
+          .eq("user_id", uid)
+          .single();
+
+        if (!error && data) {
+          if (data.form_data) setFormData(data.form_data as FormData);
+          if (Array.isArray(data.work_experiences))
+            setWorkExperiences(data.work_experiences as WorkExperience[]);
+          console.log("📄 Resume loaded from DB");
+        } else {
+          console.log("ℹ️ No existing resume found / fetch error:", error?.message);
+        }
+      } catch (err) {
+        console.error("❌ loadResume error:", err);
+      } finally {
+        /* ← 必ず初期ロード完了にする */
         setInitialLoaded(true);
-        return;
       }
-
-      const { data, error } = await supabase
-        .from("resumes")
-        .select("form_data, work_experiences")
-        .eq("user_id", uid)
-        .single();
-
-      if (!error && data) {
-        if (data.form_data) {
-          setFormData(data.form_data as FormData);
-        }
-        if (data.work_experiences && Array.isArray(data.work_experiences)) {
-          setWorkExperiences(data.work_experiences as WorkExperience[]);
-        }
-        console.log("📄 Resume loaded from DB");
-      } else {
-        console.log("ℹ️ No existing resume found (or error):", error?.message);
-      }
-      setInitialLoaded(true);
     };
 
     loadResume();
