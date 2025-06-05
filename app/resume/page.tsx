@@ -201,37 +201,30 @@ export default function ResumePage() {
   // ─── 既存レジュメを取得 ─────────────────────────────────────
   useEffect(() => {
     const loadResume = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) return;
 
-        const uid = session?.user?.id;
-        if (!uid) {
-          console.warn("⚠️ No session – skipping resume fetch");
-          return;
+      const { data, error } = await supabase
+        .from("resumes")
+        .select("form_data, work_experiences")
+        .eq("user_id", uid)
+        .single();
+
+      if (!error && data) {
+        if (data.form_data) {
+          setFormData(data.form_data as FormData);
         }
-
-        const { data, error } = await supabase
-          .from("resumes")
-          .select("form_data, work_experiences")
-          .eq("user_id", uid)
-          .single();
-
-        if (!error && data) {
-          if (data.form_data) setFormData(data.form_data as FormData);
-          if (Array.isArray(data.work_experiences))
-            setWorkExperiences(data.work_experiences as WorkExperience[]);
-          console.log("📄 Resume loaded from DB");
-        } else {
-          console.log("ℹ️ No existing resume found / fetch error:", error?.message);
+        if (data.work_experiences && Array.isArray(data.work_experiences)) {
+          setWorkExperiences(data.work_experiences as WorkExperience[]);
         }
-      } catch (err) {
-        console.error("❌ loadResume error:", err);
-      } finally {
-        /* ← 必ず初期ロード完了にする */
-        setInitialLoaded(true);
+        console.log("📄 Resume loaded from DB");
+      } else {
+        console.log("ℹ️ No existing resume found (or error):", error?.message);
       }
+      setInitialLoaded(true);
     };
 
     loadResume();
@@ -423,17 +416,11 @@ export default function ResumePage() {
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  /** 完了率に応じて色を変える
-   *   0‑49   → 赤
-   *  50‑79   → 黄
-   *  80‑94   → 緑 (やや薄め)
-   *  95‑100  → 緑 (濃い)
-   */
+  // 完了率バーの色を返す（明るい色バージョン）
   const getCompletionColor = (percentage: number): string => {
-    if (percentage < 50) return "bg-red-400";
-    if (percentage < 80) return "bg-yellow-300";
-    if (percentage < 95) return "bg-green-400";
-    return "bg-green-600";
+    if (percentage < 30) return "bg-red-400";     // 明るい赤
+    if (percentage < 70) return "bg-yellow-300";  // 明るい黄
+    return "bg-green-400";                        // 明るい緑
   };
 
   // セクションステータスアイコン
