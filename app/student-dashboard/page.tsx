@@ -3,7 +3,7 @@
 ------------------------------------------------------------------ */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image       from "next/image";
 import Link        from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,11 +24,11 @@ import { Badge }    from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 import { CompletionWidget }         from "@/components/completion-widget";
-import { ProfileCompletionCard } from "@/components/ProfileCompletionCard";
+import { useCompletion }            from "@/lib/use-completion";
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
-  BellDot, Menu,
+  Edit, Camera, BellDot, Menu,
 } from "lucide-react";
 
 /* ---------- 型 ---------- */
@@ -172,7 +172,7 @@ if (offersErr) console.error("scouts fetch error →", offersErr);  // ← 失�
       <section className="grid gap-8 md:grid-cols-3">
         {/* ---------- 左 1/3 ---------- */}
         <div className="space-y-6">
-          <ProfileCompletionCard />
+          <ProfileCard userId={user.id} />
           {cardsLoad
             ? <SkeletonCard height={260} />
             : <GrandPrixCard events={grandPrix} />}
@@ -235,6 +235,122 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
+/* ================================================================
+   ProfileCard – student_profiles を 1 クエリで取得
+================================================================ */
+function ProfileCard({ userId }: { userId: string }) {
+  const [avatarUrl, setAvatar] = useState<string | null>(null);
+  const [name,      setName]   = useState<string>("学生");
+  // 履歴書 70％ + 職務経歴書 30％ の加重平均を表示
+  const { score: overallScore = 0 } = useCompletion("overall");
+  const completion = Math.min(100, overallScore ?? 0);
+  const [saving,    setSaving] = useState(false);
+
+  /* 初回 fetch：名前 & アイコン */
+  useEffect(() => {
+    (async () => {
+      const { data: p } = await supabase
+        .from("student_profiles")
+        .select("full_name, first_name, last_name, avatar_url")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const display =
+        p?.full_name ||
+        `${p?.last_name ?? ""} ${p?.first_name ?? ""}`.trim() ||
+        "学生";
+      setName(display);
+      setAvatar(p?.avatar_url ?? null);
+    })();
+  }, [userId]);
+
+  /* アイコンアップロード */
+  const handleUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setSaving(true);
+
+      const path = `avatars/${userId}`;
+      const { error } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (error) {
+        alert("アップロードに失敗しました");
+        setSaving(false);
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      await supabase
+        .from("student_profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("user_id", userId);
+      setAvatar(publicUrl);
+      setSaving(false);
+    },
+    [userId],
+  );
+
+  return (
+    <Card className="sticky top-20">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3">
+          <AvatarBlock url={avatarUrl} onUpload={handleUpload} saving={saving} />
+          <span className="text-lg font-bold">{name}</span>
+        </CardTitle>
+        <CardDescription>
+          プロフィール完成度
+          <span className="ml-1 font-medium text-gray-800">{completion}%</span>
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <CompletionWidget scope="overall" />
+      </CardContent>
+
+      <CardFooter className="flex flex-col gap-2">
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/student/profile">
+            <Edit className="mr-1 h-4 w-4" />
+            プロフィール編集
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/resume">職務経歴書を編集</Link>
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function AvatarBlock({
+  url, saving, onUpload,
+}: {
+  url: string | null;
+  saving: boolean;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="relative h-16 w-16">
+      <Image
+        src={url ?? "/placeholder-avatar.png"}
+        alt="Avatar"
+        fill
+        className="rounded-full object-cover"
+      />
+      <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-white p-1 shadow">
+        <Camera className="h-4 w-4" />
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={onUpload}
+          disabled={saving}
+        />
+      </label>
+    </div>
+  );
+}
 
 /* ================================================================
    GrandPrixCard – 左カラム用シンプルカード
