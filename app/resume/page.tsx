@@ -543,7 +543,12 @@ export default function ResumePage() {
           <span className="text-sm font-semibold">{completionPercentage}%</span>
         </div>
 
-        <Progress value={completionPercentage} className={`h-2 ${getCompletionColor(completionPercentage)}`} />
+        <div className="h-2 w-full rounded bg-gray-200 overflow-hidden">
+          <div
+            className={`h-full transition-all ${getCompletionColor(completionPercentage)}`}
+            style={{ width: `${completionPercentage}%` }}
+          />
+        </div>
       </div>
 
       {/* 職歴セクション - 最も目立つように最上部に配置 */}
