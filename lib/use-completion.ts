@@ -50,7 +50,7 @@ export type MissingField = {
 const JP_MAP: Record<string, { label: string; href: string }> = {
   full_name:       { label: "氏名",        href: "/student/profile#full_name" },
   avatar_url:      { label: "プロフィール写真", href: "/student/profile#avatar_url" },
-  location:        { label: "所在地",      href: "/student/profile#location" },
+  prefecture:      { label: "所在地",      href: "/student/profile#prefecture" },
   graduation_year: { label: "卒業予定年",  href: "/student/profile#graduation_year" },
   about:           { label: "自己紹介文",  href: "/student/profile#about" },
   desired_job_title: { label: "希望職種", href: "/resume#desired_job_title" },
