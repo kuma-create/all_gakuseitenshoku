@@ -29,7 +29,8 @@ const PUBLIC_PREFIXES = [
   "/offers",                 // スカウト /offers(/...)
   "/applications",           // 応募履歴 /applications(/...)
   "/chat",
-  "/jobs",                   // 学生チャット /chat(/...)
+  "/jobs",   
+  "/resume",                 // 学生チャット /chat(/...)
 ];
 
 /* ------------------------------------------------------------------ */
@@ -137,6 +138,6 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume).*)",
   ],
 };
