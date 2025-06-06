@@ -43,11 +43,11 @@ const studentSub: NavItem[] = [
 /* ---------- company / admin ---------- */
 const companyMain: NavItem[] = [
   { href: "/company-dashboard", label: "マイページ", icon: LayoutDashboard },
-  { href: "/my-company", label: "自社管理", icon: LayoutDashboard },
+  { href: "/company/my-company", label: "自社管理", icon: LayoutDashboard },
   { href: "/company/jobs",      label: "求人・選考管理",   icon: Briefcase },
   { href: "/company/scout",             label: "スカウト",   icon: Mail },
   { href: "/company/chat",              label: "チャット",   icon: MessageSquare },
-  { href: "/company/analytics",              label: "アナリティクス",   icon: MessageSquare },
+ /* { href: "/company/analytics",              label: "アナリティクス",   icon: MessageSquare },*/
   { href: "/company/applicants",              label: "応募者一覧",   icon: MessageSquare },
 ];
 const adminMain: NavItem[] = [

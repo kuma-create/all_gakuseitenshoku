@@ -240,6 +240,24 @@ export default function LoginClient() {
     if (ok) {
       await supabase.auth.refreshSession();
 
+      // --- ★ App Router でサーバー Cookie を発行 -------------------------
+      // ブラウザ側で signIn しただけでは HttpOnly Cookie が付かないため、
+      // access_token を持って /api/auth/callback へ POST し Cookie を生成する
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (authSession?.access_token && authSession.refresh_token) {
+        await fetch("/api/auth/callback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            access_token: authSession.access_token,
+            refresh_token: authSession.refresh_token,
+          }),
+          credentials: "same-origin",
+        });
+      }
+
       // 認証ユーザーを取得し、user_roles テーブルから正しいロールを読む
       const {
         data: { user: authUser },

@@ -26,7 +26,8 @@ type ChatUser = {
   avatar: string;
   status: "オンライン" | "オフライン";
   university: string;
-  major: string;
+  faculty: string;
+  department: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -62,7 +63,8 @@ export default function ChatPage() {
     avatar: "",
     status: "オフライン",
     university: "",
-    major: "",
+    faculty: "",
+    department: "",
   });
 
   useEffect(() => {
@@ -75,10 +77,11 @@ export default function ChatPage() {
           id,
           student_profiles:student_id (
             id,
-            name,
+            full_name,
             avatar_url,
             university,
-            major
+            faculty,
+            department
           )
         `
       )
@@ -98,10 +101,11 @@ export default function ChatPage() {
           setRecipient({
             id: s.id,
             name: s.full_name ?? "",
-            avatar: s.avatar ?? "",
+            avatar: s.avatar_url ?? "",
             status: "オンライン",
             university: s.university ?? "",
-            major: s.major ?? "",
+            faculty: s.faculty ?? "",
+            department: s.department ?? "",
           });
         }
       });

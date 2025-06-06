@@ -1,8 +1,10 @@
 "use client"
 
+import { supabase } from "@/lib/supabase/client";
+
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   Send,
@@ -15,12 +17,13 @@ import {
   MessageSquare,
   User,
   FileText,
-  Briefcase,
 } from "lucide-react"
 import type { Message } from "@/types/message"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import StudentDetailTabs from "@/app/company/scout/StudentDetailTabs";
+import type { Database } from "@/lib/supabase/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -41,8 +44,24 @@ interface ChatUser {
   role?: string
   company?: string
   university?: string
-  major?: string
+  /** 学部 */
+  faculty?: string | null
+  /** 学科 */
+  department?: string | null
+  /** 入学月 (YYYY‑MM 型文字列) */
+  admission_month?: string | null
+  /** 卒業月 (YYYY‑MM 型文字列) */
+  graduation_month?: string | null
+  /** 性別 */
+  gender?: string | null
+  /** インターン経験有無 */
+  has_internship_experience?: boolean | null
+  /** 研究テーマ */
+  research_theme?: string | null
+  /** 自己 PR */
+  about?: string | null
 }
+
 
 interface ModernChatUIProps {
   messages: Message[]
@@ -50,6 +69,8 @@ interface ModernChatUIProps {
   recipient: ChatUser
   onSendMessage: (message: string, attachments?: File[]) => Promise<void>
   onScheduleInterview?: (details: any) => void
+  /** スカウト承諾済み or 本人応募の場合 true にする */
+  showStudentTitle?: boolean
   className?: string
 }
 
@@ -59,6 +80,7 @@ export function ModernChatUI({
   recipient,
   onSendMessage,
   onScheduleInterview,
+  showStudentTitle = false,
   className,
 }: ModernChatUIProps) {
   const [newMessage, setNewMessage] = useState("")
@@ -74,6 +96,74 @@ export function ModernChatUI({
   const [selectedTime, setSelectedTime] = useState<string>("15:00")
   const [selectedDay, setSelectedDay] = useState<string>("")
   const [isMobile, setIsMobile] = useState(false)
+  // Supabase‑fetched data
+  const [profileData, setProfileData] = useState<Partial<ChatUser> | null>(null);
+  /** Scout 画面と同じ型でプロファイルを渡す */
+  type StudentProfile = Database["public"]["Tables"]["student_profiles"]["Row"];
+  const studentForDetail: StudentProfile | null = useMemo(() => {
+    if (!recipient) return null;
+    return {
+      ...(recipient as any),
+      ...(profileData ?? {}),
+    } as any;
+  }, [recipient, profileData]);
+  // Fetch profile from Supabase
+  useEffect(() => {
+    if (!recipient.id) return;
+
+    const fetchData = async () => {
+      const cols = [
+        "full_name", "avatar_url",
+        "university", "faculty", "department",
+        "admission_month", "graduation_month",
+        "gender", "has_internship_experience",
+        "research_theme", "about",
+        "status", "pr_title", "pr_body", "pr_text",
+        "strength1", "strength2", "strength3",
+        "desired_industries", "desired_positions", "desired_locations",
+        "work_style", "employment_type", "salary_range",
+        "work_style_options", "preference_note",
+        "interests", "skills", "qualifications"
+      ].join(", ");
+
+      let { data: prof, error: profErr } = await supabase
+        .from("student_profiles")
+        .select(cols)
+        .eq("id", recipient.id)
+        .single();
+
+      // If no row by primary id, try auth_user_id then user_id
+      if (!prof && !profErr) {
+        const { data: byAuth } = await supabase
+          .from("student_profiles")
+          .select(cols)
+          .eq("auth_user_id", recipient.id)
+          .single();
+        prof = byAuth ?? prof;
+      }
+      if (!prof && !profErr) {
+        const { data: byUser } = await supabase
+          .from("student_profiles")
+          .select(cols)
+          .eq("user_id", recipient.id)
+          .single();
+        prof = byUser ?? prof;
+      }
+
+      if (profErr) {
+        console.error("Profile fetch error:", profErr);
+      } else if (prof) {
+        setProfileData({
+          ...(recipient as any),
+          ...(prof  as any),
+        });
+      } else {
+        console.warn("No student_profiles row matched for id/auth_user_id/user_id =", recipient.id);
+      }
+    };
+
+    fetchData();
+  }, [recipient.id]);
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -244,7 +334,7 @@ export function ModernChatUI({
           className="group mt-2 inline-block max-w-xs overflow-hidden rounded-md"
         >
           <img
-            src={attachment.url || "/placeholder.svg"}
+            src={(attachment.url ?? "/placeholder.svg")}
             alt={attachment.name}
             className="max-h-60 w-full object-contain transition-transform group-hover:scale-105"
           />
@@ -252,10 +342,18 @@ export function ModernChatUI({
       )
     }
 
+    // url が undefined の場合に備えて空文字を使用
+    const url = attachment.url ?? "";
+
+    const displayName =
+      attachment.name ||
+      url.split("/").pop()?.split("?")[0] ||
+      "ファイル";
+
     return (
       <a
-        href={attachment.url}
-        download={attachment.name}
+        href={url || "#"}
+        download={displayName}
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
@@ -266,7 +364,7 @@ export function ModernChatUI({
         )}
       >
         <Paperclip className="h-4 w-4 shrink-0" />
-        <span className="truncate">{attachment.name}</span>
+        <span className="truncate">{displayName}</span>
       </a>
     )
   }
@@ -300,8 +398,22 @@ export function ModernChatUI({
 
   return (
     <div className={cn("flex flex-col h-full bg-gray-50 dark:bg-gray-900", className)}>
+      {/* Student title bar (for accepted scout / self‑applied) */}
+      {showStudentTitle && currentUser === "company" && (
+        <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-2">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8 border dark:border-gray-600">
+              <AvatarImage src={recipient.avatar || "/placeholder.svg"} alt={recipient.name} />
+              <AvatarFallback>{getInitials(recipient.name)}</AvatarFallback>
+            </Avatar>
+            <span className="text-base font-semibold text-gray-800 dark:text-gray-100">
+              {recipient.name || "学生"}
+            </span>
+          </div>
+        </div>
+      )}
       {/* Chat header - always visible */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
+      <div className="sticky top-[64px] z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border dark:border-gray-600">
@@ -309,23 +421,12 @@ export function ModernChatUI({
               <AvatarFallback>{getInitials(recipient.name)}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center">
                 <h3 className="font-medium dark:text-white">{recipient.name}</h3>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-xs",
-                    recipient.status === "オンライン"
-                      ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-                  )}
-                >
-                  {recipient.status}
-                </Badge>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {currentUser === "company"
-                  ? `${recipient.university || ""} ${recipient.major || ""}`
+                  ? `${recipient.university || ""} ${recipient.faculty || ""}`
                   : recipient.company || ""}
               </p>
             </div>
@@ -349,13 +450,6 @@ export function ModernChatUI({
                     >
                       <User className="h-3.5 w-3.5 mr-1.5" />
                       プロフィール
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="documents"
-                      className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
-                    >
-                      <FileText className="h-3.5 w-3.5 mr-1.5" />
-                      書類
                     </TabsTrigger>
                   </>
                 )}
@@ -652,318 +746,12 @@ export function ModernChatUI({
         {/* Profile tab - now fixed to the right side on desktop */}
         <TabsContent
           value="profile"
-          className="fixed top-0 right-0 w-full md:w-[350px] h-full overflow-y-auto p-0 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10 md:pt-[60px]"
+          className="fixed top-[64px] right-0 w-full md:w-[350px] h-[calc(100%-64px)] overflow-y-auto p-0 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10"
         >
-          {/* Header section */}
-          <div className="relative">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 h-32 w-full"></div>
-            <div className="absolute -bottom-16 left-0 w-full flex justify-center">
-              <Avatar className="h-32 w-32 border-4 border-white dark:border-gray-800 shadow-md">
-                <AvatarImage src={recipient.avatar || "/placeholder.svg"} alt={recipient.name} />
-                <AvatarFallback className="text-2xl">{getInitials(recipient.name)}</AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
-
-          <div className="mt-20 px-6 pb-6 space-y-6">
-            {/* Name and status */}
-            <div className="text-center">
-              <h2 className="text-xl font-semibold">{recipient.name}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {recipient.university} {recipient.major}
-              </p>
-              <div className="flex justify-center mt-2">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-xs",
-                    recipient.status === "オンライン"
-                      ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-2 h-2 rounded-full mr-1.5",
-                      recipient.status === "オンライン" ? "bg-green-500" : "bg-gray-400",
-                    )}
-                  ></div>
-                  {recipient.status}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Skills section */}
-            <div>
-              <h3 className="text-sm font-medium mb-3 flex items-center">
-                <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 p-1 rounded-md mr-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-code-2"
-                  >
-                    <path d="m18 16 4-4-4-4" />
-                    <path d="m6 8-4 4 4 4" />
-                    <path d="m14.5 4-5 16" />
-                  </svg>
-                </span>
-                スキル
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                <div className="bg-white dark:bg-gray-700 rounded-full px-3 py-1 text-sm shadow-sm border border-gray-100 dark:border-gray-600">
-                  React
-                </div>
-                <div className="bg-white dark:bg-gray-700 rounded-full px-3 py-1 text-sm shadow-sm border border-gray-100 dark:border-gray-600">
-                  TypeScript
-                </div>
-                <div className="bg-white dark:bg-gray-700 rounded-full px-3 py-1 text-sm shadow-sm border border-gray-100 dark:border-gray-600">
-                  Next.js
-                </div>
-                <div className="bg-white dark:bg-gray-700 rounded-full px-3 py-1 text-sm shadow-sm border border-gray-100 dark:border-gray-600">
-                  UI/UXデザイン
-                </div>
-                <div className="bg-white dark:bg-gray-700 rounded-full px-3 py-1 text-sm shadow-sm border border-gray-100 dark:border-gray-600">
-                  Git
-                </div>
-              </div>
-            </div>
-
-            {/* Experience section */}
-            <div>
-              <h3 className="text-sm font-medium mb-3 flex items-center">
-                <span className="bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 p-1 rounded-md mr-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-briefcase"
-                  >
-                    <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                  </svg>
-                </span>
-                経歴
-              </h3>
-              <div className="space-y-3">
-                <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-600">
-                  <div className="flex items-start">
-                    <div className="bg-gray-100 dark:bg-gray-600 p-2 rounded-md mr-3">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-building-2"
-                      >
-                        <path d="M6 22V2a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v20" />
-                        <path d="M18 11h.01" />
-                        <path d="M18 14h.01" />
-                        <path d="M18 17h.01" />
-                        <path d="M18 20h.01" />
-                        <path d="M10 7H8" />
-                        <path d="M10 10H8" />
-                        <path d="M10 13H8" />
-                        <path d="M10 16H8" />
-                        <path d="M10 19H8" />
-                        <path d="M6 22h16" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">テックスタートアップ株式会社</h4>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">2022年6月〜9月</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                        フロントエンドエンジニアインターン
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        React、TypeScriptを使用したWebアプリケーション開発に従事。UIコンポーネントの設計と実装を担当。
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-600">
-                  <div className="flex items-start">
-                    <div className="bg-gray-100 dark:bg-gray-600 p-2 rounded-md mr-3">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-graduation-cap"
-                      >
-                        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-                        <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">大学プロジェクト</h4>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">2021年10月〜2022年2月</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">チームリーダー</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        5人チームでのWebアプリケーション開発プロジェクト。要件定義から実装までを担当。
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Self-PR section */}
-            <div>
-              <h3 className="text-sm font-medium mb-3 flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 p-1 rounded-md mr-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-user"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </span>
-                自己PR
-              </h3>
-              <div className="bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm border border-gray-100 dark:border-gray-600 relative">
-                <div className="absolute top-0 left-0 w-1 h-full bg-green-500 rounded-l-lg"></div>
-                <div className="max-h-[150px] overflow-y-auto pr-1 text-sm text-gray-600 dark:text-gray-300">
-                  <p>
-                    私はフロントエンド開発に情熱を持っており、特にReactとTypeScriptを用いたモダンなUI開発に強みがあります。
-                    ユーザー体験を向上させるための細部へのこだわりと、効率的なコード設計を心がけています。
-                  </p>
-                  <p className="mt-2">
-                    チームでの開発経験もあり、コミュニケーションを大切にしながら業務に取り組むことができます。
-                    新しい技術への探究心も強く、常に最新のフロントエンド技術のトレンドをキャッチアップしています。
-                  </p>
-                  <p className="mt-2">
-                    御社のミッションとビジョンに共感し、技術を通じて社会に貢献できることを楽しみにしています。
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Education section */}
-            <div>
-              <h3 className="text-sm font-medium mb-3 flex items-center">
-                <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 p-1 rounded-md mr-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-book-open"
-                  >
-                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                  </svg>
-                </span>
-                学歴
-              </h3>
-              <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-600">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">{recipient.university}</h4>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">2020年4月〜現在</span>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{recipient.major}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">GPA: 3.8/4.0</p>
-              </div>
-            </div>
-          </div>
+            {/* --- Student detail (reuse scout component) --- */}
+            <StudentDetailTabs student={studentForDetail} />
         </TabsContent>
 
-        {/* Documents tab - now fixed to the right side on desktop */}
-        <TabsContent
-          value="documents"
-          className="fixed top-0 right-0 w-full md:w-[350px] h-full overflow-y-auto p-4 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10 md:pt-[60px]"
-        >
-          <div className="space-y-4">
-            <div className="border dark:border-gray-700 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">履歴書</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">PDF • 2023年4月15日アップロード</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm">
-                <FileText className="h-4 w-4 mr-1" />
-                表示
-              </Button>
-            </div>
-
-            <div className="border dark:border-gray-700 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">職務経歴書</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">PDF • 2023年4月15日アップロード</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm">
-                <FileText className="h-4 w-4 mr-1" />
-                表示
-              </Button>
-            </div>
-
-            <div className="border dark:border-gray-700 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 p-2 rounded">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-medium">ポートフォリオ</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">URL • 2023年4月15日提出</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm">
-                <FileText className="h-4 w-4 mr-1" />
-                表示
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
 
         {/* Job details tab removed. */}
       </Tabs>

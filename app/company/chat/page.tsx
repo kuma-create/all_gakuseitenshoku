@@ -107,7 +107,7 @@ const fetchChats = useCallback(async () => {
     setLoading(false);
     return;
   }
-  const companyId = user.id;
+  const companyAuthUserId = user.id;  // Supabase auth uid
 
   try {
     // 2) company_id で絞り込み & 正しいカラム名で取得
@@ -115,6 +115,7 @@ const fetchChats = useCallback(async () => {
       .from("chat_rooms")
       .select(`
         id,
+        company_id,
         student_profiles (
           id,
           full_name,
@@ -132,8 +133,7 @@ const fetchChats = useCallback(async () => {
           attachment_url,
           created_at
         )
-      `)
-      .eq("company_id", companyId);
+      `);
 
     if (sbError) throw sbError;
 
@@ -150,12 +150,12 @@ const fetchChats = useCallback(async () => {
         )
         const last = msgs.length ? msgs[msgs.length - 1] : null
         const lastSender: "company" | "student" = last
-        ? last.sender_id === companyId
-          ? "company"
-          : "student"
-        : "company"
+          ? last.sender_id === companyAuthUserId
+            ? "company"
+            : "student"
+          : "company"
         const unread = msgs.filter(
-          (m) => m.sender_id !== companyId && !m.is_read
+          (m) => m.sender_id !== companyAuthUserId && !m.is_read
         ).length;
         
         return {
@@ -223,20 +223,28 @@ const fetchChats = useCallback(async () => {
   // — フィルタ＆ソート —
   const filtered = chats
     .filter((chat) => {
-      const term = searchTerm.toLowerCase()
+      const term = (searchTerm ?? "").toLowerCase();
+
+      // 各フィールドが null/undefined の場合に備えて空文字に変換
+      const studentName = (chat.student.name ?? "").toLowerCase();
+      const studentUniversity = (chat.student.university ?? "").toLowerCase();
+      const lastContent = chat.lastMessage?.content
+        ? chat.lastMessage.content.toLowerCase()
+        : "";
+
       const matchSearch =
-        chat.student.name.toLowerCase().includes(term) ||
-        chat.student.university.toLowerCase().includes(term) ||
-        (chat.lastMessage?.content.toLowerCase().includes(term) ?? false)
+        studentName.includes(term) ||
+        studentUniversity.includes(term) ||
+        lastContent.includes(term);
 
       const matchTab =
-        activeTab === "all" || (activeTab === "unread" && chat.unreadCount > 0)
+        activeTab === "all" || (activeTab === "unread" && chat.unreadCount > 0);
 
       const matchTags =
         selectedTags.length === 0 ||
-        chat.tags.some((t) => selectedTags.includes(t))
+        chat.tags.some((t) => selectedTags.includes(t));
 
-      return matchSearch && matchTab && matchTags
+      return matchSearch && matchTab && matchTags;
     })
     .sort((a, b) => {
       // ピン優先
@@ -472,10 +480,11 @@ const fetchChats = useCallback(async () => {
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={chat.student.avatar} alt={chat.student.name} />
                       <AvatarFallback>
-                        {chat.student.name
+                        {(chat.student.name ?? "")
                           .split(" ")
+                          .filter(Boolean)
                           .map((n) => n[0])
-                          .join("")}
+                          .join("") || "?"}
                       </AvatarFallback>
                     </Avatar>
                     <span

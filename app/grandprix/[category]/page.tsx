@@ -41,6 +41,9 @@ type ChallengeCard = Pick<
   | "question_count"
 >;
 
+type SessionRow =
+  Database["public"]["Tables"]["challenge_sessions"]["Row"];
+
 export default function GrandPrixCategoryPage() {
   const router = useRouter();
   const { category } = useParams<{ category: string }>();
@@ -48,7 +51,7 @@ export default function GrandPrixCategoryPage() {
 
   const [loading, setLoading] = useState(true);
   const [challenges, setChallenges] = useState<ChallengeCard[]>([]);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SessionRow[]>([]);
 
   /* ------------------------------------------------------------ */
   /* データ取得 */
@@ -84,24 +87,53 @@ export default function GrandPrixCategoryPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (user && data?.length) {
-        const challengeIds = data.map((c) => c.id);
+      if (user) {
+        /* 2-1. 学生の直近 20 件の結果を取得（チャレンジ公開状況は問わない） */
         const { data: res, error: resErr } = await supabase
           .from("challenge_sessions")
           .select(
-            "id, challenge_id, score, elapsed_sec, created_at"
+            "id, challenge_id, score, elapsed_sec, started_at"
           )
           .eq("student_id", user.id)
-          .in(
-            "challenge_id",
-            challengeIds.length
-              ? challengeIds
-              : ["00000000-0000-0000-0000-000000000000"]
-          )
-          .order("created_at", { ascending: false })
+          .order("started_at", { ascending: false })
           .limit(20);
 
-        if (!resErr) setResults(res ?? []);
+        if (!resErr && Array.isArray(res) && res.length) {
+          const rows = res as SessionRow[];            // ✅ 確定したら型を固定
+          setResults(rows);
+
+          /* 2-2. タイトル表示用に不足しているチャレンジを追加取得 */
+          const knownIds = new Set(challenges.map((c) => c.id));
+          const missingIds = rows
+            .map((r) => r.challenge_id)
+            // 型ガードで null を除外し、既知ID も除外
+            .filter((id): id is string => id !== null && !knownIds.has(id));
+
+          if (missingIds.length) {
+            const { data: extra, error: extraErr } = await supabase
+              .from("challenges")
+              .select("id, title")
+              .in(
+                "id",
+                missingIds.length
+                  ? missingIds
+                  : ["00000000-0000-0000-0000-000000000000"]
+              );
+
+            if (!extraErr && extra?.length) {
+              setChallenges((prev) => [
+                ...prev,
+                ...(extra as Pick<ChallengeRow, "id" | "title">[]).map((c) => ({
+                  ...c,
+                  description: "",
+                  company: "",
+                  time_limit_min: 0,
+                  question_count: 0,
+                })),
+              ]);
+            }
+          }
+        }
       }
 
       setLoading(false);
@@ -218,7 +250,9 @@ export default function GrandPrixCategoryPage() {
                           }
                         </p>
                         <p className="text-xs text-gray-500">
-                          {new Date(r.created_at).toLocaleDateString()}
+                          {r.started_at
+                            ? new Date(r.started_at).toLocaleDateString()
+                            : "-"}
                         </p>
                       </div>
                       <div className="flex flex-col items-end">

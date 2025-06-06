@@ -1,17 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type HighlightFormItem = {
   icon: string
   title: string
   body: string
+  image_url: string
 }
 
 type CompanyForm = {
@@ -40,14 +43,29 @@ type CompaniesRow = {
   id: string
   tagline: string | null
   representative: string | null
-  founded_on: string | null
-  capital_jpy: string | null
-  revenue_jpy: string | null
-  headquarters: string | null
+  founded_year: number | null
+  capital_jpy: number | null
+  revenue_jpy: number | null
+  location: string | null      // ← headquarters として扱う
   industry: string | null
   employee_count: number | null
   video_url: string | null
 }
+
+const INDUSTRY_OPTIONS = [
+  'IT・通信',
+  'メーカー',
+  '商社',
+  '金融',
+  'コンサルティング',
+  'マスコミ',
+  '広告・マーケティング',
+  'サービス',
+  '小売・流通',
+  '医療・福祉',
+  '教育',
+  '公務員',
+] as const;
 
 export default function MyCompanyPage() {
   const router = useRouter()
@@ -66,7 +84,7 @@ export default function MyCompanyPage() {
     businessAreas: [''],
     recruitMessage: '',
     positions: [''],
-    highlights: [{ icon: 'growth', title: '', body: '' }],
+    highlights: [{ icon: 'growth', title: '', body: '', image_url: '' }],
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -86,7 +104,7 @@ export default function MyCompanyPage() {
       const { data, error } = await supabase
         .from('companies')
         .select(
-          'id, tagline, representative, founded_on, capital_jpy, revenue_jpy, headquarters, industry, employee_count, video_url',
+          'id, tagline, representative, founded_year, capital_jpy, revenue_jpy, location, industry, employee_count, video_url',
         )
         .eq('user_id', user.id)
         .single()
@@ -101,12 +119,12 @@ export default function MyCompanyPage() {
         ...prev,
         tagline: company.tagline ?? '',
         representative: company.representative ?? '',
-        founded_on: company.founded_on ?? '',
-        capital_jpy: company.capital_jpy ?? '',
-        revenue_jpy: company.revenue_jpy ?? '',
-        headquarters: company.headquarters ?? '',
+        founded_on: company.founded_year ? `${company.founded_year}-01-01` : '',
+        capital_jpy: company.capital_jpy !== null ? String(company.capital_jpy) : '',
+        revenue_jpy: company.revenue_jpy !== null ? String(company.revenue_jpy) : '',
+        headquarters: company.location ?? '',
         industry: company.industry ?? '',
-        employee_count: company.employee_count?.toString() ?? '',
+        employee_count: company.employee_count !== null ? String(company.employee_count) : '',
         video_url: company.video_url ?? '',
       }))
 
@@ -139,7 +157,7 @@ export default function MyCompanyPage() {
           .order('ordinal'),
         supabase
           .from('company_highlights')
-          .select('icon, title, body, ordinal')
+          .select('icon, title, body, image_url, ordinal')
           .eq('company_id', company.id)
           .order('ordinal'),
       ])
@@ -151,11 +169,13 @@ export default function MyCompanyPage() {
         recruitMessage: recruitInfo?.message ?? '',
         positions: (positions?.map(p => p.position ?? '') as string[]) ?? [''],
         highlights:
-          (highlights?.map(h => ({
+          ((highlights as any[] | null)?.map((h: any) => ({
             icon: h.icon ?? 'growth',
             title: h.title ?? '',
             body: h.body ?? '',
-          })) as HighlightFormItem[]) ?? [{ icon: 'growth', title: '', body: '' }],
+            image_url: h.image_url ?? '',
+          })) as HighlightFormItem[]) ??
+          [{ icon: 'growth', title: '', body: '', image_url: '' }],
       }))
       setLoading(false)
     }
@@ -185,7 +205,10 @@ export default function MyCompanyPage() {
   const handleAddHighlight = () => {
     setForm((prev) => ({
       ...prev,
-      highlights: [...prev.highlights, { icon: 'growth', title: '', body: '' }],
+      highlights: [
+        ...prev.highlights,
+        { icon: 'growth', title: '', body: '', image_url: '' },
+      ],
     }))
   }
 
@@ -197,6 +220,29 @@ export default function MyCompanyPage() {
     })
   }
 
+  // 行削除（文字列配列用）
+  const handleRemoveArray = (key: keyof CompanyForm, index: number) => {
+    setForm((prev) => {
+      const arr = [...(prev[key] as string[])]
+      arr.splice(index, 1)
+      return { ...prev, [key]: arr.length ? arr : [''] }
+    })
+  }
+
+  // ハイライト行削除
+  const handleRemoveHighlight = (index: number) => {
+    setForm((prev) => {
+      const list = [...prev.highlights]
+      list.splice(index, 1)
+      return {
+        ...prev,
+        highlights: list.length
+          ? list
+          : [{ icon: 'growth', title: '', body: '', image_url: '' }],
+      }
+    })
+  }
+
   // 送信
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -205,15 +251,15 @@ export default function MyCompanyPage() {
 
     // --- 基本情報更新 ---
     const updatePayload: Partial<CompaniesRow> = {
-      tagline: form.tagline || null,
-      representative: form.representative || null,
-      founded_on: form.founded_on || null,
-      capital_jpy: form.capital_jpy || null,
-      revenue_jpy: form.revenue_jpy || null,
-      headquarters: form.headquarters || null,
-      industry: form.industry || null,
+      tagline       : form.tagline.trim() || null,
+      representative: form.representative.trim() || null,
+      founded_year  : form.founded_on ? Number(form.founded_on.slice(0, 4)) : null,
+      capital_jpy   : form.capital_jpy ? Number(form.capital_jpy) : null,
+      revenue_jpy   : form.revenue_jpy ? Number(form.revenue_jpy) : null,
+      location      : form.headquarters.trim() || null,
+      industry      : form.industry.trim() || null,
       employee_count: form.employee_count ? Number(form.employee_count) : null,
-      video_url: form.video_url || null,
+      video_url     : form.video_url.trim() || null,
     }
 
     const { error: updateError } = await supabase
@@ -226,6 +272,13 @@ export default function MyCompanyPage() {
       setSaving(false)
       return
     }
+
+    // industry の前後空白・重複コンマを正規化
+    form.industry = form.industry
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(',');
 
     // 配列テーブル Upsert
     const upsertArray = async (
@@ -268,6 +321,7 @@ export default function MyCompanyPage() {
         icon: h.icon,
         title: h.title,
         body: h.body,
+        image_url: h.image_url,
       }))
     if (hlPayload.length) {
       await supabase.from<any, any>('company_highlights').insert(hlPayload)
@@ -280,6 +334,25 @@ export default function MyCompanyPage() {
   if (loading) return <p>Loading...</p>
   if (error) return <p className="text-destructive">{error}</p>
 
+  const toggleIndustry = (label: string) => {
+    setForm((prev) => {
+      const selected = prev.industry
+        ? prev.industry.split(',').filter((s) => s !== '')
+        : [];
+      if (selected.includes(label)) {
+        // remove
+        const next = selected.filter((i) => i !== label);
+        return { ...prev, industry: next.join(',') };
+      } else {
+        // add
+        return { ...prev, industry: [...selected, label].join(',') };
+      }
+    });
+  };
+
+  const isIndustryChecked = (label: string) =>
+    form.industry.split(',').includes(label);
+
   return (
     <div className="max-w-3xl mx-auto py-10">
       <h1 className="text-2xl font-bold mb-6">会社情報の編集</h1>
@@ -288,6 +361,7 @@ export default function MyCompanyPage() {
           <Label htmlFor="tagline">キャッチコピー</Label>
           <Input
             id="tagline"
+            placeholder="例: 次世代を創る挑戦者募集"
             value={form.tagline}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, tagline: e.target.value }))
@@ -300,6 +374,7 @@ export default function MyCompanyPage() {
             <Label htmlFor="representative">代表者</Label>
             <Input
               id="representative"
+              placeholder="例:山田 太郎"
               value={form.representative}
               onChange={(e) =>
                 setForm((prev) => ({
@@ -314,6 +389,7 @@ export default function MyCompanyPage() {
             <Input
               id="founded_on"
               type="date"
+              placeholder="例: 2018-04-01"
               value={form.founded_on}
               onChange={(e) =>
                 setForm((prev) => ({
@@ -327,10 +403,11 @@ export default function MyCompanyPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="capital_jpy">資本金 (円)</Label>
+            <Label htmlFor="capital_jpy">資本金 (万円)</Label>
             <Input
               id="capital_jpy"
               type="number"
+              placeholder="例: 10000"
               value={form.capital_jpy}
               onChange={(e) =>
                 setForm((prev) => ({
@@ -341,10 +418,11 @@ export default function MyCompanyPage() {
             />
           </div>
           <div>
-            <Label htmlFor="revenue_jpy">売上高 (円)</Label>
+            <Label htmlFor="revenue_jpy">売上高 (万円)</Label>
             <Input
               id="revenue_jpy"
               type="number"
+              placeholder="例: 5000"
               value={form.revenue_jpy}
               onChange={(e) =>
                 setForm((prev) => ({
@@ -357,9 +435,10 @@ export default function MyCompanyPage() {
         </div>
 
         <div>
-          <Label htmlFor="headquarters">本社所在地</Label>
+          <Label htmlFor="headquarters">所在地</Label>
           <Input
             id="headquarters"
+            placeholder="例: 東京都渋谷区○○ 1-2-3"
             value={form.headquarters}
             onChange={(e) =>
               setForm((prev) => ({
@@ -371,17 +450,18 @@ export default function MyCompanyPage() {
         </div>
 
         <div>
-          <Label htmlFor="industry">業種</Label>
-          <Input
-            id="industry"
-            value={form.industry}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                industry: e.target.value,
-              }))
-            }
-          />
+          <Label className="block mb-2">業種 <span className="text-xs text-muted-foreground">(複数選択可)</span></Label>
+          <div className="grid grid-cols-3 gap-y-2">
+            {INDUSTRY_OPTIONS.map((label) => (
+              <label key={label} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={isIndustryChecked(label)}
+                  onCheckedChange={() => toggleIndustry(label)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div>
@@ -389,6 +469,7 @@ export default function MyCompanyPage() {
           <Input
             id="employee_count"
             type="number"
+            placeholder="例: 150"
             value={form.employee_count}
             onChange={(e) =>
               setForm((prev) => ({
@@ -403,6 +484,7 @@ export default function MyCompanyPage() {
           <Label htmlFor="video_url">紹介動画 URL (YouTube embed)</Label>
           <Input
             id="video_url"
+            placeholder="例: https://www.youtube.com/embed/abcdefghij"
             value={form.video_url}
             onChange={(e) =>
               setForm((prev) => ({
@@ -417,15 +499,23 @@ export default function MyCompanyPage() {
         <div>
           <Label>企業理念</Label>
           {form.philosophy.map((p, idx) => (
-            <Textarea
-              key={idx}
-              className="mt-2"
-              value={p}
-              placeholder={`理念 ${idx + 1}`}
-              onChange={(e) =>
-                handleChangeArray('philosophy', idx, e.target.value)
-              }
-            />
+            <div key={idx} className="mt-2 flex items-start gap-2">
+              <Textarea
+                className="flex-1"
+                value={p}
+                placeholder={`例: 私たちは多様性を尊重し挑戦を続けます (${idx + 1})`}
+                onChange={(e) =>
+                  handleChangeArray('philosophy', idx, e.target.value)
+                }
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => handleRemoveArray('philosophy', idx)}
+              >
+                削除
+              </Button>
+            </div>
           ))}
           <Button
             type="button"
@@ -441,15 +531,23 @@ export default function MyCompanyPage() {
         <div>
           <Label>事業内容</Label>
           {form.businessAreas.map((a, idx) => (
-            <Input
-              key={idx}
-              className="mt-2"
-              value={a}
-              placeholder={`事業領域 ${idx + 1}`}
-              onChange={(e) =>
-                handleChangeArray('businessAreas', idx, e.target.value)
-              }
-            />
+            <div key={idx} className="mt-2 flex gap-2">
+              <Input
+                className="flex-1"
+                value={a}
+                placeholder={`例: SaaS プロダクト開発`}
+                onChange={(e) =>
+                  handleChangeArray('businessAreas', idx, e.target.value)
+                }
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => handleRemoveArray('businessAreas', idx)}
+              >
+                削除
+              </Button>
+            </div>
           ))}
           <Button
             type="button"
@@ -466,6 +564,7 @@ export default function MyCompanyPage() {
           <Label htmlFor="recruitMessage">採用メッセージ</Label>
           <Textarea
             id="recruitMessage"
+            placeholder="例: 私たちと共に未来を創りませんか？"
             value={form.recruitMessage}
             onChange={(e) =>
               setForm((prev) => ({
@@ -476,67 +575,100 @@ export default function MyCompanyPage() {
           />
         </div>
 
-        {/* 募集ポジション */}
-        <div>
-          <Label>募集ポジション</Label>
-          {form.positions.map((p, idx) => (
-            <Input
-              key={idx}
-              className="mt-2"
-              value={p}
-              placeholder={`ポジション ${idx + 1}`}
-              onChange={(e) =>
-                handleChangeArray('positions', idx, e.target.value)
-              }
-            />
-          ))}
-          <Button
-            type="button"
-            variant="secondary"
-            className="mt-2"
-            onClick={() => handleAddField('positions')}
-          >
-            行を追加
-          </Button>
-        </div>
-
         {/* 企業の魅力 */}
         <div>
-          <Label>企業の魅力</Label>
+          <Label className="text-lg font-semibold">企業の魅力</Label>
+
           {form.highlights.map((h, idx) => (
-            <div key={idx} className="border p-4 mt-2 rounded-md space-y-2">
-              <div className="grid grid-cols-3 gap-2">
-                <Input
-                  placeholder="アイコン (growth/training/diversified)"
+            <div
+              key={idx}
+              className="relative mt-4 rounded-lg border bg-muted/40 p-5 space-y-3"
+            >
+              {/* ❶ アイコン選択 */}
+              <div>
+                <Label htmlFor={`icon-${idx}`}>アイコン</Label>
+                <select
+                  id={`icon-${idx}`}
+                  className="w-full rounded-md border px-3 py-2"
                   value={h.icon}
-                  onChange={(e) => handleChangeHighlight(idx, 'icon', e.target.value)}
-                />
+                  onChange={(e) =>
+                    handleChangeHighlight(idx, 'icon', e.target.value)
+                  }
+                >
+                <option value="growth">🏃‍♂️ 成長（growth）</option>
+                <option value="training">📚 研修（training）</option>
+                <option value="diversified">🌐 多様性（diversified）</option>
+                <option value="innovation">💡 イノベーション（innovation）</option>
+                <option value="worklife">⚖️ ワークライフバランス（worklife）</option>
+                <option value="benefits">🎁 福利厚生（benefits）</option>
+                <option value="sustainability">🌱 サステナビリティ（sustainability）</option>
+                <option value="remote">🏠 リモートワーク（remote）</option>
+                <option value="culture">🤝 企業文化（culture）</option>
+                </select>
+                <small className="text-xs text-muted-foreground">
+                  アイコンを選ぶと一覧表示の絵文字が変わります
+                </small>
+              </div>
+
+              {/* ❷ タイトル */}
+              <div>
+                <Label htmlFor={`title-${idx}`}>タイトル</Label>
                 <Input
-                  placeholder="タイトル"
+                  id={`title-${idx}`}
+                  placeholder="例: 若手でも挑戦できる環境"
                   value={h.title}
-                  onChange={(e) => handleChangeHighlight(idx, 'title', e.target.value)}
+                  onChange={(e) =>
+                    handleChangeHighlight(idx, 'title', e.target.value)
+                  }
                 />
               </div>
-              <Textarea
-                placeholder="説明"
-                value={h.body}
-                onChange={(e) => handleChangeHighlight(idx, 'body', e.target.value)}
-              />
+
+              {/* ❸ 説明 */}
+              <div>
+                <Label htmlFor={`body-${idx}`}>説明</Label>
+                <Textarea
+                  id={`body-${idx}`}
+                  placeholder="具体的なエピソードや制度などを記載"
+                  value={h.body}
+                  onChange={(e) =>
+                    handleChangeHighlight(idx, 'body', e.target.value)
+                  }
+                />
+              </div>
+
+              {/* ❺ 削除ボタン */}
+              <button
+                type="button"
+                onClick={() => handleRemoveHighlight(idx)}
+                className="absolute right-2 top-2 rounded-md p-1 hover:bg-red-50"
+              >
+                <span className="text-destructive text-xl">✕</span>
+              </button>
             </div>
           ))}
+
           <Button
             type="button"
             variant="secondary"
-            className="mt-2"
+            className="mt-4"
             onClick={handleAddHighlight}
           >
             行を追加
           </Button>
         </div>
 
-        <Button type="submit" disabled={saving}>
-          {saving ? '保存中…' : '保存する'}
-        </Button>
+        <div className="flex gap-4">
+          <Button type="submit" disabled={saving}>
+            {saving ? '保存中…' : '保存する'}
+          </Button>
+          {companyId && (
+            <Link href={`/companies/${companyId}`} target="_blank">
+              <Button type="button" variant="outline">
+                プレビュー
+              </Button>
+            </Link>
+          )}
+        </div>
       </form>
     </div>
   )

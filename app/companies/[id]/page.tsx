@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useParams } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 import Image from "next/image"
 import Link from "next/link"
@@ -11,6 +12,19 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+// — 既存 import 群の末尾に追記 —
+import {
+    Dialog,
+    DialogTrigger,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+  } from "@/components/ui/dialog"
+  import { Input } from "@/components/ui/input"
+  import { Textarea } from "@/components/ui/textarea"
+  import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // 企業データの型定義
 interface CompanyData {
@@ -77,6 +91,10 @@ interface ReviewData {
   role: string | null
   tenureYears: number | null
   postedAt: string
+  ratingGrowth?: number
+  ratingWorklife?: number
+  ratingSelection?: number
+  ratingCulture?: number
 }
 
 // 面接データの型定義
@@ -87,6 +105,8 @@ interface InterviewData {
   experienceText: string | null
   graduationYear: number | null
   postedAt: string
+  selectionCategory?: "インターン選考" | "本選考" | "説明会"
+  phase?: "ES" | "テスト" | "GD" | "面接/面談" | "セミナー" | "OB訪問" | "インターン" | "内定"
 }
 
 // 企業ハイライトの型定義
@@ -98,8 +118,13 @@ interface HighlightData {
 }
 
 
-export default function CompanyDetailPage({ params }: { params: { id: string } }) {
+export default function CompanyDetailPage() {
+    
+      // URL パラメータ取得
+      const { id } = useParams<{ id: string }>()  
   const [isFavorite, setIsFavorite] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [favoriteCount, setFavoriteCount] = useState<number>(0)
   const [company, setCompany] = useState<CompanyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobData[]>([])
@@ -115,13 +140,64 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
   const [highlights, setHighlights] = useState<HighlightData[]>([])
   const [highlightsLoading, setHighlightsLoading] = useState(true)
 
+  // ---- 既存 useState 群の直後に貼り付け ----
+  // 面接対策フィルタ
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedYears, setSelectedYears] = useState<number[]>([])
+  const [selectedPhases, setSelectedPhases] = useState<string[]>([])
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [ratingOverall, setRatingOverall] = useState<number>(0)
+  const [ratingGrowth, setRatingGrowth] = useState<number>(0)
+  const [ratingWorklife, setRatingWorklife] = useState<number>(0)
+  const [ratingSelection, setRatingSelection] = useState<number>(0)
+  const [ratingCulture, setRatingCulture] = useState<number>(0)
+  const [reviewTitle, setReviewTitle] = useState("")
+  const [reviewBody, setReviewBody] = useState("")
+  const [submittingReview, setSubmittingReview] = useState(false)
+
+  // 面接投稿用
+  const [ivDialogOpen, setIvDialogOpen] = useState(false)
+  const [ivCategory, setIvCategory] = useState<"インターン選考" | "本選考" | "説明会" | "">("")
+  const [ivPhase, setIvPhase] = useState<"ES" | "テスト" | "GD" | "面接/面談" | "セミナー" | "OB訪問" | "インターン" | "内定" | "">("")
+  const [ivGradYear, setIvGradYear] = useState<string>("")
+  const [ivQuestion, setIvQuestion] = useState("")
+  const [ivAnswerHint, setIvAnswerHint] = useState("")
+  const [ivExperience, setIvExperience] = useState("")
+  const [submittingIv, setSubmittingIv] = useState(false)
+
+  const StarSelector = ({
+    value,
+    onChange,
+  }: {
+    value: number
+    onChange: (v: number) => void
+  }) => (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button key={n} onClick={() => onChange(n)}>
+          <Star size={20} className={n <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} />
+        </button>
+      ))}
+    </div>
+  )
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) {
+        setUserId(data.user.id)
+      }
+    }
+    fetchUser()
+  }, [])
+
   useEffect(() => {
     const fetchCompany = async () => {
       setLoading(true)
       const { data, error } = await supabase
         .from('companies_view')          // ← 先ほど作ったビュー
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
       if (!error && data) {
@@ -153,6 +229,18 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
           videoUrl: c.video_url ?? null,
         }
         setCompany(formatted)
+        setFavoriteCount(formatted.favoriteCount)
+
+        // ユーザーのお気に入り状態を確認
+        if (userId) {
+          const { data: fav } = await supabase
+            .from('company_favorites')
+            .select('id')
+            .eq('company_id', c.id)
+            .eq('user_id', userId)
+            .maybeSingle()
+          setIsFavorite(!!fav)
+        }
         // ---- 追加: 会社に紐づく求人取得 ----
         const { data: jobRows, error: jobErr } = await supabase
           .from('jobs')
@@ -192,7 +280,7 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
         }
         // ---- 同業種の関連企業（自社を除く・3件） ----
         const { data: relRows, error: relErr } = await supabase
-          .from('companies')
+          .from('companies_view') // rating カラムを持つビュー
           .select('id, name, logo, rating')
           .eq('industry', c.industry)
           .neq('id', c.id)
@@ -241,6 +329,8 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
             answerHint    : i.answer_hint,
             experienceText: i.experience_text,
             graduationYear: i.graduation_year,
+            selectionCategory: i.selection_category,
+            phase           : i.phase,
             postedAt      : i.posted_at,
           }))
           setInterviews(ints)
@@ -279,14 +369,178 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
     }
 
     fetchCompany()
-  }, [params.id])
+  }, [id, userId])
+
+  // お気に入りトグルハンドラ
+  const handleToggleFavorite = async () => {
+    if (!company || !userId) {
+      alert('お気に入り機能を使うにはログインが必要です')
+      return
+    }
+
+    if (isFavorite) {
+      const { error } = await supabase
+        .from('company_favorites')
+        .delete()
+        .eq('company_id', company.id)
+        .eq('user_id', userId)
+
+      if (!error) {
+        setIsFavorite(false)
+        setFavoriteCount((prev) => Math.max(prev - 1, 0))
+      }
+    } else {
+      const { error } = await supabase
+        .from('company_favorites')
+        .insert({ company_id: company.id, user_id: userId })
+
+      if (!error) {
+        setIsFavorite(true)
+        setFavoriteCount((prev) => prev + 1)
+      }
+    }
+  }
+
+  // 口コミ投稿ハンドラ
+  const handleSubmitReview = async () => {
+    if (!company || !userId) {
+      alert("口コミ投稿にはログインが必要です")
+      return
+    }
+    if (ratingOverall === 0) {
+      alert("総合評価を入力してください")
+      return
+    }
+
+    setSubmittingReview(true)
+
+    const { error, data, status, statusText } = await supabase
+      .from("company_reviews")
+      .insert(
+        {
+          company_id     : company.id,
+          user_id        : userId,
+          rating         : ratingOverall,
+          rating_growth  : ratingGrowth,
+          rating_worklife: ratingWorklife,
+          rating_selection: ratingSelection,
+          rating_culture : ratingCulture,
+          title          : reviewTitle,
+          body           : reviewBody,
+        },
+        { count: "exact" } // return row count for debugging
+      )
+    console.log("insert response", { status, statusText, data, error })
+
+    setSubmittingReview(false)
+
+    if (error) {
+      alert("投稿に失敗しました")
+      console.error(error)
+      return
+    }
+
+    // 成功 → ダイアログを閉じて最新口コミを再取得 (リロード無し)
+    setReviewDialogOpen(false)
+
+    // 最新の口コミをフェッチして state 更新
+    const { data: revRows, error: revErr } = await supabase
+      .from("company_reviews")
+      .select("*")
+      .eq("company_id", company.id)
+      .order("posted_at", { ascending: false })
+
+    if (!revErr && revRows) {
+      const rv: ReviewData[] = revRows.map((r: any) => ({
+        id            : r.id,
+        rating        : r.rating,
+        title         : r.title,
+        body          : r.body,
+        role          : r.role,
+        tenureYears   : r.tenure_years,
+        ratingGrowth  : r.rating_growth,
+        ratingWorklife: r.rating_worklife,
+        ratingSelection: r.rating_selection,
+        ratingCulture : r.rating_culture,
+        postedAt      : r.posted_at,
+      }))
+      setReviews(rv)
+
+      // 総合評価も再計算して company に反映（オプション）
+      const avgRating =
+        rv.length > 0 ? rv.reduce((s, r) => s + (r.rating ?? 0), 0) / rv.length : 0
+      setCompany((prev) => (prev ? { ...prev, rating: avgRating } : prev))
+    }
+  }
+
+  // 面接投稿ハンドラ
+  const handleSubmitInterview = async () => {
+    if (!company || !userId) {
+      alert("投稿にはログインが必要です")
+      return
+    }
+    if (!ivCategory || !ivPhase || !ivQuestion.trim()) {
+      alert("必須項目が不足しています")
+      return
+    }
+
+    setSubmittingIv(true)
+
+    const { error, data, status, statusText } = await supabase
+      .from("company_interviews")
+      .insert(
+        {
+          company_id        : company.id,
+          user_id           : userId,
+          selection_category: ivCategory,
+          phase             : ivPhase,
+          graduation_year   : ivGradYear ? Number(ivGradYear) : null,
+          question          : ivQuestion,
+          answer_hint       : ivAnswerHint || null,
+          experience_text   : ivExperience || null,
+        },
+        { count: "exact" }
+      )
+
+    console.log("interview insert response", { status, statusText, data, error })
+
+    setSubmittingIv(false)
+
+    if (error) {
+      alert("投稿に失敗しました")
+      console.error(error)
+      return
+    }
+
+    // 成功 → ダイアログ閉じる＆再フェッチ
+    setIvDialogOpen(false)
+    // 再取得
+    const { data: intRows } = await supabase
+      .from("company_interviews")
+      .select("*")
+      .eq("company_id", company.id)
+      .order("posted_at", { ascending: false })
+
+    if (intRows) {
+      const ints: InterviewData[] = intRows.map((i: any) => ({
+        id            : i.id,
+        question      : i.question,
+        answerHint    : i.answer_hint,
+        experienceText: i.experience_text,
+        graduationYear: i.graduation_year,
+        selectionCategory: i.selection_category,
+        phase           : i.phase,
+        postedAt      : i.posted_at,
+      }))
+      setInterviews(ints)
+    }
+  }
 
   // 星評価を表示するためのヘルパー関数
   const renderStars = (rating: number) => {
     const stars = []
     const fullStars = Math.floor(rating)
     const hasHalfStar = rating % 1 >= 0.5
-
     for (let i = 0; i < 5; i++) {
       if (i < fullStars) {
         stars.push(<Star key={i} className="fill-yellow-400 text-yellow-400" size={20} />)
@@ -305,6 +559,45 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
     }
     return stars
   }
+
+  /* ---------- 口コミカテゴリ平均 ---------- */
+  const avgGrowth =
+    reviews.length
+      ? reviews.reduce((s, r) => s + (r.ratingGrowth ?? 0), 0) / reviews.length
+      : 0
+  const avgWorklife =
+    reviews.length
+      ? reviews.reduce((s, r) => s + (r.ratingWorklife ?? 0), 0) / reviews.length
+      : 0
+  const avgSelection =
+    reviews.length
+      ? reviews.reduce((s, r) => s + (r.ratingSelection ?? 0), 0) / reviews.length
+      : 0
+  const avgCulture =
+    reviews.length
+      ? reviews.reduce((s, r) => s + (r.ratingCulture ?? 0), 0) / reviews.length
+      : 0
+
+  // 面接リストをフィルタリング
+  const filteredInterviews = useMemo(() => {
+    return interviews.filter((iv) => {
+      // 選考カテゴリ
+      if (selectedCategories.length && iv.selectionCategory && !selectedCategories.includes(iv.selectionCategory)) {
+        return false
+      }
+      // 卒年
+      if (selectedYears.length) {
+        const yr = iv.graduationYear ?? 0
+        if (yr && !selectedYears.includes(yr - 2000)) return false // 2027 -> 27
+        if (iv.graduationYear === null && !selectedYears.includes(0)) return false // その他扱い
+      }
+      // フェーズ
+      if (selectedPhases.length && iv.phase && !selectedPhases.includes(iv.phase)) {
+        return false
+      }
+      return true
+    })
+  }, [interviews, selectedCategories, selectedYears, selectedPhases])
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
@@ -377,9 +670,6 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
                     <Badge variant="outline" className="text-xs">
                       {company.industry}
                     </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      日系
-                    </Badge>
                   </div>
                   <h1 className="text-2xl font-bold">{company.name}</h1>
                   <div className="flex items-center gap-2 mt-2">
@@ -391,13 +681,13 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
                   <Button
                     variant={isFavorite ? "default" : "outline"}
                     className={`w-full ${isFavorite ? "bg-red-600 hover:bg-red-700" : ""}`}
-                    onClick={() => setIsFavorite(!isFavorite)}
+                    onClick={handleToggleFavorite}
                   >
                     <Heart className={`mr-2 h-4 w-4 ${isFavorite ? "fill-white" : ""}`} />
                     お気に入り
                     {isFavorite ? "済" : ""}
                   </Button>
-                  <div className="text-center text-xs text-gray-500">{company.favoriteCount.toLocaleString()}人</div>
+                  <div className="text-center text-xs text-gray-500">{favoriteCount.toLocaleString()}人</div>
                 </div>
               </div>
             </div>
@@ -460,40 +750,72 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
                     <div className="bg-white border rounded-lg overflow-hidden">
                       <table className="w-full">
                         <tbody className="divide-y">
-                          <tr className="hover:bg-gray-50">
-                            <th className="py-4 px-6 text-left bg-gray-50 w-1/3">代表者</th>
-                            <td className="py-4 px-6">{company.details.representative}</td>
-                          </tr>
-                          <tr className="hover:bg-gray-50">
-                            <th className="py-4 px-6 text-left bg-gray-50">所在地</th>
-                            <td className="py-4 px-6">{company.details.headquarters}</td>
-                          </tr>
-                          <tr className="hover:bg-gray-50">
-                            <th className="py-4 px-6 text-left bg-gray-50">設立日</th>
-                            <td className="py-4 px-6">{company.details.founded}</td>
-                          </tr>
-                          <tr className="hover:bg-gray-50">
-                            <th className="py-4 px-6 text-left bg-gray-50">資本金</th>
-                            <td className="py-4 px-6">{company.details.capital}</td>
-                          </tr>
-                          <tr className="hover:bg-gray-50">
-                            <th className="py-4 px-6 text-left bg-gray-50">売上高</th>
-                            <td className="py-4 px-6">{company.details.revenue}</td>
-                          </tr>
-                          <tr className="hover:bg-gray-50">
-                            <th className="py-4 px-6 text-left bg-gray-50">従業員数</th>
-                            <td className="py-4 px-6">{company.details.employees}</td>
-                          </tr>
-                          <tr className="hover:bg-gray-50">
-                            <th className="py-4 px-6 text-left bg-gray-50">事業内容</th>
-                            <td className="py-4 px-6">
-                              <ul className="list-disc pl-5 space-y-1">
-                                {company.details.businessAreas.map((area, index) => (
-                                  <li key={index}>{area}</li>
-                                ))}
-                              </ul>
-                            </td>
-                          </tr>
+                          {/* 業種 */}
+                          {company.industry && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50 w-1/3">業種</th>
+                              <td className="py-4 px-6">{company.industry}</td>
+                            </tr>
+                          )}
+                          {/* 代表者 */}
+                          {company.details.representative && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50 w-1/3">代表者</th>
+                              <td className="py-4 px-6">{company.details.representative}</td>
+                            </tr>
+                          )}
+                          {/* 本社所在地 */}
+                          {company.details.headquarters && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50">所在地</th>
+                              <td className="py-4 px-6">{company.details.headquarters}</td>
+                            </tr>
+                          )}
+                          {/* 設立日 */}
+                          {company.details.founded && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50">設立日</th>
+                              <td className="py-4 px-6">{company.details.founded}</td>
+                            </tr>
+                          )}
+                          {/* 資本金 */}
+                          {company.details.capital && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50">資本金</th>
+                              <td className="py-4 px-6">
+                                {Number(company.details.capital).toLocaleString()} 万円
+                              </td>
+                            </tr>
+                          )}
+                          {/* 売上高 */}
+                          {company.details.revenue && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50">売上高</th>
+                              <td className="py-4 px-6">
+                                {Number(company.details.revenue).toLocaleString()} 万円
+                              </td>
+                            </tr>
+                          )}
+                          {/* 従業員数 */}
+                          {company.details.employees && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50">従業員数</th>
+                              <td className="py-4 px-6">{company.details.employees} 名</td>
+                            </tr>
+                          )}
+                          {/* 事業内容 */}
+                          {company.details.businessAreas.length > 0 && (
+                            <tr className="hover:bg-gray-50">
+                              <th className="py-4 px-6 text-left bg-gray-50">事業内容</th>
+                              <td className="py-4 px-6">
+                                <ul className="list-disc pl-5 space-y-1">
+                                  {company.details.businessAreas.map((area, index) => (
+                                    <li key={index}>{area}</li>
+                                  ))}
+                                </ul>
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -554,8 +876,62 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
                 {/* 口コミ・評判タブ */}
                 <TabsContent value="reviews" className="p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold">社員・元社員による口コミ</h2>
-                    <Button variant="outline">口コミを投稿</Button>
+                    <h2 className="text-xl font-bold">先輩の口コミ</h2>
+                    <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">口コミを投稿</Button>
+                      </DialogTrigger>
+
+                      <DialogContent className="space-y-4">
+                        <DialogHeader>
+                          <DialogTitle>口コミを投稿する</DialogTitle>
+                        </DialogHeader>
+
+                        <div className="space-y-4 text-sm">
+                          <div>
+                            <label className="block font-medium mb-1">総合評価</label>
+                            <StarSelector value={ratingOverall} onChange={setRatingOverall} />
+                          </div>
+                          <div>
+                            <label className="block font-medium mb-1">成長環境</label>
+                            <StarSelector value={ratingGrowth} onChange={setRatingGrowth} />
+                          </div>
+                          <div>
+                            <label className="block font-medium mb-1">ワークライフバランス</label>
+                            <StarSelector value={ratingWorklife} onChange={setRatingWorklife} />
+                          </div>
+                          <div>
+                            <label className="block font-medium mb-1">選考難易度</label>
+                            <StarSelector value={ratingSelection} onChange={setRatingSelection} />
+                          </div>
+                          <div>
+                            <label className="block font-medium mb-1">社風</label>
+                            <StarSelector value={ratingCulture} onChange={setRatingCulture} />
+                          </div>
+                          <Input
+                            placeholder="タイトル"
+                            value={reviewTitle}
+                            onChange={(e) => setReviewTitle(e.target.value)}
+                          />
+                          <Textarea
+                            rows={4}
+                            placeholder="口コミ本文（自由記述）"
+                            value={reviewBody}
+                            onChange={(e) => setReviewBody(e.target.value)}
+                          />
+                        </div>
+
+                        <DialogFooter>
+                          <Button
+                            onClick={handleSubmitReview}
+                            disabled={submittingReview}
+                            className="w-full"
+                          >
+                            {submittingReview ? "送信中…" : "投稿する"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
 
                   <div className="bg-white border rounded-lg p-6 mb-6">
@@ -568,34 +944,34 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
                       <Separator orientation="vertical" className="h-16" />
                       <div className="grid grid-cols-2 gap-4 flex-grow">
                         <div>
-                          <div className="text-sm text-gray-500">年収・給与</div>
-                          <div className="flex items-center mt-1">
-                            <div className="flex">{renderStars(3.8)}</div>
-                            <span className="ml-2 font-semibold">3.8</span>
-                          </div>
+                            <div className="text-sm text-gray-500">成長環境</div>
+                            <div className="flex items-center mt-1">
+                            <div className="flex">{renderStars(avgGrowth)}</div>
+                            <span className="ml-2 font-semibold">{avgGrowth.toFixed(1)}</span>
+                            </div>
                         </div>
                         <div>
-                          <div className="text-sm text-gray-500">働きやすさ</div>
-                          <div className="flex items-center mt-1">
-                            <div className="flex">{renderStars(3.2)}</div>
-                            <span className="ml-2 font-semibold">3.2</span>
-                          </div>
+                            <div className="text-sm text-gray-500">ワークライフバランス</div>
+                            <div className="flex items-center mt-1">
+                            <div className="flex">{renderStars(avgWorklife)}</div>
+                            <span className="ml-2 font-semibold">{avgWorklife.toFixed(1)}</span>
+                            </div>
                         </div>
                         <div>
-                          <div className="text-sm text-gray-500">成長性</div>
-                          <div className="flex items-center mt-1">
-                            <div className="flex">{renderStars(4.0)}</div>
-                            <span className="ml-2 font-semibold">4.0</span>
-                          </div>
+                            <div className="text-sm text-gray-500">選考難易度</div>
+                            <div className="flex items-center mt-1">
+                            <div className="flex">{renderStars(avgSelection)}</div>
+                            <span className="ml-2 font-semibold">{avgSelection.toFixed(1)}</span>
+                            </div>
                         </div>
                         <div>
-                          <div className="text-sm text-gray-500">安定性</div>
-                          <div className="flex items-center mt-1">
-                            <div className="flex">{renderStars(3.5)}</div>
-                            <span className="ml-2 font-semibold">3.5</span>
-                          </div>
+                            <div className="text-sm text-gray-500">社風</div>
+                            <div className="flex items-center mt-1">
+                            <div className="flex">{renderStars(avgCulture)}</div>
+                            <span className="ml-2 font-semibold">{avgCulture.toFixed(1)}</span>
+                            </div>
                         </div>
-                      </div>
+                        </div>
                     </div>
                   </div>
 
@@ -635,15 +1011,181 @@ export default function CompanyDetailPage({ params }: { params: { id: string } }
 
                 {/* 面接対策タブ */}
                 <TabsContent value="interviews" className="p-6">
-                  <h2 className="text-xl font-bold mb-6">面接対策</h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold">
+                      面接対策
+                      <span className="ml-2 text-base font-normal text-gray-500">
+                        {filteredInterviews.length}/{interviews.length}
+                      </span>
+                    </h2>
+                    <Dialog open={ivDialogOpen} onOpenChange={setIvDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">面接情報を投稿</Button>
+                      </DialogTrigger>
+
+                      <DialogContent className="space-y-4">
+                        <DialogHeader>
+                          <DialogTitle>面接情報を投稿する</DialogTitle>
+                        </DialogHeader>
+
+                        <div className="space-y-4 text-sm">
+                          {/* 選考種別 */}
+                          <div>
+                            <label className="block font-medium mb-1">選考種別</label>
+                            <Select value={ivCategory} onValueChange={(v)=>setIvCategory(v as any)}>
+                              <SelectTrigger className="w-full"><SelectValue placeholder="選択..." /></SelectTrigger>
+                              <SelectContent>
+                                {["インターン選考","本選考","説明会"].map(c=>(
+                                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {/* フェーズ */}
+                          <div>
+                            <label className="block font-medium mb-1">フェーズ</label>
+                            <Select value={ivPhase} onValueChange={(v)=>setIvPhase(v as any)}>
+                              <SelectTrigger className="w-full"><SelectValue placeholder="選択..." /></SelectTrigger>
+                              <SelectContent>
+                                {["ES","テスト","GD","面接/面談","セミナー","OB訪問","インターン","内定"].map(p=>(
+                                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {/* 卒年 */}
+                          <div>
+                            <label className="block font-medium mb-1">卒業年度 (任意)</label>
+                            <Input
+                              type="number"
+                              min="2016"
+                              max="2030"
+                              placeholder="例: 2027"
+                              value={ivGradYear}
+                              onChange={(e)=>setIvGradYear(e.target.value)}
+                            />
+                          </div>
+                          {/* よく聞かれた質問 */}
+                          <div>
+                            <label className="block font-medium mb-1">
+                              よく聞かれた質問 <span className="text-red-500">(必須)</span>
+                            </label>
+                            <Textarea
+                              rows={2}
+                              placeholder="例：志望動機を教えてください など"
+                              value={ivQuestion}
+                              onChange={(e) => setIvQuestion(e.target.value)}
+                            />
+                          </div>
+                          {/* 回答のポイント */}
+                          <div>
+                            <label className="block font-medium mb-1">
+                              回答のポイント <span className="text-gray-500">(任意)</span>
+                            </label>
+                            <Textarea
+                              rows={3}
+                              placeholder="回答のコツや準備したことを入力"
+                              value={ivAnswerHint}
+                              onChange={(e) => setIvAnswerHint(e.target.value)}
+                            />
+                          </div>
+                          {/* 体験談 */}
+                          <div>
+                            <label className="block font-medium mb-1">
+                              面接体験談 <span className="text-gray-500">(任意)</span>
+                            </label>
+                            <Textarea
+                              rows={4}
+                              placeholder="実際のやり取りや感想を入力"
+                              value={ivExperience}
+                              onChange={(e) => setIvExperience(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <DialogFooter>
+                          <Button onClick={handleSubmitInterview} disabled={submittingIv} className="w-full">
+                            {submittingIv ? "送信中…" : "投稿する"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  {/* ---- フィルタ UI ---- */}
+                  <div className="space-y-4 mb-6">
+                    {/* 選考種別 */}
+                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg">
+                      {["インターン選考","本選考","説明会"].map((cat)=>(
+                        <label key={cat} className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(cat)}
+                            onChange={()=>{
+                              setSelectedCategories((prev)=>
+                                prev.includes(cat) ? prev.filter(c=>c!==cat) : [...prev,cat]
+                              )
+                            }}
+                          />
+                          {cat}
+                        </label>
+                      ))}
+                    </div>
+                    {/* 卒年 */}
+                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg">
+                      {[27,26,25].map((yr)=>(
+                        <label key={yr} className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedYears.includes(yr)}
+                            onChange={()=>{
+                              setSelectedYears((prev)=>
+                                prev.includes(yr) ? prev.filter(y=>y!==yr) : [...prev,yr]
+                              )
+                            }}
+                          />
+                          {`${yr}年卒`}
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedYears.includes(0)}
+                          onChange={()=>{
+                            setSelectedYears((prev)=>
+                              prev.includes(0) ? prev.filter(y=>y!==0) : [...prev,0]
+                            )
+                          }}
+                        />
+                        その他
+                      </label>
+                    </div>
+                    {/* フェーズ */}
+                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg">
+                      {["ES","テスト","GD","面接/面談","セミナー","OB訪問","インターン","内定"].map((ph)=>(
+                        <label key={ph} className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedPhases.includes(ph)}
+                            onChange={()=>{
+                              setSelectedPhases((prev)=>
+                                prev.includes(ph) ? prev.filter(p=>p!==ph) : [...prev,ph]
+                              )
+                            }}
+                          />
+                          {ph}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
                   {interviewsLoading ? (
                     <p>Loading interview data...</p>
-                  ) : interviews.length === 0 ? (
+                  ) : filteredInterviews.length === 0 ? (
                     <p className="text-sm text-gray-500">まだ面接情報が投稿されていません。</p>
                   ) : (
                     <div className="space-y-6">
-                      {interviews.map((iv) => (
+                      {filteredInterviews.map((iv) => (
                         <Card key={iv.id} className="p-6 space-y-4">
                           <div>
                             <h3 className="font-semibold mb-2">よく聞かれた質問</h3>

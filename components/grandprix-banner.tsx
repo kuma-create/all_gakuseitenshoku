@@ -166,7 +166,7 @@ export function GrandprixBanner() {
                   </Button>
                 </Link>
 
-                <Link href="/grandprix">
+                <Link href={event.link}>
                   <Button
                     size="sm"
                     className={`w-full min-w-[100px] font-medium shadow-sm ${event.secondaryButtonColor}`}

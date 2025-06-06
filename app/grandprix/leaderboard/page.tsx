@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -17,32 +17,52 @@ import {
 
 /* ---------- 型 ---------- */
 type LeaderboardRow = {
-  student_id: string;
-  total_score: number;
   rank: number;
-  full_name: string | null;
-  avatar: string | null;
+  total_score: number;
+  student_profiles: {
+    full_name: string | null;
+    avatar_url: string | null;
+  } | null;
 };
 
 export default function LeaderboardPage() {
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1); // 1‑12
+
+  const ymKey = `${year}-${String(month).padStart(2, "0")}-01`;
+
   useEffect(() => {
     async function fetchLeaderboard() {
-      const { data, error } = await supabase.rpc("get_leaderboard", {
-        p_limit: 100,              // ← 上限は必要に応じて変更
-      });
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("gp_rank")
+        .select(
+          `
+          rank,
+          total_score,
+          student_profiles:student_id (
+            full_name,
+            avatar_url
+          )
+        `
+        )
+        .eq("month", ymKey)
+        .order("rank")
+        .limit(100);
 
       if (error) {
-        console.error("get_leaderboard error:", error.message);
+        console.error("gp_rank fetch error:", error.message);
       } else {
-        setRows((data as unknown as LeaderboardRow[]) ?? []);
+        setRows((data as LeaderboardRow[]) ?? []);
       }
       setLoading(false);
     }
     fetchLeaderboard();
-  }, []);
+  }, [ymKey]);
 
   if (loading) {
     return (
@@ -54,6 +74,31 @@ export default function LeaderboardPage() {
 
   return (
     <div className="mx-auto max-w-3xl py-10">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">リーダーボード</h1>
+        <select
+          className="rounded-md border px-3 py-1 text-sm"
+          value={ymKey}
+          onChange={(e) => {
+            const [y, m] = e.target.value.split("-").map(Number);
+            setYear(y);
+            setMonth(m);
+          }}
+        >
+          {Array.from({ length: 12 }).map((_, i) => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const y = d.getFullYear();
+            const m = d.getMonth() + 1;
+            const key = `${y}-${String(m).padStart(2, "0")}-01`;
+            return (
+              <option key={key} value={key}>
+                {y}年{m}月
+              </option>
+            );
+          })}
+        </select>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>🏆 ランキング</CardTitle>
@@ -68,19 +113,31 @@ export default function LeaderboardPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.rank} className="border-t">
-                  <td className="py-2 pr-4">{r.rank}</td>
-                  <td className="py-2 pr-4 flex items-center gap-2">
-                    {r.avatar && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={r.avatar} alt="" className="h-6 w-6 rounded-full" />
-                    )}
-                    {r.full_name ?? "Anonymous"}
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="py-4 text-center text-sm text-muted-foreground">
+                    データがありません
                   </td>
-                  <td className="py-2">{r.total_score}</td>
                 </tr>
-              ))}
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.rank} className="border-t">
+                    <td className="py-2 pr-4">{r.rank}</td>
+                    <td className="flex items-center gap-2 py-2 pr-4">
+                      {r.student_profiles?.avatar_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={r.student_profiles.avatar_url}
+                          alt=""
+                          className="h-6 w-6 rounded-full object-cover"
+                        />
+                      )}
+                      {r.student_profiles?.full_name ?? "Anonymous"}
+                    </td>
+                    <td className="py-2">{r.total_score}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </CardContent>

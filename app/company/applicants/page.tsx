@@ -101,56 +101,113 @@ const STATUS_OPTIONS = [
   { value: "内定", color: "bg-green-100 text-green-800 hover:bg-green-100" },
   { value: "内定辞退", color: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" },
   { value: "不採用", color: "bg-red-100 text-red-800 hover:bg-red-100" },
+  { value: "チャット中", color: "bg-cyan-100 text-cyan-800 hover:bg-cyan-100" },
+  { value: "スカウト承諾", color: "bg-teal-100 text-teal-800 hover:bg-teal-100" },
 ]
 
 /* ---------- Supabase からデータ取得 ---------- */
+/**
+ * applications テーブル  +  scouts(=スカウト承諾) の両方を取得して結合する
+ *
+ * - applications: すべて
+ * - scouts      : status = '承諾' のみ
+ */
 async function fetchApplicants(): Promise<JoinedApplicant[]> {
-  const { data, error } = await supabase
+  /* ----- ① applications -------------- */
+  const { data: appRows, error: appErr } = await supabase
     .from("applications")
-    .select(
-      `
-      id,
-      status,
-      applied_at,
-      interest_level,
-      self_pr,
-      last_activity,
-      student:student_profiles (
-        id,
-        name,
-        university,
-        faculty,
-        avatar_url,
-        industry
-      ),
-      job:jobs (
-        id,
-        title
-      )
-    `,
-    )
+    .select('*,student_profiles!student_id(*),jobs!job_id(id,title)')
     .order("applied_at", { ascending: false })
 
-  if (error) throw error
+  console.log("[fetchApplicants] applications rows:", appRows);
 
-  return (
-    data?.map((row: any) => ({
-      id: row.id,
-      status: row.status,
-      appliedDate: row.applied_at,
-      interestLevel: row.interest_level ?? 0,
-      selfPR: row.self_pr ?? "",
-      lastActivity: row.last_activity ?? row.applied_at,
-      studentId: row.student.id,
-      name: row.student.name,
-      university: row.student.university,
-      faculty: row.student.faculty,
-      avatar: row.student.avatar_url,
-      industry: row.student.industry,
-      jobId: row.job.id,
-      jobTitle: row.job.title,
-    })) ?? []
+  if (appErr) throw appErr
+
+  const apps: JoinedApplicant[] =
+    (appRows ?? []).flatMap((row: any): JoinedApplicant[] => {
+      const student = Array.isArray(row.student_profiles)
+        ? row.student_profiles[0]
+        : row.student_profiles
+      const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs
+
+      if (!student || !job) return []
+
+      return [
+        {
+          id: row.id,
+          status: row.status,
+          appliedDate: row.applied_at,
+          interestLevel: row.interest_level ?? 0,
+          selfPR: row.self_pr ?? "",
+          lastActivity: row.last_activity ?? row.applied_at,
+          studentId: student.id,
+          name: student.name,
+          university: student.university,
+          faculty: student.faculty,
+          avatar: student.avatar_url,
+          industry: student.industry,
+          jobId: job.id,
+          jobTitle: job.title,
+        },
+      ]
+    })
+
+  console.log("[fetchApplicants] processed apps:", apps.length);
+
+  /* ----- ② scouts(承諾済み) ----------- */
+  const { data: scoutRows, error: scoutErr } = await supabase
+    .from("scouts")
+    .select('*,student_profiles!student_id(*),jobs!job_id(id,title)')
+    .eq("status", "承諾")                     // 承諾のみ
+    .order("accepted_at", { ascending: false })
+
+  if (scoutErr) {
+    // RLS で読めない場合などは警告だけ出して継続
+    console.warn("[fetchApplicants] scouts query error – proceed without scouts:", scoutErr)
+  }
+
+  console.log("[fetchApplicants] scouts rows:", scoutRows);
+
+  const scouts: JoinedApplicant[] =
+    (scoutRows ?? []).flatMap((row: any): JoinedApplicant[] => {
+      const student = Array.isArray(row.student_profiles)
+        ? row.student_profiles[0]
+        : row.student_profiles
+      const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs
+
+      if (!student || !job) return []
+
+      return [
+        {
+          id: row.id,
+          status: "スカウト承諾",
+          appliedDate: row.accepted_at,
+          interestLevel: 0,
+          selfPR: "",
+          lastActivity: row.accepted_at,
+          studentId: student.id,
+          name: student.name,
+          university: student.university,
+          faculty: student.faculty,
+          avatar: student.avatar_url,
+          industry: student.industry,
+          jobId: job.id,
+          jobTitle: job.title,
+        },
+      ]
+    })
+
+  console.log("[fetchApplicants] processed scouts:", scouts.length);
+
+  /* ----- ③ 結合して応募日順に整列 ------ */
+  const combined = [...apps, ...scouts].sort(
+    (a, b) =>
+      new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime(),
   )
+
+  console.log("[fetchApplicants] combined applicants:", combined.length, combined);
+
+  return combined
 }
 
 /* ---------- React Component ---------- */
@@ -171,6 +228,7 @@ export default function ApplicantsPage() {
     "company-applicants",
     fetchApplicants,
   )
+  console.log("[ApplicantsPage] SWR applicants fetched:", applicants);
 
   /* --- Job 一覧は応募データから動的生成 --- */
   const jobs = useMemo(() => {
@@ -186,10 +244,14 @@ export default function ApplicantsPage() {
     const keyword = searchTerm.toLowerCase()
 
     const matches = (a: JoinedApplicant) => {
+      const nameLc = (a.name ?? "").toLowerCase()
+      const univLc = (a.university ?? "").toLowerCase()
+      const prLc   = (a.selfPR ?? "").toLowerCase()
+
       const matchesSearch =
-        a.name.toLowerCase().includes(keyword) ||
-        a.university.toLowerCase().includes(keyword) ||
-        a.selfPR.toLowerCase().includes(keyword)
+        nameLc.includes(keyword) ||
+        univLc.includes(keyword) ||
+        prLc.includes(keyword)
 
       const matchesStatus =
         statusFilter === "all" ||
@@ -203,6 +265,8 @@ export default function ApplicantsPage() {
             "二次面接済",
             "最終面接調整中",
             "最終面接済",
+            "チャット中",
+            "スカウト承諾",
           ].includes(a.status)) ||
         (statusFilter === "passed" && a.status === "内定") ||
         (statusFilter === "rejected" && ["不採用", "内定辞退"].includes(a.status))
@@ -284,6 +348,79 @@ export default function ApplicantsPage() {
 
     // mutate to revalidate
     setSelectedApplicantIds([])
+  }
+
+  /** 会社⇔学生のチャットを開く（既存がなければ作成） */
+  const openChat = async (studentId: string, jobId: string) => {
+    /** 0) job から company_id を取得 */
+    const { data: jobRow, error: jobErr } = await supabase
+      .from("jobs")
+      .select("company_id")
+      .eq("id", jobId)
+      .single()
+
+    if (jobErr || !jobRow) {
+      console.error("jobs query error:", jobErr)
+      return
+    }
+    const companyId = jobRow.company_id as string
+    const cId = companyId as string
+    if (!companyId) {
+      console.error("job.company_id is null – cannot open chat")
+      return
+    }
+
+    /** 1) 既存ルームを (company_id, student_id) で検索 */
+    const { data: existing, error: existErr } = await supabase
+      .from("chat_rooms")
+      .select("id")
+      .eq("company_id", cId)
+      .eq("student_id", studentId)
+      .maybeSingle()
+
+    if (existErr) {
+      console.error("chat_rooms select error:", existErr)
+      return
+    }
+    if (existing) {
+      router.push(`/company/chat/${existing.id}`)
+      return
+    }
+
+    /** 2) 新規作成 */
+    const roomId = crypto.randomUUID()
+    const { error: insertErr } = await supabase
+      .from("chat_rooms")
+      .insert([
+        {
+          id: roomId,
+          company_id: cId,
+          student_id: studentId,
+          job_id: jobId,
+        },
+      ])
+
+    if (insertErr) {
+      // 重複なら改めて取得して遷移 (ほぼ同時クリック等)
+      if (insertErr.code === "23505") {
+        const { data: dup } = await supabase
+          .from("chat_rooms")
+          .select("id")
+          .eq("company_id", cId)
+          .eq("student_id", studentId)
+          .maybeSingle()
+        if (dup) {
+          router.push(`/company/chat/${dup.id}`)
+        } else {
+          console.error("duplicate but room not found:", insertErr)
+        }
+      } else {
+        console.error("chat_rooms insert error:", insertErr)
+      }
+      return
+    }
+
+    router.push(`/company/chat/${roomId}`)
   }
 
   /* ---------- JSX (既存 UI を極力維持) ---------- */
@@ -442,6 +579,8 @@ export default function ApplicantsPage() {
                           "二次面接済",
                           "最終面接調整中",
                           "最終面接済",
+                          "チャット中",
+                          "スカウト承諾",
                         ].includes(a.status) && key === "inProgress"
                       )
                     }).length
@@ -470,7 +609,7 @@ export default function ApplicantsPage() {
                             <div className="flex items-center mb-3 md:mb-0 md:mr-4">
                               <Avatar className="h-12 w-12 mr-3">
                                 <AvatarImage src={applicant.avatar ?? "/placeholder.svg"} alt={applicant.name} />
-                                <AvatarFallback>{applicant.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback>{(applicant.name ?? "?").charAt(0)}</AvatarFallback>
                               </Avatar>
                               <div>
                                 <h3 className="font-medium text-lg">{applicant.name}</h3>
@@ -556,10 +695,10 @@ export default function ApplicantsPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => router.push(`/company/chat/${applicant.studentId}`)}
+                            onClick={() => openChat(applicant.studentId, applicant.jobId)}
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
-                            チャットを開始
+                            チャットを開く
                           </Button>
                         </div>
                       </div>

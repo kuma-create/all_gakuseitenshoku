@@ -49,20 +49,15 @@ import {
  * スキーマ型が見当たらない場合でもビルド出来るよう
  * 必要最小限の列だけ手書き定義（後で types.ts を再生成したら削除して OK）
  */
-interface GrandprixParticipantRow {
+interface RankRow {
+  rank: number
+  total_score: number
   student_id: string
-  score: number | null
-  event_id: string
-}
-
-interface StudentProfileRow {
-  student_id: string
-  full_name: string | null
-  university: string | null
-}
-
-type ParticipantWithProfile = GrandprixParticipantRow & {
-  student_profiles: Pick<StudentProfileRow, "full_name" | "university"> | null
+  category: string
+  student_profiles: {
+    full_name: string | null
+    university: string | null
+  } | null
 }
 
 /** リテラル union でバッジ種別を厳密化 */
@@ -76,6 +71,7 @@ interface LeaderboardEntry {
   rank: number
   badge: BadgeType
   isCurrentUser: boolean
+  category: string   // ← 追加
 }
 
 /* ------------------------------------------------------------------ */
@@ -86,6 +82,13 @@ const monthOptions = Array.from({ length: 12 }, (_, i) => {
   return { value: d.format("YYYY-MM"), label: d.format("YYYY年M月") }
 })
 type MonthKey = (typeof monthOptions)[number]["value"]
+
+const categoryOptions = [
+  { value: "bizscore", label: "ビジネス戦闘力" },
+  { value: "webtest", label: "Web テスト" },
+  { value: "case", label: "ケーススタディ" },
+] as const
+type CategoryKey = (typeof categoryOptions)[number]["value"]
 
 /* ------------------------------------------------------------------ */
 /*                     GrandPrixLeaderboard コンポーネント            */
@@ -99,6 +102,7 @@ export const GrandPrixLeaderboard = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
+  const [category, setCategory] = useState<CategoryKey>("bizscore")
 
   /* ---------------- 認証ユーザー取得 ---------------- */
   useEffect(() => {
@@ -113,73 +117,64 @@ export const GrandPrixLeaderboard = () => {
     const fetchLeaderboard = async () => {
       setLoading(true)
 
-      /* 1) 対象月イベント ID */
-      const monthStart = dayjs(`${selectedMonth}-01`)
-        .startOf("month")
-        .toISOString()
-      const monthEnd = dayjs(`${selectedMonth}-01`)
-        .endOf("month")
-        .toISOString()
+      const monthDate = dayjs(`${selectedMonth}-01`).startOf("month").format("YYYY-MM-DD")
 
-      const { data: event } = await supabase
-        .from("challenges")
-        .select("id")
-        .gte("start_date", monthStart)
-        .lte("start_date", monthEnd)
-        .maybeSingle<{ id: string }>()
-
-      if (!event) {
-        setEntries([])
-        setLoading(false)
-        return
-      }
-
-      /* 2) 参加者 + プロフィール */
       const { data, error } = await supabase
-        .from("challenges")
+        .from("gp_rank")
         .select(
           `
+            rank,
+            total_score,
             student_id,
-            score,
-            student_profiles (
+            category,
+            student_profiles:student_id (
               full_name,
               university
             )
-          `,
+          `
         )
-        .eq("event_id", event.id)
-        .order("score", { ascending: false })
-        .returns<ParticipantWithProfile[]>()
+        .eq("month", monthDate)
+        .eq("category", category)
+        .order("rank")
+        .limit(50)
+        .returns<RankRow[]>()
 
       if (error) {
-        console.error(error)
+        console.error("gp_rank fetch error:", error?.message ?? error)
         setEntries([])
         setLoading(false)
         return
       }
 
-      /* 3) rank / badge 付与 & 上位 10 名 */
-      const ranked: LeaderboardEntry[] = data.slice(0, 10).map((row, idx) => {
-        const badge: BadgeType =
-          idx === 0 ? "gold" : idx === 1 ? "silver" : idx === 2 ? "bronze" : null
+      const ranked: LeaderboardEntry[] = data
+        .map((row) => {
+          const badge: BadgeType =
+            row.rank === 1
+              ? "gold"
+              : row.rank === 2
+              ? "silver"
+              : row.rank === 3
+              ? "bronze"
+              : null
 
-        return {
-          student_id: row.student_id,
-          full_name: row.student_profiles?.full_name ?? "匿名",
-          university: row.student_profiles?.university ?? "",
-          score: row.score ?? 0,
-          rank: idx + 1,
-          badge,
-          isCurrentUser: row.student_id === currentUserId,
-        }
-      })
+          return {
+            student_id: row.student_id,
+            full_name: row.student_profiles?.full_name ?? "匿名",
+            university: row.student_profiles?.university ?? "",
+            score: row.total_score,
+            rank: row.rank,
+            badge,
+            isCurrentUser: row.student_id === currentUserId,
+            category: row.category,               // ← 追加
+          }
+        })
 
       setEntries(ranked)
       setLoading(false)
     }
 
     fetchLeaderboard()
-  }, [selectedMonth, currentUserId, supabase])
+  }, [selectedMonth, category, currentUserId, supabase])
 
   /* ---------------- ハンドラ ---------------- */
   const handleMonthChange = (v: string) => setSelectedMonth(v as MonthKey)
@@ -224,19 +219,34 @@ export const GrandPrixLeaderboard = () => {
             </p>
           </div>
 
-          {/* 月プルダウン */}
-          <Select value={selectedMonth} onValueChange={handleMonthChange}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="月を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+            <Select value={category} onValueChange={(v) => setCategory(v as CategoryKey)}>
+              <SelectTrigger className="w-full md:w-[200px]">
+                <SelectValue placeholder="カテゴリ" />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* 月プルダウン */}
+            <Select value={selectedMonth} onValueChange={handleMonthChange}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="月を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* テーブル */}
@@ -324,7 +334,7 @@ export const GrandPrixLeaderboard = () => {
 
                     {/* スコア */}
                     <TableCell className="text-right font-medium">
-                      {e.score}/100
+                      {e.score}/{e.category === "webtest" ? 40 : 100}
                     </TableCell>
 
                     {/* 回答ボタン */}

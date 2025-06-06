@@ -203,8 +203,8 @@ export default function WebTestConfirmPage() {
                 </Link>
                 <Button
                   onClick={handleStart}
-                  disabled={starting}
-                  className="bg-emerald-500 hover:bg-emerald-600"
+                  disabled={!agreed || starting}
+                  className="w-full sm:flex-1 bg-emerald-500 hover:bg-emerald-600"
                 >
                   {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : "テストを開始する"}
                 </Button>

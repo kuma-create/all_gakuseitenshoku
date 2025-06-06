@@ -14,7 +14,6 @@ import {
   Calendar,
   ChevronRight,
   Download,
-  Mail,
   MapPin,
   MessageSquare,
   Phone,
@@ -81,6 +80,11 @@ export const STATUS_OPTIONS = [
   "不採用",
 ] as const
 
+/* 型ガード: 任意の値が Status か判定 */
+function isStatus(value: unknown): value is (typeof STATUS_OPTIONS)[number] {
+  return STATUS_OPTIONS.includes(value as (typeof STATUS_OPTIONS)[number])
+}
+
 const statusColorMap: Record<string, string> = {
   未対応: "bg-gray-500",
   書類選考中: "bg-blue-500",
@@ -112,10 +116,9 @@ async function fetchApplicantDetail(appId: string): Promise<ApplicantDetail | nu
           full_name,
           university,
           faculty,
-          academic_year,
-          graduation_year,
+          admission_month,
+          graduation_month,
           hometown,
-          email,
           phone,
           skills,
           interests,
@@ -157,7 +160,11 @@ export default function ApplicantProfilePage() {
 
   /* --- ローカル State --- */
   type Status = (typeof STATUS_OPTIONS)[number] | null;
-  const [status, setStatus] = useState<Status>(detail.application.status)
+  // 初期ステータスは union 型に含まれるものだけを許可
+  const rawStatus = detail.application.status
+  const initialStatus: Status = isStatus(rawStatus) ? rawStatus : null
+
+  const [status, setStatus] = useState<Status>(initialStatus)
   const [isFavorite, setIsFavorite] = useState(
     (detail.application.interest_level ?? 0) >= 80,
   ) // お気に入り判定ロジックは適宜
@@ -258,11 +265,26 @@ export default function ApplicantProfilePage() {
                         label: string;
                         value: string | number | null | undefined;
                       }[] = [
-                        { icon: <User className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />, label: "学年", value: detail.student.academic_year },
-                        { icon: <Calendar className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />, label: "卒業予定年", value: detail.student.graduation_year },
-                        { icon: <MapPin className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />, label: "出身地", value: detail.student.hometown },
-                        { icon: <Mail className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />, label: "メールアドレス", value: detail.student.email },
-                        { icon: <Phone className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />, label: "電話番号", value: detail.student.phone },
+                        {
+                          icon: <Calendar className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />,
+                          label: "入学月",
+                          value: detail.student.admission_month,
+                        },
+                        {
+                          icon: <Calendar className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />,
+                          label: "卒業予定月",
+                          value: detail.student.graduation_month,
+                        },
+                        {
+                          icon: <MapPin className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />,
+                          label: "出身地",
+                          value: detail.student.hometown,
+                        },
+                        {
+                          icon: <Phone className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />,
+                          label: "電話番号",
+                          value: detail.student.phone,
+                        },
                       ];
                       return basicItems.map(({ icon, label, value }) => (
                         <div key={label} className="flex items-start">

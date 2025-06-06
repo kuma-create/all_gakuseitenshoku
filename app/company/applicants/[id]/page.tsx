@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, ComponentType } from "react"
+import { supabase } from "@/lib/supabase/client"
 import Link from "next/link"
 import { LazyImage } from "@/components/ui/lazy-image"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
-  Award,
   BookOpen,
   Briefcase,
   Building,
@@ -23,6 +23,7 @@ import {
   Send,
   Star,
   User,
+  Target,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,110 +42,235 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-// Mock data for the applicant
-const getApplicantData = (id: string) => {
-  return {
-    id,
-    name: "田中 太郎",
-    nameEn: "Taro Tanaka",
-    profileImage: "/young-man-profile.png",
-    university: "東京大学",
-    faculty: "工学部",
-    department: "情報工学科",
-    grade: "学部3年",
-    graduationYear: "2026年3月",
-    gpa: "3.8/4.0",
-    hometown: "東京都渋谷区",
-    contact: {
-      email: "tanaka.taro@example.com",
-      phone: "090-1234-5678",
-    },
-    appliedJob: "フロントエンドエンジニア（インターン）",
-    applicationDate: "2025年4月15日",
-    status: "書類選考中",
-    selfIntroduction: `
-      私は現在、東京大学工学部情報工学科の3年生です。大学では主にウェブ開発とUI/UXデザインを学んでおり、特にReactとTypeScriptを用いたフロントエンド開発に興味を持っています。
 
-      昨年の夏には、テックスタートアップでインターンシップを経験し、実際のプロダクト開発に携わりました。そこでは新機能の実装からバグ修正まで幅広いタスクを担当し、チームでの開発プロセスを学びました。
-
-      貴社のインターンシッププログラムに参加することで、より実践的なスキルを身につけるとともに、プロフェッショナルな環境で自分の能力を高めたいと考えています。特に、ユーザー体験を向上させるための技術的な課題に取り組むことに興味があります。
-    `,
-    skills: [
-      { name: "JavaScript", level: 4 },
-      { name: "TypeScript", level: 3 },
-      { name: "React", level: 4 },
-      { name: "HTML/CSS", level: 5 },
-      { name: "Git", level: 3 },
-      { name: "Figma", level: 4 },
-      { name: "Node.js", level: 2 },
-      { name: "Python", level: 3 },
-    ],
-    languages: [
-      { name: "日本語", level: "ネイティブ" },
-      { name: "英語", level: "ビジネスレベル (TOEIC 850)" },
-    ],
-    interests: ["Web開発", "UI/UX", "モバイルアプリ開発", "データ可視化"],
-    preferredIndustries: ["IT", "テクノロジー", "スタートアップ"],
-    workExperience: [
-      {
-        company: "テックスタートアップ株式会社",
-        position: "フロントエンドエンジニア（インターン）",
-        period: "2024年7月 - 2024年9月",
-        description: "Reactを用いたWebアプリケーションの開発。新機能の実装とバグ修正を担当。",
-      },
-      {
-        company: "デザインエージェンシー",
-        position: "UIデザイナー（アルバイト）",
-        period: "2023年10月 - 2024年3月",
-        description: "Webサイトのデザインとプロトタイピング。Figmaを使用したUI/UXデザイン。",
-      },
-    ],
-    education: [
-      {
-        school: "東京大学",
-        degree: "工学部情報工学科",
-        period: "2022年4月 - 現在",
-        description: "GPA: 3.8/4.0。プログラミング、アルゴリズム、データ構造、ウェブ開発を専攻。",
-      },
-      {
-        school: "東京都立青山高等学校",
-        degree: "普通科",
-        period: "2019年4月 - 2022年3月",
-        description: "情報処理部に所属。全国高校プログラミングコンテストで準優勝。",
-      },
-    ],
-    projects: [
-      {
-        name: "大学祭Webアプリ",
-        period: "2023年5月 - 2023年11月",
-        description: "大学祭の情報を提供するWebアプリケーションを開発。React、TypeScript、Firebase を使用。",
-        url: "https://example.com/project1",
-      },
-      {
-        name: "天気予報LINE Bot",
-        period: "2022年12月 - 2023年2月",
-        description: "位置情報に基づいて天気予報を提供するLINE Botを開発。Node.js、LINE Messaging APIを使用。",
-        url: "https://example.com/project2",
-      },
-    ],
-    motivationLetter: `
-      私は貴社の革新的な製品開発と、ユーザー体験を重視する企業文化に強く惹かれています。特に、最近リリースされた○○アプリは、そのシンプルながらも直感的なUIデザインに感銘を受けました。
-
-      私のフロントエンド開発のスキルと、UIデザインへの情熱を活かして、貴社の製品開発に貢献したいと考えています。インターンシップを通じて、実際のプロダクト開発の現場で学び、同時に自分のスキルを活かして価値を提供したいと思っています。
-
-      また、貴社が推進している「ユーザーファースト」の理念に共感しており、技術だけでなくユーザーのニーズを理解し、それに応えるソリューションを提供することに興味があります。
-    `,
-    resumeUrl: "/resume-sample.pdf",
-    portfolioUrl: "https://portfolio.example.com",
-    githubUrl: "https://github.com/tanaka-taro",
-    interviewAvailability: [
-      { date: "2025年5月10日", time: "13:00 - 18:00" },
-      { date: "2025年5月11日", time: "10:00 - 15:00" },
-      { date: "2025年5月12日", time: "終日可能" },
-    ],
-    chatId: "chat-123",
+// 型: Applicant
+type Applicant = {
+  id: string
+  name: string
+  lastName: string | null
+  firstName: string | null
+  lastNameKana: string | null
+  firstNameKana: string | null
+  nameEn: string
+  profileImage: string | null
+  university: string | null
+  faculty: string | null
+  department: string | null
+  grade: string | null
+  graduationYear: string | null
+  gpa: string | null
+  admissionMonth: string | null
+  graduationMonth: string | null
+  researchTheme: string | null
+  strength1?: string | null
+  strength2?: string | null
+  strength3?: string | null
+  workStyle?: string | null
+  employmentType?: string | null
+  desiredPositions?: string[]
+  workStyleOptions?: string[]
+  desiredLocations?: string[]
+  preferenceNote?: string | null
+  qualifications?: string[]
+  hometown: string | null
+  contact: {
+    email: string | null
+    phone: string | null
   }
+  postalCode: string | null
+  prefecture: string | null
+  city: string | null
+  addressLine: string | null
+  gender: string | null
+  birthDate: string | null
+  appliedJob: string | null
+  applicationDate: string | null
+  status: string
+  selfIntroduction: string | null
+  skills: any[]
+  languages: any[]
+  preferredIndustries: string[]
+  workExperience: any[]
+  education: any[]
+  projects: any[]
+  motivationLetter: string | null
+  resumeUrl: string | null
+  portfolioUrl: string | null
+  githubUrl: string | null
+  interviewAvailability: any[]
+  chatId: string | null
 }
+
+/**
+ * 型不定の skills / languages / interests を
+ * UI が期待する配列形式へ正規化するユーティリティ
+ */
+const toSkillArray = (raw: any): { name: string; level: number }[] => {
+  if (Array.isArray(raw)) {
+    return raw.map((s) =>
+      typeof s === "string" ? { name: s, level: 3 } : s,
+    )
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    return [{ name: raw, level: 3 }]
+  }
+  return []
+}
+
+const toLanguageArray = (
+  raw: any,
+): { name: string; level: string }[] => {
+  if (Array.isArray(raw)) {
+    return raw
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    return [{ name: raw, level: "" }]
+  }
+  return []
+}
+
+/**
+ * If the input is a string, try JSON.parse and return the result.
+ * Otherwise return the input as‑is.
+ */
+const toObject = (raw: any) => {
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  return raw ?? {};
+};
+
+/**
+ * Convert empty string or whitespace‑only string to null.
+ * Leave other values unchanged.
+ */
+const toNullable = (val: any) => {
+  if (val == null) return null;
+  if (typeof val === "string" && val.trim() === "") return null;
+  return val;
+};
+
+/**
+ * Convert ISO datetime string to "YYYY年MM月DD日" (Japanese) format.
+ * If parsing fails, return the original string.
+ */
+const formatDateJP = (iso: string | null | undefined) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}年${mm}月${dd}日`;
+};
+
+/**
+ * Convert "YYYY-MM" or ISO date string to "YYYY年M月" (Japanese) format.
+ * If parsing fails, return the original string.
+ */
+const formatYearMonthJP = (ym: string | null | undefined) => {
+  if (!ym) return "";
+  // Accept "YYYY-MM" or full ISO strings, fallback to original
+  const parts = ym.split("-");
+  if (parts.length >= 2 && /^\d{4}$/.test(parts[0])) {
+    const yyyy = parts[0];
+    // remove leading zero for month
+    const m = String(Number(parts[1]));
+    return `${yyyy}年${m}月`;
+  }
+  // Fallback: try Date
+  const d = new Date(ym);
+  if (Number.isNaN(d.getTime())) return ym;
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
+};
+
+
+
+/**
+ * Supabase から取得した snake_case の行データを camelCase の Applicant 型に変換する
+ * JSONB カラムはそのまま配列/オブジェクトで返る想定
+ */
+const transformApplicantRow = (row: any): Applicant => ({
+  // ID — 応募単位が最優先
+  id: row.application_id ?? row.id ?? row.student_id ?? row.user_id,
+
+  // 氏名
+  name:
+    row.name ??
+    row.full_name ??           // students テーブルの列名
+    row.student_name ??        // applicants_view の別名
+    "",
+  lastName       : row.last_name        ?? null,
+  firstName      : row.first_name       ?? null,
+  lastNameKana   : row.last_name_kana   ?? null,
+  firstNameKana  : row.first_name_kana  ?? null,
+
+  // 氏名（英語）
+  nameEn:
+    row.name_en ??
+    row.full_name_en ??
+    row.name_en_us ??
+    "",
+
+  // プロフィール画像
+  profileImage:
+    row.profile_image ??
+    row.avatar_url ??          // auth.users 由来
+    row.profile_img_url ??
+    null,
+
+  // 学校・学部など
+  university: row.university ?? row.school ?? null,
+  faculty: row.faculty ?? row.faculty_name ?? row.department ?? null,
+  department: row.department ?? null,
+  grade: row.grade ?? row.academic_year ?? null,
+  graduationYear: row.graduation_year ?? row.grad_year ?? null,
+  gpa: row.gpa ?? null,
+  admissionMonth:     row.admission_month      ?? null,
+  graduationMonth:    row.graduation_month     ?? null,
+  researchTheme:      row.research_theme       ?? null,
+  strength1:          row.strength1            ?? null,
+  strength2:          row.strength2            ?? null,
+  strength3:          row.strength3            ?? null,
+  workStyle:          row.work_style           ?? null,
+  employmentType:     row.employment_type      ?? null,
+  desiredPositions:   row.desired_positions    ?? [],
+  workStyleOptions:   row.work_style_options   ?? [],
+  desiredLocations:   row.desired_locations    ?? [],
+  preferenceNote:     row.preference_note      ?? null,
+  qualifications:     row.qualifications       ?? [],
+  hometown: row.hometown ?? null,
+  postalCode  : row.postal_code  ?? null,
+  prefecture  : row.prefecture   ?? null,
+  city        : row.city         ?? null,
+  addressLine : row.address_line ?? null,
+  gender      : row.gender       ?? null,
+  birthDate   : row.birth_date   ?? null,
+  contact: {
+    email: row.email ?? row.contact_email ?? row.user_email ?? null,
+    phone: row.phone ?? row.phone_number ?? row.contact_phone ?? null,
+  },
+  appliedJob: row.applied_job ?? null,
+  applicationDate: row.application_date ?? null,
+  status: row.status ?? "未対応",
+  selfIntroduction: row.self_introduction ?? row.pr_text ?? row.pr ?? null,
+  skills: toSkillArray(row.skills),
+  languages: toLanguageArray(row.languages),
+  preferredIndustries: row.preferred_industries ?? [],
+  workExperience: row.work_experience ?? [],
+  education: row.education ?? [],
+  projects: row.projects ?? [],
+  motivationLetter: row.motivation_letter ?? null,
+  resumeUrl: row.resume_url ?? null,
+  portfolioUrl: row.portfolio_url ?? null,
+  githubUrl: row.github_url ?? null,
+  interviewAvailability: row.interview_availability ?? [],
+  chatId: row.chat_id ?? null,
+})
 
 // Status options
 const statusOptions = [
@@ -158,15 +284,167 @@ const statusOptions = [
   { value: "不採用", label: "不採用", color: "bg-red-500" },
 ]
 
+type IconType = ComponentType<{ className?: string }>;
+
+const InfoItem = ({
+  label,
+  value,
+  icon: Icon,
+  className = "",
+}: {
+  label: string;
+  value: string | null | undefined;
+  icon?: IconType;
+  className?: string;
+}) => (
+  <div className={`space-y-1 ${className}`}>
+    <p className="text-sm font-medium text-gray-500">{label}</p>
+    <p className="flex items-center">
+      {Icon && <Icon className="h-4 w-4 mr-1 text-gray-400" />}
+      {value && value !== "" ? value : "-"}
+    </p>
+  </div>
+);
+
 export default function ApplicantDetailPage() {
   const params = useParams()
   const router = useRouter()
   const applicantId = params.id as string
-  const applicant = getApplicantData(applicantId)
 
-  const [status, setStatus] = useState(applicant.status)
+  // React state for applicant and loading
+  const [applicant, setApplicant] = useState<Applicant | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState<string>("未対応")
   const [isScoutDialogOpen, setIsScoutDialogOpen] = useState(false)
   const [scoutMessage, setScoutMessage] = useState("")
+
+  // ── Fetch applicant from Supabase ───────────────────────────────────────────
+  useEffect(() => {
+    async function fetchApplicant() {
+      console.log("ApplicantDetailPage param id:", applicantId)
+      // 1) id (PRIMARY KEY) もしくは application_id のどちらかで取得
+      let { data, error, status } = await supabase
+        .from("applicants_view")
+        .select("*")
+        .eq("application_id", applicantId)
+        .maybeSingle()
+      console.log("Supabase response (id / application_id)", { status, data, error })
+
+      // 2) もし該当行が無いか RLS で弾かれたら student_id でも試す
+      if ((!data && !error) || (error && error.code === "PGRST116")) {
+        const fallback = await supabase
+          .from("applicants_view")
+          .select("*")
+          .eq("student_id", applicantId)
+          .order("application_date", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        console.log("Supabase response (student_id)", { status: fallback.status, data: fallback.data, error: fallback.error })
+
+        data = fallback.data
+        error = fallback.error
+      }
+
+      // 3) さらに user_id（auth UID）で検索
+      if (!data && !error) {
+        const fallback2 = await supabase
+          .from("applicants_view")
+          .select("*")
+          .eq("user_id", applicantId)
+          .order("application_date", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        console.log("Supabase response (user_id)", { status: fallback2.status, data: fallback2.data, error: fallback2.error })
+
+        data = fallback2.data
+        error = fallback2.error
+      }
+
+      if (error) {
+        // Supabase error オブジェクトを詳細に表示
+        console.error("Applicant fetch error:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+      } else if (data) {
+        const transformed = transformApplicantRow(data)
+        // ── Pull work_experiences & projects from resumes table ──────────────
+        let finalApplicant = { ...transformed };
+
+        // applicants_view に user_id が無いケースがあるため
+        const userId =
+          (data as any).user_id       // students.user_id (auth UID)
+          ?? (data as any).student_id  // student_profiles.id = auth UID
+        if (userId) {
+          try {
+            const { data: resumeData, error: resumeError } = await supabase
+              .from("resumes")
+              .select("work_experiences, form_data")
+              .eq("user_id", userId)
+              .maybeSingle()
+
+            if (!resumeError && resumeData) {
+              /* work experiences ------------------------------------------------ */
+              const workEx = toObject(resumeData.work_experiences);
+              if (Array.isArray(workEx)) {
+                finalApplicant.workExperience = workEx.map((w: any) => {
+                  const rawCompany =
+                    w.company ??
+                    w.organization ??
+                    w.companyName ??
+                    w.employer ??
+                    null;
+                  const company = toNullable(rawCompany);
+
+                  const rawPosition =
+                    w.position ??
+                    w.role ??
+                    w.title ??
+                    null;
+                  const position = toNullable(rawPosition);
+
+                  const start = (w.startDate ?? w.start ?? "").trim();
+                  const end   = w.isCurrent ? "現在" : (w.endDate ?? w.end ?? "").trim();
+
+                  // clean description/achievements
+                  const descParts = [
+                    w.description,
+                    w.responsibilities,
+                    w.achievements,
+                  ]
+                    .map((p: any) =>
+                      typeof p === "string" && p.trim() !== "" ? p.trim() : null,
+                    )
+                    .filter(Boolean);
+
+                  return {
+                    company,
+                    position,
+                    period: `${start}${start || end ? " 〜 " : ""}${end}`,
+                    description: descParts.join("\n"),
+                  };
+                });
+              }
+              /* projects (form_data.projects) ---------------------------------- */
+              const formData: any = toObject(resumeData.form_data);
+              if (formData && typeof formData === "object" && formData.projects) {
+                finalApplicant.projects = formData.projects as any[]
+              }
+            }
+          } catch (e) {
+            console.error("Resume fetch/transform error:", e)
+          }
+        }
+        setApplicant(finalApplicant)
+        setStatus(finalApplicant.status)
+      }
+      setLoading(false)
+    }
+    if (applicantId) fetchApplicant()
+  }, [applicantId])
+  // ───────────────────────────────────────────────────────────────────────────
 
   const handleStatusChange = (newStatus: string) => {
     setStatus(newStatus)
@@ -175,18 +453,32 @@ export default function ApplicantDetailPage() {
   }
 
   const navigateToChat = () => {
-    router.push(`/company/chat/${applicant.chatId}`)
+    if (applicant && applicant.chatId) {
+      router.push(`/company/chat/${applicant.chatId}`)
+    }
   }
 
   const sendScout = () => {
+    if (!applicant) return
     // Here you would typically call an API to send a scout
-    console.log(`Scout sent to ${applicant.name} with message: ${scoutMessage}`)
+    console.log(`Scout sent to ${displayName} with message: ${scoutMessage}`)
     setIsScoutDialogOpen(false)
     setScoutMessage("")
   }
 
   // Find the color for the current status
   const statusColor = statusOptions.find((option) => option.value === status)?.color || "bg-gray-500"
+  // ----- 氏名の表示用ユーティリティ ----------------------------------
+  const displayName =
+    applicant?.name && applicant.name.trim() !== ""
+      ? applicant.name
+      : `${[applicant?.lastName, applicant?.firstName].filter(Boolean).join(" ")}`.trim() ||
+        "氏名未登録";
+  // -------------------------------------------------------------------
+
+  if (loading || !applicant) {
+    return <div className="container mx-auto py-6 px-4 text-center">Loading...</div>
+  }
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6 pb-24 md:pb-6">
@@ -214,7 +506,7 @@ export default function ApplicantDetailPage() {
             </div>
             <div className="flex-1">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <h1 className="text-2xl font-bold">{applicant.name}</h1>
+                <h1 className="text-2xl font-bold">{displayName}</h1>
                 <Badge className={`${statusColor} text-white px-3 py-1`}>{status}</Badge>
               </div>
               <div className="mt-2 flex flex-col md:flex-row md:items-center gap-1 md:gap-4 text-gray-600">
@@ -230,7 +522,7 @@ export default function ApplicantDetailPage() {
                 </div>
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-1" />
-                  <span>応募日: {applicant.applicationDate}</span>
+                  <span>応募日: {formatDateJP(applicant.applicationDate)}</span>
                 </div>
               </div>
             </div>
@@ -243,27 +535,14 @@ export default function ApplicantDetailPage() {
         {/* Left column - 2/3 width on desktop */}
         <div className="lg:col-span-2 space-y-6">
           {/* Tabs for different sections */}
-          <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid grid-cols-4 mb-6">
-              <TabsTrigger value="profile">プロフィール</TabsTrigger>
-              <TabsTrigger value="experience">職務経験</TabsTrigger>
-              <TabsTrigger value="education">学歴・スキル</TabsTrigger>
-              <TabsTrigger value="motivation">志望動機</TabsTrigger>
+          <Tabs defaultValue="resume" className="w-full">
+            <TabsList className="grid grid-cols-2 mb-6">
+              <TabsTrigger value="resume">履歴書</TabsTrigger>
+              <TabsTrigger value="work">職務経歴書</TabsTrigger>
             </TabsList>
 
-            {/* Profile Tab */}
-            <TabsContent value="profile" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                    自己PR
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-line text-gray-700">{applicant.selfIntroduction}</div>
-                </CardContent>
-              </Card>
+            {/* Resume Tab */}
+            <TabsContent value="resume" className="space-y-6">
 
               <Card>
                 <CardHeader>
@@ -274,179 +553,68 @@ export default function ApplicantDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">氏名（英語表記）</p>
-                      <p>{applicant.nameEn}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">出身地</p>
-                      <p className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-1 text-gray-400" />
-                        {applicant.hometown}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">メールアドレス</p>
-                      <p className="flex items-center">
-                        <Mail className="h-4 w-4 mr-1 text-gray-400" />
-                        {applicant.contact.email}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">電話番号</p>
-                      <p className="flex items-center">
-                        <Phone className="h-4 w-4 mr-1 text-gray-400" />
-                        {applicant.contact.phone}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">卒業予定年月</p>
-                      <p className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                        {applicant.graduationYear}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">応募職種</p>
-                      <p className="flex items-center">
-                        <Briefcase className="h-4 w-4 mr-1 text-gray-400" />
-                        {applicant.appliedJob}
-                      </p>
-                    </div>
+                    <InfoItem label="姓"               value={applicant.lastName} />
+                    <InfoItem label="名"               value={applicant.firstName} />
+                    <InfoItem label="セイ"              value={applicant.lastNameKana} />
+                    <InfoItem label="メイ"              value={applicant.firstNameKana} />
+                    <InfoItem label="電話番号"          value={applicant.contact.phone ?? '-'} icon={Phone} />
+                    <InfoItem label="性別"             value={applicant.gender} />
+                    <InfoItem label="郵便番号"          value={applicant.postalCode} />
+                    <InfoItem label="都道府県"          value={applicant.prefecture} />
+                    <InfoItem label="市区町村"          value={applicant.city} />
+                    <InfoItem label="住所詳細"          value={applicant.addressLine} />
+                    <InfoItem label="出身地"            value={applicant.hometown} />
+                    <InfoItem label="生年月日"          value={applicant.birthDate} />
+                    <InfoItem label="卒業予定年月"      value={formatYearMonthJP(applicant.graduationMonth)} icon={Calendar} />
+                    <InfoItem label="メールアドレス"    value={applicant.contact.email ?? '-'} icon={Mail} className="md:col-span-2" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Award className="h-5 w-5 mr-2 text-blue-500" />
-                    興味・関心
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">興味のある分野</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {applicant.interests.map((interest, index) => (
-                          <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                            {interest}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
 
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">志望業界</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {applicant.preferredIndustries.map((industry, index) => (
+              {/* Education section (moved from education tab) */}
+
+              {/* Research Theme card */}
+              {applicant.researchTheme && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <BookOpen className="h-5 w-5 mr-2 text-blue-500" />
+                      研究テーマ
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="whitespace-pre-line text-gray-700">{applicant.researchTheme}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Strengths card */}
+              {(applicant.strength1 || applicant.strength2 || applicant.strength3) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Star className="h-5 w-5 mr-2 text-blue-500" />
+                      強み
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {[applicant.strength1, applicant.strength2, applicant.strength3]
+                        .filter(Boolean)
+                        .map((s, i) => (
                           <Badge
-                            key={index}
+                            key={i}
                             variant="outline"
-                            className="bg-purple-50 text-purple-700 border-purple-200"
+                            className="bg-blue-50 text-blue-700 border-blue-200"
                           >
-                            {industry}
+                            {s}
                           </Badge>
                         ))}
-                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Experience Tab */}
-            <TabsContent value="experience" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Briefcase className="h-5 w-5 mr-2 text-blue-500" />
-                    職務経験
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {applicant.workExperience.map((experience, index) => (
-                      <div key={index} className="relative pl-6 border-l-2 border-gray-200 pb-6 last:pb-0">
-                        <div className="absolute left-0 top-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-500"></div>
-                        <h3 className="font-medium text-lg">{experience.position}</h3>
-                        <p className="text-gray-600 flex items-center mt-1">
-                          <Building className="h-4 w-4 mr-1" />
-                          {experience.company}
-                        </p>
-                        <p className="text-gray-500 flex items-center mt-1 text-sm">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {experience.period}
-                        </p>
-                        <p className="mt-2 text-gray-700">{experience.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Code className="h-5 w-5 mr-2 text-blue-500" />
-                    プロジェクト
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {applicant.projects.map((project, index) => (
-                      <div key={index} className="border rounded-lg p-4 bg-gray-50">
-                        <h3 className="font-medium text-lg">{project.name}</h3>
-                        <p className="text-gray-500 flex items-center mt-1 text-sm">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {project.period}
-                        </p>
-                        <p className="mt-2 text-gray-700">{project.description}</p>
-                        {project.url && (
-                          <a
-                            href={project.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-2 inline-flex items-center text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            プロジェクトを見る
-                            <ChevronDown className="h-3 w-3 ml-1 rotate-270" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Education Tab */}
-            <TabsContent value="education" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <GraduationCap className="h-5 w-5 mr-2 text-blue-500" />
-                    学歴
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {applicant.education.map((edu, index) => (
-                      <div key={index} className="relative pl-6 border-l-2 border-gray-200 pb-6 last:pb-0">
-                        <div className="absolute left-0 top-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-500"></div>
-                        <h3 className="font-medium text-lg">{edu.school}</h3>
-                        <p className="text-gray-600">{edu.degree}</p>
-                        <p className="text-gray-500 flex items-center mt-1 text-sm">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {edu.period}
-                        </p>
-                        <p className="mt-2 text-gray-700">{edu.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader>
@@ -483,23 +651,128 @@ export default function ApplicantDetailPage() {
                     <div>
                       <h3 className="text-sm font-medium text-gray-500 mb-3">言語スキル</h3>
                       <div className="space-y-2">
-                        {applicant.languages.map((language, index) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <span>{language.name}</span>
-                            <Badge variant="outline" className="bg-gray-50">
-                              {language.level}
+                        {Array.isArray(applicant.languages) && applicant.languages.length ? (
+                          applicant.languages.map((language: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <span>{typeof language === "string" ? language : language.name}</span>
+                              {typeof language === "object" && language?.level ? (
+                                <Badge variant="outline" className="bg-gray-50">
+                                  {language.level}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-500 text-sm">言語スキル未入力</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-3">資格・検定</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.isArray(applicant.qualifications) && applicant.qualifications.length ? (
+                          applicant.qualifications.map((q, index) => (
+                            <Badge
+                              key={index}
+                              variant="outline"
+                              className="bg-green-50 text-green-700 border-green-200"
+                            >
+                              {q}
                             </Badge>
-                          </div>
-                        ))}
+                          ))
+                        ) : (
+                          <p className="text-gray-500 text-sm">資格情報未入力</p>
+                        )}
                       </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            {/* Motivation Tab */}
-            <TabsContent value="motivation" className="space-y-6">
+              {(applicant.workStyle ||
+                applicant.employmentType ||
+                (applicant.desiredPositions?.length ?? 0) ||
+                (applicant.workStyleOptions?.length ?? 0) ||
+                (applicant.preferredIndustries?.length ?? 0) ||
+                (applicant.desiredLocations?.length ?? 0) ||
+                applicant.preferenceNote) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Target className="h-5 w-5 mr-2 text-blue-500" />
+                      希望条件
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <InfoItem label="勤務形態" value={applicant.workStyle} />
+                    <InfoItem label="雇用形態" value={applicant.employmentType} />
+
+                    {applicant.desiredPositions?.length ? (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-2">希望職種</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {applicant.desiredPositions.map((p, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                              {p}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {applicant.workStyleOptions?.length ? (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-2">働き方オプション</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {applicant.workStyleOptions.map((w, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                              {w}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {applicant.preferredIndustries?.length ? (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-2">希望業界</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {applicant.preferredIndustries.map((i, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                              {i}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {applicant.desiredLocations?.length ? (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-2">希望勤務地</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {applicant.desiredLocations.map((l, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                              {l}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {applicant.preferenceNote && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-2">備考</h3>
+                        <p>{applicant.preferenceNote}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Motivation section (moved from motivation tab) */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
@@ -512,30 +785,58 @@ export default function ApplicantDetailPage() {
                 </CardContent>
               </Card>
 
+            </TabsContent>
+
+            {/* Work Tab (職務経歴書) */}
+            <TabsContent value="work" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Calendar className="h-5 w-5 mr-2 text-blue-500" />
-                    面接可能日時
+                    <Briefcase className="h-5 w-5 mr-2 text-blue-500" />
+                    職務経歴
                   </CardTitle>
                 </CardHeader>
+
                 <CardContent>
-                  <div className="space-y-2">
-                    {applicant.interviewAvailability.map((availability, index) => (
-                      <div key={index} className="flex items-center p-2 bg-gray-50 rounded-md">
-                        <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                        <span className="font-medium mr-2">{availability.date}:</span>
-                        <span className="text-gray-600">{availability.time}</span>
+                  {Array.isArray(applicant.workExperience) && applicant.workExperience.length ? (
+                    applicant.workExperience.map((w, i) => (
+                      <div
+                        key={i}
+                        className="relative pl-6 pb-8 last:pb-0"
+                      >
+                        {/* vertical line */}
+                        <span className="absolute left-0 top-0 -translate-x-1/2 h-full w-px bg-blue-300" />
+
+                        {/* dot */}
+                        <span className="absolute left-0 top-1.5 -translate-x-1/2 w-3 h-3 rounded-full bg-blue-500" />
+
+                        <h4 className="font-semibold text-sm">
+                          {w.company ?? "（社名未登録）"}
+                        </h4>
+
+                        {w.position && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {w.position}
+                          </p>
+                        )}
+
+                        {w.period && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {w.period}
+                          </p>
+                        )}
+
+                        {w.description && (
+                          <p className="text-sm whitespace-pre-wrap mt-2">
+                            {w.description}
+                          </p>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">職務経歴情報は未登録です。</p>
+                  )}
                 </CardContent>
-                <CardFooter className="bg-gray-50 border-t">
-                  <Button variant="outline" className="w-full" onClick={navigateToChat}>
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    面接日程を調整する
-                  </Button>
-                </CardFooter>
               </Card>
             </TabsContent>
           </Tabs>
@@ -573,21 +874,15 @@ export default function ApplicantDetailPage() {
 
               <Button className="w-full" onClick={navigateToChat}>
                 <MessageSquare className="h-4 w-4 mr-2" />
-                チャットを開始
+                チャットに進む
               </Button>
 
               <Dialog open={isScoutDialogOpen} onOpenChange={setIsScoutDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="w-full">
-                    <Send className="h-4 w-4 mr-2" />
-                    この学生にスカウトを送る
-                  </Button>
-                </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>スカウトを送信</DialogTitle>
                     <DialogDescription>
-                      {applicant.name}
+                      {displayName}
                       さんにスカウトメッセージを送信します。興味を持ってもらえるようなメッセージを書きましょう。
                     </DialogDescription>
                   </DialogHeader>
@@ -622,93 +917,11 @@ export default function ApplicantDetailPage() {
           </Card>
 
           {/* Resume Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                履歴書・ポートフォリオ
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                <div className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2 text-gray-500" />
-                  <span>履歴書.pdf</span>
-                </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <span className="sr-only">ダウンロード</span>
-                        <a href={applicant.resumeUrl} download>
-                          <ArrowLeft className="h-4 w-4 rotate-90" />
-                        </a>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>ダウンロード</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">ポートフォリオ</span>
-                  <a
-                    href={applicant.portfolioUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    開く
-                  </a>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">GitHub</span>
-                  <a
-                    href={applicant.githubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    開く
-                  </a>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        
 
           {/* Application Timeline Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-blue-500" />
-                応募タイムライン
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="relative pl-6 pb-4 border-l border-gray-200">
-                  <div className="absolute left-0 top-0 -translate-x-1/2 w-3 h-3 rounded-full bg-green-500"></div>
-                  <p className="text-sm font-medium">応募受付</p>
-                  <p className="text-xs text-gray-500">2025年4月15日 14:30</p>
-                </div>
+          
 
-                <div className="relative pl-6 pb-4 border-l border-gray-200">
-                  <div className="absolute left-0 top-0 -translate-x-1/2 w-3 h-3 rounded-full bg-blue-500"></div>
-                  <p className="text-sm font-medium">書類選考開始</p>
-                  <p className="text-xs text-gray-500">2025年4月16日 10:15</p>
-                </div>
-
-                <div className="relative pl-6 border-l border-gray-200">
-                  <div className="absolute left-0 top-0 -translate-x-1/2 w-3 h-3 rounded-full bg-gray-300"></div>
-                  <p className="text-sm font-medium text-gray-500">面接日程調整</p>
-                  <p className="text-xs text-gray-500">未定</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 

@@ -35,10 +35,7 @@ export async function POST(req: Request) {
   }
 
   /* ---------- Supabase Client 初期化 ---------- */
-  const cookieStore = cookies();                                     // ← 1度だけ同期取得
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore,
-  });
+  const supabase = createRouteHandlerClient<Database>({ cookies });
 
   /* ---------- 認証ユーザー ---------- */
   const {

@@ -71,7 +71,6 @@ export default function GrandPrixPage() {
 
       {/* リーダーボード */}
       <section id="leaderboard" className="mt-12">
-        <h2 className="mb-6 text-2xl font-bold text-gray-900">リーダーボード</h2>
         <GrandPrixLeaderboard />
       </section>
     </div>

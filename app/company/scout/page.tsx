@@ -22,6 +22,38 @@ import { Checkbox } from "@/components/ui/checkbox"
 import SkillPicker from "@/components/SkillPicker"
 import QualificationPicker from "@/components/QualificationPicker"
 
+/* ──────────────── 定数: ステータス日本語ラベル ──────────────── */
+const STATUS_LABEL: Record<string, string> = {
+  sent:     "送信済み",
+  opened:   "開封済み",
+  viewed:   "開封済み",
+  replied:  "返信あり",
+  accepted: "承諾",
+  declined: "辞退",
+  pending:  "未対応",
+}
+
+/* ──────────────── 定数: フィルタ固定リスト ──────────────── */
+/** 47 都道府県 + 海外 + リモート */
+const PREFECTURES = [
+  "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
+  "茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県",
+  "新潟県","富山県","石川県","福井県","山梨県","長野県",
+  "岐阜県","静岡県","愛知県","三重県",
+  "滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県",
+  "鳥取県","島根県","岡山県","広島県","山口県",
+  "徳島県","香川県","愛媛県","高知県",
+  "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県",
+  "海外","リモート"
+] as const
+
+/** 固定の希望職種リスト */
+const JOB_POSITIONS = [
+  "エンジニア","営業","コンサルタント","研究・開発",
+  "総務・人事","経理・財務","品質管理","物流",
+  "企画・マーケティング","デザイナー","生産管理","販売・サービス"
+] as const
+
 /* ──────────────── 型定義 ──────────────── */
 type StudentRow = Database["public"]["Tables"]["student_profiles"]["Row"]
 type ScoutRow   = Database["public"]["Tables"]["scouts"]["Row"]
@@ -36,9 +68,10 @@ type Student = StudentRow & {
   /** レジュメ(work_experiences) のネストデータ */
   resumes?: {
     work_experiences: any[] | null
+    form_data?: any | null
   }[]
 
-  /** 一覧用: 絞り込みや並び替えで使う算出スコア */
+  /** 一覧用: 履歴書＋職務経歴書入力率（0‑100） */
   match_score?: number
 
   /** 一覧用: 「◯分前」など表示用の文字列 */
@@ -52,6 +85,8 @@ type Student = StudentRow & {
   has_internship_experience?: boolean | null
   graduation_year?: number | null
   status?: string | null
+  /** 卒業月（日付型で管理）*/
+  graduation_month?: string | null
 }
 
 /* ──────────────── ページ本体 ──────────────── */
@@ -70,6 +105,8 @@ export default function ScoutPage() {
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [drawerOpen, setDrawerOpen]         = useState(false)
+  /** Drawer が「送信済み」モードかどうか */
+  const [selectedAlreadySent, setSelectedAlreadySent] = useState(false)
 
   const [search, setSearch] = useState("")
 
@@ -77,10 +114,15 @@ export default function ScoutPage() {
   const [gradYears, setGradYears]         = useState<number[]>([])
   const [statuses, setStatuses]           = useState<string[]>([])
   const [selectedMajor, setSelectedMajor] = useState<string>("all")
-  const [selectedLocation, setSelectedLocation] = useState<string>("all")
   const [hasInternship, setHasInternship] = useState<boolean>(false)
   const [skills, setSkills]               = useState<string[]>([])
   const [qualificationsFilter, setQualificationsFilter] = useState<string[]>([])
+  /** 希望職種（ドロップダウン：all or specific） */
+  const [desiredPosition, setDesiredPosition] = useState<string>("all")
+  /** 希望勤務地（ドロップダウン：all or specific） */
+  const [desiredWorkLocation, setDesiredWorkLocation] = useState<string>("all")
+  /** 並び替え: score = マッチ度 / recent = 登録が新しい順 / name = 氏名順 */
+  const [sortBy, setSortBy] = useState<"score" | "recent" | "name">("score")
 
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
@@ -112,7 +154,7 @@ export default function ScoutPage() {
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
         // ← 外部キー名を明示しつつ !left で LEFT JOIN
-        .select("*, resumes!resumes_user_id_profile_fkey!left(work_experiences)")
+        .select("*, resumes!resumes_user_id_profile_fkey!left(form_data, work_experiences)")
       console.log("stuErr =", stuErr)     // ★追加
       console.log("stuRows =", stuRows)
 
@@ -123,9 +165,76 @@ export default function ScoutPage() {
         // 重複する id の学生は、resumes を持っている方を優先して deduplicate
         const mergedById: Map<string, Student> = new Map()
         for (const row of (stuRows ?? []) as any as Student[]) {
+          /* ---------- completion helpers ---------- */
+          const filled = (v: any) =>
+            Array.isArray(v) ? v.length > 0 : v != null && v !== ""
+
+          const pct = (arr: any[]) =>
+            arr.length === 0 ? 0 : Math.round((arr.filter(filled).length / arr.length) * 100)
+
+          /* ---------- プロフィール入力率 ---------- */
+          const pBasic = [
+            row.last_name, row.first_name,
+            row.last_name_kana, row.first_name_kana,
+            row.birth_date, row.gender, row.address_line,
+          ]
+          const pPR = [row.pr_title, row.pr_text, row.about]
+          const pPref = [
+            row.desired_positions,
+            row.work_style_options,
+            row.preferred_industries,
+            row.desired_locations,
+          ]
+          const profilePct = Math.round((pct(pBasic) + pct(pPR) + pct(pPref)) / 3)
+
+          /* ---------- 履歴書フォーム入力率 ---------- */
+          const resume = Array.isArray(row.resumes) && row.resumes.length ? row.resumes[0] : null
+          const form   = (resume?.form_data as any) ?? {}
+
+          const rBasic = [
+            form?.basic?.lastName, form?.basic?.firstName,
+            form?.basic?.lastNameKana, form?.basic?.firstNameKana,
+            form?.basic?.birthdate,  form?.basic?.gender,
+            form?.basic?.address,
+          ]
+          const rPR = [
+            form?.pr?.title, form?.pr?.content, form?.pr?.motivation,
+          ]
+          const condArrKeys = ["jobTypes","locations","industries","workPreferences"]
+          const rCondArr = condArrKeys.map((k) => (form?.conditions?.[k] ?? []).length > 0)
+          const rCondScalar = filled(form?.conditions?.workStyle)
+          const resumeFormPct = Math.round(
+            (pct(rBasic) + pct(rPR) +
+             Math.round(((rCondArr.filter(Boolean).length + (rCondScalar ? 1 : 0)) / 5) * 100)
+            ) / 3
+          )
+
+          /* ---------- 職務経歴書入力率 ---------- */
+          const works = Array.isArray(resume?.work_experiences)
+            ? (resume!.work_experiences as any[])
+            : []
+          let totalReq = 0, totalFilled = 0
+          works.forEach((w) => {
+            totalReq += 6
+            if (filled(w.company))      totalFilled++
+            if (filled(w.position))     totalFilled++
+            if (filled(w.startDate))    totalFilled++
+            if (filled(w.description))  totalFilled++
+            if (filled(w.achievements)) totalFilled++
+            if (w.isCurrent || filled(w.endDate)) totalFilled++
+          })
+          const workPct = totalReq ? Math.round((totalFilled / totalReq) * 100) : 0
+
+          /* ---------- 総合入力率 (プロフィール70%, 履歴書30%) ---------- */
+          const resumeOverall = works.length === 0
+            ? resumeFormPct
+            : Math.round(resumeFormPct * 0.7 + workPct * 0.3)
+
+          const completionPct = Math.round(profilePct * 0.7 + resumeOverall * 0.3)
+
           const normalized: Student = {
             ...row,
-            match_score: 0,
+            match_score: completionPct,                       // ← match_score を入力率に置換
             last_active: row.created_at
               ? `${Math.round((now - new Date(row.created_at).getTime()) / 60000)}分前`
               : "",
@@ -136,6 +245,12 @@ export default function ScoutPage() {
             (row as any).grad_year != null
           ) {
             normalized.graduation_year = (row as any).grad_year
+          }
+          else if (
+            normalized.graduation_year == null &&
+            row.graduation_month != null
+          ) {
+            normalized.graduation_year = new Date(row.graduation_month).getFullYear()
           }
           const existed = mergedById.get(normalized.id)
           // 既に同じ id があれば、resumes を持っている方を優先（常に履歴を持つ行を優先）
@@ -173,9 +288,37 @@ export default function ScoutPage() {
     init()
   }, [router, toast])
 
+  /** 学生データからユニークな卒業年リストを生成（昇順） */
+  const availableGradYears = useMemo(() => {
+    return [...new Set(
+      students
+        .map((s) =>
+          s.graduation_year ??
+          (s.graduation_month
+            ? new Date(s.graduation_month).getFullYear()
+            : null),
+        )
+        .filter((y): y is number => y != null && y >= 2026),  // ★ 2026 年以上のみ
+    )].sort((a, b) => a - b)
+  }, [students])
+
+  /** 希望職種リスト（固定） */
+  const availableDesiredPositions = JOB_POSITIONS
+  /** 希望勤務地リスト（固定） */
+  const availableDesiredWorkLocations = PREFECTURES
+
   /* ── フィルタリング ───────────── */
   const filtered = useMemo(() => {
     let list = students
+    // ★ 25 卒以下は非表示
+    list = list.filter((s) => {
+      const yr =
+        s.graduation_year ??
+        (s.graduation_month
+          ? new Date(s.graduation_month).getFullYear()
+          : null)
+      return yr != null && yr >= 2026
+    })
 
     /* 0) フリーワード */
     const term = search.trim().toLowerCase()
@@ -190,9 +333,14 @@ export default function ScoutPage() {
 
     /* 1) 卒業年 */
     if (gradYears.length) {
-      list = list.filter((s) =>
-        gradYears.includes(s.graduation_year ?? 0),
-      )
+      list = list.filter((s) => {
+        const yr =
+          s.graduation_year ??
+          (s.graduation_month
+            ? new Date(s.graduation_month).getFullYear()
+            : null)
+        return yr != null && gradYears.includes(yr)
+      })
     }
 
     /* 2) ステータス（送信済み vs 未スカウト） */
@@ -211,10 +359,7 @@ export default function ScoutPage() {
       list = list.filter((s) => (s.major ?? "") === selectedMajor)
     }
 
-    /* 4) 地域 */
-    if (selectedLocation !== "all") {
-      list = list.filter((s) => (s.location ?? "") === selectedLocation)
-    }
+    // 4) 地域フィルタ削除
 
     /* 5) インターン経験 */
     if (hasInternship) {
@@ -237,6 +382,34 @@ export default function ScoutPage() {
       )
     }
 
+    /* 8) 希望職種 */
+    if (desiredPosition !== "all") {
+      list = list.filter((s) =>
+        (s.desired_positions ?? []).includes(desiredPosition),
+      )
+    }
+
+    /* 9) 希望勤務地 */
+    if (desiredWorkLocation !== "all") {
+      list = list.filter((s) =>
+        (s.desired_locations ?? []).includes(desiredWorkLocation),
+      )
+    }
+
+    /* ── 並び替え ───────────────────── */
+    list = [...list].sort((a, b) => {
+      switch (sortBy) {
+        case "score":
+          return (b.match_score ?? 0) - (a.match_score ?? 0)
+        case "recent":
+          return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+        case "name":
+          return (a.full_name ?? "").localeCompare(b.full_name ?? "", "ja")
+        default:
+          return 0
+      }
+    })
+
     return list
   }, [
     students,
@@ -245,10 +418,12 @@ export default function ScoutPage() {
     gradYears,
     statuses,
     selectedMajor,
-    selectedLocation,
     hasInternship,
     skills,
     qualificationsFilter,
+    desiredPosition,
+    desiredWorkLocation,
+    sortBy,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -260,8 +435,11 @@ export default function ScoutPage() {
   /** 学生カードクリック時 */
   const handleSelect = useCallback((stu: Student) => {
     setSelectedStudent(stu)
+    setSelectedAlreadySent(
+      sentScouts.some((sc) => sc.student_id === stu.id)
+    )
     setDrawerOpen(true)
-  }, [])
+  }, [sentScouts])
 
   /* ── UI ─────────────────────────────── */
   if (loading) {
@@ -302,26 +480,39 @@ export default function ScoutPage() {
                 />
               </div>
 
-              {/* 卒業年 */}
-              <div>
-                <h4 className="font-semibold mb-2">卒業年</h4>
-                {[2025, 2026, 2027, 2028].map((yr) => (
-                  <div key={yr} className="flex items-center space-x-2 mb-1">
-                    <Checkbox
-                      id={`yr-${yr}`}
-                      checked={gradYears.includes(yr)}
-                      onCheckedChange={(v) =>
-                        setGradYears((prev) =>
-                          v ? [...prev, yr] : prev.filter((y) => y !== yr),
-                        )
-                      }
-                    />
-                    <label htmlFor={`yr-${yr}`} className="text-sm">
-                      {yr}卒
-                    </label>
-                  </div>
-                ))}
-              </div>
+            {/* 並び替え */}
+            <div>
+              <h4 className="font-semibold mb-2">並び替え</h4>
+              <select
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as "score" | "recent" | "name")}
+              >
+                <option value="score">入力率順</option>
+                <option value="recent">新着順</option>
+              </select>
+            </div>
+
+            {/* 卒業年 */}
+            <div>
+              <h4 className="font-semibold mb-2">卒業年</h4>
+              {availableGradYears.map((yr) => (
+                <div key={yr} className="flex items-center space-x-2 mb-1">
+                  <Checkbox
+                    id={`yr-${yr}`}
+                    checked={gradYears.includes(yr)}
+                    onCheckedChange={(v) =>
+                      setGradYears((prev) =>
+                        v ? [...prev, yr] : prev.filter((y) => y !== yr),
+                      )
+                    }
+                  />
+                  <label htmlFor={`yr-${yr}`} className="text-sm">
+                    {yr}卒
+                  </label>
+                </div>
+              ))}
+            </div>
 
               {/* 専攻 */}
               <div>
@@ -342,24 +533,7 @@ export default function ScoutPage() {
                 </select>
               </div>
 
-              {/* 地域 */}
-              <div>
-                <h4 className="font-semibold mb-2">地域</h4>
-                <select
-                  className="w-full border rounded px-2 py-1 text-sm"
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                >
-                  <option value="all">全て</option>
-                  {[...new Set(
-                    students
-                      .map((s) => s.location)
-                      .filter((l): l is string => l != null),
-                  )].map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
-              </div>
+              {/* 地域セクション削除 */}
 
               {/* インターン経験 */}
               <div className="flex items-center space-x-2">
@@ -408,6 +582,36 @@ export default function ScoutPage() {
                 />
               </div>
 
+              {/* 希望職種 */}
+              <div>
+                <h4 className="font-semibold mb-2">希望職種</h4>
+                <select
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  value={desiredPosition}
+                  onChange={(e) => setDesiredPosition(e.target.value)}
+                >
+                  <option value="all">全て</option>
+                  {availableDesiredPositions.map((pos) => (
+                    <option key={pos} value={pos}>{pos}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 希望勤務地 */}
+              <div>
+                <h4 className="font-semibold mb-2">希望勤務地</h4>
+                <select
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  value={desiredWorkLocation}
+                  onChange={(e) => setDesiredWorkLocation(e.target.value)}
+                >
+                  <option value="all">全て</option>
+                  {availableDesiredWorkLocations.map((loc) => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+
               <Button
                 variant="outline"
                 className="w-full"
@@ -416,10 +620,11 @@ export default function ScoutPage() {
                   setGradYears([])
                   setStatuses([])
                   setSelectedMajor("all")
-                  setSelectedLocation("all")
                   setHasInternship(false)
                   setSkills([])
                   setQualificationsFilter([])
+                  setDesiredPosition("all")
+                  setDesiredWorkLocation("all")
                 }}
               >
                 リセット
@@ -457,7 +662,17 @@ export default function ScoutPage() {
                   {sentScouts.map((row) => {
                     const stu = students.find((s) => s.id === row.student_id)
                     return (
-                      <tr key={row.id} className="border-b">
+                      <tr
+                        key={row.id}
+                        className="border-b hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          if (stu) {
+                            setSelectedStudent(stu)
+                            setSelectedAlreadySent(true) // 送信履歴タブなので必ず true
+                            setDrawerOpen(true)
+                          }
+                        }}
+                      >
                         <td className="py-2">{stu?.full_name ?? "―"}</td>
                         <td className="py-2 line-clamp-1">{row.message}</td>
                         <td className="py-2">
@@ -466,7 +681,12 @@ export default function ScoutPage() {
                             : ""}
                         </td>
                         <td className="py-2">
-                          <Badge variant="outline">{row.status}</Badge>
+                          <Badge variant="outline">
+                            {row.status
+                              ? STATUS_LABEL[row.status as keyof typeof STATUS_LABEL] ??
+                                row.status
+                              : "—"}
+                          </Badge>
                         </td>
                       </tr>
                     )
@@ -492,6 +712,7 @@ export default function ScoutPage() {
         student={selectedStudent}
         templates={templates}
         companyId={companyId ?? ""}
+        readOnly={selectedAlreadySent}
         /* 送信完了後 callback */
         onSent={handleSent}
       />

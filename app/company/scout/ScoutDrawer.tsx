@@ -3,6 +3,8 @@
 import {
   Sheet,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
 } from "@/components/ui/sheet"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
@@ -48,7 +50,10 @@ interface Props {
   student: Student | null
   templates: Template[]
   companyId: string
+  /** 送信完了後 callback */
   onSent?: (row: ScoutRow) => void
+  /** 閲覧専用モード（フォーム非表示） */
+  readOnly?: boolean
 }
 
 export default function ScoutDrawer({
@@ -58,6 +63,7 @@ export default function ScoutDrawer({
   templates,
   companyId,
   onSent,
+  readOnly = false,
 }: Props) {
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
@@ -111,6 +117,7 @@ export default function ScoutDrawer({
   }
 
   const handleSend = async () => {
+    if (readOnly) return
     if (!student) return
 
     const payload: Database["public"]["Tables"]["scouts"]["Insert"] & {
@@ -144,7 +151,10 @@ export default function ScoutDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-[80vw] p-0">
-
+        {/* hidden title for accessibility */}
+        <SheetHeader>
+          <SheetTitle className="sr-only">スカウト詳細</SheetTitle>
+        </SheetHeader>
 
         {student && (
           <div className="grid grid-cols-3 h-full">
@@ -154,136 +164,138 @@ export default function ScoutDrawer({
             </div>
 
             {/* ── 右 1/3：スカウト送信フォーム ───────────────── */}
-            <div className="border-l p-6 flex flex-col space-y-6">
-              {/* 学生サマリー */}
-              <Card>
-                <CardContent className="pt-4 flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage
-                      src={student.avatar_url ?? "/placeholder.svg"}
-                      alt={student.full_name ?? ""}
-                    />
-                    <AvatarFallback>
-                      {student.full_name?.slice(0, 2) ?? "👤"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-medium">{student.full_name}</h3>
-                    <p className="text-sm text-gray-500 truncate">
-                      {student.university}
-                    </p>
-                    <div className="flex items-center mt-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                      <span className="text-sm">
-                        マッチ度 {student.match_score ?? "--"}%
-                      </span>
+            {!readOnly && (
+              <div className="border-l p-6 flex flex-col space-y-6">
+                {/* 学生サマリー */}
+                <Card>
+                  <CardContent className="pt-4 flex items-center gap-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={student.avatar_url ?? "/placeholder.svg"}
+                        alt={student.full_name ?? ""}
+                      />
+                      <AvatarFallback>
+                        {student.full_name?.slice(0, 2) ?? "👤"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-medium">{student.full_name}</h3>
+                      <p className="text-sm text-gray-500 truncate">
+                        {student.university}
+                      </p>
+                      <div className="flex items-center mt-1">
+                        <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
+                        <span className="text-sm">
+                          マッチ度 {student.match_score ?? "--"}%
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* テンプレート選択 */}
-              {/* 求人紐づけ */}
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  紐づける求人 <span className="text-red-500">*</span>
-                </label>
-                <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="求人を選択..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobs.map((j) => (
-                      <SelectItem key={j.id} value={j.id}>
-                        {j.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  テンプレート
-                </label>
-                <Select value={selectedTemplate} onValueChange={handleTemplate}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="テンプレートを選択..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                {/* テンプレート選択 */}
+                {/* 求人紐づけ */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    紐づける求人 <span className="text-red-500">*</span>
+                  </label>
+                  <Select value={selectedJobId} onValueChange={setSelectedJobId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="求人を選択..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jobs.map((j) => (
+                        <SelectItem key={j.id} value={j.id}>
+                          {j.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    テンプレート
+                  </label>
+                  <Select value={selectedTemplate} onValueChange={handleTemplate}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="テンプレートを選択..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* オファーポジション */}
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  オファーポジション <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={offerPosition}
-                  onChange={(e) => setOfferPosition(e.target.value)}
-                  placeholder="例: フロントエンドエンジニア"
-                />
-              </div>
+                {/* オファーポジション */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    オファーポジション <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    value={offerPosition}
+                    onChange={(e) => setOfferPosition(e.target.value)}
+                    placeholder="例: フロントエンドエンジニア"
+                  />
+                </div>
 
-              {/* オファー額 */}
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  オファー額レンジ（万円） <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  value={offerAmount}
-                  onChange={(e) => setOfferAmount(e.target.value)}
-                  placeholder="例: 400-600"
-                />
-                {!isValidRange(offerAmount) && offerAmount.trim() !== "" && (
-                  <p className="text-xs text-red-500 mt-1">
-                    「400-600」や「400〜600」の形式で入力してください
+                {/* オファー額 */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    オファー額レンジ（万円） <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={offerAmount}
+                    onChange={(e) => setOfferAmount(e.target.value)}
+                    placeholder="例: 400-600"
+                  />
+                  {!isValidRange(offerAmount) && offerAmount.trim() !== "" && (
+                    <p className="text-xs text-red-500 mt-1">
+                      「400-600」や「400〜600」の形式で入力してください
+                    </p>
+                  )}
+                </div>
+
+                {/* メッセージ */}
+                <div className="flex-1 flex flex-col">
+                  <label className="text-sm font-medium mb-2 block">本文</label>
+                  <Textarea
+                    rows={10}
+                    value={message}
+                    onChange={(e) => {
+                      const txt = e.target.value
+                      if (txt.length <= MAX_LEN) setMessage(txt)
+                    }}
+                    className="flex-1 resize-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {message.length}/{MAX_LEN} 文字
                   </p>
-                )}
-              </div>
+                </div>
 
-              {/* メッセージ */}
-              <div className="flex-1 flex flex-col">
-                <label className="text-sm font-medium mb-2 block">本文</label>
-                <Textarea
-                  rows={10}
-                  value={message}
-                  onChange={(e) => {
-                    const txt = e.target.value
-                    if (txt.length <= MAX_LEN) setMessage(txt)
-                  }}
-                  className="flex-1 resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {message.length}/{MAX_LEN} 文字
-                </p>
+                {/* ボタン */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    disabled={isDisabled}
+                    onClick={handleSend}
+                  >
+                    <Send className="h-4 w-4 mr-2" /> 送信
+                  </Button>
+                </div>
               </div>
-
-              {/* ボタン */}
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => onOpenChange(false)}
-                >
-                  キャンセル
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={isDisabled}
-                  onClick={handleSend}
-                >
-                  <Send className="h-4 w-4 mr-2" /> 送信
-                </Button>
-              </div>
-            </div>
+            )}
           </div>
         )}
       </SheetContent>

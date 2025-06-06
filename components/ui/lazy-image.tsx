@@ -3,12 +3,19 @@
 
 import Image, { ImageProps } from "next/image";
 
+interface LazyImageProps extends Omit<ImageProps, "alt"> {
+  /** Alternative text for accessibility.  
+   *  Optional — defaults to an empty string so runtime never crashes. */
+  alt?: string;
+}
+
 export function LazyImage({
+  alt = "",
   priority,
   placeholder = "blur",
   blurDataURL,
   ...rest
-}: ImageProps) {
+}: LazyImageProps) {
   // priority が無い場合だけ loading="lazy"
   const loadingAttr =
     priority || rest.loading ? {} : { loading: "lazy" as const };
@@ -19,6 +26,7 @@ export function LazyImage({
 
   return (
     <Image
+      alt={alt}
       {...rest}
       priority={priority}
       placeholder={safePlaceholder as "blur" | "empty" | undefined}

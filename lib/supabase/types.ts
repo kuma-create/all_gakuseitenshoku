@@ -78,6 +78,7 @@ export type Database = {
       applications: {
         Row: {
           applied_at: string | null
+          company_id: string | null
           created_at: string | null
           id: string
           interest_level: number | null
@@ -90,6 +91,7 @@ export type Database = {
         }
         Insert: {
           applied_at?: string | null
+          company_id?: string | null
           created_at?: string | null
           id?: string
           interest_level?: number | null
@@ -102,6 +104,7 @@ export type Database = {
         }
         Update: {
           applied_at?: string | null
+          company_id?: string | null
           created_at?: string | null
           id?: string
           interest_level?: number | null
@@ -113,6 +116,20 @@ export type Database = {
           student_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "applications_company_fk"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_company_fk"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "applications_job_id_fkey"
             columns: ["job_id"]
@@ -360,6 +377,13 @@ export type Database = {
             foreignKeyName: "challenges_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "applicants_view"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "challenges_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["user_id"]
           },
@@ -431,12 +455,15 @@ export type Database = {
       companies: {
         Row: {
           address: string | null
+          capital_jpy: number | null
           contact_email: string | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
           employee_count: number | null
+          founded_on: string | null
           founded_year: number | null
+          headquarters: string | null
           id: string
           industry: string | null
           location: string | null
@@ -444,19 +471,25 @@ export type Database = {
           name: string
           phone: string | null
           recruit_website: string | null
+          representative: string | null
+          revenue_jpy: number | null
           status: string
+          tagline: string | null
           user_id: string | null
           video_url: string | null
           website: string | null
         }
         Insert: {
           address?: string | null
+          capital_jpy?: number | null
           contact_email?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           employee_count?: number | null
+          founded_on?: string | null
           founded_year?: number | null
+          headquarters?: string | null
           id?: string
           industry?: string | null
           location?: string | null
@@ -464,19 +497,25 @@ export type Database = {
           name: string
           phone?: string | null
           recruit_website?: string | null
+          representative?: string | null
+          revenue_jpy?: number | null
           status?: string
+          tagline?: string | null
           user_id?: string | null
           video_url?: string | null
           website?: string | null
         }
         Update: {
           address?: string | null
+          capital_jpy?: number | null
           contact_email?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           employee_count?: number | null
+          founded_on?: string | null
           founded_year?: number | null
+          headquarters?: string | null
           id?: string
           industry?: string | null
           location?: string | null
@@ -484,7 +523,10 @@ export type Database = {
           name?: string
           phone?: string | null
           recruit_website?: string | null
+          representative?: string | null
+          revenue_jpy?: number | null
           status?: string
+          tagline?: string | null
           user_id?: string | null
           video_url?: string | null
           website?: string | null
@@ -569,6 +611,42 @@ export type Database = {
           },
         ]
       }
+      company_favorites: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_highlights: {
         Row: {
           body: string | null
@@ -618,8 +696,11 @@ export type Database = {
           experience_text: string | null
           graduation_year: number | null
           id: string
+          phase: string | null
           posted_at: string | null
           question: string | null
+          selection_category: string | null
+          user_id: string | null
         }
         Insert: {
           answer_hint?: string | null
@@ -627,8 +708,11 @@ export type Database = {
           experience_text?: string | null
           graduation_year?: number | null
           id?: string
+          phase?: string | null
           posted_at?: string | null
           question?: string | null
+          selection_category?: string | null
+          user_id?: string | null
         }
         Update: {
           answer_hint?: string | null
@@ -636,8 +720,11 @@ export type Database = {
           experience_text?: string | null
           graduation_year?: number | null
           id?: string
+          phase?: string | null
           posted_at?: string | null
           question?: string | null
+          selection_category?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -801,9 +888,14 @@ export type Database = {
           id: string
           posted_at: string | null
           rating: number | null
+          rating_culture: number | null
+          rating_growth: number | null
+          rating_selection: number | null
+          rating_worklife: number | null
           role: string | null
           tenure_years: number | null
           title: string | null
+          user_id: string | null
         }
         Insert: {
           body?: string | null
@@ -811,9 +903,14 @@ export type Database = {
           id?: string
           posted_at?: string | null
           rating?: number | null
+          rating_culture?: number | null
+          rating_growth?: number | null
+          rating_selection?: number | null
+          rating_worklife?: number | null
           role?: string | null
           tenure_years?: number | null
           title?: string | null
+          user_id?: string | null
         }
         Update: {
           body?: string | null
@@ -821,9 +918,14 @@ export type Database = {
           id?: string
           posted_at?: string | null
           rating?: number | null
+          rating_culture?: number | null
+          rating_growth?: number | null
+          rating_selection?: number | null
+          rating_worklife?: number | null
           role?: string | null
           tenure_years?: number | null
           title?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1394,6 +1496,13 @@ export type Database = {
             foreignKeyName: "offers_application_id_fkey"
             columns: ["application_id"]
             isOneToOne: false
+            referencedRelation: "applicants_view"
+            referencedColumns: ["application_id"]
+          },
+          {
+            foreignKeyName: "offers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
@@ -1546,6 +1655,13 @@ export type Database = {
           work_experiences?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: "resumes_user_id_profile_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "applicants_view"
+            referencedColumns: ["student_id"]
+          },
           {
             foreignKeyName: "resumes_user_id_profile_fkey"
             columns: ["user_id"]
@@ -2172,41 +2288,92 @@ export type Database = {
       }
     }
     Views: {
+      applicants_view: {
+        Row: {
+          application_date: string | null
+          application_id: string | null
+          company_id: string | null
+          email: string | null
+          name: string | null
+          resume_url: string | null
+          status: Database["public"]["Enums"]["application_status"] | null
+          student_id: string | null
+          university: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_company_fk"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_company_fk"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies_view: {
         Row: {
-          address: string | null
-          business_areas: string[] | null
-          contact_email: string | null
+          business_areas: Json | null
+          capital_jpy: number | null
           cover_image_url: string | null
-          created_at: string | null
-          description: string | null
           employee_count: number | null
+          favorite_count: number | null
           founded_year: number | null
+          headquarters: string | null
           id: string | null
           industry: string | null
-          location: string | null
           logo: string | null
           name: string | null
-          philosophy: string[] | null
-          phone: string | null
-          positions: string[] | null
+          philosophy: Json | null
+          positions: Json | null
+          rating: number | null
           recruit_message: string | null
-          recruit_website: string | null
-          status: string | null
-          user_id: string | null
-          website: string | null
+          representative: string | null
+          revenue_jpy: number | null
+          tagline: string | null
+          video_url: string | null
         }
         Relationships: []
       }
+      company_favorite_counts: {
+        Row: {
+          company_id: string | null
+          favorite_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gp_rank: {
         Row: {
+          category: Database["public"]["Enums"]["grandprix_type"] | null
+          month: string | null
           rank: number | null
           student_id: string | null
           total_score: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "challenge_sessions_student_id_fkey"
+            foreignKeyName: "challenge_submissions_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "student_profiles"
@@ -2410,6 +2577,7 @@ export type Database = {
         | "内定"
         | "内定辞退"
         | "不採用"
+        | "スカウト承諾"
       event_format: "online" | "onsite" | "hybrid"
       grandprix_type: "case" | "webtest" | "bizscore"
       offer_status: "pending" | "accepted" | "rejected"
@@ -2544,6 +2712,7 @@ export const Constants = {
         "内定",
         "内定辞退",
         "不採用",
+        "スカウト承諾",
       ],
       event_format: ["online", "onsite", "hybrid"],
       grandprix_type: ["case", "webtest", "bizscore"],
