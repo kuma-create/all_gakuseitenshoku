@@ -378,7 +378,7 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "applicants_view"
-            referencedColumns: ["student_id"]
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "challenges_student_id_fkey"
@@ -1043,12 +1043,12 @@ export type Database = {
           kind: string | null
           order: number | null
           payload: Json | null
+          profile_id: string | null
           qualification_text: string | null
           role: string | null
           skill_text: string | null
           start_date: string | null
           summary_text: string | null
-          user_id: string | null
         }
         Insert: {
           achievements?: string | null
@@ -1059,12 +1059,12 @@ export type Database = {
           kind?: string | null
           order?: number | null
           payload?: Json | null
+          profile_id?: string | null
           qualification_text?: string | null
           role?: string | null
           skill_text?: string | null
           start_date?: string | null
           summary_text?: string | null
-          user_id?: string | null
         }
         Update: {
           achievements?: string | null
@@ -1075,17 +1075,17 @@ export type Database = {
           kind?: string | null
           order?: number | null
           payload?: Json | null
+          profile_id?: string | null
           qualification_text?: string | null
           role?: string | null
           skill_text?: string | null
           start_date?: string | null
           summary_text?: string | null
-          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "experiences_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "experiences_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
@@ -1660,7 +1660,7 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "applicants_view"
-            referencedColumns: ["student_id"]
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "resumes_user_id_profile_fkey"
@@ -2290,15 +2290,43 @@ export type Database = {
     Views: {
       applicants_view: {
         Row: {
+          address_line: string | null
           application_date: string | null
           application_id: string | null
+          birth_date: string | null
+          city: string | null
           company_id: string | null
-          email: string | null
-          name: string | null
-          resume_url: string | null
+          department: string | null
+          desired_locations: string[] | null
+          desired_positions: string[] | null
+          employment_type: string | null
+          faculty: string | null
+          first_name: string | null
+          first_name_kana: string | null
+          full_name: string | null
+          gender: string | null
+          graduation_month: string | null
+          has_internship_experience: boolean | null
+          hometown: string | null
+          job_id: string | null
+          languages: string | null
+          last_name: string | null
+          last_name_kana: string | null
+          phone: string | null
+          postal_code: string | null
+          pr_text: string | null
+          prefecture: string | null
+          preferred_industries: string[] | null
+          profile_image: string | null
+          qualifications: string[] | null
+          skills: string[] | null
           status: Database["public"]["Enums"]["application_status"] | null
           student_id: string | null
           university: string | null
+          user_id: string | null
+          work_experience: Json | null
+          work_style: string | null
+          work_style_options: string[] | null
         }
         Relationships: [
           {
@@ -2313,6 +2341,27 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2529,6 +2578,10 @@ export type Database = {
       }
       is_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_application_owner: {
+        Args: { p_student_id: string }
         Returns: boolean
       }
       is_chat_participant: {

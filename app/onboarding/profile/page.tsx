@@ -239,6 +239,14 @@ export default function OnboardingProfile() {
     try {
       const { data: { user }, error: authErr } = await supabase.auth.getUser();
       if (authErr || !user) throw new Error("認証が失効しました。ログインし直してください。");
+      // --- student_profiles の PK を取得 ---
+      const { data: profRow, error: profErr } = await supabase
+        .from("student_profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+      if (profErr) throw profErr;
+      const profileId = profRow.id;
 
       /* 1. アバターがあればアップロード */
       let avatarUrl: string | null = null;
@@ -274,7 +282,7 @@ export default function OnboardingProfile() {
 
       /* ---------- experiences テーブルを再構築 ---------- */
       // 1) 既存行を全削除
-      await supabase.from("experiences").delete().eq("user_id", user.id);
+      await supabase.from("experiences").delete().eq("profile_id", profileId);
 
       // 2) 会社名 (kind='company')
       const companyRows = [
@@ -297,8 +305,8 @@ export default function OnboardingProfile() {
       ].filter(Boolean) as Record<string, any>[];
 
       const rows = [
-        ...companyRows.map((c) => ({ user_id: user.id, kind: "company", ...c })),
-        ...metaRows.map((m)   => ({ user_id: user.id, ...m })),
+        ...companyRows.map((c) => ({ profile_id: profileId, kind: "company", ...c })),
+        ...metaRows.map((m)   => ({ profile_id: profileId, ...m })),
       ];
 
       if (rows.length) {
