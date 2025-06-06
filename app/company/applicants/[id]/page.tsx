@@ -437,6 +437,32 @@ export default function ApplicantDetailPage() {
             console.error("Resume fetch/transform error:", e)
           }
         }
+        /* --------------------------------------------------------------
+         * auth.users からメールアドレスを取得
+         * applicants_view に email が無い場合を補完する
+         * ※ auth スキーマの RLS を許可している必要があります
+         * -------------------------------------------------------------- */
+        /* eslint-disable @typescript-eslint/no-unsafe-call */
+        if (!finalApplicant.contact.email && userId) {
+          try {
+            const { data: authUser, error: authErr } = await (supabase as any)
+              // auth スキーマを明示して users テーブルを参照
+              .schema("auth")
+              .from("users")
+              .select("email")
+              .eq("id", userId)
+              .maybeSingle();
+
+            if (!authErr && authUser?.email) {
+              finalApplicant.contact.email = authUser.email;
+            } else if (authErr) {
+              console.warn("auth.users email fetch error:", authErr);
+            }
+          } catch (e) {
+            console.error("auth.users email fetch exception:", e);
+          }
+        }
+        /* eslint-enable @typescript-eslint/no-unsafe-call */
         setApplicant(finalApplicant)
         setStatus(finalApplicant.status)
       }

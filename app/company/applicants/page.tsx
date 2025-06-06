@@ -81,7 +81,7 @@ export type JoinedApplicant = {
   faculty: string
   avatar: string | null
   /* job */
-  jobId: string
+  jobId: string | null
   jobTitle: string
   /* optional */
   industry: string | null
@@ -107,107 +107,140 @@ const STATUS_OPTIONS = [
 
 /* ---------- Supabase からデータ取得 ---------- */
 /**
- * applications テーブル  +  scouts(=スカウト承諾) の両方を取得して結合する
+ * Fetch applicants visible to the current company user.
+ * 1) applications (all) +  scouts (status='承諾')
+ * 2) Collect unique student_id / job_id lists
+ * 3) Bulk‑fetch their profiles / jobs
+ * 4) Merge into JoinedApplicant[]
  *
- * - applications: すべて
- * - scouts      : status = '承諾' のみ
+ * — No server‑side embeds are used to avoid PGRST201 ambiguity errors.
  */
 async function fetchApplicants(): Promise<JoinedApplicant[]> {
-  /* ----- ① applications -------------- */
+  /* ---------- ① applications ---------- */
   const { data: appRows, error: appErr } = await supabase
     .from("applications")
-    .select('*,student_profiles!student_id(*),jobs!job_id(id,title)')
+    .select(
+      "id,status,applied_at,interest_level,self_pr,last_activity,student_id,job_id",
+    )
     .order("applied_at", { ascending: false })
 
-  console.log("[fetchApplicants] applications rows:", appRows);
-
   if (appErr) throw appErr
+  const appsRaw = appRows ?? []
 
-  const apps: JoinedApplicant[] =
-    (appRows ?? []).flatMap((row: any): JoinedApplicant[] => {
-      const student = Array.isArray(row.student_profiles)
-        ? row.student_profiles[0]
-        : row.student_profiles
-      const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs
-
-      if (!student || !job) return []
-
-      return [
-        {
-          id: row.id,
-          status: row.status,
-          appliedDate: row.applied_at,
-          interestLevel: row.interest_level ?? 0,
-          selfPR: row.self_pr ?? "",
-          lastActivity: row.last_activity ?? row.applied_at,
-          studentId: student.id,
-          name: student.name,
-          university: student.university,
-          faculty: student.faculty,
-          avatar: student.avatar_url,
-          industry: student.industry,
-          jobId: job.id,
-          jobTitle: job.title,
-        },
-      ]
-    })
-
-  console.log("[fetchApplicants] processed apps:", apps.length);
-
-  /* ----- ② scouts(承諾済み) ----------- */
+  /* ---------- ② scouts (承諾のみ) ---------- */
   const { data: scoutRows, error: scoutErr } = await supabase
     .from("scouts")
-    .select('*,student_profiles!student_id(*),jobs!job_id(id,title)')
-    .eq("status", "承諾")                     // 承諾のみ
+    .select(
+      "id,status:status,accepted_at,student_id,job_id", // alias for uniform field names
+    )
+    .eq("status", "承諾")
     .order("accepted_at", { ascending: false })
 
   if (scoutErr) {
-    // RLS で読めない場合などは警告だけ出して継続
-    console.warn("[fetchApplicants] scouts query error – proceed without scouts:", scoutErr)
+    console.warn(
+      "[fetchApplicants] scouts query failed – proceed without scouts:",
+      scoutErr,
+    )
   }
+  const scoutsRaw = scoutRows ?? []
 
-  console.log("[fetchApplicants] scouts rows:", scoutRows);
+  /* ---------- ③ 集計: ID リスト ---------- */
+  const studentIds = new Set<string>()
+  const jobIds = new Set<string>()
 
-  const scouts: JoinedApplicant[] =
-    (scoutRows ?? []).flatMap((row: any): JoinedApplicant[] => {
-      const student = Array.isArray(row.student_profiles)
-        ? row.student_profiles[0]
-        : row.student_profiles
-      const job = Array.isArray(row.jobs) ? row.jobs[0] : row.jobs
+  ;[...appsRaw, ...scoutsRaw].forEach((r: any) => {
+    if (r.student_id) studentIds.add(r.student_id)
+    if (r.job_id) jobIds.add(r.job_id)
+  })
 
-      if (!student || !job) return []
+  /* ---------- ④ プロフィール / 求人を一括取得 ---------- */
+  const studentIdArray = Array.from(studentIds)
+  const jobIdArray = Array.from(jobIds)
 
-      return [
-        {
-          id: row.id,
-          status: "スカウト承諾",
-          appliedDate: row.accepted_at,
-          interestLevel: 0,
-          selfPR: "",
-          lastActivity: row.accepted_at,
-          studentId: student.id,
-          name: student.name,
-          university: student.university,
-          faculty: student.faculty,
-          avatar: student.avatar_url,
-          industry: student.industry,
-          jobId: job.id,
-          jobTitle: job.title,
-        },
-      ]
-    })
+  const studentQuery = studentIdArray.length
+    ? supabase
+        .from("student_profiles")
+        .select("id,name,university,faculty,avatar_url,industry")
+        .in("id", studentIdArray)
+    : Promise.resolve({ data: [] as any[], error: null })
 
-  console.log("[fetchApplicants] processed scouts:", scouts.length);
+  const jobQuery = jobIdArray.length
+    ? supabase
+        .from("jobs")
+        .select("id,title")
+        .in("id", jobIdArray)
+    : Promise.resolve({ data: [] as any[], error: null })
 
-  /* ----- ③ 結合して応募日順に整列 ------ */
-  const combined = [...apps, ...scouts].sort(
+  const [{ data: students, error: stuErr }, { data: jobs, error: jobsErr }] =
+    await Promise.all([studentQuery, jobQuery])
+
+  if (stuErr) throw stuErr
+  if (jobsErr) throw jobsErr
+
+  const studentMap = new Map(
+    (students ?? []).map((s: any) => [s.id, s]),
+  )
+  const jobMap = new Map((jobs ?? []).map((j: any) => [j.id, j]))
+
+  /* ---------- ⑤ applications → Joined ---------- */
+  const apps: JoinedApplicant[] = appsRaw.flatMap((row: any) => {
+    const student = studentMap.get(row.student_id)
+    if (!student) return []
+
+    const job = row.job_id ? jobMap.get(row.job_id) : null
+
+    return [
+      {
+        id: row.id,
+        status: row.status,
+        appliedDate: row.applied_at,
+        interestLevel: row.interest_level ?? 0,
+        selfPR: row.self_pr ?? "",
+        lastActivity: row.last_activity ?? row.applied_at,
+        studentId: student.id,
+        name: student.name,
+        university: student.university,
+        faculty: student.faculty,
+        avatar: student.avatar_url,
+        industry: student.industry,
+        jobId: row.job_id ?? null,
+        jobTitle: job ? job.title : "(削除された求人)",
+      },
+    ]
+  })
+
+  /* ---------- ⑥ scouts → Joined ---------- */
+  const scouts: JoinedApplicant[] = scoutsRaw.flatMap((row: any) => {
+    const student = studentMap.get(row.student_id)
+    if (!student) return []
+
+    const job = row.job_id ? jobMap.get(row.job_id) : null
+
+    return [
+      {
+        id: row.id,
+        status: "スカウト承諾",
+        appliedDate: row.accepted_at,
+        interestLevel: 0,
+        selfPR: "",
+        lastActivity: row.accepted_at,
+        studentId: student.id,
+        name: student.name,
+        university: student.university,
+        faculty: student.faculty,
+        avatar: student.avatar_url,
+        industry: student.industry,
+        jobId: row.job_id ?? null,
+        jobTitle: job ? job.title : "(削除された求人)",
+      },
+    ]
+  })
+
+  /* ---------- ⑦ 結合して応募日順 ---------- */
+  return [...apps, ...scouts].sort(
     (a, b) =>
       new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime(),
   )
-
-  console.log("[fetchApplicants] combined applicants:", combined.length, combined);
-
-  return combined
 }
 
 /* ---------- React Component ---------- */
@@ -351,7 +384,11 @@ export default function ApplicantsPage() {
   }
 
   /** 会社⇔学生のチャットを開く（既存がなければ作成） */
-  const openChat = async (studentId: string, jobId: string) => {
+  const openChat = async (studentId: string, jobId: string | null) => {
+    if (!jobId) {
+      console.error("jobId is null – cannot open chat");
+      return;
+    }
     /** 0) job から company_id を取得 */
     const { data: jobRow, error: jobErr } = await supabase
       .from("jobs")
@@ -695,7 +732,8 @@ export default function ApplicantsPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => openChat(applicant.studentId, applicant.jobId)}
+                            disabled={!applicant.jobId}
+                            onClick={() => applicant.jobId && openChat(applicant.studentId, applicant.jobId)}
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
                             チャットを開く

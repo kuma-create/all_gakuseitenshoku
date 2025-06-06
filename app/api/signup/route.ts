@@ -38,10 +38,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: createErr?.message }, { status: 400 });
   }
 
-  /* 4) user_roles に student を INSERT ----------------------------- */
+  /* 4) user_roles に student を UPSERT ------------------------------ */
   const { error: roleErr } = await supabase
     .from("user_roles")
-    .insert({ user_id: created.user.id, role: "student" });
+    .upsert(
+      { user_id: created.user.id, role: "student" },
+      { onConflict: "user_id" } // ← PK/UNIQUE 列名
+    );
 
   if (roleErr) {
     return NextResponse.json({ error: roleErr.message }, { status: 500 });
