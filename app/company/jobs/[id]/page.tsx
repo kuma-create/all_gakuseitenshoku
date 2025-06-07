@@ -1,7 +1,7 @@
 
 "use client"
 /** Supabase Storage bucket used for求人カバー画像 */
-const JOB_COVER_BUCKET = "job_covers"; // ← 実際に Dashboard で作成したバケット名
+const JOB_COVER_BUCKET = "job-covers"; // ← Dashboard で作成したバケット ID に合わせる
 
 
 import { supabase } from "@/lib/supabase/client";
