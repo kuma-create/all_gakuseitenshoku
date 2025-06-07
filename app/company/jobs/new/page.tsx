@@ -113,9 +113,12 @@ export default function NewJobPage() {
       const filePath = `${user.id}/${fileName}`
 
       // アップロード（upsert: true で同名を上書き）
-      const { error: uploadErr } = await supabase.storage
+      const { data: uploaded, error: uploadErr } = await supabase.storage
         .from("job-covers")
-        .upload(filePath, file, { upsert: true })
+        .upload(filePath, file, {
+          contentType: file.type,   // ← 追加: MIME タイプを明示
+          upsert: true,
+        })
 
       if (uploadErr) throw uploadErr
 
