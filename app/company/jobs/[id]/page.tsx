@@ -94,9 +94,10 @@ const fetchJob = async (id: string) => {
       category,
       start_date,
       application_deadline,
-      fulltime_details (department, employment_type, working_days, working_hours, benefits),
-      internship_details (start_date, end_date, duration_weeks, work_days_per_week, allowance),
-      event_details (event_date, capacity, venue, format)
+
+      fulltime_details:fulltime_details!job_id (working_days, salary_min, salary_max, is_ongoing),
+      internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
+      event_details:event_details!job_id (event_date, capacity, venue, format)
     `)
     .eq("id", id)
     .single()
@@ -265,14 +266,22 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           venue     : jobData.venue,
           format    : jobData.format,
         } as FormData)
-      } catch (error) {
+      } catch (error: any) {
+        // --- 詳細ログを出力 ---
+        console.error("fetchJob error →", {
+          message: error?.message,
+          details: error?.details,
+          hint   : error?.hint,
+          code   : error?.code,
+        });
+
         toast({
           title: "エラー",
           description: "求人情報の取得に失敗しました。",
           variant: "destructive",
-        })
+        });
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
 
@@ -372,11 +381,12 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
           detailTable = "fulltime_details"
           detailPayload = {
             ...detailPayload,
-            department      : formData.department,
-            employment_type : formData.employmentType,
-            working_days    : formData.workingDays,
-            working_hours   : formData.workingHours,
-            benefits        : formData.benefits,
+            working_days : formData.workingDays,
+            salary_min   : formData.salary ? Number(formData.salary.split("〜")[0]) : null,
+            salary_max   : formData.salary && formData.salary.includes("〜")
+                            ? Number(formData.salary.split("〜")[1])
+                            : null,
+            is_ongoing   : true,
           }
           break
         case "internship_short":
