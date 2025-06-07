@@ -269,7 +269,7 @@ export default function LoginClient() {
       router.replace(
         nextPath
           ? nextPath
-          : realRole === "company"
+          : realRole === "company" || realRole === "company_admin"
           ? "/company-dashboard"
           : realRole === "admin"
           ? "/admin-dashboard"
