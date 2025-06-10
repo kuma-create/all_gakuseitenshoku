@@ -109,6 +109,9 @@ const EVENTS = [
   },
 ]
 
+/* 注目キーワード */
+const FEATURED_KEYWORDS = ["IT", "コンサル", "金融", "メーカー", "商社"] as const;
+
 /* ────────────────────────────────────────── */
 export default function JobsPage() {
   /* ---------------- state ---------------- */
@@ -126,6 +129,19 @@ export default function JobsPage() {
   const [selectionType, setSelectionType] = useState("all")
   const [salaryMin, setSalaryMin] = useState<string>("all")
   const [saved, setSaved] = useState<Set<string>>(new Set())
+  // 最初に localStorage から読み取って saved セットを初期化
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const raw = localStorage.getItem("savedJobs")
+    if (raw) {
+      try {
+        const arr: string[] = JSON.parse(raw)
+        setSaved(new Set(arr))
+      } catch {
+        /* ignore malformed JSON */
+      }
+    }
+  }, [])
   const [view, setView] = useState<"grid" | "list">("grid")
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
@@ -240,6 +256,10 @@ job_tags!job_tags_job_id_fkey (
     setSaved((prev) => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
+      // 変更を localStorage に反映
+      if (typeof window !== "undefined") {
+        localStorage.setItem("savedJobs", JSON.stringify(Array.from(next)))
+      }
       return next
     })
 
@@ -328,36 +348,6 @@ job_tags!job_tags_job_id_fkey (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h1 className="text-2xl font-bold text-gray-800 mb-2">選考一覧</h1>
             <p className="text-gray-600 mb-6">あなたにぴったりの会社を探しましょう</p>
-
-            {/* Tabs for category */}
-            <Tabs value={category} onValueChange={(v) => setCategory(v as any)} className="mb-4">
-              <TabsList className="grid w-full grid-cols-4 bg-gray-100 p-1 rounded-lg">
-                <TabsTrigger
-                  value="company"
-                  className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow"
-                >
-                  企業
-                </TabsTrigger>
-                <TabsTrigger
-                  value="fulltime"
-                  className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow"
-                >
-                  本選考
-                </TabsTrigger>
-                <TabsTrigger
-                  value="intern"
-                  className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow"
-                >
-                  インターン
-                </TabsTrigger>
-                <TabsTrigger
-                  value="event"
-                  className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow"
-                >
-                  イベント
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
 
             {/* search & toggles */}
             <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -492,21 +482,20 @@ job_tags!job_tags_job_id_fkey (
             {/* 注目のキーワード (Featured Keywords) */}
             <div className="mt-4">
               <h3 className="mb-2 text-sm font-semibold text-gray-700">注目キーワード</h3>
-              <div className="flex flex-wrap gap-2">
-                <Badge className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3">IT</Badge>
-                <Badge className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3">
-                  コンサル
+            <div className="flex flex-wrap gap-2">
+              {FEATURED_KEYWORDS.map((kw) => (
+                <Badge
+                  key={kw}
+                  className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
+                  onClick={() => {
+                    setSearch(kw)
+                    router.push(`/jobs/list?tab=${category}&q=${encodeURIComponent(kw)}`)
+                  }}
+                >
+                  {kw}
                 </Badge>
-                <Badge className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3">
-                  金融
-                </Badge>
-                <Badge className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3">
-                  メーカー
-                </Badge>
-                <Badge className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3">
-                  商社
-                </Badge>
-              </div>
+              ))}
+            </div>
             </div>
           </div>
         </div>

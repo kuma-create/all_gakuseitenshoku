@@ -69,6 +69,19 @@ export default function JobSearchPage() {
   const [selectionType, setSelectionType] = useState("all")
   const [salaryMin, setSalaryMin] = useState<string>("all")
   const [saved, setSaved] = useState<Set<string>>(new Set())
+  // --- 初期化: localStorage から保存済み ID を読み込む --------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const raw = localStorage.getItem("savedJobs")
+    if (raw) {
+      try {
+        const arr: string[] = JSON.parse(raw)
+        setSaved(new Set(arr))
+      } catch {
+        /* ignore malformed JSON */
+      }
+    }
+  }, [])
   const [view, setView] = useState<"grid" | "list">("grid")
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
@@ -172,6 +185,10 @@ job_tags!job_tags_job_id_fkey (
     setSaved((prev) => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
+      // 変更を localStorage に保存
+      if (typeof window !== "undefined") {
+        localStorage.setItem("savedJobs", JSON.stringify(Array.from(next)))
+      }
       return next
     })
 

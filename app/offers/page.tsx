@@ -23,6 +23,15 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 
+// ── プレースホルダ置換ユーティリティ ────────────────
+function personalize(
+  template: string,
+  vars: Record<string, string>
+): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? "");
+}
+// ───────────────────────────────────────────
+
 interface Offer {
   id: string
   company: string
@@ -35,7 +44,8 @@ interface Offer {
   deadline: string
   status: "sent" | "accepted" | "declined"
   company_id: string
-  room_id?: string  // optional, returned from RPC after accept
+  /** null ならまだチャットルーム未生成 */
+  room_id: string | null
   isUnread: boolean
 }
 
@@ -46,9 +56,29 @@ export default function OffersPage() {
   const [searchKeyword, setSearchKeyword] = useState("")
   const [processingId, setProcessingId] = useState<string | null>(null)
 
+  // 学生氏名（{name} 置換用）
+  const [studentName, setStudentName] = useState<string>("");
+
   useEffect(() => {
     async function fetchOffers() {
       setLoading(true)
+
+      // ① 学生の氏名を取得 ---------------------------
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      let fullName = "";
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("student_profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .single();
+        fullName = profile?.full_name ?? "";
+        setStudentName(fullName);
+      }
+      // --------------------------------------------
+
       const { data, error } = await supabase
         .from("scouts")
         .select(`
@@ -57,6 +87,7 @@ export default function OffersPage() {
           company_id,
           message,
           created_at,
+          chat_room_id,
           companies!fk_scouts_company (
             name,
             logo
@@ -79,10 +110,15 @@ export default function OffersPage() {
           return {
             id:         s.id,
             company_id: s.company_id,
+            room_id:    s.chat_room_id ?? null,
             company:    s.companies?.name ?? "",
             logo:       s.companies?.logo ?? "/placeholder.svg",
             position:   s.jobs?.title ?? "",
-            message:    s.message,
+            message: personalize(s.message, {
+              name:     fullName,
+              company:  s.companies?.name ?? "",
+              position: s.jobs?.title ?? "",
+            }),
             status: s.status as "sent" | "accepted" | "declined",
             created_at: s.created_at ?? "",
             date:       s.created_at
@@ -122,7 +158,7 @@ export default function OffersPage() {
 
     setOffers((prev) =>
       prev.map((o) =>
-        o.id === offer.id ? { ...o, status: "accepted", isUnread: false, room_id: roomId } : o
+        o.id === offer.id ? { ...o, status: "accepted", isUnread: false, room_id: roomId ?? null } : o
       )
     )
     if (roomId) {
@@ -399,15 +435,25 @@ function OfferCard({ offer, onAccept, onDecline, processingId }: OfferCardProps)
 
             {/* 承諾済み: チャットを開始 */}
             {offer.status === "accepted" && (
-              <Link
-                href={`/chat/${offer.room_id ?? offer.id}`}
-                className="w-full sm:w-auto"
-              >
-                <Button className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">
-                  <MessageSquare size={16} />
-                  チャットを開始
+              offer.room_id ? (
+                <Link
+                  href={`/chat/${offer.room_id}`}
+                  className="w-full sm:w-auto"
+                >
+                  <Button className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">
+                    <MessageSquare size={16} />
+                    チャットを開始
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  disabled
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-300 bg-gray-100 text-gray-400"
+                >
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  チャットを準備中…
                 </Button>
-              </Link>
+              )
             )}
           </div>
         </div>

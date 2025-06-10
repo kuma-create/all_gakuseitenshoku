@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { LazyImage } from "@/components/ui/lazy-image"
-import { ChevronLeft, ChevronRight, Trophy, Clock, Gift, Users, ExternalLink, List } from "lucide-react"
+import { Trophy, Clock, Gift, Users, ExternalLink, List } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -120,15 +120,6 @@ export function GrandprixBanner() {
             )}
           >
             <div className={`absolute inset-0 bg-gradient-to-r ${event.color} opacity-90`}></div>
-            <div className="absolute inset-0">
-              <LazyImage
-                src={event.image || "/placeholder.svg"}
-                alt={event.title}
-                width={1200}
-                height={200}
-                className="h-full w-full object-cover opacity-20"
-              />
-            </div>
 
             <div className="relative z-10 flex w-full items-center px-4 sm:px-6">
               <div className="mr-4 hidden rounded-full bg-white/20 p-2 sm:block">
@@ -192,23 +183,6 @@ export function GrandprixBanner() {
           />
         ))}
       </div>
-
-      {/* Navigation arrows */}
-      <button
-        className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 transform items-center justify-center rounded-full bg-black/20 text-white transition-all hover:bg-black/30"
-        onClick={prevSlide}
-        aria-label="Previous slide"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-
-      <button
-        className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 transform items-center justify-center rounded-full bg-black/20 text-white transition-all hover:bg-black/30"
-        onClick={nextSlide}
-        aria-label="Next slide"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button>
     </div>
   )
 }

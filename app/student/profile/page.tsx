@@ -626,6 +626,20 @@ export default function StudentProfilePage() {
                     onBlur={handleBlur}
                     placeholder="YYYY-MM-DD"
                   />
+                <div className="flex items-center gap-2">
+                <input
+                  id="has_internship_experience"
+                  type="checkbox"
+                  checked={profile.has_internship_experience ?? false}
+                  onChange={(e) =>
+                    updateMark({ has_internship_experience: e.target.checked })
+                  }
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="has_internship_experience" className="text-xs sm:text-sm">
+                  インターン経験あり
+                </Label>
+              </div>
                 </CardContent>
               </Card>
             </CollapsibleContent>
@@ -649,7 +663,7 @@ export default function StudentProfilePage() {
                   />
                   <FieldInput
                     id="faculty"
-                    label="学部"
+                    label="学部/研究科"
                     value={profile.faculty ?? ''}
                     onChange={(v) => updateMark({ faculty: v })}
                     onBlur={handleBlur}
@@ -657,7 +671,7 @@ export default function StudentProfilePage() {
                   />
                   <FieldInput
                     id="department"
-                    label="学科"
+                    label="学科/専攻"
                     value={profile.department ?? ''}
                     onChange={(v) => updateMark({ department: v })}
                     onBlur={handleBlur}
@@ -753,7 +767,7 @@ export default function StudentProfilePage() {
               />
               <FieldTextarea
                 id="about"
-                label="ひとこと自己紹介"
+                label="自己紹介"
                 rows={2}
                 max={200}
                 value={profile.about ?? ''}
@@ -791,15 +805,6 @@ export default function StudentProfilePage() {
                 </div>
               </div>
 
-              <FieldTextarea
-                id="motive"
-                label="志望動機"
-                rows={4}
-                max={600}
-                value={profile.motive ?? ''}
-                onChange={(v) => updateMark({ motive: v })}
-                onBlur={handleBlur}
-              />
               <TipBox />
             </CardContent>
           </Card>
@@ -845,28 +850,6 @@ export default function StudentProfilePage() {
                 onBlur={handleBlur}
               />
 
-              <div className="space-y-1">
-                <Label htmlFor="employment_type" className="text-xs sm:text-sm">雇用形態の希望</Label>
-                <Select
-                  value={profile.employment_type ?? ""}
-                  onValueChange={(v) => {
-                    updateMark({ employment_type: v })
-                    handleBlur()
-                  }}
-                >
-                  <SelectTrigger id="employment_type" className="w-full h-8 sm:h-10 text-xs sm:text-sm">
-                    <SelectValue placeholder="選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EMPLOYMENT_TYPE_CHOICES.map((opt) => (
-                      <SelectItem key={opt} value={opt} className="text-xs sm:text-sm">
-                        {opt}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* --- 希望職種 --- */}
               <div className="space-y-1 sm:space-y-2">
                 <Label className="text-xs sm:text-sm">希望職種</Label>
@@ -905,21 +888,6 @@ export default function StudentProfilePage() {
                   onChange={(vals) => updateMark({ preferred_industries: vals })}
                   onSave={handleBlur}
                 />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  id="has_internship_experience"
-                  type="checkbox"
-                  checked={profile.has_internship_experience ?? false}
-                  onChange={(e) =>
-                    updateMark({ has_internship_experience: e.target.checked })
-                  }
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="has_internship_experience" className="text-xs sm:text-sm">
-                  インターン経験あり
-                </Label>
               </div>
 
               {/* locations */}

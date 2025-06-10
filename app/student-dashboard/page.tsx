@@ -103,10 +103,10 @@ export default function StudentDashboard() {
           .eq("student_id", sid),
         supabase.from("applications")
           .select("id", { head: true, count: "exact" })
-          .eq("student_id", sid),
+          .eq("student_id", studentId),
         supabase.from("chat_rooms")
           .select("id", { head: true, count: "exact" })
-          .eq("student_id", sid),
+          .eq("student_id", studentId),
       ]);
       setStats({ scouts: scoutsCnt ?? 0, applications: appsCnt ?? 0, chatRooms: roomsCnt ?? 0 });
       setSL(false);
@@ -281,6 +281,13 @@ function ProfileCard({ userId }: { userId: string }) {
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+
+      // ── allowlist: JPEG / PNG / WebP ──
+      const okTypes = ["image/jpeg", "image/png", "image/webp"];
+      if (!okTypes.includes(file.type)) {
+        alert("対応していない画像形式です。JPEG / PNG / WebP のいずれかを選択してください。");
+        return;       // cancel save
+      }
       setSaving(true);
 
       const path = `avatars/${userId}`;
@@ -567,7 +574,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
         {offers.map((offer) => (
           <Link
             key={offer.id}
-            href={`/offers/${offer.company_id}`}
+            href={`/offers/${offer.id}`}
             className="relative flex gap-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
           >
             {!offer.is_read && (

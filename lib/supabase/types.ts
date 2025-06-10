@@ -395,6 +395,7 @@ export type Database = {
           created_at: string | null
           id: string
           job_id: string | null
+          scout_id: string | null
           student_id: string | null
           updated_at: string | null
         }
@@ -403,6 +404,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           job_id?: string | null
+          scout_id?: string | null
           student_id?: string | null
           updated_at?: string | null
         }
@@ -411,6 +413,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           job_id?: string | null
+          scout_id?: string | null
           student_id?: string | null
           updated_at?: string | null
         }
@@ -441,6 +444,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_rooms_scout_id_fkey"
+            columns: ["scout_id"]
+            isOneToOne: false
+            referencedRelation: "scouts"
             referencedColumns: ["id"]
           },
           {
@@ -1507,6 +1517,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "offers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "student_applications_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "offers_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -1783,6 +1800,7 @@ export type Database = {
       scouts: {
         Row: {
           accepted_at: string | null
+          chat_room_id: string | null
           company_id: string
           created_at: string | null
           declined_at: string | null
@@ -1798,6 +1816,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          chat_room_id?: string | null
           company_id: string
           created_at?: string | null
           declined_at?: string | null
@@ -1813,6 +1832,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          chat_room_id?: string | null
           company_id?: string
           created_at?: string | null
           declined_at?: string | null
@@ -1846,6 +1866,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scouts_chat_room_id_fkey"
+            columns: ["chat_room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
             referencedColumns: ["id"]
           },
           {
@@ -2481,6 +2508,60 @@ export type Database = {
           },
         ]
       }
+      student_applications_view: {
+        Row: {
+          applied_date: string | null
+          company_id: string | null
+          company_logo: string | null
+          company_name: string | null
+          has_unread_messages: boolean | null
+          id: string | null
+          job_id: string | null
+          location: string | null
+          status: Database["public"]["Enums"]["application_status"] | null
+          student_id: string | null
+          title: string | null
+          unread_count: number | null
+          work_style: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_company_fk"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_company_fk"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_offer: {
@@ -2563,6 +2644,18 @@ export type Database = {
           last_created: string
           is_unread: boolean
         }[]
+      }
+      get_or_create_chat_room_from_scout: {
+        Args: { p_scout_id: string }
+        Returns: {
+          company_id: string | null
+          created_at: string | null
+          id: string
+          job_id: string | null
+          scout_id: string | null
+          student_id: string | null
+          updated_at: string | null
+        }
       }
       grade_session: {
         Args: { p_session_id: string }

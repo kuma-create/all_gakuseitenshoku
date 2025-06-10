@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase/client";
+import { Session } from "@supabase/supabase-js";
 import { LazyImage } from "@/components/ui/lazy-image"
 import Link from "next/link"
 import {
@@ -26,126 +28,136 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 
-// モックデータ
-const applications = [
-  {
-    id: 1,
-    companyName: "株式会社テクノロジーイノベーション",
-    companyLogo: "/abstract-geometric-TI.png",
-    jobTitle: "フロントエンドエンジニア",
-    jobId: 101,
-    appliedDate: "2025年4月25日",
-    status: "選考中",
-    statusColor: "blue",
-    location: "東京都渋谷区",
-    workStyle: "ハイブリッド（週3出社）",
-    nextStep: "一次面接 - 2025年5月10日 14:00",
-    hasUnreadMessages: true,
-    messageCount: 3,
-  },
-  {
-    id: 2,
-    companyName: "グローバルコンサルティング株式会社",
-    companyLogo: "/green-circuitry.png",
-    jobTitle: "ITコンサルタント",
-    jobId: 102,
-    appliedDate: "2025年4月20日",
-    status: "書類通過",
-    statusColor: "green",
-    location: "東京都千代田区",
-    workStyle: "ハイブリッド（週4出社）",
-    nextStep: "一次面接日程調整中",
-    hasUnreadMessages: false,
-    messageCount: 0,
-  },
-  {
-    id: 3,
-    companyName: "フィンテックソリューションズ株式会社",
-    companyLogo: "/abstract-fs.png",
-    jobTitle: "バックエンドエンジニア",
-    jobId: 103,
-    appliedDate: "2025年4月15日",
-    status: "不通過",
-    statusColor: "red",
-    location: "東京都港区",
-    workStyle: "ハイブリッド（週2出社）",
-    nextStep: null,
-    hasUnreadMessages: false,
-    messageCount: 0,
-  },
-  {
-    id: 4,
-    companyName: "クリエイティブデザイン株式会社",
-    companyLogo: "/compact-disc-reflection.png",
-    jobTitle: "UIUXデザイナー",
-    jobId: 104,
-    appliedDate: "2025年4月10日",
-    status: "最終選考",
-    statusColor: "purple",
-    location: "東京都目黒区",
-    workStyle: "ハイブリッド（週3出社）",
-    nextStep: "最終面接 - 2025年5月5日 10:00",
-    hasUnreadMessages: true,
-    messageCount: 1,
-  },
-  {
-    id: 5,
-    companyName: "データアナリティクス株式会社",
-    companyLogo: "/abstract-geometric-shapes.png",
-    jobTitle: "データサイエンティスト",
-    jobId: 105,
-    appliedDate: "2025年4月5日",
-    status: "内定",
-    statusColor: "green",
-    location: "東京都中央区",
-    workStyle: "ハイブリッド（週2出社）",
-    nextStep: "内定承諾期限 - 2025年5月20日",
-    hasUnreadMessages: false,
-    messageCount: 0,
-  },
-  {
-    id: 6,
-    companyName: "テックスタートアップ株式会社",
-    companyLogo: "/abstract-geometric-ts.png",
-    jobTitle: "フルスタックエンジニア",
-    jobId: 106,
-    appliedDate: "2025年4月1日",
-    status: "未対応",
-    statusColor: "gray",
-    location: "東京都新宿区",
-    workStyle: "フルリモート",
-    nextStep: null,
-    hasUnreadMessages: false,
-    messageCount: 0,
-  },
-]
+
+type Application = {
+  id: string;  // uuid
+  companyName: string;
+  companyLogo: string | null;
+  jobTitle: string;
+  jobId: string;  // uuid
+  appliedDate: string;
+  status: "未対応" | "書類選考中" | "選考中" | "書類通過" | "最終選考" | "内定" | "不通過";
+  category: "イベント" | "本選考" | "インターン" | null;
+  location: string | null;
+  workStyle: string | null;
+  nextStep?: string | null;
+  hasUnreadMessages: boolean;
+  messageCount: number;
+};
+
 
 // ステータスに応じた色を返す関数
 const getStatusColor = (status: string) => {
   switch (status) {
     case "未対応":
-      return "bg-gray-100 text-gray-800"
     case "選考中":
     case "書類選考中":
-      return "bg-blue-100 text-blue-800"
+      return "bg-blue-100 text-blue-800";
     case "書類通過":
-      return "bg-emerald-100 text-emerald-800"
+      return "bg-emerald-100 text-emerald-800";
     case "最終選考":
-      return "bg-purple-100 text-purple-800"
+      return "bg-purple-100 text-purple-800";
     case "内定":
-      return "bg-green-100 text-green-800"
+      return "bg-green-100 text-green-800";
     case "不通過":
-      return "bg-red-100 text-red-800"
+      return "bg-red-100 text-red-800";
     default:
-      return "bg-gray-100 text-gray-800"
+      return "bg-gray-100 text-gray-800";
   }
 }
 
+const getCategoryColor = (category: string | null) => {
+  switch (category) {
+    case "イベント":
+      return "bg-yellow-100 text-yellow-800";
+    case "インターン":
+      return "bg-indigo-100 text-indigo-800";
+    case "本選考":
+      return "bg-teal-100 text-teal-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+};
+
 export default function ApplicationsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [timeFilter, setTimeFilter] = useState("all")
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [timeFilter, setTimeFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+
+  // ---------- fetch helper ----------
+  const fetchApplications = async (userId: string) => {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("student_applications_view")
+      .select("*")
+      .eq("student_id", userId)
+      .order("applied_date", { ascending: false });
+
+    if (error) {
+      console.error("applications fetch error", error);
+      setApplications([]);
+    } else {
+      const normalised: Application[] = (data || []).map((row: any) => ({
+        id: row.id ?? "",
+        companyName: row.company_name ?? "",
+        companyLogo: row.company_logo,
+        jobTitle: row.title ?? "",
+        jobId: row.job_id ?? "",
+        appliedDate: row.applied_date ?? "",
+        status: (row.status ?? "未対応") as Application["status"],
+        category: (row.category ?? row.job_type ?? null) as Application["category"],
+        location: row.location,
+        workStyle: row.work_style,
+        nextStep: null, // 列が無いので固定
+        hasUnreadMessages: row.has_unread_messages ?? false,
+        messageCount: row.unread_count ?? 0,
+      }));
+      setApplications(normalised);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const userId = (session as Session).user.id;
+
+      // initial fetch
+      await fetchApplications(userId);
+
+      // --- realtime listener ---
+      channel = supabase
+        .channel("student_applications_realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "applications",
+            filter: `student_id=eq.${userId}`,
+          },
+          () => {
+            // Re‑fetch list when a new application row is inserted
+            fetchApplications(userId);
+          }
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
 
   // 検索とフィルタリング
   const filteredApplications = applications
@@ -178,7 +190,7 @@ export default function ApplicationsPage() {
     })
 
   // ステータスの種類を抽出
-  const statusOptions = ["all", ...new Set(applications.map((app) => app.status))]
+  const statusOptions = ["all", ...new Set(applications.map((app) => app.status))];
 
   return (
     <div className="container mx-auto px-4 py-6 md:py-8">
@@ -278,54 +290,12 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        <div className="flex overflow-x-auto pb-2">
-          <div className="flex gap-2">
-            <Badge
-              variant={statusFilter === "all" ? "default" : "outline"}
-              className="cursor-pointer whitespace-nowrap"
-              onClick={() => setStatusFilter("all")}
-            >
-              すべて
-            </Badge>
-            <Badge
-              variant={statusFilter === "選考中" ? "default" : "outline"}
-              className="cursor-pointer whitespace-nowrap bg-blue-100 text-blue-800 hover:bg-blue-200"
-              onClick={() => setStatusFilter(statusFilter === "選考中" ? "all" : "選考中")}
-            >
-              選考中
-            </Badge>
-            <Badge
-              variant={statusFilter === "書類通過" ? "default" : "outline"}
-              className="cursor-pointer whitespace-nowrap bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-              onClick={() => setStatusFilter(statusFilter === "書類通過" ? "all" : "書類通過")}
-            >
-              書類通過
-            </Badge>
-            <Badge
-              variant={statusFilter === "最終選考" ? "default" : "outline"}
-              className="cursor-pointer whitespace-nowrap bg-purple-100 text-purple-800 hover:bg-purple-200"
-              onClick={() => setStatusFilter(statusFilter === "最終選考" ? "all" : "最終選考")}
-            >
-              最終選考
-            </Badge>
-            <Badge
-              variant={statusFilter === "内定" ? "default" : "outline"}
-              className="cursor-pointer whitespace-nowrap bg-green-100 text-green-800 hover:bg-green-200"
-              onClick={() => setStatusFilter(statusFilter === "内定" ? "all" : "内定")}
-            >
-              内定
-            </Badge>
-            <Badge
-              variant={statusFilter === "不通過" ? "default" : "outline"}
-              className="cursor-pointer whitespace-nowrap bg-red-100 text-red-800 hover:bg-red-200"
-              onClick={() => setStatusFilter(statusFilter === "不通過" ? "all" : "不通過")}
-            >
-              不通過
-            </Badge>
-          </div>
-        </div>
+        
       </div>
 
+      {loading && (
+        <div className="py-10 text-center text-sm text-gray-500">読み込み中…</div>
+      )}
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="mb-6 grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="all">すべて</TabsTrigger>
@@ -379,6 +349,21 @@ export default function ApplicationsPage() {
 
 // 応募カードコンポーネント
 function ApplicationCard({ application }: { application: any }) {
+  const displayStatus = application.status === "未対応" ? "選考中" : application.status;
+  // 応募日を「YYYY年MM月DD日」形式で日本時間表示
+  const formattedDate = (() => {
+    const d = new Date(application.appliedDate);
+    if (isNaN(d.getTime())) return application.appliedDate; // 取得失敗時はそのまま表示
+    const [y, m, dd] = new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "Asia/Tokyo",
+    })
+      .format(d)
+      .split("/");
+    return `${y}年${m}月${dd}日`;
+  })();
   return (
     <Card className="overflow-hidden border border-gray-200 transition-all duration-200 hover:shadow-md">
       <div className="flex flex-col sm:flex-row">
@@ -412,16 +397,19 @@ function ApplicationCard({ application }: { application: any }) {
                 <h4 className="text-lg font-bold text-gray-900 group-hover:text-red-600 group-hover:underline">
                   {application.jobTitle}
                 </h4>
+                {application.category && (
+                  <Badge className={`${getCategoryColor(application.category)} ml-2`}>{application.category}</Badge>
+                )}
               </Link>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500">
                 <div className="flex items-center gap-1">
                   <Calendar size={14} className="text-gray-400" />
-                  <span>応募日: {application.appliedDate}</span>
+                  <span>応募日: {formattedDate}</span>
                 </div>
               </div>
             </div>
 
-            <Badge className={`${getStatusColor(application.status)}`}>{application.status}</Badge>
+            <Badge className={getStatusColor(displayStatus)}>{displayStatus}</Badge>
           </div>
 
           {application.nextStep && (
@@ -454,7 +442,7 @@ function ApplicationCard({ application }: { application: any }) {
                   チャット
                 </Button>
               </Link>
-              <Link href={`/student/applications/${application.id}`}>
+              <Link href={`/jobs/${application.jobId}`}>
                 <Button size="sm" className="bg-red-600 hover:bg-red-700">
                   詳細を見る
                 </Button>

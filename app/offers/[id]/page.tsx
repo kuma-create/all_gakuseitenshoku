@@ -2,6 +2,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Building,
@@ -18,6 +19,8 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
 import { LazyImage } from "@/components/ui/lazy-image"
 import { Button } from "@/components/ui/button"
+import type { Database } from "@/lib/supabase/types";
+type ChatRoom = Database["public"]["Functions"]["get_or_create_chat_room_from_scout"]["Returns"];
 import {
   Card,
   CardContent,
@@ -28,6 +31,14 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+// ── プレースホルダ置換ユーティリティ ────────────────
+function personalize(
+  template: string,
+  vars: Record<string, string>
+): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? "")
+}
+// ───────────────────────────────────────────
 import {
   Dialog,
   DialogContent,
@@ -126,6 +137,21 @@ export default function OfferDetailPage({
       setLoading(true)
       setError(null)
 
+      // ① 学生氏名を取得 ---------------------------
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      let fullName = ""
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("student_profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .single()
+        fullName = profile?.full_name ?? ""
+      }
+      // --------------------------------------------
+
       const { data, error } = await supabase
         .from("scouts")
         .select(
@@ -159,11 +185,17 @@ export default function OfferDetailPage({
         return
       }
 
+      const personalizedMsg = personalize(data.message, {
+        name:     fullName,
+        company:  data.companies?.name ?? "",
+        position: data.jobs?.title ?? "",
+      })
+
       /* ------------------ クエリ結果 → 画面用構造に変換 ----------------- */
       setOffer({
         /** scouts */
         id: data.id,
-        message: data.message,
+        message: personalizedMsg,
         status:
           data.status === "rejected"
             ? "declined"
@@ -184,7 +216,7 @@ export default function OfferDetailPage({
 
         /** 追加情報（ダミー or 後日スキーマ追加） */
         title: "オファータイトルをここに設定",
-        detailedMessage: data.message,
+        detailedMessage: personalizedMsg,
         location: "未設定",
         workStyle: "未設定",
         salary: "未設定",
@@ -228,7 +260,7 @@ export default function OfferDetailPage({
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <main className="container mx-auto px-4 py-6 md:py-8">
+      <main className="container mx-auto px-4 pt-2 pb-8">
         {/* 戻るリンク */}
         <div className="mb-6">
           <Link
@@ -492,22 +524,40 @@ function InterestButtons({
       : (offerStatus as "sent" | "accepted" | "declined")
   )
   const [showDialog, setShowDialog] = useState(false)
+  const router = useRouter();
 
   // handlers
   const handleAccept = async () => {
-    const { error } = await supabase
+    // 1) scouts.status を accepted に更新
+    const { error: updateErr } = await supabase
       .from("scouts")
       .update({
         status:      "accepted",
         accepted_at: new Date().toISOString(),
       })
-      .eq("id", offerId)
+      .eq("id", offerId);
 
-    if (error) {
-      alert(`承諾に失敗しました: ${error.message}`)
-      return
+    if (updateErr) {
+      alert(`承諾に失敗しました: ${updateErr.message}`);
+      return;
     }
-    setStatus("accepted")
+
+    // 2) 対応するチャットルームを取得（無ければ RPC で作成）
+    const { data: room, error: roomErr } = await supabase
+      .rpc("get_or_create_chat_room_from_scout", { p_scout_id: offerId })
+      .maybeSingle<ChatRoom>();           // ← 型を直接渡す
+
+    if (roomErr || !room) {
+      alert(
+        `チャットルームの取得に失敗しました: ${roomErr?.message ?? "unknown"}`
+      );
+      setStatus("accepted"); // 画面状態だけ更新しておく
+      return;
+    }
+
+    // 3) 状態更新 & チャット詳細へ遷移
+    setStatus("accepted");
+    router.push(`/chat/${room.id}`);
   }
   const handleDecline = () => setShowDialog(true)
   const confirmDecline = async () => {

@@ -10,7 +10,7 @@ import { useEffect, useState, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { Search, Plus, Filter } from "lucide-react"
+import { Search } from "lucide-react"
 
 import { supabase } from "@/lib/supabase/client"
 import { useAuth } from "@/lib/auth-context"
@@ -148,12 +148,6 @@ export default function ChatPage() {
           />
           <Button variant="outline" size="icon">
             <Search className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-          </Button>
-          <Button size="icon">
-            <Plus className="h-5 w-5" />
           </Button>
         </div>
       </header>

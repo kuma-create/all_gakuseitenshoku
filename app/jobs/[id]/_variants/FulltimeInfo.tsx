@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 
 /* ---------- 型 ---------- */
 type Company = {
@@ -76,9 +76,16 @@ export default function FulltimeInfo({
   /* ----- local state (保存済み) ----- */
   const [isInterested, setIsInterested] = useState(false)
 
+  useEffect(() => {
+    // クライアントサイドのみ localStorage から取得
+    const raw = typeof window !== "undefined" ? localStorage.getItem("savedJobs") : null
+    const arr: string[] = raw ? JSON.parse(raw) : []
+    setIsInterested(arr.includes(job.id))
+  }, [job.id])
+
   const toggleSaveJob = () => {
     const savedJobsFromStorage = localStorage.getItem("savedJobs")
-    let savedJobs: number[] = savedJobsFromStorage ? JSON.parse(savedJobsFromStorage) : []
+    let savedJobs: string[] = savedJobsFromStorage ? JSON.parse(savedJobsFromStorage) : []
     if (isInterested) savedJobs = savedJobs.filter((id) => id !== job.id)
     else savedJobs.push(job.id)
     localStorage.setItem("savedJobs", JSON.stringify(savedJobs))
@@ -331,13 +338,10 @@ function RightColumn({
               ) : (
                 <Button
                   className="w-full bg-red-600 hover:bg-red-700"
-                  onClick={() => {
-                    if (!showForm) setShowForm(true)
-                    else apply()
-                  }}
+                  onClick={() => setShowForm(true)}
                 >
                   <Send size={16} className="mr-2" />
-                  {showForm ? "確認して応募" : "この求人に応募する"}
+                  この求人に応募する
                 </Button>
               )}
 
@@ -352,6 +356,35 @@ function RightColumn({
             </div>
           </div>
         </CardContent>
+        <Dialog open={showForm} onOpenChange={setShowForm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center text-gray-800">
+                下記の内容で応募を確定しますか？
+              </DialogTitle>
+            </DialogHeader>
+
+            <DialogFooter className="flex flex-col gap-2">
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  apply();
+                  setShowForm(false);
+                }}
+              >
+                <Check size={16} className="mr-2" />
+                応募を確定する
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowForm(false)}
+              >
+                キャンセル
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Card>
 
       {/* Company info */}

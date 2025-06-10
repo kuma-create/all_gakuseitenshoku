@@ -14,18 +14,18 @@ export const dynamic = "force-dynamic";
  * - session が有効    → setSession() して auth クッキーを発行
  */
 export async function POST(req: Request) {
-  const cookieStore = cookies(); // 必ず単一インスタンス
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore,
-  });
+  // Supabase クライアントを cookies 関数ごと渡して生成
+  const supabase = createRouteHandlerClient<Database>({ cookies });
 
   const session = (await req.json()) as
     | { access_token: string; refresh_token: string; expires_at: number }
     | null;
 
   if (session) {
+    // セッションがある → サインイン扱い
     await supabase.auth.setSession(session);
   } else {
+    // セッションが null → サインアウト
     await supabase.auth.signOut();
   }
 

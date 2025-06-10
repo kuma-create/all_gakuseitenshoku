@@ -1,6 +1,7 @@
+/* eslint-disable */
 "use client"
 
-import React, { Dispatch, SetStateAction, useState } from "react"
+import React, { Dispatch, SetStateAction, useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -25,6 +26,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogHeader,
+  DialogContent,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 /* ---------- types ---------- */
 type Company = {
@@ -62,10 +70,17 @@ export default function EventInfo({
 }: Props) {
   const [isInterested, setIsInterested] = useState(false)
 
+  useEffect(() => {
+    // Get saved list from localStorage (client‑side only)
+    const raw = typeof window !== "undefined" ? localStorage.getItem("savedEvents") : null
+    const arr: string[] = raw ? JSON.parse(raw) : []
+    setIsInterested(arr.includes(job.id))
+  }, [job.id])
+
   /* save toggle */
   const toggleSave = () => {
     const raw = localStorage.getItem("savedEvents")
-    let arr: number[] = raw ? JSON.parse(raw) : []
+    let arr: string[] = raw ? JSON.parse(raw) : []
     if (isInterested) arr = arr.filter((id) => id !== job.id)
     else arr.push(job.id)
     localStorage.setItem("savedEvents", JSON.stringify(arr))
@@ -212,10 +227,10 @@ export default function EventInfo({
                   ) : (
                     <Button
                       className="w-full bg-red-600 hover:bg-red-700"
-                      onClick={apply}
+                      onClick={() => setShowForm(true)}
                     >
                       <Send size={16} className="mr-2" />
-                      申し込む
+                      このイベントに申し込む
                     </Button>
                   )}
 
@@ -237,6 +252,35 @@ export default function EventInfo({
                 </div>
               </div>
             </CardContent>
+            <Dialog open={showForm} onOpenChange={setShowForm}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-center text-gray-800">
+                    下記の内容で申し込みを確定しますか？
+                  </DialogTitle>
+                </DialogHeader>
+
+                <DialogFooter className="flex flex-col gap-2">
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      apply();
+                      setShowForm(false);
+                    }}
+                  >
+                    <Check size={16} className="mr-2" />
+                    申し込みを確定する
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowForm(false)}
+                  >
+                    キャンセル
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </Card>
 
           {/* company info */}
