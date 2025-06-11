@@ -276,12 +276,12 @@ const companyId = companyRow.id    // ★ ここで変数を定義
               </Button>
             ))}
           </div>
-        </DialogContent>
+        </DialogContent>  c
       </Dialog>
 
       {/* 検索・ソート */}
       <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4"/>
             <Input

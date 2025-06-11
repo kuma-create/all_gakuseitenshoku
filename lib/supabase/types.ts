@@ -1324,6 +1324,7 @@ export type Database = {
           selection_type: Database["public"]["Enums"]["selection_type"] | null
           start_date: string | null
           title: string
+          user_id: string
           views: number
           work_type: string | null
         }
@@ -1344,6 +1345,7 @@ export type Database = {
           selection_type?: Database["public"]["Enums"]["selection_type"] | null
           start_date?: string | null
           title: string
+          user_id?: string
           views?: number
           work_type?: string | null
         }
@@ -1364,6 +1366,7 @@ export type Database = {
           selection_type?: Database["public"]["Enums"]["selection_type"] | null
           start_date?: string | null
           title?: string
+          user_id?: string
           views?: number
           work_type?: string | null
         }

@@ -14,7 +14,6 @@ type HighlightFormItem = {
   icon: string
   title: string
   body: string
-  image_url: string
 }
 
 type CompanyForm = {
@@ -32,6 +31,7 @@ type CompanyForm = {
   recruitMessage: string
   positions: string[]
   highlights: HighlightFormItem[]
+  logo: string
 }
 
 /**
@@ -50,6 +50,7 @@ type CompaniesRow = {
   industry: string | null
   employee_count: number | null
   video_url: string | null
+  logo: string | null
 }
 
 const INDUSTRY_OPTIONS = [
@@ -66,6 +67,9 @@ const INDUSTRY_OPTIONS = [
   '教育',
   '公務員',
 ] as const;
+
+/** YouTube URL pattern: matches youtube.com/watch?v=… or youtu.be/… */
+const YOUTUBE_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i;
 
 export default function MyCompanyPage() {
   const router = useRouter()
@@ -84,9 +88,11 @@ export default function MyCompanyPage() {
     businessAreas: [''],
     recruitMessage: '',
     positions: [''],
-    highlights: [{ icon: 'growth', title: '', body: '', image_url: '' }],
+    highlights: [{ icon: 'growth', title: '', body: '' }],
+    logo: '',
   })
   const [loading, setLoading] = useState(true)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,7 +110,7 @@ export default function MyCompanyPage() {
       const { data, error } = await supabase
         .from('companies')
         .select(
-          'id, tagline, representative, founded_year, capital_jpy, revenue_jpy, location, industry, employee_count, video_url',
+          'id, tagline, representative, founded_year, capital_jpy, revenue_jpy, location, industry, employee_count, video_url, logo',
         )
         .eq('user_id', user.id)
         .single()
@@ -126,6 +132,7 @@ export default function MyCompanyPage() {
         industry: company.industry ?? '',
         employee_count: company.employee_count !== null ? String(company.employee_count) : '',
         video_url: company.video_url ?? '',
+        logo: company.logo ?? '',
       }))
 
       const [
@@ -157,7 +164,7 @@ export default function MyCompanyPage() {
           .order('ordinal'),
         supabase
           .from('company_highlights')
-          .select('icon, title, body, image_url, ordinal')
+          .select('icon, title, body, ordinal')
           .eq('company_id', company.id)
           .order('ordinal'),
       ])
@@ -173,9 +180,8 @@ export default function MyCompanyPage() {
             icon: h.icon ?? 'growth',
             title: h.title ?? '',
             body: h.body ?? '',
-            image_url: h.image_url ?? '',
           })) as HighlightFormItem[]) ??
-          [{ icon: 'growth', title: '', body: '', image_url: '' }],
+          [{ icon: 'growth', title: '', body: '' }],
       }))
       setLoading(false)
     }
@@ -207,7 +213,7 @@ export default function MyCompanyPage() {
       ...prev,
       highlights: [
         ...prev.highlights,
-        { icon: 'growth', title: '', body: '', image_url: '' },
+        { icon: 'growth', title: '', body: '' },
       ],
     }))
   }
@@ -238,15 +244,55 @@ export default function MyCompanyPage() {
         ...prev,
         highlights: list.length
           ? list
-          : [{ icon: 'growth', title: '', body: '', image_url: '' }],
+          : [{ icon: 'growth', title: '', body: '' }],
       }
     })
+  }
+
+  // --- ロゴアップロード ---
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingLogo(true)
+
+    // 画像は正方形推奨だが、ここではバリデーションせずアップロードのみ行う
+    const timestamp = Date.now()
+    const fileExt   = file.name.split('.').pop()
+    const filePath  = `logos/${timestamp}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('company-logos')
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) {
+      alert(`アップロードに失敗しました: ${uploadError.message}`)
+      setUploadingLogo(false)
+      return
+    }
+
+    const { data } = supabase.storage
+      .from('company-logos')
+      .getPublicUrl(filePath)
+
+    if (data?.publicUrl) {
+      setForm((prev) => ({ ...prev, logo: data.publicUrl }))
+    }
+
+    setUploadingLogo(false)
   }
 
   // 送信
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!companyId) return
+    // --- YouTube URL validation ---
+    if (
+      form.video_url.trim() !== '' &&
+      !YOUTUBE_REGEX.test(form.video_url.trim())
+    ) {
+      setError('紹介動画 URL は YouTube のみ許可されています');
+      return;
+    }
     setSaving(true)
 
     // --- 基本情報更新 ---
@@ -260,6 +306,7 @@ export default function MyCompanyPage() {
       industry      : form.industry.trim() || null,
       employee_count: form.employee_count ? Number(form.employee_count) : null,
       video_url     : form.video_url.trim() || null,
+      logo          : form.logo.trim() || null,
     }
 
     const { error: updateError } = await supabase
@@ -311,20 +358,45 @@ export default function MyCompanyPage() {
       upsertArray('company_positions', 'position', form.positions),
     ])
 
-    // ハイライト upsert
-    await supabase.from<any, any>('company_highlights').delete().eq('company_id', companyId)
+    // --- ハイライト upsert ---
+    // まず既存を削除し、エラーを捕捉
+    const { error: deleteHlErr } = await supabase
+      .from('company_highlights')
+      .delete()
+      .eq('company_id', companyId);
+
+    if (deleteHlErr) {
+      setError(`ハイライト削除に失敗しました: ${deleteHlErr.message}`);
+      setSaving(false);
+      return;
+    }
+
+    // 1 行でも内容が入っていれば保存対象とする
     const hlPayload = form.highlights
-      .filter((h) => h.title.trim() !== '' || h.body.trim() !== '')
+      .filter(
+        (h) =>
+          h.icon.trim() !== '' ||
+          h.title.trim() !== '' ||
+          h.body.trim() !== '',
+      )
       .map((h, i) => ({
         company_id: companyId,
         ordinal: i,
         icon: h.icon,
         title: h.title,
         body: h.body,
-        image_url: h.image_url,
-      }))
+      }));
+
     if (hlPayload.length) {
-      await supabase.from<any, any>('company_highlights').insert(hlPayload)
+      const { error: insertHlErr } = await supabase
+        .from('company_highlights')
+        .insert(hlPayload);
+
+      if (insertHlErr) {
+        setError(`ハイライト保存に失敗しました: ${insertHlErr.message}`);
+        setSaving(false);
+        return;
+      }
     }
 
     setSaving(false)
@@ -357,16 +429,56 @@ export default function MyCompanyPage() {
     <div className="max-w-3xl mx-auto py-10">
       <h1 className="text-2xl font-bold mb-6">会社情報の編集</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <Label htmlFor="tagline">キャッチコピー</Label>
-          <Input
-            id="tagline"
-            placeholder="例: 次世代を創る挑戦者募集"
-            value={form.tagline}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, tagline: e.target.value }))
-            }
-          />
+
+        {/* ロゴ + キャッチコピー */}
+        <div className="flex flex-col gap-6">
+          {/* 会社ロゴ */}
+          <div>
+            <Label htmlFor="logoFileTrigger">会社ロゴ <span className="text-xs text-muted-foreground">(正方形推奨)</span></Label>
+            <div className="mt-2 flex flex-col gap-3 items-start">
+              {/* プレビューを最上部に表示 */}
+              {form.logo && (
+                <img
+                  src={form.logo}
+                  alt="Company Logo Preview"
+                  className="h-24 w-24 object-contain border rounded-md"
+                />
+              )}
+
+              {/* hidden file input */}
+              <input
+                type="file"
+                accept="image/*"
+                id="logoFileTrigger"
+                className="hidden"
+                onChange={handleLogoFileChange}
+              />
+
+              {/* アップロードボタン */}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => document.getElementById('logoFileTrigger')?.click()}
+                disabled={uploadingLogo}
+              >
+                {uploadingLogo ? 'アップロード中…' : '画像をアップロード'}
+              </Button>
+            </div>
+          </div>
+
+          {/* キャッチコピー */}
+          <div>
+            <Label htmlFor="tagline">キャッチコピー</Label>
+            <Input
+              id="tagline"
+              className="w-full"
+              placeholder="例: 次世代を創る挑戦者募集"
+              value={form.tagline}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, tagline: e.target.value }))
+              }
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -481,11 +593,13 @@ export default function MyCompanyPage() {
         </div>
 
         <div>
-          <Label htmlFor="video_url">紹介動画 URL (YouTube embed)</Label>
+          <Label htmlFor="video_url">紹介動画 URL </Label>
           <Input
             id="video_url"
             placeholder="例: https://www.youtube.com/embed/abcdefghij"
             value={form.video_url}
+            pattern="https?://(www\.)?(youtube\.com|youtu\.be)/.*"
+            title="YouTube の URL を入力してください"
             onChange={(e) =>
               setForm((prev) => ({
                 ...prev,
@@ -494,6 +608,8 @@ export default function MyCompanyPage() {
             }
           />
         </div>
+
+
 
         {/* 企業理念 */}
         <div>

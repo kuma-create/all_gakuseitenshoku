@@ -117,6 +117,27 @@ interface HighlightData {
   body: string
 }
 
+/** YouTube watch / share URL -> embeddable URL */
+const toYouTubeEmbed = (url: string): string => {
+  try {
+    const u = new URL(url);
+    // youtu.be/<id>
+    if (u.hostname === "youtu.be") {
+      return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+    }
+    // youtube.com/watch?v=<id>
+    if (u.hostname.includes("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+    }
+    // 既に embed 形式ならそのまま
+    if (url.includes("/embed/")) return url;
+  } catch (_e) {
+    /* ignore */
+  }
+  return url; // fallback
+};
+
 
 export default function CompanyDetailPage() {
     
@@ -1255,9 +1276,10 @@ export default function CompanyDetailPage() {
               <Card className="overflow-hidden">
                 <div className="aspect-video relative">
                   <iframe
-                    src={company.videoUrl}
+                    src={toYouTubeEmbed(company.videoUrl)}
                     className="absolute inset-0 w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    frameBorder={0}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   />
                 </div>

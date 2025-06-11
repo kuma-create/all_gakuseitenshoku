@@ -186,7 +186,7 @@ export default function ScoutDrawer({
                       <div className="flex items-center mt-1">
                         <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
                         <span className="text-sm">
-                          マッチ度 {student.match_score ?? "--"}%
+                            項目入力率 {student.match_score ?? "--"}%
                         </span>
                       </div>
                     </div>

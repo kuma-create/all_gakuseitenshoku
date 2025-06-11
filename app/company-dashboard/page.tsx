@@ -66,7 +66,7 @@ export default function CompanyDashboard() {
   const [loading     , setLoading    ] = useState(true)
   const [pubJobs     , setPubJobs     ] = useState(0)
   const [draftJobs   , setDraftJobs   ] = useState(0)
-  const [applications, setApplications] = useState<ApplicationRow[]>([])
+  const [applicants, setApplicants] = useState<ApplicationRow[]>([])
   const [jobs        , setJobs        ] = useState<JobRow[]>([])
   const [messages    , setMessages    ] = useState<MessageRow[]>([])
   const [unreadCnt   , setUnreadCnt   ] = useState(0)
@@ -165,7 +165,7 @@ export default function CompanyDashboard() {
       setPubJobs(publishedJobs?.length ?? 0)
       setDraftJobs(draftJobsRows?.length ?? 0)
 
-      setApplications(
+      setApplicants(
         (applRows ?? []).map((a) => ({
           id          : a.id,
           student_name: (a as any).student_profiles?.full_name ?? "不明",
@@ -271,15 +271,15 @@ export default function CompanyDashboard() {
       {/* ── サマリー ───────────────────────────── */}
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
         <SummaryCard title="求人"      main={pubJobs}     sub={draftJobs}   subLabel="下書き" link="/company/jobs/manage" />
-        <SummaryCard title="応募者"    main={applications.length} link="/company/applications" />
+        <SummaryCard title="応募者"    main={applicants.length} link="/company/applicants" />
         <SummaryCard title="メッセージ" main={unreadCnt}    sub={messages.length} subLabel="取得件数" link="/company/chat" />
         <SummaryCard title="スカウト"  main={scoutCount}   link="/company/scout" />
       </section>
 
       {/* ── タブ ───────────────────────────────── */}
-      <Tabs defaultValue="applications" className="mb-8">
+      <Tabs defaultValue="applicants" className="mb-8">
         <TabsList className="mb-4 grid w-full grid-cols-3">
-          <TabsTrigger value="applications" className="flex items-center gap-2">
+          <TabsTrigger value="applicants" className="flex items-center gap-2">
             <Users className="h-4 w-4" /> 応募者
           </TabsTrigger>
           <TabsTrigger value="jobs" className="flex items-center gap-2">
@@ -289,8 +289,8 @@ export default function CompanyDashboard() {
             <MessageSquare className="h-4 w-4" /> メッセージ
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="applications">
-          <ApplicationsTable rows={applications} />
+        <TabsContent value="applicants">
+          <ApplicationsTable rows={applicants} />
         </TabsContent>
         <TabsContent value="jobs">
           <JobsCards rows={jobs} />

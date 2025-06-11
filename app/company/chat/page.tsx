@@ -262,8 +262,43 @@ const fetchChats = useCallback(async () => {
         : new Date(ta).getTime() - new Date(tb).getTime()
     })
 
+  // --- 既読フラグを更新 ---
+  const markMessagesAsRead = async (chatRoomId: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    // 学生→企業の未読メッセージだけを既読にする
+    await supabase
+      .from("messages")
+      .update({ is_read: true })
+      .eq("chat_room_id", chatRoomId)
+      .neq("sender_id", user.id)
+      .eq("is_read", false)
+  }
+
   // — 操作ハンドラ —
-  const navigateToChat = (id: string) => {
+  const navigateToChat = async (id: string) => {
+    // 楽観的にローカルの未読数をクリア
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              unreadCount: 0,
+              lastMessage: c.lastMessage
+                ? { ...c.lastMessage, isRead: true }
+                : null,
+            }
+          : c
+      )
+    )
+
+    // DB 上でも既読フラグを立てる
+    await markMessagesAsRead(id)
+
+    // 詳細チャット画面へ遷移
     router.push(`/company/chat/${id}`)
   }
   const togglePin = (id: string, e: React.MouseEvent) => {

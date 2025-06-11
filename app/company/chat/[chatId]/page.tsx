@@ -115,43 +115,66 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading]   = useState(true);
 
+  // --- 既読フラグを更新 ---
+  const markMessagesAsRead = useCallback(
+    async (roomId: string) => {
+      if (!userId) return;
+      await supabase
+        .from("messages")
+        .update({ is_read: true })
+        .eq("chat_room_id", roomId)
+        .neq("sender_id", userId)
+        .eq("is_read", false);
+    },
+    [userId]
+  );
+
   /* 既存メッセージ取得 */
   useEffect(() => {
     if (!chatId || !userId) return;
     setLoading(true);
 
-    supabase
-      .from("messages")
-      .select("id, sender_id, content, is_read, attachment_url, created_at")
-      .eq("chat_room_id", chatId)
-      .order("created_at", { ascending: true })
-      .then(({ data, error }) => {
-        if (error) {
-          toast({
-            title: "メッセージの取得に失敗しました",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else if (data) {
-          const formatted: ChatMessage[] = (data as MessageRow[]).map((m) => ({
-            id: m.id,                       // string
-            sender: m.sender_id === userId ? "company" : "student",
-            content: m.content,
-            timestamp: m.created_at!,
-            status: m.is_read ? "read" : "delivered",
-            ...(m.attachment_url && {
-              attachment: {
-                url : m.attachment_url,
-                name: "",
-                type: "",
-              },
-            }),
-          }));
-          setMessages(formatted);
-        }
+    (async () => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select(
+          "id, sender_id, content, is_read, attachment_url, created_at"
+        )
+        .eq("chat_room_id", chatId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        toast({
+          title: "メッセージの取得に失敗しました",
+          description: error.message,
+          variant: "destructive",
+        });
         setLoading(false);
-      });
-  }, [chatId, userId, toast]);
+        return;
+      }
+
+      // --- 既読処理 ---
+      await markMessagesAsRead(chatId);
+
+      const formatted: ChatMessage[] = (data as MessageRow[]).map((m) => ({
+        id: m.id,
+        sender: m.sender_id === userId ? "company" : "student",
+        content: m.content,
+        timestamp: m.created_at!,
+        status: "read", // 取得直後に既読化したので全て read 扱い
+        ...(m.attachment_url && {
+          attachment: {
+            url: m.attachment_url,
+            name: "",
+            type: "",
+          },
+        }),
+      }));
+
+      setMessages(formatted);
+      setLoading(false);
+    })();
+  }, [chatId, userId, toast, markMessagesAsRead]);
 
   /* メッセージ送信 */
   const handleSendMessage = useCallback(

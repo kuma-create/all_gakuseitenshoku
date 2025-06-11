@@ -39,7 +39,7 @@ type FormData = {
 }
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import {
   ArrowLeft,
   Building,
@@ -146,14 +146,19 @@ const fetchJob = async (id: string) => {
   }
 }
 
-export default function JobEditPage({ params }: { params: { id: string } }) {
-  const { id } = params
+export default function JobEditPage() {
+  const { id } = useParams() as { id: string }
   const router = useRouter()
   const { toast } = useToast()
 
   const [isUploadingCover, setIsUploadingCover] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [job, setJob] = useState<any>(null)
+  // --- helper flags ----------------------------
+  const isFulltime   = job?.selectionType === "fulltime";
+  const isInternship = job?.selectionType === "internship_short";
+  const isEvent      = job?.selectionType === "event";
+  // ---------------------------------------------
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -694,8 +699,21 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
               />
               {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
             </div>
+          </CardContent>
+        </Card>
 
-            {job.selectionType === "fulltime" && (
+        {/* --- Full‑time specific fields ------------------------------------------------ */}
+        {isFulltime && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Building className="h-5 w-5 text-primary" />
+                <CardTitle>正社員向け詳細</CardTitle>
+              </div>
+              <CardDescription>正社員ポジション固有の条件を入力してください</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 勤務日・勤務時間 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="workingDays" className="flex items-center">
@@ -711,7 +729,6 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
                   />
                   {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
                 </div>
-
                 <div>
                   <Label htmlFor="workingHours">勤務時間</Label>
                   <Input
@@ -724,67 +741,38 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
                   />
                 </div>
               </div>
-            )}
 
-            {job.selectionType === "fulltime" && (
-              <>
-                <div>
-                  <Label htmlFor="salary" className="flex items-center">
-                    給与 <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  <Input
-                    id="salary"
-                    name="salary"
-                    value={formData.salary}
-                    onChange={handleInputChange}
-                    className={`mt-1 ${errors.salary ? "border-red-500" : ""}`}
-                    placeholder="例: 500〜800"
-                  />
-                  {errors.salary && <p className="text-sm text-red-500 mt-1">{errors.salary}</p>}
-                </div>
-                {/* 福利厚生 */}
-                <div>
-                  <Label htmlFor="benefits">福利厚生</Label>
-                  <Textarea
-                    id="benefits"
-                    name="benefits"
-                    value={formData.benefits}
-                    onChange={handleInputChange}
-                    className="mt-1"
-                    placeholder="例: 社会保険完備、交通費支給、リモートワーク可 など"
-                  />
-                </div>
-                {/* 応募締切日/勤務開始日 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="applicationDeadline">応募締切日</Label>
-                    <Input
-                      id="applicationDeadline"
-                      name="applicationDeadline"
-                      type="date"
-                      value={formData.applicationDeadline}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
-                  </div>
-                  <div>
-                    <Label htmlFor="startDate">勤務開始日</Label>
-                    <Input
-                      id="startDate"
-                      name="startDate"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                      placeholder="例: 2023年4月1日 または 応相談"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+              {/* 給与 */}
+              <div>
+                <Label htmlFor="salary" className="flex items-center">
+                  給与 <span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="salary"
+                  name="salary"
+                  value={formData.salary}
+                  onChange={handleInputChange}
+                  className={`mt-1 ${errors.salary ? "border-red-500" : ""}`}
+                  placeholder="例: 500〜800"
+                />
+                {errors.salary && <p className="text-sm text-red-500 mt-1">{errors.salary}</p>}
+              </div>
 
-            {job.selectionType === "internship_short" && (
-              <>
+              {/* 福利厚生 */}
+              <div>
+                <Label htmlFor="benefits">福利厚生</Label>
+                <Textarea
+                  id="benefits"
+                  name="benefits"
+                  value={formData.benefits}
+                  onChange={handleInputChange}
+                  className="mt-1"
+                  placeholder="例: 社会保険完備、交通費支給、リモートワーク可 など"
+                />
+              </div>
+
+              {/* 応募締切日 ＆ 勤務開始日 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="applicationDeadline">応募締切日</Label>
                   <Input
@@ -797,109 +785,170 @@ export default function JobEditPage({ params }: { params: { id: string } }) {
                   />
                   <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="startDate">開始日</Label>
-                    <Input id="startDate" name="startDate" type="date"
-                      value={formData.startDate} onChange={handleInputChange} className="mt-1"/>
-                  </div>
-                  <div>
-                    <Label htmlFor="endDate">終了日</Label>
-                    <Input id="endDate" name="endDate" type="date"
-                      value={formData.endDate} onChange={handleInputChange} className="mt-1"/>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="durationWeeks">期間（週）</Label>
-                    <Input id="durationWeeks" name="durationWeeks"
-                      value={formData.durationWeeks} onChange={handleInputChange} className="mt-1"/>
-                  </div>
-                  <div>
-                    <Label htmlFor="workDaysPerWeek">週あたり勤務日数</Label>
-                    <Input id="workDaysPerWeek" name="workDaysPerWeek"
-                      value={formData.workDaysPerWeek} onChange={handleInputChange} className="mt-1"/>
-                  </div>
-                </div>
                 <div>
-                  <Label htmlFor="allowance">報酬・交通費</Label>
-                  <Input id="allowance" name="allowance"
-                    value={formData.allowance} onChange={handleInputChange} className="mt-1"/>
+                  <Label htmlFor="startDate">勤務開始日</Label>
+                  <Input
+                    id="startDate"
+                    name="startDate"
+                    value={formData.startDate}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 2023年4月1日 または 応相談"
+                  />
                 </div>
-              </>
-            )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {job.selectionType === "event" && (
-              <>
-                {/* 応募締切日 & 勤務開始日 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="applicationDeadline">応募締切日</Label>
-                    <Input
-                      id="applicationDeadline"
-                      name="applicationDeadline"
-                      type="date"
-                      value={formData.applicationDeadline}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
-                  </div>
-                  <div>
-                    <Label htmlFor="startDate">勤務開始日</Label>
-                    <Input
-                      id="startDate"
-                      name="startDate"
-                      type="date"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                      placeholder="例: 2023年4月1日 または 応相談"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="eventDate">開催日</Label>
-                    <Input id="eventDate" name="eventDate" type="date"
-                      value={formData.eventDate} onChange={handleInputChange} className="mt-1"/>
-                  </div>
-                  <div>
-                    <Label htmlFor="capacity">定員</Label>
-                    <Input id="capacity" name="capacity"
-                      value={formData.capacity} onChange={handleInputChange} className="mt-1"/>
-                  </div>
+        {/* --- Internship specific fields ---------------------------------------------- */}
+        {isInternship && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Building className="h-5 w-5 text-primary" />
+                <CardTitle>短期インターン詳細</CardTitle>
+              </div>
+              <CardDescription>インターンに必要な詳細情報を入力してください</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 応募締切日 */}
+              <div>
+                <Label htmlFor="applicationDeadline">応募締切日</Label>
+                <Input
+                  id="applicationDeadline"
+                  name="applicationDeadline"
+                  type="date"
+                  value={formData.applicationDeadline}
+                  onChange={handleInputChange}
+                  className="mt-1"
+                />
+                <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+              </div>
+
+              {/* 開始・終了日 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="startDate">開始日<span className="text-red-500 ml-1">*</span></Label>
+                  <Input id="startDate" name="startDate" type="date"
+                    value={formData.startDate} onChange={handleInputChange} className="mt-1"/>
                 </div>
                 <div>
-                  <Label htmlFor="venue">会場 / URL</Label>
-                  <Input id="venue" name="venue"
-                    value={formData.venue} onChange={handleInputChange} className="mt-1"/>
+                  <Label htmlFor="endDate">終了日<span className="text-red-500 ml-1">*</span></Label>
+                  <Input id="endDate" name="endDate" type="date"
+                    value={formData.endDate} onChange={handleInputChange} className="mt-1"/>
+                </div>
+              </div>
+
+              {/* 期間・週あたり勤務日数 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="durationWeeks">期間（週）</Label>
+                  <Input id="durationWeeks" name="durationWeeks"
+                    value={formData.durationWeeks} onChange={handleInputChange} className="mt-1"/>
                 </div>
                 <div>
-                  <Label htmlFor="format">開催形態</Label>
-                  <RadioGroup
-                    className="mt-2 flex gap-4"
-                    value={formData.format}
-                    onValueChange={(v) => setFormData((p) => ({ ...p, format: v as FormData["format"] }))}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <RadioGroupItem value="onsite" id="onsite" />
-                      <Label htmlFor="onsite">対面</Label>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <RadioGroupItem value="online" id="online" />
-                      <Label htmlFor="online">オンライン</Label>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <RadioGroupItem value="hybrid" id="hybrid" />
-                      <Label htmlFor="hybrid">ハイブリッド</Label>
-                    </div>
-                  </RadioGroup>
+                  <Label htmlFor="workDaysPerWeek">週あたり勤務日数</Label>
+                  <Input id="workDaysPerWeek" name="workDaysPerWeek"
+                    value={formData.workDaysPerWeek} onChange={handleInputChange} className="mt-1"/>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </div>
+
+              {/* 報酬 */}
+              <div>
+                <Label htmlFor="allowance">報酬・交通費</Label>
+                <Input id="allowance" name="allowance"
+                  value={formData.allowance} onChange={handleInputChange} className="mt-1"/>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* --- Event specific fields ---------------------------------------------------- */}
+        {isEvent && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Building className="h-5 w-5 text-primary" />
+                <CardTitle>イベント詳細</CardTitle>
+              </div>
+              <CardDescription>イベント開催に関する情報を入力してください</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 応募締切日 & 勤務開始日 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="applicationDeadline">応募締切日</Label>
+                  <Input
+                    id="applicationDeadline"
+                    name="applicationDeadline"
+                    type="date"
+                    value={formData.applicationDeadline}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                </div>
+                <div>
+                  <Label htmlFor="startDate">勤務開始日</Label>
+                  <Input
+                    id="startDate"
+                    name="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 2023年4月1日 または 応相談"
+                  />
+                </div>
+              </div>
+
+              {/* 開催日・定員 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="eventDate">開催日</Label>
+                  <Input id="eventDate" name="eventDate" type="date"
+                    value={formData.eventDate} onChange={handleInputChange} className="mt-1"/>
+                </div>
+                <div>
+                  <Label htmlFor="capacity">定員</Label>
+                  <Input id="capacity" name="capacity"
+                    value={formData.capacity} onChange={handleInputChange} className="mt-1"/>
+                </div>
+              </div>
+
+              {/* 会場 / URL */}
+              <div>
+                <Label htmlFor="venue">会場 / URL</Label>
+                <Input id="venue" name="venue"
+                  value={formData.venue} onChange={handleInputChange} className="mt-1"/>
+              </div>
+
+              {/* 開催形態 */}
+              <div>
+                <Label htmlFor="format">開催形態</Label>
+                <RadioGroup
+                  className="mt-2 flex gap-4"
+                  value={formData.format}
+                  onValueChange={(v) => setFormData((p) => ({ ...p, format: v as FormData["format"] }))}
+                >
+                  <div className="flex items-center space-x-1">
+                    <RadioGroupItem value="onsite" id="onsite" />
+                    <Label htmlFor="onsite">対面</Label>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <RadioGroupItem value="online" id="online" />
+                    <Label htmlFor="online">オンライン</Label>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <RadioGroupItem value="hybrid" id="hybrid" />
+                    <Label htmlFor="hybrid">ハイブリッド</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Publication Settings Section */}
         <Card>

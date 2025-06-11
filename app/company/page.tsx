@@ -22,7 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 
 // 仮のデータ
-const recentApplications = [
+const recentApplicants = [
   {
     id: 1,
     name: "田中 太郎",
@@ -126,7 +126,7 @@ export default function CompanyDashboard() {
   const hasJobs = activeJobs.length > 0
 
   // 応募者が存在するかどうか
-  const hasApplicants = recentApplications.length > 0
+  const hasApplicants = recentApplicants.length > 0
 
   return (
     <main className="container mx-auto px-4 py-6">
@@ -230,12 +230,12 @@ export default function CompanyDashboard() {
           <CardContent className="pb-2">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold">{recentApplications.length}</p>
+                <p className="text-3xl font-bold">{recentApplicants.length}</p>
                 <p className="text-sm text-gray-500">総応募者数</p>
               </div>
               <div className="text-right">
                 <p className="text-xl font-semibold text-blue-600">
-                  {recentApplications.filter((app) => app.status === "新規").length}
+                  {recentApplicants.filter((app) => app.status === "新規").length}
                 </p>
                 <p className="text-sm text-gray-500">新規応募</p>
               </div>
@@ -245,19 +245,19 @@ export default function CompanyDashboard() {
               <>
                 <Separator className="my-4" />
                 <div className="space-y-3">
-                  {recentApplications.slice(0, 3).map((application) => (
-                    <div key={application.id} className="flex items-center justify-between">
+                  {recentApplicants.slice(0, 3).map((applicant) => (
+                    <div key={applicant.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={application.avatar || "/placeholder.svg"} alt={application.name} />
-                          <AvatarFallback>{application.name.charAt(0)}</AvatarFallback>
+                          <AvatarImage src={applicant.avatar || "/placeholder.svg"} alt={applicant.name} />
+                          <AvatarFallback>{applicant.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium">{application.name}</p>
-                          <p className="text-xs text-gray-500">{application.university}</p>
+                          <p className="text-sm font-medium">{applicant.name}</p>
+                          <p className="text-xs text-gray-500">{applicant.university}</p>
                         </div>
                       </div>
-                      <Badge className={getStatusBadgeVariant(application.status)}>{application.status}</Badge>
+                      <Badge className={getStatusBadgeVariant(applicant.status)}>{applicant.status}</Badge>
                     </div>
                   ))}
                 </div>
