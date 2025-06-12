@@ -256,8 +256,26 @@ export default function SignupPage() {
                         required
                       />
                       <Label htmlFor="terms" className="text-sm">
-                        <span className="underline">利用規約</span> と{" "}
-                        <span className="underline">プライバシーポリシー</span> に同意します
+                        <Link
+                          href="/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline text-red-600 hover:text-red-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          利用規約
+                        </Link>
+                        {" "}と{" "}
+                        <Link
+                          href="/privacy-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline text-red-600 hover:text-red-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          プライバシーポリシー
+                        </Link>
+                        {" "}に同意します
                       </Label>
                     </div>
 

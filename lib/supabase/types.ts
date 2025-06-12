@@ -1430,32 +1430,44 @@ export type Database = {
       }
       notifications: {
         Row: {
+          channel: string | null
           created_at: string | null
+          error_reason: string | null
           id: string
           is_read: boolean | null
           message: string
           notification_type: string
           related_id: string | null
+          send_after: string | null
+          send_status: string | null
           title: string
           user_id: string
         }
         Insert: {
+          channel?: string | null
           created_at?: string | null
+          error_reason?: string | null
           id?: string
           is_read?: boolean | null
           message: string
           notification_type: string
           related_id?: string | null
+          send_after?: string | null
+          send_status?: string | null
           title: string
           user_id: string
         }
         Update: {
+          channel?: string | null
           created_at?: string | null
+          error_reason?: string | null
           id?: string
           is_read?: boolean | null
           message?: string
           notification_type?: string
           related_id?: string | null
+          send_after?: string | null
+          send_status?: string | null
           title?: string
           user_id?: string
         }
