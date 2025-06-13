@@ -5,15 +5,20 @@ import Link from "next/link"
 import { Bell } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { useAuth } from "@/lib/auth-context"
-import { countUnread, fetchNotifications, markAsRead } from "@/lib/notifications"
 import {
-  Popover, PopoverTrigger, PopoverContent,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
 } from "@/components/ui/popover"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 
-type Noti = Awaited<ReturnType<typeof fetchNotifications>>[number] & {
-    body?: string | null
+type Noti = {
+  id: string
+  title: string
+  message: string | null
+  body?: string | null
+  is_read: boolean
+  created_at: string
 }
 
 export default function NotificationBell() {
@@ -26,7 +31,12 @@ export default function NotificationBell() {
   /* ---- 初回ロード ---- */
   useEffect(() => {
     if (!userId) return
-    countUnread(userId).then(setUnread)
+    supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_read", false)
+      .then(({ count }) => setUnread(count ?? 0))
   }, [userId])
 
   /* ---- Realtime 購読 ---- */
@@ -57,16 +67,31 @@ export default function NotificationBell() {
   const loadList = async () => {
     if (!userId || loading) return
     setLoading(true)
-    const data = await fetchNotifications(userId)
-    setList(data)
-    setLoading(false)
 
-    // 未読分を既読化
-    const unreadIds = data.filter(n => !n.is_read).map(n => n.id)
-    if (unreadIds.length) {
-      await markAsRead(unreadIds)
-      setUnread(0)
+    // fetch latest notifications
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+
+    if (!error) {
+      setList(data as Noti[])
+      // mark unread as read
+      const unreadIds = data
+        .filter((n: any) => !n.is_read)
+        .map((n: any) => n.id)
+
+      if (unreadIds.length) {
+        await supabase
+          .from("notifications")
+          .update({ is_read: true })
+          .in("id", unreadIds)
+
+        setUnread(0)
+      }
     }
+    setLoading(false)
   }
 
   if (!userId) return null
@@ -114,13 +139,12 @@ export default function NotificationBell() {
                       </span>
                     )}
                   </p>
-                   {/* body と message どちらでも読めるように */}
-                    { (n.body ?? (n as any).message) && (
-                        <p className="text-xs text-gray-600">
-                        {n.body ?? (n as any).message}
-                        </p>
-                    )
-                    }
+                  {/* body と message どちらでも読めるように */}
+                  {(n.body ?? n.message) && (
+                    <p className="text-xs text-gray-600">
+                      {n.body ?? n.message}
+                    </p>
+                  )}
                   <p className="mt-1 text-[10px] text-gray-400">
                     {n.created_at && new Date(n.created_at).toLocaleString("ja-JP", {
                       month: "short",

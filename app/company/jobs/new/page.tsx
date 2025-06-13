@@ -608,10 +608,10 @@ export default function NewJobPage() {
                     <Input
                       id="startDate"
                       name="startDate"
+                      type="date"
                       value={formData.startDate}
                       onChange={handleInputChange}
                       className="mt-1"
-                      placeholder="例: 2023年4月1日 または 応相談"
                     />
                   </div>
                 </div>

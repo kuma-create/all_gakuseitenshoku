@@ -191,7 +191,7 @@ export default function ChatPage() {
           is_read        : false,
           attachment_url : attachmentUrl,
         } satisfies Database["public"]["Tables"]["messages"]["Insert"])
-        .select()
+        .select("id, sender_id, content, attachment_url, created_at")
         .single();
 
       if (error) {

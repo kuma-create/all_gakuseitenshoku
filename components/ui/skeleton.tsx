@@ -47,3 +47,18 @@ export function SkeletonCard() {
     </div>
   )
 }
+
+/* ─────────────── SkeletonList (通知一覧ローディング) ─────────────── */
+export function SkeletonList({ length = 4 }: { length?: number }) {
+  return (
+    <ul className="space-y-4">
+      {Array.from({ length }).map((_, i) => (
+        <li key={i} className="rounded border p-4">
+          <SkeletonText />
+          <SkeletonText w="w-5/6" />
+          <SkeletonText w="w-1/2" />
+        </li>
+      ))}
+    </ul>
+  )
+}

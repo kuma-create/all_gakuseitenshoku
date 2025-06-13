@@ -5,6 +5,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Suspense } from "react"
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover"
+import NotificationsList from "@/app/notifications/NotificationsList"
 import Image from "next/image";
 import Link  from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -55,62 +62,70 @@ const adminMain: NavItem[] = [
   { href: "/admin/grandprix", label: "GP", icon: LayoutDashboard },
 ];
 
-/* ===================================================================== */
 /* ---------- Notification Bell ---------- */
 function NotificationBell({ userId }: { userId: string }) {
-  const [unread, setUnread] = useState<number>(0);
-  const router = useRouter();
+  const [unread, setUnread] = useState<number>(0)
 
   /* 初期未読数 */
   useEffect(() => {
-    (async () => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error custom RPC not in generated Supabase types
-      const { data, error } = await supabase.rpc<number>("count_unread", {
-        _uid: userId,
-      });
-      if (!error) setUnread(Number(data) || 0);
-    })();
-  }, [userId]);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error custom RPC not in generated Supabase types
+    supabase.rpc<number>("count_unread", { _uid: userId }).then(({ data }) => {
+      setUnread(Number(data) || 0)
+    })
+  }, [userId])
 
   /* Realtime 追加 & 既読更新 */
   useEffect(() => {
-    const channel = supabase
+    const ch = supabase
       .channel("notifications")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        () => setUnread((c) => c + 1),
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        (payload) => {
-          if (payload.new.is_read && !payload.old.is_read) {
-            setUnread((c) => Math.max(0, c - 1));
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        payload => {
+          if (payload.eventType === "INSERT") {
+            setUnread(c => c + 1)
+          } else if (payload.eventType === "UPDATE") {
+            if (payload.new.is_read && !payload.old.is_read) {
+              setUnread(c => Math.max(0, c - 1))
+            }
           }
         },
       )
-      .subscribe();
+      .subscribe()
 
     return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
+      supabase.removeChannel(ch)
+    }
+  }, [userId])
 
   return (
-    <button
-      className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted"
-      onClick={() => router.push("/notifications")}
-    >
-      <Bell size={20} />
-      {unread > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs text-white">
-          {unread > 99 ? "99+" : unread}
-        </span>
-      )}
-    </button>
-  );
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted focus:outline-none"
+        >
+          <Bell size={20} />
+          {unread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs text-white">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent align="end" className="w-96 max-h-[70vh] overflow-y-auto p-0">
+        <Suspense fallback={<p className="p-4 text-sm text-gray-400">読み込み中…</p>}>
+          <NotificationsList userId={userId} />
+        </Suspense>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export default function Header() {
