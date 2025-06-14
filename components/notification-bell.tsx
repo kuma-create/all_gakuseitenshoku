@@ -28,38 +28,37 @@ export default function NotificationBell() {
   const [list, setList] = useState<Noti[] | null>(null)
   const [loading, setLoading] = useState(false)
 
-  /* ---- 初回ロード ---- */
+  /* ---- 未読数を取得 & Realtime で更新 ---- */
   useEffect(() => {
     if (!userId) return
-    supabase
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("is_read", false)
-      .then(({ count }) => setUnread(count ?? 0))
-  }, [userId])
 
-  /* ---- Realtime 購読 ---- */
-  useEffect(() => {
-    if (!userId) return
+    const fetchCount = () => {
+      supabase
+        .from("notifications")
+        .select("id", { head: true, count: "exact" })
+        .eq("user_id", userId)
+        .eq("is_read", false)
+        .then(res => setUnread(res.count ?? 0))
+    }
+
+    fetchCount()
+
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(`notifications-count:${userId}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "notifications",
           filter: `user_id=eq.${userId}`,
         },
-        _payload => {
-          setUnread(u => u + 1)
-        },
+        () => fetchCount(),
       )
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [userId])
 

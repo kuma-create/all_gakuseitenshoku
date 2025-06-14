@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
+import Link from "next/link"
 
 
 type Noti = Database["public"]["Tables"]["notifications"]["Row"]
@@ -65,6 +66,54 @@ export default function NotificationsList({ userId: initialUserId }: { userId?: 
     }
   }, [uid])
 
+  /** 通知タイプと related_id から遷移先を推定 */
+  const deriveHref = (n: Noti): string => {
+    // 1) DB に url が入っていれば優先
+    if ((n as any).url) return (n as any).url as string
+
+    // 2) url が無い場合は type + related_id から動的生成
+    switch (n.notification_type) {
+      case "application":
+        return `/student/applications/${n.related_id}`
+
+      case "chat":
+        return `/student/chat/${n.related_id}`
+
+      // 追加したい notification_type があればここに追記
+      default:
+        return "#"
+    }
+  }
+
+  /** 未読の場合のみ既読にする */
+  const markAsReadIfUnread = async (n: Noti) => {
+    if (n.is_read) return
+
+    // 1) 楽観的 UI 更新
+    setList(prev =>
+      prev.map(item =>
+        item.id === n.id ? { ...item, is_read: true } : item,
+      ),
+    )
+
+    // 2) DB 更新
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", n.id)
+      .eq("user_id", uid ?? n.user_id)
+
+    // 3) 失敗したらロールバック
+    if (error) {
+      console.error("notifications update error:", error)
+      setList(prev =>
+        prev.map(item =>
+          item.id === n.id ? { ...item, is_read: false } : item,
+        ),
+      )
+    }
+  }
+
   /* Skeleton は parent の <Suspense> が表示する */
   if (loading) return null
 
@@ -75,24 +124,29 @@ export default function NotificationsList({ userId: initialUserId }: { userId?: 
   return (
     <ul className="space-y-4">
       {list.map(n => (
-        <li
-          key={n.id}
-          className={`rounded border p-4 ${
-            n.is_read ? "bg-muted" : "bg-white"
-          }`}
-        >
-          <p className="font-medium">{n.title}</p>
-          {n.message && <p className="text-sm text-gray-600">{n.message}</p>}
-          <p className="mt-1 text-xs text-gray-400">
-            {n.created_at &&
-              new Date(n.created_at).toLocaleString("ja-JP", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-          </p>
+        <li key={n.id}>
+          <Link
+            href={deriveHref(n)}
+            onClick={() => markAsReadIfUnread(n)}
+            className={`block rounded border p-4 ${
+              n.is_read ? "bg-muted" : "bg-white"
+            } hover:bg-gray-50 transition cursor-pointer`}
+          >
+            <div>
+              <p className="font-medium">{n.title}</p>
+              {n.message && <p className="text-sm text-gray-600">{n.message}</p>}
+              <p className="mt-1 text-xs text-gray-400">
+                {n.created_at &&
+                  new Date(n.created_at).toLocaleString("ja-JP", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+              </p>
+            </div>
+          </Link>
         </li>
       ))}
     </ul>
