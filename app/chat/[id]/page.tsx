@@ -322,6 +322,18 @@ export default function StudentChatPage() {
       );
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
 
+      if (isStudent && chat.company.user_id) {
+        await supabase.functions.invoke("send-email", {
+          body: {
+            user_id:            chat.company.user_id,        // 会社側 Auth UID
+            from_role:          "student",                   // 送信者ロール
+            notification_type:  "chat",
+            title:              "学生から新しいチャットが届きました",
+            message:            text.trim(),
+          },
+        });
+      }
+
       /* 疑似 delivered へ変更 */
       startTransition(() => {
         setTimeout(() => {

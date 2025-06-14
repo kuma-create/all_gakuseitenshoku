@@ -93,6 +93,26 @@ export default function ScoutDrawer({
     })()
   }, [open, companyId])
 
+  /* ------------------ 会社名を取得 ------------------ */
+  const [companyName, setCompanyName] = useState<string>("");
+
+  useEffect(() => {
+    if (!open) return;
+    if (!companyId) return;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("name")
+        .eq("id", companyId)
+        .maybeSingle<{ name: string }>();
+
+      if (!error && data?.name) {
+        setCompanyName(data.name);
+      }
+    })();
+  }, [open, companyId]);
+
   const isDisabled: boolean =
     !student ||
     !message.trim() ||
@@ -143,6 +163,20 @@ export default function ScoutDrawer({
       toast.error("送信に失敗しました")
     } else {
       toast.success("スカウトを送信しました")
+
+      // --- 通知メールを送信 ---
+      if (student.auth_user_id) {
+        await supabase.functions.invoke("send-email", {
+          body: {
+            user_id:            student.auth_user_id,   // 学生の Auth UID
+            from_role:          "company",
+            company_name:       companyName,
+            notification_type:  "scout",
+            message,                                 // スカウト本文
+          },
+        });
+      }
+
       if (data && onSent) onSent(data)
       onOpenChange(false)
     }

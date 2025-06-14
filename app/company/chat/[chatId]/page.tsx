@@ -29,6 +29,7 @@ type ChatUser = {
   faculty: string;
   department: string;
 };
+type CompanyRow = Database["public"]["Tables"]["companies"]["Row"];
 
 /* ------------------------------------------------------------------ */
 /*                             コンポーネント                          */
@@ -66,6 +67,36 @@ export default function ChatPage() {
     faculty: "",
     department: "",
   });
+
+  /* ------------------ 会社情報 ------------------ */
+  type CompanyMemberRow = Database["public"]["Tables"]["company_members"]["Row"];
+  const [company, setCompany] = useState<Pick<CompanyRow, "id" | "name"> | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!userId) return;
+
+    // company_members.user_id → companies.id (FK) で取得
+    supabase
+      .from("company_members")
+      .select("company_id, companies!inner(id, name)")
+      .eq("user_id", userId)
+      .maybeSingle<CompanyMemberRow & { companies: CompanyRow }>()
+      .then(({ data, error }) => {
+        if (error) {
+          toast({
+            title: "会社情報の取得に失敗しました",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (data?.companies) {
+          setCompany({ id: data.companies.id, name: data.companies.name ?? "" });
+        }
+      });
+  }, [userId, toast]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -194,6 +225,17 @@ export default function ChatPage() {
         .select("id, sender_id, content, attachment_url, created_at")
         .single();
 
+      // --- 通知メールを Edge Function 経由で送信 ---
+      await supabase.functions.invoke("send-email", {
+        body: {
+          user_id: recipient.id,      // 受信者の Auth UID
+          from_role: "company",       // 件名テンプレ切替
+          company_name: company?.name ?? "", // 件名に差し込む会社名
+          notification_type: "chat",  // 通常チャット
+          message: content.trim(),
+        },
+      });
+
       if (error) {
         toast({
           title: "メッセージの送信に失敗しました",
@@ -221,7 +263,7 @@ export default function ChatPage() {
         },
       ]);
     },
-    [chatId, userId, toast]
+    [chatId, userId, recipient, company, toast]
   );
 
   /* 面接日程設定 */
