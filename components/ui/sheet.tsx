@@ -68,6 +68,8 @@ const SheetContent = React.forwardRef<
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </SheetPrimitive.Close>
+      {/* Visually‑hidden title to prevent Radix warning */}
+      <SheetPrimitive.Title className="sr-only">Sheet dialog</SheetPrimitive.Title>
       {children}
     </SheetPrimitive.Content>
   </SheetPortal>

@@ -3,12 +3,58 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Briefcase, FileText, Mail, MessageSquare, Star, User } from "lucide-react"
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabase/client"
 
 export function MobileNavigation() {
   const pathname = usePathname()
 
+  // ── 学生ロール判定 ───────────────────────────
+  const [isStudent, setIsStudent] = useState<boolean>(false)
+
+  // ── ログイン状態 & ロールを監視 ────────────────
+  useEffect(() => {
+    const fetchRoleFromDB = async (uid: string | undefined | null) => {
+      if (!uid) {
+        setIsStudent(false)
+        return
+      }
+      const { data, error } = await supabase
+        .from("user_roles") // ← テーブル名: 必要に応じて user_roles に変更
+        .select("role")
+        .eq("user_id", uid)
+        .single()
+
+      if (error) {
+        console.error("role fetch error:", error)
+        setIsStudent(false)
+        return
+      }
+      setIsStudent(data?.role === "student")
+    }
+
+    // 初回取得
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      fetchRoleFromDB(user?.id)
+    })
+
+    // Auth 状態変化を監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        fetchRoleFromDB(session?.user?.id)
+      },
+    )
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  // トップページや学生以外 → 非表示
+  if (pathname === "/" || !isStudent) return null
+
   const links = [
-    { href: "/", label: "マイページ", icon: User },
+    { href: "/student-dashboard", label: "マイページ", icon: User },
     { href: "/resume", label: "職務経歴書", icon: FileText },
     { href: "/jobs", label: "求人一覧", icon: Briefcase },
     { href: "/offers", label: "オファー一覧", icon: Mail },

@@ -121,6 +121,8 @@ export default function AdminGrandPrixPage() {
   // question_bank rows for the selected type
   const [questions, setQuestions] = useState<Database["public"]["Tables"]["question_bank"]["Row"][]>([])
   const [questionLoading, setQuestionLoading] = useState(false)
+  /* 出題対象として選択された question_id の配列 */
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([])
 
   // In-place editing for questions
   const [qModalOpen, setQModalOpen] = useState(false)
@@ -178,11 +180,11 @@ export default function AdminGrandPrixPage() {
     const rows = dataLines.map((l) => {
       const [stem, c1, c2, c3, c4, correct] = parseCsv(l)
       return {
-        grand_type: "webtest" as const,
+        grand_type: grandType,
         stem,
         choices: [c1, c2, c3, c4],
         correct_choice: Number(correct || 1),
-      }
+      } as Database["public"]["Tables"]["question_bank"]["Insert"];
     })
 
     const { error } = await supabase.from("question_bank").insert(rows)
@@ -226,6 +228,7 @@ export default function AdminGrandPrixPage() {
       const updates: any = {
         stem: qForm.stem,
         order_no: qForm.order_no,
+        grand_type: grandType,       // ← 追加: 必ず現在のタブ種別に揃える
       }
       if (grandType === "webtest") {
         updates.choices = qForm.choices
@@ -267,6 +270,12 @@ export default function AdminGrandPrixPage() {
       if (grandType === "bizscore") {
         insertData.weight = qForm.weight
       }
+      if (grandType === "case") {
+        insertData.expected_kw = qForm.keywords
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      }
       const { error } = await supabase.from("question_bank").insert(insertData)
       if (error) {
         toast({ title: "保存に失敗しました", description: error.message, variant: "destructive" })
@@ -301,6 +310,48 @@ export default function AdminGrandPrixPage() {
   const [challengeToDelete, setChallengeToDelete] = useState<ChallengeRow | null>(null)
   // プレビューモーダル
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
+
+  // 問題セット閲覧モーダル
+  const [psModalOpen, setPsModalOpen] = useState(false)
+  const [viewingChallenge, setViewingChallenge] = useState<ChallengeRow | null>(null)
+  const [viewingQuestions, setViewingQuestions] = useState<
+    { order_no: number; stem: string | null }[]
+  >([])
+
+  /** 選択された challenge の問題セットを取得してモーダル表示 */
+  const openPsModal = async (ch: ChallengeRow) => {
+    try {
+      setViewingChallenge(ch)
+      // challenge_questions -> question_bank
+      const { data, error } = await supabase
+        .from("challenge_questions")
+        .select(
+          `
+          order_no,
+          question_bank:question_id (
+            stem
+          )
+        `,
+        )
+        .eq("challenge_id", ch.id)
+        .order("order_no", { ascending: true })
+
+      if (error) throw error
+      const qs =
+        (data ?? []).map((r: any) => ({
+          order_no: r.order_no,
+          stem: r.question_bank?.stem ?? "",
+        })) ?? []
+      setViewingQuestions(qs)
+      setPsModalOpen(true)
+    } catch (e) {
+      toast({
+        title: "問題セット取得エラー",
+        description: (e as any).message,
+        variant: "destructive",
+      })
+    }
+  }
 
   // ------------------------------------------------------------------
   // データ取得
@@ -448,6 +499,19 @@ export default function AdminGrandPrixPage() {
       if (errQB) console.error(errQB)
       setQuestions(qbRows ?? [])
       setQuestionLoading(false)
+
+      // 6) challenge_questions (現在編集対象がある場合のみ)
+      if (current) {
+        const { data: cqRows, error: errCQ } = await supabase
+          .from("challenge_questions")
+          .select("question_id")
+          .eq("challenge_id", current.id)
+
+        if (errCQ) throw errCQ
+        setSelectedQuestionIds((cqRows ?? []).map((r: any) => r.question_id))
+      } else {
+        setSelectedQuestionIds([])
+      }
     } catch (e: any) {
       console.error(e)
       setError(e.message)
@@ -476,6 +540,7 @@ export default function AdminGrandPrixPage() {
     })
     setSelectedTime("23:59")
     setIsCreating(true)
+    setSelectedQuestionIds([])
   }
 
   /** 既存お題を編集モードで開く */
@@ -496,6 +561,15 @@ export default function AdminGrandPrixPage() {
         : "23:59",
     )
     setIsCreating(false)
+    ;(async () => {
+      const { data: cqRows, error } = await supabase
+        .from("challenge_questions")
+        .select("question_id")
+        .eq("challenge_id", ch.id)
+      if (!error) {
+        setSelectedQuestionIds((cqRows ?? []).map((r: any) => r.question_id))
+      }
+    })()
   }
 
   // ------------------------------------------------------------------
@@ -505,6 +579,8 @@ export default function AdminGrandPrixPage() {
     e.preventDefault()
 
     const creating = !currentChallenge || isCreating
+    // 新規作成時にあとで state へ流し込むための一時変数
+    let createdChallengeRow: ChallengeRow | null = null;
 
     try {
       const dateTime = new Date(challengeForm.deadline)
@@ -515,11 +591,15 @@ export default function AdminGrandPrixPage() {
         title: challengeForm.title,
         description: challengeForm.description,
         deadline: dateTime.toISOString(),
-        type: grandType,
+        type: grandType,          // 同義カラム (旧)
+        category: grandType,      // ← UI で参照している category も常に同期
       }
 
       // Build payload per type
       let payload: Record<string, any> = { ...base }
+      // ↓ type と category が食い違わないように念のため統一
+      payload.type = grandType;
+      payload.category = grandType;
 
       if (grandType === "webtest") {
         payload.num_questions = challengeForm.num_questions
@@ -529,25 +609,94 @@ export default function AdminGrandPrixPage() {
         payload.word_limit = challengeForm.word_limit
       }
 
-      let supaErr
-
+      let createdChallengeId: string
       if (creating) {
-        // insert
-        const { error } = await supabase
+        // Supabase 型に合わせてキャスト
+        const insertRows: Database["public"]["Tables"]["challenges"]["Insert"][] = [
+          payload as Database["public"]["Tables"]["challenges"]["Insert"],
+        ]
+
+        const { data: newCh, error } = await supabase
           .from("challenges")
-          .insert([payload] as any)   // ← insert expects array
+          .insert(insertRows) // array 形式で渡す
+          .select()
           .single()
-        supaErr = error
+
+        if (error) throw error
+        createdChallengeId = newCh!.id
+        createdChallengeRow = newCh as ChallengeRow;   // ← state へ反映するため保持
       } else {
-        // update
         const { error } = await supabase
           .from("challenges")
           .update(payload)
           .eq("id", currentChallenge!.id)
-        supaErr = error
+        if (error) throw error
+        createdChallengeId = currentChallenge!.id
       }
 
-      if (supaErr) throw supaErr
+      // ---------- challenge_questions へ追加 ----------
+      // 1) 既に登録済みの question_id 一覧を取得
+      //    新規作成時 (creating=true) はまだ存在しないので空配列にしておく
+      const existingRows =
+        creating
+          ? []
+          : (
+              await supabase
+                .from("challenge_questions")
+                .select("question_id, order_no")
+                .eq("challenge_id", createdChallengeId)
+            ).data ?? [];
+
+      const existingIds = new Set(
+        (existingRows ?? []).map((r: any) => r.question_id as string)
+      );
+
+      // 2) UI で選択された question_id の重複を排除
+      const uniqIds = Array.from(new Set(selectedQuestionIds));
+
+      // 3) 既存に無いものだけ新規 INSERT する
+      const newIds = uniqIds.filter((id) => !existingIds.has(id));
+
+      // 📝 Debugging logs before insertion
+      console.log("📝 selectedQuestionIds", selectedQuestionIds);
+      console.log("📝 uniqIds", uniqIds);
+      console.log("📝 newIds", newIds);
+
+      if (newIds.length > 0) {
+        // 既存行の最大 order_no を取得（NULL -> 0）
+        const maxOrder = existingRows && existingRows.length
+          ? Math.max(...existingRows.map((r: any) => r.order_no ?? 0))
+          : 0;
+
+        const rows = newIds.map((qid, idx) => ({
+          challenge_id: createdChallengeId,
+          question_id: qid,
+          order_no: maxOrder + idx + 1, // 重複しない order_no
+        }));
+
+        // Insert and select the inserted rows for debug/visibility
+        const { data: cqInserted, error } = await supabase
+          .from("challenge_questions")
+          .insert(rows)
+          .select("challenge_id,question_id,order_no");   // ← representation for debug
+
+        console.log("✅ challenge_questions inserted", cqInserted, "❌ error", error);
+
+        if (error) throw error;
+
+        // question_bank 側にも challenge_id をセット
+        await supabase
+          .from("question_bank")
+          .update({ challenge_id: createdChallengeId })
+          .in("id", newIds);
+      }
+
+      /* --- 新規作成直後にそのまま編集モードへ移行 --------------------- */
+      if (creating && createdChallengeRow) {
+        setCurrentChallenge(createdChallengeRow);
+        setIsCreating(false);
+        setEditingId(createdChallengeRow.id);
+      }
 
       toast({
         title: creating ? "お題を公開しました" : "お題が更新されました",
@@ -957,6 +1106,48 @@ export default function AdminGrandPrixPage() {
                 >
                   {isCreating ? "お題を公開する" : "お題を更新する"}
                 </Button>
+                {/* 出題する問題の選択 */}
+                <div className="space-y-2">
+                  <Label>出題する問題を選択</Label>
+                  {questionLoading ? (
+                    <p className="text-sm text-muted-foreground">読み込み中…</p>
+                  ) : questions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      この種別の問題が登録されていません
+                    </p>
+                  ) : (
+                    <ScrollArea className="max-h-[200px] border rounded">
+                      {questions.map((q) => (
+                        <div
+                          key={q.id}
+                          className="flex items-start gap-2 p-2 border-b"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={selectedQuestionIds.includes(q.id as string)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedQuestionIds((prev) => [
+                                  ...prev,
+                                  q.id as string,
+                                ])
+                              } else {
+                                setSelectedQuestionIds((prev) =>
+                                  prev.filter((id) => id !== (q.id as string)),
+                                )
+                              }
+                            }}
+                          />
+                          <span className="text-sm">
+                            {(q.stem ?? "").substring(0, 80)}
+                            {(q.stem ?? "").length > 80 && "…"}
+                          </span>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                  )}
+                </div>
               </form>
               {/* ===== 一覧 ===== */}
               {/* ---------- 現在公開中のお題 ---------- */}
@@ -986,6 +1177,14 @@ export default function AdminGrandPrixPage() {
                             onClick={() => startEdit(currentChallenge)}
                           >
                             編集
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="ml-2"
+                            onClick={() => openPsModal(currentChallenge)}
+                          >
+                            問題セット
                           </Button>
                         </td>
                       </tr>
@@ -1021,6 +1220,14 @@ export default function AdminGrandPrixPage() {
                               : "－"}
                           </td>
                           <td className="py-2 px-1 text-right">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="mr-2"
+                              onClick={() => openPsModal(ch)}
+                            >
+                              問題
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -1567,4 +1774,3 @@ export default function AdminGrandPrixPage() {
     </div>
   )
 }
-

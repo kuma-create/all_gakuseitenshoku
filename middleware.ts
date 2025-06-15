@@ -23,7 +23,8 @@ const PUBLIC_PREFIXES = [
   "/auth/student/register",  // 学生登録フロー
   "/auth/reset",             // パスワードリセット
   "/grandprix",              // グランプリ一覧
-  "/api",                    // API ルート
+  "/api",
+  "/jobs",                  // API ルート
   "/admin/login",            // 管理者ログイン
   /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
   "/offers",                 // スカウト /offers(/...)
@@ -139,6 +140,6 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume|companies).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume|companies|jobs).*)",
   ],
 };

@@ -40,6 +40,7 @@ export default function WebTestResultPage() {
   const [loading, setLoading]           = useState(true)
   const [submission, setSubmission]     = useState<SubmissionRow | null>(null)
   const [questions, setQuestions]       = useState<WebTestQuestionRow[]>([])
+  const [caseQuestions, setCaseQuestions] = useState<WebTestQuestionRow[]>([]);
 
   /* ---------------- fetch ---------------- */
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function WebTestResultPage() {
       /* ---------- 1. submission ---------- */
       const { data: sub, error: subErr } = await supabase
         .from("challenge_submissions")
-        .select("id, session_id, answers, auto_score, final_score, challenge_id, created_at")
+        .select("id, session_id, answer, answers, auto_score, final_score, challenge_id, created_at")
         .eq("session_id", sessionId)                       // ← change target column
         .order("created_at", { ascending: false })         // newest first
         .limit(1)
@@ -78,6 +79,21 @@ export default function WebTestResultPage() {
           if (qErr) toast({ description: qErr.message });
           else setQuestions(qs as WebTestQuestionRow[]);
         }
+      } else {
+        /* -------- Case / Bizscore 用 -------- */
+        if (sub?.challenge_id) {
+          const { data: qs, error: qErr } = await supabase
+            .from("challenge_questions")
+            .select("order_no, question:question_bank(id, stem)")
+            .eq("challenge_id", sub.challenge_id)
+            .order("order_no");
+
+          if (qErr) toast({ description: qErr.message });
+          else {
+            const flattened = (qs ?? []).map((row) => row.question) as WebTestQuestionRow[];
+            setCaseQuestions(flattened);
+          }
+        }
       }
 
       setLoading(false)
@@ -98,6 +114,41 @@ export default function WebTestResultPage() {
   const percentage = isWeb && total ? Math.round((correctCount / total) * 100) : 0;
   const score      =
     submission?.final_score ?? submission?.auto_score ?? percentage
+
+  /* ---------------- 結果通知予定日 (Case/Bizscore) ---------------- */
+  const resultNotice = useMemo(() => {
+    if (isWeb || !submission?.created_at) return null;
+    const d = new Date(submission.created_at);
+    d.setDate(d.getDate() + 3);          // 3 日後を目安
+    return d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+  }, [isWeb, submission]);
+
+  /* ---------------- Case / Bizscore free-text answer ---------------- */
+  const freeTextAnswer = useMemo(() => {
+    if (!submission) return "";
+
+    // 1) answer column
+    const ans = submission.answer as unknown;
+    if (typeof ans === "string") return ans;
+    if (typeof ans === "object" && ans && "text" in ans) {
+      return (ans as any).text ?? "";
+    }
+
+    // 2) answers JSON 下位キー
+    const answersJson = submission.answers as any;
+    if (answersJson) {
+      if (typeof answersJson.text === "string")     return answersJson.text;
+      if (typeof answersJson.answer === "string")   return answersJson.answer;
+    }
+    return "";
+  }, [submission]);
+
+  /* ---------------- Case 用 choice データを文字列化 ---------------- */
+  const choiceSummary = !isWeb && !freeTextAnswer && submission?.answers
+    ? Object.entries(submission.answers as Record<string, number>)
+        .map(([qid, choice]) => `・QID ${qid} → 選択肢 ${choice}`)
+        .join("\n")
+    : "";
 
   /* ---------------- ローディング ---------------- */
   if (loading)
@@ -127,13 +178,14 @@ export default function WebTestResultPage() {
 
             <CardContent className="space-y-6 p-6">
               <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
-                {/* 総得点 */}
-                <div className="text-center md:text-left">
-                  <p className="text-sm text-gray-500">総得点</p>
-                  <p className="text-4xl font-bold text-emerald-600">
-                    {fmtScore(score)}
-                  </p>
-                </div>
+                {isWeb && (
+                  <div className="text-center md:text-left">
+                    <p className="text-sm text-gray-500">総得点</p>
+                    <p className="text-4xl font-bold text-emerald-600">
+                      {fmtScore(score)}
+                    </p>
+                  </div>
+                )}
 
                 {isWeb && (
                   <>
@@ -196,17 +248,56 @@ export default function WebTestResultPage() {
               </CardContent>
             </Card>
           ) : (
-            /* ---- 回答全文 (Case / Bizscore) ---- */
-            <Card>
-              <CardHeader>
-                <CardTitle>あなたの回答</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <pre className="whitespace-pre-wrap text-sm text-gray-800">
-                  {submission?.answer ?? "回答データが見つかりません"}
-                </pre>
-              </CardContent>
-            </Card>
+            <>
+              {/* ---- 採点・結果通知予定 ---- */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>結果通知について</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-2 text-sm text-gray-700">
+                  <p>ご提出いただいた回答は運営側で採点後、結果をお知らせします。</p>
+                  {resultNotice && (
+                    <p>目安：<span className="font-semibold">{resultNotice} まで</span> にメールにて通知予定</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* ---- 回答全文 (Case / Bizscore) ---- */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>あなたの回答</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {freeTextAnswer ? (
+                    /* ---- 自由記述タイプ (Case) ---- */
+                    <pre className="whitespace-pre-wrap text-sm text-gray-800">
+                      {freeTextAnswer}
+                    </pre>
+                  ) : (
+                    /* ---- 選択式 (Bizscore) ---- */
+                    <ul className="space-y-4">
+                      {caseQuestions.map((q, idx) => {
+                        const rawChoice =
+                          (submission?.answers as Record<string, any> | undefined)?.[q.id];
+                        const choice =
+                          typeof rawChoice === "object"
+                            ? rawChoice?.text ?? JSON.stringify(rawChoice)
+                            : rawChoice;
+                        return (
+                          <li key={q.id}>
+                            <p className="font-medium">Q{idx + 1}. {q.stem}</p>
+                            <p className="mt-1 text-gray-800">あなたの回答: {choice ?? "—"}</p>
+                          </li>
+                        );
+                      })}
+                      {caseQuestions.length === 0 && (
+                        <p className="text-gray-500">回答データが見つかりません</p>
+                      )}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </main>

@@ -23,6 +23,8 @@ import { Button }   from "@/components/ui/button";
 import { Badge }    from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
+import Footer from "@/components/footer";
+
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
@@ -114,9 +116,8 @@ export default function StudentDashboard() {
       /* ---- grand prix & offers ---- */
       const [{ data: gpRaw }, { data: offersRaw, error: offersErr }] = await Promise.all([
         supabase.from("challenges")
-          .select("id,title,deadline")
-          .order("deadline", { ascending: true })
-          .limit(3),
+          .select("id,title")
+          .order("created_at", { ascending: false }),
 
         supabase.from("scouts")
           .select(`
@@ -177,30 +178,33 @@ export default function StudentDashboard() {
 
   /* ---- ⑦ 画面 ------------------------------------------------ */
   return (
-    <main className="container mx-auto space-y-10 px-4 py-8">
-      {/* ---- Greeting ---- */}
-      <GreetingHero userName={displayName} />
+    <>
+      <main className="container mx-auto space-y-10 px-4 py-8">
+        {/* ---- Greeting ---- */}
+        <GreetingHero userName={displayName} />
 
 
-      {/* ---- 1:2 レイアウト ---- */}
-      <section className="grid gap-8 md:grid-cols-3">
-        {/* ---------- 左 1/3 ---------- */}
-        <div className="space-y-6">
-          <ProfileCard userId={user.id} />
-          {cardsLoad
-            ? <SkeletonCard height={260} />
-            : <GrandPrixCard events={grandPrix} />}
-        </div>
+        {/* ---- 1:2 レイアウト ---- */}
+        <section className="grid gap-8 sm:grid-cols-2 md:grid-cols-3">
+          {/* ---------- 左 1/3 ---------- */}
+          <div className="space-y-6">
+            <ProfileCard userId={user.id} />
+            {cardsLoad
+              ? <SkeletonCard height={260} />
+              : <GrandPrixCard events={grandPrix} />}
+          </div>
 
-        {/* ---------- 右 2/3 ---------- */}
-        <div className="md:col-span-2 space-y-6">
-          {cardsLoad
-            ? <SkeletonCard height={420} />
-            : <OffersCard offers={offers} />}
-          <StatCards stats={stats} loading={statsLoad} />
-        </div>
-      </section>
-    </main>
+          {/* ---------- 右 2/3 ---------- */}
+          <div className="md:col-span-2 space-y-6">
+            <StatCards stats={stats} loading={statsLoad} className="mb-2" />
+            {cardsLoad
+              ? <SkeletonCard height={420} />
+              : <OffersCard offers={offers} />}
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
   );
 }
 
@@ -210,32 +214,13 @@ export default function StudentDashboard() {
 function GreetingHero({ userName }: { userName: string }) {
   return (
     <section className="rounded-xl bg-gradient-to-r from-red-50 to-white p-6 shadow-sm">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">
+          <h1 className="text-xl font-bold sm:text-2xl md:text-3xl">
             こんにちは、{userName} さん！
           </h1>
           <p className="mt-1 text-gray-600">今日もいい1日になりますように。</p>
         </div>
-
-        {/* モバイル用ドロワーメニュー */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="md:hidden">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-64">
-            <nav className="mt-8 space-y-4">
-              <NavLink href="/jobs">求人を探す</NavLink>
-              <NavLink href="/offers">オファー</NavLink>
-              <NavLink href="/student/chat">チャット</NavLink>
-              <NavLink href="/grandprix">就活グランプリ一覧</NavLink>
-              <NavLink href="/student/profile">プロフィール編集</NavLink>
-              <NavLink href="/resume">職務経歴書</NavLink>
-            </nav>
-          </SheetContent>
-        </Sheet>
       </header>
     </section>
   );
@@ -509,7 +494,7 @@ function GrandPrixCard({ events }: { events: GrandPrix[] }) {
       return "/icons/gp_design.svg";
     }
     // default
-    return "/icons/gp_default.svg";
+    return "/gp_default.jpg";
   };
   return events.length === 0 ? (
     <Card className="lg:sticky lg:top-[12rem]">
@@ -529,12 +514,12 @@ function GrandPrixCard({ events }: { events: GrandPrix[] }) {
             href={`/grandprix/${e.id}`}
             className="flex items-center gap-3 rounded-md p-2 hover:bg-gray-50"
           >
-            <div className="relative h-10 w-16 flex-shrink-0 overflow-hidden rounded">
+            <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-white p-1 ring-1 ring-gray-200">
               <Image
                 src={bannerFor(e)}
                 alt={e.title}
                 fill
-                className="object-cover"
+                className="object-contain"
               />
             </div>
             <span className="line-clamp-2 text-sm font-medium">{e.title}</span>
@@ -560,13 +545,13 @@ function OffersCard({ offers }: { offers: Scout[] }) {
           <CardDescription>企業からのオファーが届いています</CardDescription>
         </div>
         {offers.filter(o => !o.is_read).length > 0 && (
-          <div className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-600">
+          <div className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-600">
             {offers.filter(o => !o.is_read).length}件の新着
           </div>
         )}
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {offers.length === 0 && (
           <p className="text-sm text-gray-600">まだオファーは届いていません</p>
         )}
@@ -575,13 +560,13 @@ function OffersCard({ offers }: { offers: Scout[] }) {
           <Link
             key={offer.id}
             href={`/offers/${offer.id}`}
-            className="relative flex gap-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
+            className="relative flex flex-col sm:flex-row gap-3 sm:gap-4 rounded-lg border border-gray-100 bg-white p-3 sm:p-4 shadow-sm transition-all hover:shadow-md"
           >
             {!offer.is_read && (
               <div className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-500" />
             )}
 
-            <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+            <div className="h-14 w-14 sm:h-12 sm:w-12 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
               <Image
                 src={offer.company_logo ?? "/placeholder.svg"}
                 alt={`${offer.company_name ?? "企業"}のロゴ`}
@@ -591,7 +576,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
               />
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 pt-1 sm:pt-0">
               <div className="mb-1 flex items-center gap-2">
                 <h3 className="font-bold text-gray-900">
                   {offer.company_name ?? "名称未設定の企業"}
@@ -609,7 +594,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
                 </p>
               )}
 
-              <div className="mt-2 flex items-center justify-between">
+              <div className="mt-1 flex items-center justify-between">
                 <span className="text-xs text-gray-500">
                   {format(new Date(offer.created_at), "yyyy年M月d日", { locale: ja })}
                 </span>
@@ -643,9 +628,9 @@ function OffersCard({ offers }: { offers: Scout[] }) {
 /* ================================================================
    StatCards – スカウト / 応募 / チャット
 ================================================================ */
-function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
+function StatCards({ stats, loading, className = "" }: { stats: Stats; loading: boolean; className?: string }) {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className={`grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-2 ${className}`}>
       <StatCard
         title="スカウト状況"
         desc="企業からのオファー"
@@ -662,14 +647,6 @@ function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
         stats={[{ label: "累計", value: stats.applications, badge: true }]}
         href="/student/applications"
       />
-      <StatCard
-        title="チャット"
-        desc="企業とのやり取り"
-        icon={<MessageSquare className="h-5 w-5 text-red-600" />}
-        loading={loading}
-        stats={[{ label: "トークルーム", value: stats.chatRooms, badge: true }]}
-        href="/student/chat"
-      />
     </div>
   );
 }
@@ -685,29 +662,30 @@ function StatCard(props: {
 }) {
   const { title, desc, icon, loading, stats, href } = props;
   return (
-    <Card className="flex h-full flex-col overflow-hidden transition-all hover:shadow-md">
-      <CardHeader className="bg-gradient-to-r from-red-50 to-white pb-2">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          {icon}
-          {title}
-        </CardTitle>
-        <CardDescription>{desc}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 pt-6">
-        {loading ? (
-          <p>読み込み中…</p>
-        ) : (
-          <div className="flex items-center justify-between">
-            {stats.map((s) => (
-              <Stat key={s.label} {...s} />
-            ))}
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-end bg-gray-50 px-6 py-3">
-        <LinkButton href={href}>確認する</LinkButton>
-      </CardFooter>
-    </Card>
+    <Link href={href} className="group block focus:outline-none">
+      <Card className="group flex h-full flex-col overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm transition-transform duration-150 ease-out hover:-translate-y-0.5 hover:shadow-lg cursor-pointer">
+        <CardHeader className="flex flex-col items-center bg-gradient-to-r from-red-50 to-white pb-1 sm:items-start">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium sm:text-base">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-50 sm:h-6 sm:w-6">
+              {icon}
+            </span>
+            <span>{title}</span>
+          </CardTitle>
+          <CardDescription className="mt-1 text-xs text-gray-600 sm:text-sm">{desc}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-1 items-center justify-center pt-3">
+          {loading ? (
+            <p>読み込み中…</p>
+          ) : (
+            <div className="flex items-center justify-center">
+              {stats.map((s) => (
+                <Stat key={s.label} {...s} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -718,7 +696,7 @@ function Stat({
     <div className="flex flex-col items-center gap-1">
       <span className="text-sm text-gray-500">{label}</span>
       {badge ? (
-        <Badge className="min-w-[48px] justify-center bg-red-600 text-base font-bold">
+        <Badge className="min-w-[48px] h-7 justify-center rounded-full bg-red-600 text-sm font-bold text-white">
           {value}
         </Badge>
       ) : (

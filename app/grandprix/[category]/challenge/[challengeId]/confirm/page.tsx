@@ -14,6 +14,58 @@ import type { Database } from "@/lib/supabase/types"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 
+// ── static copy per grand‑prix category ─────────────────────────
+const CATEGORY_CONTENT: Record<
+  string,
+  {
+    breadcrumb: string;
+    sections: { title: string; desc: string }[];
+    prepItems: string[];
+    questionLabel: string | null;
+  }
+> = {
+  webtest: {
+    breadcrumb: "Webテスト",
+    sections: [
+      { title: "言語能力（20問）", desc: "語彙力、読解力、文章構成力を測定します。" },
+      { title: "非言語能力（20問）", desc: "数的処理能力、論理的思考力、図形認識能力を測定します。" },
+    ],
+    prepItems: ["メモ用紙とペン（計算問題用）", "静かな環境（集中して取り組める場所）", "安定したインターネット接続"],
+    questionLabel: null, 
+  },
+  case: {
+    breadcrumb: "ケースグランプリ",
+    sections: [
+      { title: "ケース問題（3~5問）", desc: "実際のビジネスシーンを想定した案件に対して、課題抽出と解決策を提案します。" },
+    ],
+    prepItems: ["メモ用紙とペン", "静かな環境（集中して取り組める場所）", "安定したインターネット接続"],
+    questionLabel: null, 
+  },
+  biz: {
+    breadcrumb: "ビジネス戦闘力",
+    sections: [
+      {
+        title: "ビジネス戦闘力（3~5問）",
+        desc: "市場分析・数値判断・戦略立案など、実務に直結するケースを通じて総合的なビジネススキルを測定します。",
+      },
+    ],
+    prepItems: ["電卓または計算用デバイス", "静かな環境（集中して取り組める場所）", "安定したインターネット接続"],
+    questionLabel: "3~5問",
+  },
+  // `business` はルーティング用スラッグの別名
+  business: {
+    breadcrumb: "ビジネス戦闘力",
+    sections: [
+      {
+        title: "ビジネス戦闘力（3~5問）",
+        desc: "市場分析・数値判断・戦略立案など、実務に直結するケースを通じて総合的なビジネススキルを測定します。",
+      },
+    ],
+    prepItems: ["電卓または計算用デバイス", "静かな環境（集中して取り組める場所）", "安定したインターネット接続"],
+    questionLabel: "3~5問",
+  },
+};
+
 // 取り扱う列だけを抜き出したチャレンジ型
 type ChallengeDetail = Pick<
   Database["public"]["Tables"]["challenges"]["Row"],
@@ -37,6 +89,7 @@ export default function WebTestConfirmPage() {
     challengeId: string
   }>()
   const router = useRouter()
+  const catCopy = CATEGORY_CONTENT[category] ?? CATEGORY_CONTENT.webtest;
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
@@ -105,7 +158,7 @@ export default function WebTestConfirmPage() {
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Webテストに戻る</span>
+            <span>{catCopy.breadcrumb}に戻る</span>
           </Link>
         </div>
 
@@ -129,7 +182,9 @@ export default function WebTestConfirmPage() {
                   </Badge>
 
                   <Badge variant="outline" className="bg-gray-100">
-                    問題数: {challenge.question_count ?? "--"}問
+                  問題数:{" "}
+                    {catCopy.questionLabel ??
+                      `${challenge.question_count ?? "--"}問`}
                   </Badge>
                 </div>
               </div>
@@ -162,14 +217,12 @@ export default function WebTestConfirmPage() {
               <div>
                 <h3 className="mb-2 text-lg font-medium">テスト内容</h3>
                 <div className="space-y-4">
-                  <div className="rounded-lg border border-gray-200 p-3">
-                    <h4 className="font-medium">言語能力（20問）</h4>
-                    <p className="mt-1 text-sm text-gray-600">語彙力、読解力、文章構成力を測定します。</p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 p-3">
-                    <h4 className="font-medium">非言語能力（20問）</h4>
-                    <p className="mt-1 text-sm text-gray-600">数的処理能力、論理的思考力、図形認識能力を測定します。</p>
-                  </div>
+                  {catCopy.sections.map((s) => (
+                    <div key={s.title} className="rounded-lg border border-gray-200 p-3">
+                      <h4 className="font-medium">{s.title}</h4>
+                      <p className="mt-1 text-sm text-gray-600">{s.desc}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -178,9 +231,9 @@ export default function WebTestConfirmPage() {
               <div>
                 <h3 className="mb-2 text-lg font-medium">準備するもの</h3>
                 <ul className="ml-5 list-disc space-y-1 text-sm text-gray-600">
-                  <li>メモ用紙とペン（計算問題用）</li>
-                  <li>静かな環境（集中して取り組める場所）</li>
-                  <li>安定したインターネット接続</li>
+                  {catCopy.prepItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
               </div>
             </CardContent>

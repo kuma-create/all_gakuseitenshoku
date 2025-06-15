@@ -19,6 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
+import Footer from "@/components/footer"
+
 /** Supabase 型を拡張 */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   companies: { name: string; logo: string | null; industry?: string | null } | null
@@ -478,20 +480,7 @@ job_tags!job_tags_job_id_fkey (
         </Tabs>
       </main>
 
-      {/* Footer */}
-      <footer className="flex flex-col gap-2 sm:flex-row w-full shrink-0 items-center border-t bg-white px-4 py-6 md:px-6 mt-12">
-        <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} ONE CAREER. All rights reserved.
-        </p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link href="#" className="text-xs hover:underline underline-offset-4">
-            利用規約
-          </Link>
-          <Link href="#" className="text-xs hover:underline underline-offset-4">
-            プライバシーポリシー
-          </Link>
-        </nav>
-      </footer>
+      <Footer />
     </div>
   )
 }

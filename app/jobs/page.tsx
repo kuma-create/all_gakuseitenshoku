@@ -636,15 +636,9 @@ job_tags!job_tags_job_id_fkey (
       {/* Footer */}
       <footer className="flex flex-col gap-2 sm:flex-row w-full shrink-0 items-center border-t bg-white px-4 py-6 md:px-6">
         <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} ONE CAREER. All rights reserved.
+          &copy; {new Date().getFullYear()} Make Culture. All rights reserved.
         </p>
         <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link href="#" className="text-xs hover:underline underline-offset-4">
-            利用規約
-          </Link>
-          <Link href="#" className="text-xs hover:underline underline-offset-4">
-            プライバシーポリシー
-          </Link>
         </nav>
       </footer>
     </div>

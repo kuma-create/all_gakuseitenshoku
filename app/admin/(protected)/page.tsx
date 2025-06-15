@@ -24,6 +24,7 @@ import {
   XCircle,
   Trash2,
   UserPlus,
+  FileText
 } from "lucide-react";
 import {
   Avatar,
@@ -131,6 +132,13 @@ type Application = {
   }[] | null;
 };
 
+type Feature = {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+};
+
 type ActivityLog = {
   id: string;
   timestamp: string;
@@ -202,12 +210,14 @@ export default function AdminDashboard() {
   const [requests, setRequests] = useState<Application[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [features, setFeatures] = useState<Feature[]>([]);
 
   const [studentPage, setStudentPage] = useState(1);
   const [companyPage, setCompanyPage] = useState(1);
   const [jobPage, setJobPage] = useState(1);
   const [requestPage, setRequestPage] = useState(1);
   const [activityPage, setActivityPage] = useState(1);
+  const [featurePage, setFeaturePage] = useState(1);
 
   const [dateRange, setDateRange] = useState<DayPickerRange>({
     from: subDays(new Date(), 30),
@@ -337,6 +347,20 @@ export default function AdminDashboard() {
           setJobs((jbData ?? []) as Job[]);
         }
 
+        // 特集記事一覧
+        const { data: ftData, error: ftErr } = await supabase
+          .from("features")
+          .select("id,title,status,created_at")
+          .order("created_at", { ascending: false })
+          .range((featurePage - 1) * 5, featurePage * 5 - 1);
+
+        if (ftErr) {
+          console.error("features fetch error:", ftErr);
+          setFeatures([]);
+        } else {
+          setFeatures((ftData ?? []) as Feature[]);
+        }
+
         // 申請一覧
         const { data: appsData, error: appsErr } = await supabase
           .from("applications")
@@ -424,6 +448,7 @@ export default function AdminDashboard() {
       requestPage,
       activityPage,
       dateRange,
+      featurePage,
     ]
   );
 
@@ -541,6 +566,9 @@ export default function AdminDashboard() {
           <TabsTrigger value="requests">
             <Bell /> 申請
           </TabsTrigger>
+          <TabsTrigger value="features">
+            <FileText /> 特集
+          </TabsTrigger>
           <TabsTrigger value="activity">
             <RefreshCcw /> ログ
           </TabsTrigger>
@@ -554,6 +582,66 @@ export default function AdminDashboard() {
             <UserCog /> 管理者
           </TabsTrigger>
         </TabsList>
+        {/* --- 特集 --- */}
+        <TabsContent value="features">
+          <div className="flex justify-end mb-2">
+            <Button onClick={() => openModal("add-feature", "")}>
+              <FileText className="mr-2 h-4 w-4" />
+              記事を追加
+            </Button>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>タイトル</TableHead>
+                <TableHead>ステータス</TableHead>
+                <TableHead>登録日</TableHead>
+                <TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {features.map((f) => (
+                <TableRow key={f.id}>
+                  <TableCell>{f.id}</TableCell>
+                  <TableCell>{f.title}</TableCell>
+                  <TableCell><Badge>{f.status}</Badge></TableCell>
+                  <TableCell>{format(new Date(f.created_at), "yyyy/MM/dd")}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost">
+                          <ChevronDown />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>操作</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => openModal("view-feature", f.id)}>
+                          <Eye /> 詳細
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openModal("edit-feature", f.id)}>
+                          <Edit /> 編集
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-500"
+                          onClick={() => openModal("delete-feature", f.id)}
+                        >
+                          <Trash2 /> 削除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <Pagination className="my-2">
+            <PaginationPrevious onClick={() => setFeaturePage((p)=> Math.max(1, p-1))} />
+            <PaginationItem><PaginationLink isActive>{featurePage}</PaginationLink></PaginationItem>
+            <PaginationNext onClick={() => setFeaturePage((p)=> p+1)} />
+          </Pagination>
+        </TabsContent>
 
         {/* --- 概要 --- */}
         <TabsContent value="overview">

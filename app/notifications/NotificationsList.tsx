@@ -35,6 +35,7 @@ export default function NotificationsList({ userId: initialUserId }: { userId?: 
       .then(({ data }) => {
         setList(data ?? [])
         setLoading(false)
+        if (data) void markAllAsRead(data)  // ★ 追加
       })
 
     /* Realtime 購読 */
@@ -109,6 +110,36 @@ export default function NotificationsList({ userId: initialUserId }: { userId?: 
       setList(prev =>
         prev.map(item =>
           item.id === n.id ? { ...item, is_read: false } : item,
+        ),
+      )
+    }
+  }
+
+  /** 一覧表示と同時に未読をすべて既読化する */
+  const markAllAsRead = async (items: Noti[]) => {
+    // まだ未読の ID 一覧を抽出
+    const unreadIds = items.filter(i => !i.is_read).map(i => i.id)
+    if (unreadIds.length === 0) return
+
+    // 1) 楽観的 UI 更新
+    setList(prev =>
+      prev.map(item =>
+        unreadIds.includes(item.id) ? { ...item, is_read: true } : item,
+      ),
+    )
+
+    // 2) DB を一括更新
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .in("id", unreadIds)
+
+    // 3) 失敗時はロールバック
+    if (error) {
+      console.error("notifications bulk update error:", error)
+      setList(prev =>
+        prev.map(item =>
+          unreadIds.includes(item.id) ? { ...item, is_read: false } : item,
         ),
       )
     }

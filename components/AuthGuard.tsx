@@ -17,7 +17,7 @@ export default function AuthGuard() {
           "/signup",                   // 新規登録
           "/admin/login",              // 管理者ログイン
           "/auth/student/register",    // 学生登録
-          "/auth/reset",               // パスワードリセット
+          "/auth/reset",          // パスワードリセット
           "/grandprix",                // グランプリ一覧
           /* --- 以下はクライアント側ガードで制御 --- */
           "/offers",                   // 学生スカウト

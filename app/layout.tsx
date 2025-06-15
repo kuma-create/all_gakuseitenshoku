@@ -33,9 +33,10 @@ export const viewport = {
 /* ---------- ルートレイアウト ---------- */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ja" className="scroll-smooth antialiased">
+    <html lang="ja" className="scroll-smooth antialiased" suppressHydrationWarning>
       <body
         className={`${inter.className} overflow-x-hidden bg-background text-foreground`}
+        suppressHydrationWarning
       >
         <Providers>
           {/* クライアント側で認可判定 */}

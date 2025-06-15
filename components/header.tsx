@@ -17,10 +17,10 @@ import Link  from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Search, Mail, MessageSquare, Bell,
-  LogIn, Menu, User, Briefcase, LogOut, ChevronDown, Trophy,
+  LogIn, Menu, User, Briefcase, LogOut, ChevronDown, Trophy, BookOpen,
 } from "lucide-react";
 import {
-  Sheet, SheetContent, SheetTrigger,
+  Sheet, SheetContent, SheetTrigger, SheetClose,
 } from "@/components/ui/sheet";
 import {
   DropdownMenu, DropdownMenuTrigger,
@@ -40,6 +40,7 @@ const studentMain: NavItem[] = [
   { href: "/offers",    label: "スカウト",   icon: Mail },
   { href: "/chat",      label: "チャット",   icon: MessageSquare },
   { href: "/grandprix",         label: "就活GP",    icon: Trophy },
+  { href: "/features",          label: "特集",       icon: BookOpen },
 ];
 /* ---------- マイページ配下 ---------- */
 const studentSub: NavItem[] = [
@@ -173,15 +174,24 @@ export default function Header() {
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.png" alt="学生転職" width={120} height={32} priority />
         </Link>
-        {/* 就活グランプリ – 未ログインのみ表示 */}
+        {/* 未ログイン時に表示するトップナビ（PC） */}
         {ready && !isLoggedIn && (
-          <Link
-            href="/grandprix"
-            className="hidden items-center gap-1 text-sm font-semibold text-gray-700 hover:text-gray-900 md:flex"
-          >
-            <Trophy size={16} />
-            就活GP
-          </Link>
+          <nav className="hidden md:flex items-center gap-6">
+            <Link
+              href="/grandprix"
+              className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-gray-900"
+            >
+              <Trophy size={16} />
+              就活GP
+            </Link>
+            <Link
+              href="/jobs"
+              className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900"
+            >
+              <Search size={16} />
+              探す
+            </Link>
+          </nav>
         )}
 
         {/* ===== PC ナビ ===== */}
@@ -281,86 +291,123 @@ export default function Header() {
           )}
         </div>
 
-        {/* ===== SP Hamburger ===== */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden">
-              <Menu />
-            </Button>
-          </SheetTrigger>
+          {/* -- SP: Notification + Hamburger (mobile) -- */}
+          <div className="flex items-center gap-2 ml-auto md:hidden">
+            {/* Bell → ログイン中のみ */}
+            {ready && isLoggedIn && session?.user && (
+              <NotificationBell userId={session.user.id} />
+            )}
 
-          <SheetContent side="left" className="w-64">
-            <div className="mb-6 flex items-center gap-2">
-              <Image src="/logo.png" alt="学生転職" width={24} height={24} />
-              <span className="font-bold">学生転職</span>
-            </div>
-            {/* === 就活グランプリ（未ログインのみ） === */}
-            {(!ready || !isLoggedIn) && (
+            {/* ログインしていない場合のリンク */}
+            {ready && !isLoggedIn && (
               <Link
-                href="/grandprix"
-                className="mb-4 flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+                href="/login"
+                className="rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
               >
-                <Trophy size={16} />
-                就活グランプリ
+                ログインはこちら
               </Link>
             )}
 
-            {/* ---- 未ログイン ---- */}
-            {!ready || !isLoggedIn ? (
-              <div className="space-y-4">
-                <Link
-                  href="/login"
-                  className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100 hover:text-primary-700 hover:underline"
-                >
-                  ログイン
-                </Link>
-                <Link
-                  href="/signup"
-                  className="block rounded-full bg-gradient-to-r from-primary/80 to-primary px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                >
-                  新規登録
-                </Link>
-              </div>
-            ) : (
-              /* ---- ログイン済み ---- */
-              <>
-                <nav className="space-y-2">
-                  {main.map(({ href, label }) =>
-                    label === "マイページ" && userType === "student" ? (
-                      <div key="sp-mypage" className="space-y-1">
-                        <p className="px-3 py-2 text-sm font-semibold">マイページ</p>
-                        {studentSub.map(({ href, label }) => (
-                          <Link
-                            key={href}
-                            href={href}
-                            className="block rounded-md px-6 py-2 text-sm hover:bg-gray-100"
-                          >
-                            {label}
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
+            {/* Hamburger Sheet */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu />
+                </Button>
+              </SheetTrigger>
+
+              <SheetContent side="left" className="w-64">
+                <div className="mb-6 flex items-center gap-2">
+                  <Image src="/logo.png" alt="学生転職" width={24} height={24} />
+                  <span className="font-bold">学生転職</span>
+                </div>
+
+                {/* === 就活グランプリ（未ログインのみ） === */}
+                {(!ready || !isLoggedIn) && (
+                  <SheetClose asChild>
+                    <Link
+                      href="/grandprix"
+                      className="mb-4 flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+                    >
+                      <Trophy size={16} />
+                      就活グランプリ
+                    </Link>
+                  </SheetClose>
+                )}
+
+                {/* ---- 未ログイン ---- */}
+                {!ready || !isLoggedIn ? (
+                  <div className="space-y-4">
+                    <SheetClose asChild>
                       <Link
-                        key={href}
-                        href={href}
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+                        href="/jobs"
+                        className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
-                        {label}
+                        探す
                       </Link>
-                    )
-                  )}
-                </nav>
-                <hr className="my-3" />
-                <button
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  <LogOut size={16} /> ログアウト
-                </button>
-              </>
-            )}
-          </SheetContent>
-        </Sheet>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link
+                        href="/login"
+                        className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100 hover:text-primary-700 hover:underline"
+                      >
+                        ログイン
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link
+                        href="/signup"
+                        className="block rounded-full bg-gradient-to-r from-primary/80 to-primary px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      >
+                        新規登録
+                      </Link>
+                    </SheetClose>
+                  </div>
+                ) : (
+                  /* ---- ログイン済み ---- */
+                  <>
+                    <nav className="space-y-2">
+                      {main.map(({ href, label }) =>
+                        label === "マイページ" && userType === "student" ? (
+                          <div key="sp-mypage" className="space-y-1">
+                            <p className="px-3 py-2 text-sm font-semibold">マイページ</p>
+                            {studentSub.map(({ href, label }) => (
+                              <SheetClose asChild key={href}>
+                                <Link
+                                  href={href}
+                                  className="block rounded-md px-6 py-2 text-sm hover:bg-gray-100"
+                                >
+                                  {label}
+                                </Link>
+                              </SheetClose>
+                            ))}
+                          </div>
+                        ) : (
+                          <SheetClose asChild key={href}>
+                            <Link
+                              href={href}
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+                            >
+                              {label}
+                            </Link>
+                          </SheetClose>
+                        )
+                      )}
+                    </nav>
+                    <hr className="my-3" />
+                    <SheetClose asChild>
+                      <button
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        <LogOut size={16} /> ログアウト
+                      </button>
+                    </SheetClose>
+                  </>
+                )}
+              </SheetContent>
+            </Sheet>
+          </div>
       </div>
     </header>
   );

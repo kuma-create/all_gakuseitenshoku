@@ -39,6 +39,7 @@ type ChallengeCard = Pick<
   | "company"
   | "time_limit_min"
   | "question_count"
+  | "deadline"
 >;
 
 type SessionRow =
@@ -47,10 +48,17 @@ type SessionRow =
 export default function GrandPrixCategoryPage() {
   const router = useRouter();
   const { category } = useParams<{ category: string }>();
+  // UI の URL パラメータ → DB に保存しているカテゴリー名へのマッピング
+  const dbCategory = (
+    { webtest: "webtest", business: "bizscore", case: "case" } as const
+  )[category] ?? category;
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [challenges, setChallenges] = useState<ChallengeCard[]>([]);
+  // 公開中チャレンジ（=「挑戦可能」タブで使う）
+  const [availableChallenges, setAvailableChallenges] = useState<ChallengeCard[]>([]);
+  // 結果タブでタイトル解決用の辞書
+  const [titleMap, setTitleMap] = useState<Record<string, string>>({});
   const [results, setResults] = useState<SessionRow[]>([]);
 
   /* ------------------------------------------------------------ */
@@ -68,18 +76,29 @@ export default function GrandPrixCategoryPage() {
         .select(
           `
           id, title, description, company,
-          time_limit_min, question_count
+          time_limit_min, question_count, deadline
         `
         )
-        .eq("category", category)
+        .eq("category", dbCategory)
         .lte("start_date", isoNow)
-        .or(`deadline.is.null,deadline.gte.${isoNow}`)
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: false });
 
       if (error) {
         toast({ description: error.message });
       } else {
-        setChallenges(data as ChallengeCard[]);
+        const rows = data as ChallengeCard[];
+        // 公開期限を過ぎた大会は除外
+        const validRows = rows.filter(
+          (c) =>
+            !c.deadline || // null は常に公開
+            new Date(c.deadline) >= new Date()
+        );
+        setAvailableChallenges(validRows);
+        // タイトル辞書を初期化
+        setTitleMap(Object.fromEntries(validRows.map((r) => [r.id, r.title])));
+        // setAvailableChallenges(rows);
+        // // タイトル辞書を初期化
+        // setTitleMap(Object.fromEntries(rows.map((r) => [r.id, r.title])));
       }
 
       /* 2. 過去結果（ログインユーザーのみ） */
@@ -103,7 +122,7 @@ export default function GrandPrixCategoryPage() {
           setResults(rows);
 
           /* 2-2. タイトル表示用に不足しているチャレンジを追加取得 */
-          const knownIds = new Set(challenges.map((c) => c.id));
+          const knownIds = new Set(availableChallenges.map((c) => c.id));
           const missingIds = rows
             .map((r) => r.challenge_id)
             // 型ガードで null を除外し、既知ID も除外
@@ -121,16 +140,10 @@ export default function GrandPrixCategoryPage() {
               );
 
             if (!extraErr && extra?.length) {
-              setChallenges((prev) => [
+              setTitleMap((prev) => ({
                 ...prev,
-                ...(extra as Pick<ChallengeRow, "id" | "title">[]).map((c) => ({
-                  ...c,
-                  description: "",
-                  company: "",
-                  time_limit_min: 0,
-                  question_count: 0,
-                })),
-              ]);
+                ...Object.fromEntries(extra.map((c) => [c.id, c.title])),
+              }));
             }
           }
         }
@@ -184,13 +197,13 @@ export default function GrandPrixCategoryPage() {
               <div className="flex justify-center py-20">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
-            ) : challenges.length === 0 ? (
+            ) : availableChallenges.length === 0 ? (
               <p className="text-center text-sm text-gray-500">
                 現在公開中の大会はありません
               </p>
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {challenges.map((c) => (
+                {availableChallenges.map((c) => (
                   <Card key={c.id}>
                     <CardHeader>
                       <CardTitle className="text-lg">{c.title}</CardTitle>
@@ -200,14 +213,25 @@ export default function GrandPrixCategoryPage() {
                     </CardHeader>
 
                     <CardContent>
+                      {/* -------- time & question count -------- */}
                       <div className="mb-4 flex flex-wrap gap-2">
-                        <Badge variant="outline" className="bg-gray-100">
-                          <Clock className="mr-1 h-3 w-3" />
-                          {c.time_limit_min ?? 40}分
-                        </Badge>
-                        <Badge variant="outline" className="bg-gray-100">
-                          問題数: {c.question_count ?? 40}問
-                        </Badge>
+                        {(() => {
+                          const isCaseOrBiz =
+                            dbCategory === "case" || dbCategory === "bizscore";
+                          const timeLabel = isCaseOrBiz ? "30分" : `${c.time_limit_min ?? 40}分`;
+                          const countLabel = isCaseOrBiz ? "3〜5問" : `${c.question_count ?? 40}問`;
+                          return (
+                            <>
+                              <Badge variant="outline" className="bg-gray-100">
+                                <Clock className="mr-1 h-3 w-3" />
+                                {timeLabel}
+                              </Badge>
+                              <Badge variant="outline" className="bg-gray-100">
+                                問題数: {countLabel}
+                              </Badge>
+                            </>
+                          );
+                        })()}
                       </div>
                       <p className="text-sm text-gray-600 line-clamp-3">
                         {c.description}
@@ -243,11 +267,9 @@ export default function GrandPrixCategoryPage() {
                     <CardContent className="flex items-center justify-between p-4">
                       <div>
                         <p className="font-medium">
-                          {
-                            challenges.find(
-                              (c) => c.id === r.challenge_id
-                            )?.title ?? "（タイトル不明）"
-                          }
+                          {r.challenge_id
+                            ? titleMap[r.challenge_id] ?? "（タイトル不明）"
+                            : "（タイトル不明）"}
                         </p>
                         <p className="text-xs text-gray-500">
                           {r.started_at

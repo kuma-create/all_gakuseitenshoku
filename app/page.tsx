@@ -20,6 +20,7 @@ import {
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion"
+import Footer from "@/components/footer"
 
 
 /* ---------- Hero 内で使うサブコンポーネント ---------- */
@@ -34,6 +35,32 @@ function Stat({ num, label }: { num: string; label: string }) {
   )
 }
 
+/* ---------- Sticky CTA (mobile) ---------- */
+function StickySignupCTA() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      // 600px 以上スクロールしたら表示
+      setVisible(window.scrollY > 600);
+    };
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-4 sm:hidden">
+      <Link href="/signup" className="w-full max-w-sm">
+        <Button className="w-full bg-red-600 text-white shadow-lg hover:bg-red-700">
+          今すぐ無料登録
+        </Button>
+      </Link>
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────────── */
 
 export default function LandingPage() {
@@ -45,74 +72,85 @@ export default function LandingPage() {
       {/* ─────────────── Hero ─────────────── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#d24848] via-[#9c0202] to-[#4a0000]">
         {/* 右側イメージ — 画面幅の 45% だけ占有 */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[45%] lg:block">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-[60%] sm:w-[55%] md:w-[45%] lg:w-[40%]">
           <LazyImage
             src="/hero-woman.webp"
             alt="ノート PC を持つビジネスウーマン"
             fill
             priority
-            sizes="(min-width:1024px) 45vw, 0vw"
+            sizes="(min-width:1024px) 45vw, (min-width:768px) 50vw, (min-width:640px) 60vw, 70vw"
             className="select-none object-contain object-bottom"
           />
         </div>
 
         {/* LEFT : コピー & CTA  (max-width を設けて左寄せ) */}
-        <div className="relative z-10 mx-auto flex min-h-[560px] max-w-7xl items-center px-6 py-16 lg:px-10">
+        <div className="relative z-10 mx-auto flex min-h-[360px] sm:min-h-[360px] max-w-7xl items-start px-4 sm:px-6 pt-4 sm:pt-12 pb-4 sm:pb-20 lg:px-10">
           <div
-            className={`max-w-xl space-y-8 text-left text-white transition-opacity duration-700 ${
+            className={`mt-12 sm:mt-8 flex flex-col flex-1 gap-y-16 max-w-full sm:max-w-lg lg:max-w-xl text-left text-white pr-4 sm:pr-8 md:pr-10 transition-opacity duration-700 ${
               loaded ? "opacity-100" : "opacity-0"
             }`}
           >
-            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl">
-              学生時代の”職歴”で
-              <br />
-              ハイレベルな就活を
-            </h1>
-
-            <p className="text-lg leading-relaxed text-red-100 sm:text-2xl">
-              あなたの職歴を評価した本気のスカウトが届く。
-              <br className="hidden sm:block" />
-              限定オファーであなたらしいキャリアを切り拓こう。
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col gap-4 sm:flex-row">
-              {/* primary */}
-              <Link href="/signup" className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#c94141] hover:text-[#ffffff]"
-                >
-                  スカウトを受け取る
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-
-              {/* secondary */}
-              <Link href="/jobs" className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full bg-[#fffcf9] text-[#861010] hover:bg-[#c94141] hover:text-[#ffffff]"
-                >
-                  早期選考はこちら
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+            {/* ── Top : Title ───────────────── */}
+            <div>
+              <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl">
+                学生時代の”職歴”で
+                <br />
+                ハイレベルな就活を
+              </h1>
             </div>
 
-            {/* Quick facts */}
-            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#ffebe8]">
-              {["登録は1分で完了", "完全無料", "有料グランプリ開催"].map(
-                (txt) => (
+            {/* ── Bottom : Copy & CTA ───────── */}
+            <div className="mt-auto sm:mt-0 space-y-6 mb-1 sm:mb-12">
+              {/* Tagline (desktop) */}
+              <p className="hidden sm:block text-base leading-relaxed text-red-100">
+                あなたの職歴を評価した本気のスカウトが届く。
+                <br className="hidden sm:block" />
+                限定オファーであなたらしいキャリアを切り拓こう。
+              </p>
+
+              {/* CTA Buttons */}
+              <div className="flex flex-row gap-2 w-full">
+                {/* primary */}
+                <Link href="/signup" className="basis-1/2 min-w-0">
+                  <Button
+                    size="default"
+                    variant="outline"
+                    className="w-full border border-transparent bg-[#fffcf9] text-[#861010] hover:bg-white hover:text-[#861010] px-1 py-2 text-xs sm:px-4 sm:py-3 sm:text-base flex items-center justify-center gap-1 whitespace-nowrap"
+                  >
+                    スカウトを受け取る
+                    <ArrowRight className="ml-0 h-2 w-2" />
+                  </Button>
+                </Link>
+
+                {/* secondary */}
+                <Link href="/jobs" className="flex-1 min-w-[140px]">
+                  <Button
+                    size="default"
+                    variant="outline"
+                    className="w-full border border-transparent bg-[#fffcf9] text-[#861010] hover:bg-white hover:text-[#861010] px-2 py-2 text-xs sm:px-6 sm:py-3 sm:text-base flex items-center justify-center gap-1 whitespace-nowrap"
+                  >
+                    早期選考はこちら
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Tagline (mobile) */}
+              <p className="sm:hidden text-xs leading-snug text-red-100">
+                あなたの職歴を評価した本気のスカウトが届く。
+                限定オファーであなたらしいキャリアを切り拓こう。
+              </p>
+
+              {/* Quick facts */}
+              <ul className="hidden sm:flex flex-wrap gap-x-4 gap-y-2 text-xs md:text-sm text-[#ffebe8]">
+                {["登録は1分で完了", "完全無料", "有料グランプリ開催"].map((txt) => (
                   <li key={txt} className="flex items-center gap-1">
                     <CheckCircle className="h-[14px] w-[14px]" />
                     {txt}
                   </li>
-                ),
-              )}
-            </ul>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -121,11 +159,13 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 md:py-28">
+      <section id="features" className="pt-8 pb-16 sm:py-20 md:py-28">
         <div className="container px-4 md:px-6">
           <div className="mx-auto max-w-3xl text-center mb-16">
-            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200 text-2lg" >学生転職とは</Badge>
-            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+          <span className="mb-8 inline-block bg-gradient-to-r from-red-600 via-red-500 to-orange-400 bg-clip-text text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold tracking-tight text-transparent">
+            学生転職とは
+          </span>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold leading-snug tracking-tight">
               長期インターンやアルバイトの<span className="text-red-600">経歴</span>にスカウトが届く
               新しいハイキャリア就活サービス
             </h2>
@@ -567,112 +607,11 @@ export default function LandingPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-
-            <div className="mt-8 flex flex-wrap justify-center gap-6">
-              <div className="flex items-center gap-2 text-red-100">
-                <Users className="h-5 w-5" />
-                <span>25,000人以上の学生が利用中</span>
-              </div>
-              <div className="flex items-center gap-2 text-red-100">
-                <CheckCircle className="h-5 w-5" />
-                <span>1,200社以上の企業が登録</span>
-              </div>
-            </div>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t bg-white py-12 md:py-16">
-        <div className="container px-4 md:px-6">
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="/logo.png"          /* /public/logo.png に配置 */
-                alt="学生転職 ロゴ"
-                width={40}
-                height={40}
-                className="h-8 w-8 select-none"
-                priority
-              />
-              </Link>
-              <p className="mt-4 text-sm text-gray-600">
-                学生のための新しい就活プラットフォーム。 あなたらしいキャリアを見つけよう。
-              </p>
-            </div>
-            <div>
-              <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">サービス</h3>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                    職務経歴書作成
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/grandprix" className="text-gray-600 transition-colors hover:text-red-600">
-                    就活グランプリ
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                    企業スカウト
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                    長期インターン
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">会社情報</h3>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                    会社概要
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                    プライバシーポリシー
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                    利用規約
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                    お問い合わせ
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">フォローする</h3>
-              <div className="flex space-x-4">
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
-                  </svg>
-                </Link>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.048-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <StickySignupCTA />
+      <Footer />
     </div>
   )
 }

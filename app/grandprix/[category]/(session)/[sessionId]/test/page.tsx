@@ -35,7 +35,8 @@ interface AnswerRow extends SessionAnswerRow {
 }
 
 export default function WebTestPage() {
-  const { category, sessionId } = useParams<{ category: string; sessionId: string }>()
+  const params = useParams<{ category: string; sessionId: string }>();
+  const { category, sessionId } = params;
   const router = useRouter()
   const { toast } = useToast()
 
@@ -69,6 +70,44 @@ export default function WebTestPage() {
 
       if (error) toast({ description: error.message })
       else setAnswers((data as AnswerRow[]).filter((r) => r.question))
+
+      /* ---------- fallback ----------
+         セッションに answers がまだ無い場合は challenge_sessions から
+         challenge_id を取得して challenge_questions → question_bank を生成
+      ---------------------------------- */
+      if ((data as AnswerRow[]).length === 0) {
+        /* ① challenge_sessions から challenge_id を取得 */
+        const { data: sessRow, error: sessErr } = await supabase
+          .from("challenge_sessions")
+          .select("challenge_id")
+          .eq("id", sessionId)
+          .single();
+
+        if (sessErr || !sessRow?.challenge_id) {
+          toast({ description: sessErr?.message ?? "challenge_id を取得できません" });
+        } else {
+          /* ② challenge_questions → question_bank を取得 */
+          const { data: cqRows, error: cqErr } = await supabase
+            .from("challenge_questions")
+            .select("question:question_bank(*)")
+            .eq("challenge_id", sessRow.challenge_id)
+            .order("order_no", { ascending: true });
+
+          if (cqErr) {
+            toast({ description: cqErr.message });
+          } else {
+            const fallbackAnswers: AnswerRow[] = (cqRows ?? []).map((row) => ({
+              session_id:     sessionId,
+              question_id:    row.question?.id ?? "",
+              answer_raw:     null,
+              created_at:     new Date().toISOString(),
+              updated_at:     new Date().toISOString(),
+              question:       row.question,
+            })) as any;
+            setAnswers(fallbackAnswers);
+          }
+        }
+      }
 
       /* started_at 取得 → deadline 計算 (40 分) ------------------ */
       const { data: sess, error: sessErr } = await supabase
@@ -152,10 +191,10 @@ export default function WebTestPage() {
 
   /* ---------- 子コンポーネントからの回答通知 ---------- */
   const handleAnswered = useCallback(
-    (qid: string, choiceNum: number | null) => {
+    (qid: string, choice: number | string | null) => {
       setAnswers((prev) =>
         prev.map((row) =>
-          row.question_id === qid ? { ...row, answer_raw: choiceNum } : row,
+          row.question_id === qid ? { ...row, answer_raw: choice } : row,
         ),
       )
     },
@@ -167,12 +206,11 @@ export default function WebTestPage() {
     try {
       console.log("[handleSubmit] invoked");
       /* ----------------------------------------------------------
-         1. answers[] から設問 UUID → 選択肢番号 のマップを生成
+         1. answers[] から設問 UUID → 選択肢番号 or 文字列 のマップを生成
       ---------------------------------------------------------- */
-      const answerMap = answers.reduce<Record<string, number>>((acc, row) => {
-        if (row.question_id && row.answer_raw !== null && row.answer_raw !== undefined) {
-          /* answer_raw は 1–4 の択一番号が入っている想定 */
-          acc[row.question_id] = Number(row.answer_raw);
+      const answerMap = answers.reduce<Record<string, any>>((acc, row) => {
+        if (row.question_id && row.answer_raw != null) {
+          acc[row.question_id] = row.answer_raw;
         }
         return acc;
       }, {});
@@ -241,6 +279,9 @@ export default function WebTestPage() {
       /* ----------------------------------------------------------
          3. challenge_submissions に JSONB で保存 (upsert)
          ---------------------------------------------------------- */
+      // category: "webtest" or "case", etc.
+      const isWeb = category === "webtest";
+      const isBiz = category === "business" || category === "bizscore";
       const { error: upsertErr } = await supabase
         .from("challenge_submissions")
         .upsert(
@@ -249,11 +290,11 @@ export default function WebTestPage() {
               challenge_id: finalChallengeId,
               student_id:   studentId,
               session_id:   sessionId,
-              answer:       "",                  // legacy col
-              answers:      answerMap as any,
-              auto_score:   finalScore,          // ← NEW
-              final_score:  finalScore,          // ← NEW
-              status:       "採点済み",
+              answer:       (isWeb || isBiz) ? "" : "",  // keep empty; use answers map
+              answers:      answerMap as any,            // numbers for web/biz, strings for case
+              auto_score:   (isWeb || isBiz) ? finalScore : null,
+              final_score:  (isWeb || isBiz) ? finalScore : null,
+              status:       (isWeb || isBiz) ? "採点済み" : "未採点",
             },
           ],
           { onConflict: "session_id" }
