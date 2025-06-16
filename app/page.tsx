@@ -23,47 +23,6 @@ import {
 import Footer from "@/components/footer"
 
 
-/* ---------- SEO Metadata ---------- */
-export const metadata = {
-  title:
-    "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
-  description:
-    "学生転職は学生時代の職歴を評価し、企業からスカウトが届く逆求人型就活サービスです。職務経歴書テンプレートや就活グランプリで市場価値を高め、ハイキャリアのスタートを切りましょう。",
-  alternates: {
-    canonical: "https://culture.gakuten.co.jp/",
-  },
-  openGraph: {
-    title:
-      "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
-    description:
-      "職歴を活かしてハイレベルな就活を。学生転職は学生向けのスカウト型オファーサービスです。",
-    url: "https://culture.gakuten.co.jp/",
-    siteName: "学生転職",
-    locale: "ja_JP",
-    type: "website",
-    images: [
-      {
-        url: "/ogp.png",
-        width: 1200,
-        height: 630,
-        alt: "学生転職のサービスイメージ",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title:
-      "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
-    description:
-      "学生時代の職歴を活かしてハイキャリア就活を実現。プロフィール登録で企業から直接スカウト。",
-    images: ["/ogp.png"],
-    site: "@syukatsu25kk",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
 
 
 /* ---------- Hero 内で使うサブコンポーネント ---------- */
