@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Building,
@@ -115,18 +116,16 @@ type ScoutWithRelations = {
   } | null
   jobs: {
     title: string | null
+    salary_range: string | null
   } | null
 }
 
 /* ------------------------------------------------------------------ */
 /*                               画面                                  */
 /* ------------------------------------------------------------------ */
-export default function OfferDetailPage({
-  params,
-}: {
-  params: { id: string }
-}) {
-  const { id } = params
+export default function OfferDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
   const [offer, setOffer] = useState<OfferDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -137,111 +136,124 @@ export default function OfferDetailPage({
       setLoading(true)
       setError(null)
 
-      // ① 学生氏名を取得 ---------------------------
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let fullName = ""
-      if (user?.id) {
-        const { data: profile } = await supabase
-          .from("student_profiles")
-          .select("full_name")
-          .eq("user_id", user.id)
-          .single()
-        fullName = profile?.full_name ?? ""
-      }
-      // --------------------------------------------
+      try {
+        // id が取れなければ即エラー
+        if (!id) {
+          throw new Error("URL が不正です（id が取得できません）")
+        }
 
-      const { data, error } = await supabase
-        .from("scouts")
-        .select(
-          `
-          id,
-          message,
-          status,
-          created_at,
-          companies!fk_scouts_company (
-            name,
-            logo,
-            description,
-            employee_count,
-            founded_year,
-            industry,
-            website
-          ),
-          jobs!scouts_job_id_fkey (
-            title
+        /* ① 学生氏名を取得 ----------------------- */
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        let fullName = ""
+        if (user?.id) {
+          const { data: profile } = await supabase
+            .from("student_profiles")
+            .select("full_name")
+            .eq("user_id", user.id)
+            .single()
+          fullName = profile?.full_name ?? ""
+        }
+        /* --------------------------------------- */
+
+        /* ② scouts, companies, jobs を取得 ------- */
+        const { data, error } = await supabase
+          .from("scouts")
+          .select(
+            `
+             id,
+             message,
+             status,
+             created_at,
+             companies!fk_scouts_company (
+               name,
+               logo,
+               description,
+               employee_count,
+               founded_year,
+               industry,
+               website
+             ),
+             jobs!scouts_job_id_fkey (
+               title,
+               salary_range
+             )
+           `
           )
-        `
-        )
-        .eq("id", id)
-        .single()
-        .returns<ScoutWithRelations>() // 型を明示して配列/オブジェクト扱いにする
+          .eq("id", id)
+          .single()
+          .returns<ScoutWithRelations>()
 
-      if (error || !data) {
-        console.error(error)
-        setError("オファー詳細の取得に失敗しました。")
-        setLoading(false)
-        return
-      }
+        if (error || !data) {
+          const msg =
+            (error as { message?: string })?.message ||
+            "オファーが見つかりません";
+          throw new Error(msg);
+        }
 
-      const personalizedMsg = personalize(data.message, {
-        name:     fullName,
-        company:  data.companies?.name ?? "",
-        position: data.jobs?.title ?? "",
-      })
+        const personalizedMsg = personalize(data.message, {
+          name:     fullName,
+          company:  data.companies?.name ?? "",
+          position: data.jobs?.title ?? "",
+        })
 
-      /* ------------------ クエリ結果 → 画面用構造に変換 ----------------- */
-      setOffer({
-        /** scouts */
-        id: data.id,
-        message: personalizedMsg,
-        status:
-          data.status === "rejected"
-            ? "declined"
-            : (data.status as "sent" | "accepted" | "declined") ?? "sent",
-        created_at: data.created_at,
+        /* ③ クエリ結果 → 画面用構造に変換 -------- */
+        setOffer({
+          // scouts
+          id: data.id,
+          message: personalizedMsg,
+          status:
+            data.status === "rejected"
+              ? "declined"
+              : (data.status as "sent" | "accepted" | "declined") ?? "sent",
+          created_at: data.created_at,
 
-        /** jobs */
-        position: data.jobs?.title ?? null,
+          // jobs
+          position: data.jobs?.title ?? null,
 
-        /** companies */
-        company_name: data.companies?.name ?? "",
-        logo: data.companies?.logo ?? null,
-        description: data.companies?.description ?? null,
-        employee_count: data.companies?.employee_count ?? null,
-        founded_year: data.companies?.founded_year ?? null,
-        industry: data.companies?.industry ?? null,
-        website: data.companies?.website ?? null,
-
-        /** 追加情報（ダミー or 後日スキーマ追加） */
-        title: "オファータイトルをここに設定",
-        detailedMessage: personalizedMsg,
-        location: "未設定",
-        workStyle: "未設定",
-        salary: "未設定",
-        benefits: [],
-        skills: [],
-        culture: [],
-        testimonials: [],
-
-        /* companyInfo まとめ */
-        companyInfo: {
-          employees: data.companies?.employee_count
-            ? `${data.companies.employee_count}名`
-            : "未設定",
-          founded: data.companies?.founded_year
-            ? `${data.companies.founded_year}`
-            : "未設定",
-          industry: data.companies?.industry ?? "未設定",
-          website: data.companies?.website ?? "",
+          // companies
+          company_name: data.companies?.name ?? "",
+          logo: data.companies?.logo ?? null,
           description: data.companies?.description ?? null,
+          employee_count: data.companies?.employee_count ?? null,
+          founded_year: data.companies?.founded_year ?? null,
+          industry: data.companies?.industry ?? null,
+          website: data.companies?.website ?? null,
+
+          // 追加情報
+          title: data.jobs?.title ?? "タイトル未設定",
+          detailedMessage: personalizedMsg,
+          location: "未設定",
+          workStyle: "未設定",
+          salary: data.jobs?.salary_range ?? "未設定",
+          benefits: [],
+          skills: [],
           culture: [],
           testimonials: [],
-        },
-      })
 
-      setLoading(false)
+          // companyInfo
+          companyInfo: {
+            employees: data.companies?.employee_count
+              ? `${data.companies.employee_count}名`
+              : "未設定",
+            founded: data.companies?.founded_year
+              ? `${data.companies.founded_year}`
+              : "未設定",
+            industry: data.companies?.industry ?? "未設定",
+            website: data.companies?.website ?? "",
+            description: data.companies?.description ?? null,
+            culture: [],
+            testimonials: [],
+          },
+        })
+      } catch (e: any) {
+        console.error(e)
+        setError(e?.message ?? "不明なエラーが発生しました。")
+      } finally {
+        setLoading(false)
+      }
     }
 
     load()
@@ -312,7 +324,6 @@ export default function OfferDetailPage({
                 <CardDescription>オファー概要</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-700">{offer.message}</p>
 
                 {/* 属性テーブル */}
                 <div className="mt-4 grid grid-cols-2 gap-3 bg-gray-50 p-3 text-sm">
