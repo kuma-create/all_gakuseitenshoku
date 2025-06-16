@@ -85,8 +85,7 @@ export default function SignupPage() {
       if (!res.ok) {
         const msg: string = json.error ?? "";
         const isDuplicate =
-          res.status === 400 ||
-          res.status === 409 ||
+          res.status === 409 || // Conflict – email already registered
           /already/i.test(msg) ||
           /exists/i.test(msg);
 

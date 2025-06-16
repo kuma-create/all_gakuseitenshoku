@@ -91,9 +91,9 @@ export default function StudentChatPage() {
         .from("chat_rooms")
         .select("*")
         .eq("id", chatId)
-        .maybeSingle();
+        .single();
 
-      if (roomErr || !roomData) {
+      if (roomErr) {
         console.error("chat_rooms fetch error", roomErr);
         router.push("/chat");
         return;

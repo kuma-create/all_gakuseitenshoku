@@ -183,14 +183,14 @@ export default function OfferDetailPage() {
            `
           )
           .eq("id", id)
-          .single()
-          .returns<ScoutWithRelations>()
+          .maybeSingle()
+          .returns<ScoutWithRelations>();
 
-        if (error || !data) {
-          const msg =
-            (error as { message?: string })?.message ||
-            "オファーが見つかりません";
-          throw new Error(msg);
+        if (error) {
+          throw error;               // Supabase error → catch へ
+        }
+        if (!data) {
+          throw new Error("オファーが見つかりません");
         }
 
         const personalizedMsg = personalize(data.message, {
@@ -539,37 +539,57 @@ function InterestButtons({
 
   // handlers
   const handleAccept = async () => {
-    // 1) scouts.status を accepted に更新
-    const { error: updateErr } = await supabase
-      .from("scouts")
-      .update({
-        status:      "accepted",
-        accepted_at: new Date().toISOString(),
-      })
-      .eq("id", offerId);
+    try {
+      // 0) scout (= オファー) 行を取得して会社 / 学生 / 求人 ID を取り出す
+      const { data: scout, error: scoutErr } = await supabase
+        .from("scouts")
+        .select("company_id, student_id, job_id")
+        .eq("id", offerId)
+        .single();
 
-    if (updateErr) {
-      alert(`承諾に失敗しました: ${updateErr.message}`);
-      return;
+      if (scoutErr || !scout) {
+        throw scoutErr ?? new Error("オファーが取得できませんでした");
+      }
+
+      const { company_id, student_id, job_id } = scout;
+
+      // 1) オファーステータスを accepted に更新
+      const { error: updateErr } = await supabase
+        .from("scouts")
+        .update({ status: "accepted", accepted_at: new Date().toISOString() })
+        .eq("id", offerId);
+
+      if (updateErr) throw updateErr;
+
+      // 2) 既存チャットルームを検索
+      const { data: existingRoom, error: existErr } = await supabase
+        .from("chat_rooms")
+        .select("id")
+        .match({ company_id, student_id, job_id })
+        .maybeSingle();
+
+      if (existErr) throw existErr;
+
+      let roomId: string | undefined = existingRoom?.id;
+
+      // 3) 無ければ新規作成
+      if (!roomId) {
+        const { data: newRoom, error: insertErr } = await supabase
+          .from("chat_rooms")
+          .insert({ company_id, student_id, job_id })
+          .select("id")
+          .single();
+        if (insertErr) throw insertErr;
+        roomId = newRoom.id;
+      }
+
+      // 4) チャット画面へ遷移
+      router.push(`/chat/${roomId}`);
+    } catch (err) {
+      console.error("handleAccept error", err);
+      alert("チャットルームの作成に失敗しました。時間をおいて再度お試しください。");
     }
-
-    // 2) 対応するチャットルームを取得（無ければ RPC で作成）
-    const { data: room, error: roomErr } = await supabase
-      .rpc("get_or_create_chat_room_from_scout", { p_scout_id: offerId })
-      .maybeSingle<ChatRoom>();           // ← 型を直接渡す
-
-    if (roomErr || !room) {
-      alert(
-        `チャットルームの取得に失敗しました: ${roomErr?.message ?? "unknown"}`
-      );
-      setStatus("accepted"); // 画面状態だけ更新しておく
-      return;
-    }
-
-    // 3) 状態更新 & チャット詳細へ遷移
-    setStatus("accepted");
-    router.push(`/chat/${room.id}`);
-  }
+  };
   const handleDecline = () => setShowDialog(true)
   const confirmDecline = async () => {
     const { error } = await supabase

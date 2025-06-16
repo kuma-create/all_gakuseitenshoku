@@ -134,14 +134,37 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           rel = (r ?? []) as unknown as SelectionRow[]
         }
 
-        /* applied? */
+        /* applied? – look up student_profile first */
         const { data:{ user } } = await supabase.auth.getUser()
-        const { data: applied } = await supabase
-          .from("applications")
-          .select("id")
-          .eq("job_id", id)
-          .eq("student_id", user?.id ?? "")
-          .maybeSingle()
+        let appliedRow = null
+        if (user) {
+          const { data: profile } = await supabase
+            .from("student_profiles")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle()
+
+          const profileId = profile?.id
+          if (profileId) {
+            if (sel.selection_type === "event") {
+              const { data: ep } = await supabase
+                .from("event_participants")
+                .select("id")
+                .eq("event_id", id)
+                .eq("student_id", profileId)
+                .maybeSingle()
+              appliedRow = ep
+            } else {
+              const { data: app } = await supabase
+                .from("applications")
+                .select("id")
+                .eq("job_id", id)
+                .eq("student_id", profileId)
+                .maybeSingle()
+              appliedRow = app
+            }
+          }
+        }
 
         /* view count */
         trackView(id)
@@ -153,7 +176,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         setCompany(comp ?? null)
         setTags(tagList)
         setRelated(rel)
-        setHasApplied(Boolean(applied))
+        setHasApplied(Boolean(appliedRow))
       } catch (e:any) {
         console.error(e)
         setError(e.message ?? "取得に失敗しました")
@@ -167,12 +190,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const handleApply = async () => {
     try {
       const { data:{ user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("サインインが必要です")
+      if (!user) throw new Error("サインインが必要です");
+      // --- resolve student profile id ---
+      const { data: profile, error: profileErr } = await supabase
+        .from("student_profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (profileErr) throw profileErr;
+      if (!profile) throw new Error("学生プロフィールが見つかりません。アカウント設定からプロフィールを作成してください。");
 
       if (job?.selection_type === "event") {
         const participant: Database["public"]["Tables"]["event_participants"]["Insert"] = {
           event_id   : id,
-          student_id : user.id,
+          student_id : profile.id,
           status     : "reserved",
         }
         const { error } = await supabase.from("event_participants").insert(participant)
@@ -180,7 +211,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       } else {
         const appRow: Database["public"]["Tables"]["applications"]["Insert"] = {
           job_id     : id,
-          student_id : user.id,
+          student_id : profile.id,
         }
         const { error } = await supabase.from("applications").insert(appRow)
         if (error) throw error

@@ -413,7 +413,7 @@ export function ModernChatUI({
         </div>
       )}
       {/* Chat header - always visible */}
-      <div className="sticky top-[64px] z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
+      <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border dark:border-gray-600">

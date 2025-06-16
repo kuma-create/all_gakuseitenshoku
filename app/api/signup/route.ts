@@ -24,7 +24,9 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_KEY! // service_role key
   );
 
-  /* 3) ユーザー作成 ---------------------------------------------------- */
+  /* 3) ユーザー作成（既存なら取得して流用） --------------------------- */
+  let userId: string | null = null;
+
   const { data: created, error: createErr } =
     await supabase.auth.admin.createUser({
       email,
@@ -34,20 +36,58 @@ export async function POST(req: Request) {
         referral_source: referral ?? "",
       },
     });
-  if (createErr || !created.user) {
-    return NextResponse.json({ error: createErr?.message }, { status: 400 });
+
+  if (createErr) {
+    /* ------------------------------------------------------------
+       createUser が失敗した場合は「既存アカウントかどうか」を問わず
+       一度 signInWithPassword を試す。
+       ─────────────────────────────────────────────── */
+    const { data: signIn, error: signInErr } =
+      await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInErr || !signIn?.user) {
+      // サインインも失敗 → createErr をそのまま返す
+      return NextResponse.json(
+        { error: createErr.message ?? "signup_failed" },
+        { status: 400 }
+      );
+    }
+
+    // サインイン成功 → 既存ユーザーとして処理続行
+    userId = signIn.user.id;
+  } else {
+    // 新規作成成功
+    userId = created.user!.id;
   }
 
   /* 4) user_roles に student を UPSERT ------------------------------ */
   const { error: roleErr } = await supabase
     .from("user_roles")
     .upsert(
-      { user_id: created.user.id, role: "student" },
+      [{ user_id: userId, role: "student" }],
       { onConflict: "user_id" } // ← PK/UNIQUE 列名
     );
 
   if (roleErr) {
     return NextResponse.json({ error: roleErr.message }, { status: 500 });
+  }
+
+  /* 4.5) student_profiles にも UPSERT ------------------------------- */
+  const { error: profileErr } = await supabase
+    .from("student_profiles")
+    .upsert(
+      [
+        {
+          id: userId,               // PK
+          auth_user_id: userId,     // 兼用フィールド
+          full_name: `${last_name ?? ""} ${first_name ?? ""}`.trim(),
+        },
+      ],
+      { onConflict: "id" }          // PK/UNIQUE 列名
+    );
+
+  if (profileErr) {
+    return NextResponse.json({ error: profileErr.message }, { status: 500 });
   }
 
   /* 5) Magic Link 生成 (#access_token & refresh_token 付き) ----------- */
