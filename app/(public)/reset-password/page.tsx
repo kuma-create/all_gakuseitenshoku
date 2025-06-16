@@ -1,45 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Mail } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Loader2, Mail } from "lucide-react";
 
-/**
- * パスワード再設定メール送信ページ
- * 1) ユーザーがメールアドレスを入力
- * 2) /api/password-reset へ POST（Supabase recovery link発行 & SendGrid送信）
- * 3) 送信完了メッセージを表示
- */
-export default function ForgotPasswordPage() {
+export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
     setError("");
 
     const res = await fetch("/api/password-reset", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
+      headers: { "Content-Type": "application/json" },
     });
 
     const json = await res.json();
-    setIsLoading(false);
+    setLoading(false);
 
-    if (res.ok) {
-      setSent(true);
-    } else {
-      setError(json.error ?? "エラーが発生しました");
-    }
+    if (res.ok) setSent(true);
+    else setError(json.error ?? "エラーが発生しました");
   };
 
-  if (sent) {
+  if (sent)
     return (
       <div className="mx-auto max-w-sm text-center py-16">
         <h1 className="text-xl font-bold mb-4">メールを送信しました</h1>
@@ -48,7 +38,6 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
     );
-  }
 
   return (
     <form

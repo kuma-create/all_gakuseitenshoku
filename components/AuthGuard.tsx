@@ -20,7 +20,8 @@ export default function AuthGuard() {
           "/auth/reset",          // パスワードリセット
           "/terms",                  // 利用規約
           "/privacy-policy",         // プライバシーポリシー
-          "/grandprix",                // グランプリ一覧
+          "/grandprix",   
+          "/forgot-password",              // グランプリ一覧
           /* --- 以下はクライアント側ガードで制御 --- */
           "/offers",                   // 学生スカウト
           "/applications",             // 学生応募履歴

@@ -27,7 +27,8 @@ const PUBLIC_PREFIXES = [
   "/grandprix",              // グランプリ一覧
   "/api",
   "/jobs",                  // API ルート
-  "/admin/login",            // 管理者ログイン
+  "/admin/login", 
+  "/forgot-password",            // 管理者ログイン
   /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
   "/offers",                 // スカウト /offers(/...)
   "/applications",           // 応募履歴 /applications(/...)
