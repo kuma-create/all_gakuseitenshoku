@@ -322,6 +322,7 @@ export type Database = {
           category: string
           company: string | null
           created_at: string
+          created_by: string
           deadline: string | null
           description: string | null
           event_id: string | null
@@ -340,6 +341,7 @@ export type Database = {
           category?: string
           company?: string | null
           created_at?: string
+          created_by?: string
           deadline?: string | null
           description?: string | null
           event_id?: string | null
@@ -358,6 +360,7 @@ export type Database = {
           category?: string
           company?: string | null
           created_at?: string
+          created_by?: string
           deadline?: string | null
           description?: string | null
           event_id?: string | null
@@ -1043,6 +1046,42 @@ export type Database = {
           },
         ]
       }
+      events: {
+        Row: {
+          cover_image: string | null
+          created_at: string | null
+          description: string | null
+          event_date: string
+          event_type: string | null
+          id: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_date: string
+          event_type?: string | null
+          id?: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_date?: string
+          event_type?: string | null
+          id?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       experiences: {
         Row: {
           achievements: string | null
@@ -1502,108 +1541,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      offers: {
-        Row: {
-          application_id: string | null
-          benefits: Json | null
-          company_id: string | null
-          created_at: string | null
-          expiration_date: string | null
-          id: string
-          job_id: string | null
-          salary: number | null
-          start_date: string | null
-          status: Database["public"]["Enums"]["offer_status"] | null
-          student_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          application_id?: string | null
-          benefits?: Json | null
-          company_id?: string | null
-          created_at?: string | null
-          expiration_date?: string | null
-          id?: string
-          job_id?: string | null
-          salary?: number | null
-          start_date?: string | null
-          status?: Database["public"]["Enums"]["offer_status"] | null
-          student_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          application_id?: string | null
-          benefits?: Json | null
-          company_id?: string | null
-          created_at?: string | null
-          expiration_date?: string | null
-          id?: string
-          job_id?: string | null
-          salary?: number | null
-          start_date?: string | null
-          status?: Database["public"]["Enums"]["offer_status"] | null
-          student_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "offers_application_id_fkey"
-            columns: ["application_id"]
-            isOneToOne: false
-            referencedRelation: "applicants_view"
-            referencedColumns: ["application_id"]
-          },
-          {
-            foreignKeyName: "offers_application_id_fkey"
-            columns: ["application_id"]
-            isOneToOne: false
-            referencedRelation: "applications"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offers_application_id_fkey"
-            columns: ["application_id"]
-            isOneToOne: false
-            referencedRelation: "student_applications_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offers_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offers_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "selections_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offers_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       qualifications: {
         Row: {

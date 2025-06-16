@@ -87,27 +87,15 @@ const FEATURED_BANNERS = [
   },
 ]
 
-/* イベント情報 */
-const EVENTS = [
-  {
-    id: 1,
-    title: "【オンライン面談｜就活のお悩み、プロへご相談ください】就活のオーダーメイド",
-    image: "/placeholder.svg?height=200&width=400",
-    badge: "PickUp!",
-    badgeColor: "bg-blue-600",
-    type: "説明会・セミナー",
-    date: "2025年6月10日",
-  },
-  {
-    id: 2,
-    title: "【オンライン開催】『不安な就活に突破口を/就活大逆転セミナー』",
-    image: "/placeholder.svg?height=200&width=400",
-    badge: "締切4日前！",
-    badgeColor: "bg-red-500",
-    type: "オンライン",
-    date: "2025年6月8日",
-  },
-]
+
+/** イベント用型  */
+type EventRow = {
+  id: string;
+  title: string;
+  cover_image: string | null;
+  event_type: string | null;
+  event_date: string;          // ISO (YYYY‑MM‑DD)
+};
 
 /* 注目キーワード */
 const FEATURED_KEYWORDS = ["IT", "コンサル", "金融", "メーカー", "商社"] as const;
@@ -121,6 +109,8 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobRow[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  const [events, setEvents] = useState<EventRow[]>([]);
 
   /* UI filter states */
   const [search, setSearch] = useState(qParam)
@@ -204,6 +194,22 @@ job_tags!job_tags_job_id_fkey (
           }
         })
         setJobs(normalized)
+      }
+      // イベント取得
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const { data: evData, error: evErr } = await supabase
+        .from("events")
+        .select("id,title,cover_image,event_type,event_date")
+        .eq("status", "published")
+        .gte("event_date", today)
+        .order("event_date", { ascending: true })
+        .limit(4)
+        .returns<EventRow[]>();
+
+      if (evErr) {
+        console.error("events fetch error", evErr);
+      } else {
+        setEvents(evData ?? []);
       }
       setLoading(false)
     })()
@@ -528,43 +534,67 @@ job_tags!job_tags_job_id_fkey (
       </section>
 
       {/* Events Section */}
-      <section className="container mx-auto max-w-6xl px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">学生転職主催イベント</h2>
-          <Link href="#" className="text-red-600 hover:underline flex items-center">
-            すべて見る
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
+      {events.length > 0 && (
+        <section className="container mx-auto max-w-6xl px-4 py-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">学生転職主催イベント</h2>
+            <Link
+              href="/events"
+              className="text-red-600 hover:underline flex items-center"
+            >
+              すべて見る
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {EVENTS.map((event) => (
-            <Card key={event.id} className="overflow-hidden border-0 shadow-lg">
-              <div className="relative">
-                <Image
-                  src={event.image || "/placeholder.svg"}
-                  alt={event.title}
-                  width={600}
-                  height={200}
-                  className="w-full h-48 object-cover"
-                />
-                <div className={`absolute top-4 left-0 ${event.badgeColor} text-white px-4 py-1 font-bold`}>
-                  {event.badge}
-                </div>
-              </div>
-              <div className="p-4">
-                <h3 className="font-bold text-lg line-clamp-2 mb-2">{event.title}</h3>
-                <div className="flex gap-2 mt-4">
-                  <Badge variant="outline" className="rounded-full">
-                    {event.type}
-                  </Badge>
-                  <span className="text-sm text-gray-500">{event.date}</span>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {events.map((ev) => {
+              const daysLeft = Math.ceil(
+                (new Date(ev.event_date).getTime() - Date.now()) / 86400000,
+              );
+              const badge =
+                daysLeft <= 4 && daysLeft >= 0
+                  ? `締切${daysLeft}日前!`
+                  : "PickUp!";
+              const badgeColor =
+                daysLeft <= 4 && daysLeft >= 0 ? "bg-red-500" : "bg-blue-600";
+              return (
+                <Card key={ev.id} className="overflow-hidden border-0 shadow-lg">
+                  <div className="relative">
+                    <Image
+                      src={ev.cover_image || "/placeholder.svg"}
+                      alt={ev.title}
+                      width={600}
+                      height={200}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div
+                      className={`absolute top-4 left-0 ${badgeColor} text-white px-4 py-1 font-bold`}
+                    >
+                      {badge}
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-lg line-clamp-2 mb-2">
+                      {ev.title}
+                    </h3>
+                    <div className="flex gap-2 mt-4">
+                      {ev.event_type && (
+                        <Badge variant="outline" className="rounded-full">
+                          {ev.event_type}
+                        </Badge>
+                      )}
+                      <span className="text-sm text-gray-500">
+                        {ev.event_date}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* content */}
       <main className="container mx-auto max-w-6xl px-4 py-8">

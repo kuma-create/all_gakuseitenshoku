@@ -13,6 +13,8 @@ import {
   Briefcase,
   Bell,
   BarChart3,
+  CalendarDays,
+  PlusCircle,
   RefreshCcw,
   Settings,
   UserCog,
@@ -24,7 +26,7 @@ import {
   XCircle,
   Trash2,
   UserPlus,
-  FileText
+  FileText,
 } from "lucide-react";
 import {
   Avatar,
@@ -139,6 +141,14 @@ type Feature = {
   created_at: string;
 };
 
+type Event = {
+  id: string;
+  title: string;
+  event_date: string;   // ISO date
+  status: string;
+  updated_at: string;
+};
+
 type ActivityLog = {
   id: string;
   timestamp: string;
@@ -211,6 +221,7 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [features, setFeatures] = useState<Feature[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
 
   const [studentPage, setStudentPage] = useState(1);
   const [companyPage, setCompanyPage] = useState(1);
@@ -218,6 +229,7 @@ export default function AdminDashboard() {
   const [requestPage, setRequestPage] = useState(1);
   const [activityPage, setActivityPage] = useState(1);
   const [featurePage, setFeaturePage] = useState(1);
+  const [eventPage, setEventPage] = useState(1);
 
   const [dateRange, setDateRange] = useState<DayPickerRange>({
     from: subDays(new Date(), 30),
@@ -361,6 +373,20 @@ export default function AdminDashboard() {
           setFeatures((ftData ?? []) as Feature[]);
         }
 
+        // --- イベント一覧 ---------------------------
+        const { data: evData, error: evErr } = await supabase
+          .from("events")
+          .select("id,title,event_date,status,updated_at")
+          .order("updated_at", { ascending: false })
+          .range((eventPage - 1) * 5, eventPage * 5 - 1);
+
+        if (evErr) {
+          console.error("events fetch error:", evErr);
+          setEvents([]);
+        } else {
+          setEvents((evData ?? []) as Event[]);
+        }
+
         // 申請一覧
         const { data: appsData, error: appsErr } = await supabase
           .from("applications")
@@ -449,6 +475,7 @@ export default function AdminDashboard() {
       activityPage,
       dateRange,
       featurePage,
+      eventPage,
     ]
   );
 
@@ -569,6 +596,9 @@ export default function AdminDashboard() {
           <TabsTrigger value="features">
             <FileText /> 特集
           </TabsTrigger>
+          <TabsTrigger value="events">
+            <CalendarDays /> イベント
+          </TabsTrigger>
           <TabsTrigger value="activity">
             <RefreshCcw /> ログ
           </TabsTrigger>
@@ -640,6 +670,73 @@ export default function AdminDashboard() {
             <PaginationPrevious onClick={() => setFeaturePage((p)=> Math.max(1, p-1))} />
             <PaginationItem><PaginationLink isActive>{featurePage}</PaginationLink></PaginationItem>
             <PaginationNext onClick={() => setFeaturePage((p)=> p+1)} />
+          </Pagination>
+        </TabsContent>
+
+        {/* --- イベント --- */}
+        <TabsContent value="events">
+          <div className="flex justify-end mb-2">
+            <Button onClick={() => openModal("add-event", "")}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              イベントを追加
+            </Button>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>タイトル</TableHead>
+                <TableHead>開催日</TableHead>
+                <TableHead>ステータス</TableHead>
+                <TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events.map((e) => (
+                <TableRow key={e.id}>
+                  <TableCell>{e.id}</TableCell>
+                  <TableCell>{e.title}</TableCell>
+                  <TableCell>
+                    {format(new Date(e.event_date), "yyyy/MM/dd")}
+                  </TableCell>
+                  <TableCell>
+                    <Badge>{e.status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost">
+                          <ChevronDown />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>操作</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => openModal("view-event", e.id)}>
+                          <Eye /> 詳細
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openModal("edit-event", e.id)}>
+                          <Edit /> 編集
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => openModal("delete-event", e.id)}
+                          className="text-red-500"
+                        >
+                          <Trash2 /> 削除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <Pagination className="my-2">
+            <PaginationPrevious onClick={() => setEventPage((p) => Math.max(1, p - 1))} />
+            <PaginationItem>
+              <PaginationLink isActive>{eventPage}</PaginationLink>
+            </PaginationItem>
+            <PaginationNext onClick={() => setEventPage((p) => p + 1)} />
           </Pagination>
         </TabsContent>
 
