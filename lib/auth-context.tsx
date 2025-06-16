@@ -70,6 +70,10 @@ const PUBLIC_ROUTES = new Set([
   "/signup",
   "/email-callback",
   "/admin/login",
+  "/job",
+  "/grandprix",  
+  "/terms",            // 利用規約
+  "/privacy-policy",   // プライバシーポリシー
 ]);
 
 /* ====================================================================== */

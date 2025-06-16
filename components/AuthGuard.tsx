@@ -18,6 +18,8 @@ export default function AuthGuard() {
           "/admin/login",              // 管理者ログイン
           "/auth/student/register",    // 学生登録
           "/auth/reset",          // パスワードリセット
+          "/terms",                  // 利用規約
+          "/privacy-policy",         // プライバシーポリシー
           "/grandprix",                // グランプリ一覧
           /* --- 以下はクライアント側ガードで制御 --- */
           "/offers",                   // 学生スカウト
