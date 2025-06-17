@@ -1453,6 +1453,162 @@ export type Database = {
           },
         ]
       }
+      media_authors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          display_name: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          display_name: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          display_name?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      media_categories: {
+        Row: {
+          id: string
+          name: string
+          order: number | null
+          slug: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          order?: number | null
+          slug: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          order?: number | null
+          slug?: string
+        }
+        Relationships: []
+      }
+      media_posts: {
+        Row: {
+          author_id: string | null
+          category_id: string | null
+          content_html: string | null
+          content_md: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          excerpt: string | null
+          id: string
+          published_at: string | null
+          slug: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          category_id?: string | null
+          content_html?: string | null
+          content_md?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          id?: string
+          published_at?: string | null
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          category_id?: string | null
+          content_html?: string | null
+          content_md?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          excerpt?: string | null
+          id?: string
+          published_at?: string | null
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "media_authors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_posts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "media_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_posts_tags: {
+        Row: {
+          post_id: string
+          tag_id: string
+        }
+        Insert: {
+          post_id: string
+          tag_id: string
+        }
+        Update: {
+          post_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_posts_tags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "media_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_posts_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "media_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_tags: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           answered_at: string | null

@@ -28,6 +28,7 @@ const PUBLIC_PREFIXES = [
   "/api",
   "/jobs",                  // API ルート
   "/admin/login", 
+  "/media",
   "/forgot-password",            // 管理者ログイン
   /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
   "/offers",                 // スカウト /offers(/...)
@@ -40,19 +41,45 @@ const PUBLIC_PREFIXES = [
 
 /* ------------------------------------------------------------------ */
 export async function middleware(req: NextRequest) {
-  /* ---------- Supabase Session 取得 ---------- */
-  const res      = NextResponse.next({ request: req });
-  const supabase = createMiddlewareClient<Database>({ req, res });
-  const { data: { session } } = await supabase.auth.getSession();
+  /* ---------- ① ルート・静的アセット・公開ページは早期リターン ---------- */
   const { pathname } = req.nextUrl;
 
-  /* ---------- 0. トップページはゲスト公開 (早期リターン) ---------- */
-  if (pathname === "/") {
-    return res;            // "/" だけは必ず通過させる
+  // a) 静的アセット
+  if (STATIC_RE.test(pathname)) {
+    return NextResponse.next();
   }
 
-  const isAdminArea   = pathname.startsWith("/admin") && pathname !== "/admin/login";
-  const isLoginPage   = pathname === "/login" || pathname === "/admin/login";
+  // b) ルート (LP)
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
+  // c) ログイン / 管理ログイン判定
+  const isLoginPage = pathname === "/login" || pathname === "/admin/login";
+  const isAdminArea = pathname.startsWith("/admin") && pathname !== "/admin/login";
+
+  // d) 公開ページ判定
+  const isPublic = PUBLIC_PREFIXES.some((p) =>
+    p === "/" ? pathname === "/" : pathname.startsWith(p)
+  );
+
+  // 公開ページかつログインページでなければ Supabase を触らず通過
+  if (isPublic && !isLoginPage) {
+    return NextResponse.next();
+  }
+
+  /* ---------- ② ここで初めて Supabase Session を取得 ---------- */
+  const res      = NextResponse.next({ request: req });
+  const supabase = createMiddlewareClient<Database>({ req, res });
+
+  let session = null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    session = data.session;
+  } catch (_) {
+    // 失効トークンで 400/401 が返る場合は握り潰す
+  }
+
 
   /* ---------- ロール判定 ---------- */
   let role: string | null = null;
@@ -100,11 +127,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  /* ---------- ③ 公開ページかどうか ---------- */
-  // "/" は完全一致判定、それ以外は prefix 判定
-  const isPublic = PUBLIC_PREFIXES.some((p) =>
-    p === "/" ? pathname === "/" : pathname.startsWith(p)
-  );
+
 
   /* ログインしていない & 非公開ページ → /login?next=... */
   if (!session && !isPublic && !isLoginPage) {

@@ -21,6 +21,7 @@ export default function AuthGuard() {
           "/terms",                  // 利用規約
           "/privacy-policy",         // プライバシーポリシー
           "/grandprix",   
+          "/media",
           "/forgot-password",              // グランプリ一覧
           /* --- 以下はクライアント側ガードで制御 --- */
           "/offers",                   // 学生スカウト

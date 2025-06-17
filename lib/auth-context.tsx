@@ -73,6 +73,7 @@ const PUBLIC_ROUTES = new Set([
   "/job",
   "/grandprix",  
   "/terms",  
+  "/media",
   "/forgot-password",          // 利用規約
   "/privacy-policy",   // プライバシーポリシー
 ]);
