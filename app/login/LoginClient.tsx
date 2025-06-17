@@ -188,6 +188,13 @@ export default function LoginClient() {
     error: ctxError,
     clearError,
   } = useAuth();
+
+  // --- 日本語エラーメッセージ変換 ------------------------------
+  // Supabase から返る典型的な英語メッセージを日本語へ置き換える
+  const jpError =
+    ctxError && ctxError.toLowerCase().includes("invalid login credentials")
+      ? "アカウントが存在しません。"
+      : ctxError;
   const ready = session !== undefined;
 
   const [tab, setTab] = useState<Role>("student");
@@ -346,7 +353,7 @@ export default function LoginClient() {
           password={password}
           showPW={showPW}
           loading={loading}
-          error={ctxError}
+          error={jpError}
           setEmail={setEmail}
           setPassword={setPassword}
           togglePW={() => setShowPW((p) => !p)}
