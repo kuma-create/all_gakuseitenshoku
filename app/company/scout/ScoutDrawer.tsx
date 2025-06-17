@@ -184,7 +184,7 @@ export default function ScoutDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[80vw] p-0">
+      <SheetContent side="right" className="w-full sm:max-w-[80vw] h-screen p-0">
         {/* hidden title for accessibility */}
         <SheetHeader>
           <SheetTitle className="sr-only">スカウト詳細</SheetTitle>
@@ -199,7 +199,7 @@ export default function ScoutDrawer({
 
             {/* ── 右 1/3：スカウト送信フォーム ───────────────── */}
             {!readOnly && (
-              <div className="border-l p-6 flex flex-col space-y-6">
+              <div className="border-l p-6 flex flex-col space-y-6 overflow-y-auto">
                 {/* 学生サマリー */}
                 <Card>
                   <CardContent className="pt-4 flex items-center gap-3">
