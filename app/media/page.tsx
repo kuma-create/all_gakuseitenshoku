@@ -28,8 +28,13 @@ type MediaPost =
     media_categories: { name: string } | null;
   };
 
+/** UI で扱う型 ― cover_image_url は必ず string */
+type MediaPostUI = Omit<MediaPost, "cover_image_url"> & {
+  cover_image_url: string;
+};
+
 /* -------- Supabase から記事を取得 -------- */
-async function fetchPosts(): Promise<MediaPost[]> {
+async function fetchPosts(): Promise<MediaPostUI[]> {
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -61,9 +66,9 @@ async function fetchPosts(): Promise<MediaPost[]> {
   return (data as MediaPost[]).map((p) => ({
     ...p,
     cover_image_url:
-      p.cover_image_url ||
-      "/placeholder.svg?height=300&width=400&text=No+Image",
-  }));
+      (p.cover_image_url ||
+        "/placeholder.svg?height=300&width=400&text=No+Image") as string,
+  })) as MediaPostUI[];
 }
 
 /* -------- Sidebar アイテム（固定） -------- */
@@ -106,7 +111,7 @@ const sidebarItems = [
 /* ================================================================== */
 
 export default async function MediaPage() {
-  const posts = await fetchPosts();
+  const posts: MediaPostUI[] = await fetchPosts();
 
   // フィーチャー記事：最新 3 本
   const featuredArticles = posts.slice(0, 3);

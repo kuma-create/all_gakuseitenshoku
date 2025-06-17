@@ -51,13 +51,13 @@ export async function POST(req: Request) {
     .from("student_profiles")
     .upsert(
       {
-        id:                        user.id,
-        updated_at:                new Date().toISOString(),
-        status:                    "incomplete",
-        has_internship_experience: false,
-        interests:                 [],
+        user_id:                  user.id,                 // PK = auth.uid()
+        updated_at:               new Date().toISOString(),
+        status:                   "incomplete",
+        has_internship_experience:false,
+        interests:                [],
       },
-      { onConflict: "id", ignoreDuplicates: true },
+      { onConflict: "user_id", ignoreDuplicates: true },
     );
 
   if (profileErr) {
