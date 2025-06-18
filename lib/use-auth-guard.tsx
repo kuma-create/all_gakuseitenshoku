@@ -93,7 +93,7 @@ export function useAuthGuard(
         currentRole === "company"
           ? "/company-dashboard"
           : currentRole === "admin"
-          ? "/admin-dashboard"
+          ? "/admin"
           : "/student-dashboard";
 
       if (pathname !== dashboard) {

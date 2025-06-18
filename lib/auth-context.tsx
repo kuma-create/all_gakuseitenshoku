@@ -162,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           COMPANY_ROLES.has(role)
             ? "/company-dashboard"
             : role === "admin"
-            ? "/admin-dashboard"
+            ? "/admin"
             : "/student-dashboard";
         router.replace(redirect);
       }

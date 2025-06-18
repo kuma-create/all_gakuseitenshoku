@@ -216,7 +216,7 @@ export default function LoginClient() {
         : realRole === "company" || realRole === "company_admin"
         ? "/company-dashboard"
         : realRole === "admin"
-        ? "/admin-dashboard"
+        ? "/admin"
         : "/student-dashboard";
 
       router.replace(dest);
@@ -279,7 +279,7 @@ export default function LoginClient() {
           : realRole === "company" || realRole === "company_admin"
           ? "/company-dashboard"
           : realRole === "admin"
-          ? "/admin-dashboard"
+          ? "/admin"
           : "/student-dashboard"
       );
     }

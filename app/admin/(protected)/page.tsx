@@ -223,6 +223,10 @@ export default function AdminDashboard() {
   const [features, setFeatures] = useState<Feature[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
 
+  /* ---------- 特集追加用 ---------- */
+  const [newFeatureTitle, setNewFeatureTitle] = useState("");
+  const [newFeatureStatus, setNewFeatureStatus] = useState<"公開" | "下書き">("下書き");
+
   const [studentPage, setStudentPage] = useState(1);
   const [companyPage, setCompanyPage] = useState(1);
   const [jobPage, setJobPage] = useState(1);
@@ -1510,6 +1514,72 @@ export default function AdminDashboard() {
             </Button>
             <Button onClick={() => { /* 確定処理 */ }}>
               凍結
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ----- 特集追加 ----- */}
+      <Dialog open={modalState.type === "add-feature"} onOpenChange={closeModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>特集記事を追加</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>タイトル</Label>
+              <Input
+                value={newFeatureTitle}
+                onChange={(e) => setNewFeatureTitle(e.target.value)}
+                placeholder="記事タイトル"
+              />
+            </div>
+            <div>
+              <Label>ステータス</Label>
+              <Select
+                value={newFeatureStatus}
+                onValueChange={(v) => setNewFeatureStatus(v as any)}
+              >
+                <SelectTrigger />
+                <SelectContent>
+                  <SelectItem value="公開">公開</SelectItem>
+                  <SelectItem value="下書き">下書き</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={closeModal}>
+              キャンセル
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!newFeatureTitle.trim()) {
+                  toast({ description: "タイトルを入力してください", variant: "destructive" });
+                  return;
+                }
+                const { error } = await supabase.from("features").insert({
+                  title: newFeatureTitle.trim(),
+                  status: newFeatureStatus,
+                });
+                if (error) {
+                  toast({ description: `追加失敗: ${error.message}`, variant: "destructive" });
+                } else {
+                  toast({ description: "特集を追加しました" });
+                  // 即時反映
+                  setFeatures((prev) => [
+                    { id: crypto.randomUUID(), title: newFeatureTitle, status: newFeatureStatus, created_at: new Date().toISOString() },
+                    ...prev,
+                  ]);
+                  setNewFeatureTitle("");
+                  setNewFeatureStatus("下書き");
+                  closeModal();
+                }
+              }}
+            >
+              追加
             </Button>
           </DialogFooter>
         </DialogContent>
