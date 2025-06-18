@@ -149,7 +149,13 @@ export async function middleware(req: NextRequest) {
     }
     // /login にアクセスした場合
     else if (pathname === "/login") {
-      const dest = isCompanyRole ? "/company-dashboard" : "/student-dashboard";
+      // ロールごとに遷移先を振り分ける
+      let dest = "/student-dashboard";
+      if (role === "admin") {
+        dest = "/admin";
+      } else if (isCompanyRole) {
+        dest = "/company-dashboard";
+      }
       return NextResponse.redirect(new URL(dest, req.url), { status: 302 });
     }
   }
