@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     // --- 管理者通知 ---
     await sgMail.send({
       to: "system@gakuten.co.jp",
-      from: "no-reply@gakuten.co.jp",
+      from: "admin@gakuten.co.jp",
       subject: "【学生転職】新規学生登録通知",
       text: `新しい学生が登録しました。\n\n氏名: ${last_name ?? ""} ${first_name ?? ""}\nメール: ${email}`,
     });
