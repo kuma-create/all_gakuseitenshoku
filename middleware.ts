@@ -34,7 +34,6 @@ const PUBLIC_PREFIXES = [
   "/offers",                 // スカウト /offers(/...)
   "/applications",           // 応募履歴 /applications(/...)
   "/chat",
-  "/jobs",   
   "/resume",
   "/companies",                 // 学生チャット /chat(/...)
 ];
@@ -66,6 +65,23 @@ export async function middleware(req: NextRequest) {
   // 公開ページかつログインページでなければ Supabase を触らず通過
   if (isPublic && !isLoginPage) {
     return NextResponse.next();
+  }
+
+/* ---------- Cookie が無い場合の早期リターン ---------- */
+const hasAuthCookie =
+  !!req.cookies.get("sb-access-token") || !!req.cookies.get("sb-refresh-token");
+
+  if (!hasAuthCookie) {
+    // 未ログインでログインページはそのまま表示
+    if (isLoginPage) {
+      return NextResponse.next();
+    }
+
+    // 未ログインで非公開ページ → /login へ転送
+    const loginPath = isAdminArea ? "/admin/login" : "/login";
+    const login = new URL(loginPath, req.url);
+    login.searchParams.set("next", pathname);
+    return NextResponse.redirect(login, { status: 302 });
   }
 
   /* ---------- ② ここで初めて Supabase Session を取得 ---------- */
