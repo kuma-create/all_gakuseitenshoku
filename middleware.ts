@@ -30,6 +30,7 @@ const PUBLIC_PREFIXES = [
   "/admin/login", 
   "/media",
   "/forgot-password",            // 管理者ログイン
+  "/email-callback",        // メールリンク用コールバック
   /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
   "/offers",                 // スカウト /offers(/...)
   "/applications",           // 応募履歴 /applications(/...)
@@ -155,6 +156,11 @@ const hasAuthCookie =
 
   /* ---------- ④ /login または /admin/login へのアクセス時 ---------- */
   if (session && isLoginPage) {
+    // ?next=/some/path が付いていれば最優先でそこへ
+    const nextParam = req.nextUrl.searchParams.get("next");
+    if (nextParam && nextParam.startsWith("/")) {
+      return NextResponse.redirect(new URL(nextParam, req.url), { status: 302 });
+    }
     // /admin/login にアクセスした場合
     if (pathname === "/admin/login") {
       // Admin ロールはそのまま管理ダッシュボードへリダイレクト
