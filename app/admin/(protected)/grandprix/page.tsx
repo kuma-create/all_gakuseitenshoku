@@ -824,7 +824,7 @@ export default function AdminGrandPrixPage() {
     try {
       const { error: err } = await supabase
         .from("challenge_submissions")
-        .update({ score, status: "採点済", feedback })
+        .update({ score, status: "採点済", comment: feedback })
         .eq("id", scoringSubmission.id)
 
       if (err) throw err
