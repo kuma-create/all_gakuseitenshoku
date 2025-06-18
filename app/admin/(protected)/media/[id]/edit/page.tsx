@@ -1,10 +1,10 @@
 /* ------------------------------------------------------------------
-   app/admin/(protected)/media/new/page.tsx  – 管理画面: 新規投稿フォーム
+   app/admin/(protected)/media/[id]/edit.tsx  – 管理画面: 投稿編集
 ------------------------------------------------------------------ */
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -18,27 +18,32 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
+import { supabase } from "@/lib/supabase/client";
 import ImageUpload from "@/components/media/upload";
 import { marked } from "marked";
-import { supabase } from "@/lib/supabase/client";
-
 import dynamic from "next/dynamic";
 const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
 
 import {
-  Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
 /* ---------------------- 型 ---------------------- */
-type Category = {
-  id: string;
-  name: string;
-  slug: string;
-};
+type Category = { id: string; name: string; slug: string };
 type Tag = { id: string; name: string; slug: string };
 
-/* ---------------------- ユーティリティ ---------------------- */
+type PostRow = Database["public"]["Tables"]["media_posts"]["Row"] & {
+  preview_token: string | null;
+  media_categories?: { id: string } | null;
+};
+
+/* ---------------------- UTILS ---------------------- */
 function slugify(str: string) {
   return str
     .toLowerCase()
@@ -47,9 +52,10 @@ function slugify(str: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-/* ---------------------- コンポーネント ---------------------- */
-export default function NewMediaPage() {
+/* ---------------------- COMPONENT ---------------------- */
+export default function EditMediaPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
 
   /* form state */
   const [title, setTitle] = useState("");
@@ -60,108 +66,134 @@ export default function NewMediaPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [previewToken, setPreviewToken] = useState<string | null>(null);
 
-  /* fetch categories once */
+  /* fetch all data */
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("media_categories")
-        .select("id,name,slug")
-        .order("name");
-      if (error) {
-        console.error(error);
-      } else {
-        setCategories(data as Category[]);
-      }
+      try {
+        // カテゴリ・タグマスタ
+        const [{ data: cat }, { data: tagData }] = await Promise.all([
+          supabase.from("media_categories").select("id,name,slug").order("name"),
+          supabase.from("media_tags").select("id,name,slug").order("name"),
+        ]);
+        setCategories((cat ?? []) as Category[]);
+        setTags((tagData ?? []) as Tag[]);
 
-      const { data: tagData } = await supabase
-        .from("media_tags")
-        .select("id,name,slug")
-        .order("name");
-      setTags((tagData ?? []) as Tag[]);
+        // 記事データ
+        const { data: post, error: postError } = await supabase
+          .from("media_posts")
+          .select("*, media_categories(id), preview_token")
+          .eq("id", params.id)
+          .single<PostRow>();
+        if (postError || !post) throw postError;
+
+        setTitle(post.title);
+        setSlug(post.slug);
+        setExcerpt(post.excerpt ?? "");
+        setContent(post.content_md ?? "");
+        setCoverUrl(post.cover_image_url ?? null);
+        setStatus(post.status as "draft" | "published");
+        setCategoryId(post.category_id ?? post.media_categories?.id ?? null);
+        setPreviewToken(post.preview_token ?? null);
+
+        // 紐付タグ
+        const { data: linked } = await supabase
+          .from("media_posts_tags")
+          .select("tag_id")
+          .eq("post_id", params.id);
+        setSelected(new Set((linked ?? []).map((t) => t.tag_id)));
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error(err);
+        toast.error("記事を取得できませんでした");
+        router.push("/admin/media");
+      }
     })();
-  }, []);
+  }, [params.id]);
 
   /* auto slug */
-  useEffect(() => {
-    setSlug(slugify(title));
-  }, [title]);
+  useEffect(() => setSlug(slugify(title)), [title]);
 
-  /* submit handler */
+  /* submit */
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!title) {
-      toast.error("タイトルを入力してください");
-      return;
-    }
-    if (!categoryId) {
-      toast.error("カテゴリを選択してください");
-      return;
-    }
-    if (!coverUrl) {
-      toast.error("カバー画像をアップロードしてください");
-      return;
-    }
+    if (!title) return toast.error("タイトルを入力してください");
+    if (!categoryId) return toast.error("カテゴリを選択してください");
+    if (!coverUrl) return toast.error("カバー画像をアップロードしてください");
 
-    // marked.parse can be sync or async → `await` で Promise<string> を解消
-    const html = await marked.parse(content) as string;
+    const html = (await marked.parse(content)) as string;
     setIsSaving(true);
-    // まず記事を INSERT し、返却された id を取得
-    const { data: inserted, error: insertError } = await supabase
+
+    // 1) update post
+    const { error: updateErr } = await supabase
       .from("media_posts")
-      .insert({
+      .update({
         title,
         slug,
         excerpt,
         content_md: content,
         content_html: html,
         status,
-        author_id: null, // 後で自動紐付けする場合は変更
         category_id: categoryId,
         cover_image_url: coverUrl,
+        updated_at: new Date().toISOString(),
       })
-      .select("id, preview_token") // ← id とプレビュートークンを返却
-      .single<{ id: string; preview_token: string }>(); // 型を明示
-
-    if (insertError || !inserted) {
-      console.error(insertError);
-      toast.error("保存に失敗しました");
+      .eq("id", params.id);
+    if (updateErr) {
+      toast.error("更新に失敗しました");
       setIsSaving(false);
       return;
     }
 
-    // タグが選択されていれば junction テーブルへ挿入
+    // 2) sync tags: 全削除 → 挿入
+    await supabase.from("media_posts_tags").delete().eq("post_id", params.id);
     if (selected.size) {
-      const postId = inserted.id;
-      const tagRows = Array.from(selected).map((tagId) => ({
-        post_id: postId,
+      const rows = Array.from(selected).map((tagId) => ({
+        post_id: params.id,
         tag_id: tagId,
       }));
-      await supabase.from("media_posts_tags").insert(tagRows);
+      await supabase.from("media_posts_tags").insert(rows);
     }
 
-    const previewUrl = `/media/preview/${inserted.id}?token=${inserted.preview_token}`;
-    toast.success(
-      `保存しました！ プレビューリンクを開きますか？`,
-      {
-        action: {
-          label: "開く",
+    const previewUrl =
+      previewToken &&
+      `/media/preview/${params.id}?token=${previewToken}`;
+
+    toast.success("更新しました！", {
+      action:
+        previewUrl && {
+          label: "プレビュー",
           onClick: () => window.open(previewUrl, "_blank"),
         },
-        duration: 8000,
-      }
-    );
+      duration: 8000,
+    });
     router.push("/admin/media");
   }
 
+  /* loading state */
+  if (isLoading) {
+    return (
+      <section className="container mx-auto px-6 py-20 max-w-2xl">
+        <p className="text-muted-foreground">読み込み中...</p>
+      </section>
+    );
+  }
+
+  /* ------------------ JSX ------------------ */
   return (
     <section className="container mx-auto px-6 py-12 max-w-6xl">
-      <h1 className="text-3xl font-bold mb-8">新規投稿</h1>
+      <h1 className="text-3xl font-bold mb-8">投稿を編集</h1>
 
-      <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1fr,320px]">
+      <form
+        onSubmit={handleSubmit}
+        className="grid gap-8 lg:grid-cols-[1fr,320px]"
+      >
         {/* ------------ Content Column ------------ */}
         <div className="space-y-6">
           {/* title */}
@@ -235,16 +267,19 @@ export default function NewMediaPage() {
                 </DialogHeader>
                 <div className="max-h-64 overflow-y-auto space-y-2">
                   {tags.map((t) => (
-                    <label key={t.id} className="flex items-center gap-2 text-sm">
+                    <label
+                      key={t.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
                       <Checkbox
                         checked={selected.has(t.id)}
-                        onCheckedChange={(ck) => {
+                        onCheckedChange={(ck) =>
                           setSelected((prev) => {
                             const s = new Set(prev);
                             ck ? s.add(t.id) : s.delete(t.id);
                             return s;
-                          });
-                        }}
+                          })
+                        }
                       />
                       {t.name}
                     </label>
@@ -308,7 +343,7 @@ export default function NewMediaPage() {
         {/* ------------ Actions ------------ */}
         <div className="lg:col-span-2 flex gap-4 pt-6">
           <Button type="submit" disabled={isSaving}>
-            {isSaving ? "保存中…" : "保存"}
+            {isSaving ? "更新中…" : "更新"}
           </Button>
           <Button
             type="button"

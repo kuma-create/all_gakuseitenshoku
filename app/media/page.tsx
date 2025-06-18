@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SidebarNav } from "@/components/ui/sidebarnav";
 import {
   Mail,
   TrendingUp,
@@ -80,6 +81,7 @@ const sidebarItems = [
     gradient: "from-pink-500 to-rose-500",
     bgGradient: "from-pink-50 to-rose-50",
     count: "120+",
+    active: false,
   },
   {
     title: "スタートアップ情報",
@@ -88,6 +90,7 @@ const sidebarItems = [
     gradient: "from-blue-500 to-cyan-500",
     bgGradient: "from-blue-50 to-cyan-50",
     count: "85+",
+    active: false,
   },
   {
     title: "キャリア情報",
@@ -105,6 +108,7 @@ const sidebarItems = [
     gradient: "from-purple-500 to-indigo-500",
     bgGradient: "from-purple-50 to-indigo-50",
     count: "45+",
+    active: false,
   },
 ];
 
@@ -326,45 +330,7 @@ export default async function MediaPage() {
             </span>
           </div>
 
-          <nav className="space-y-4 mb-8">
-            {sidebarItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block group"
-                prefetch
-                scroll={false}
-              >
-                <Card
-                  className={`overflow-hidden transition-all duration-300 border-0 ${
-                    item.active
-                      ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg"
-                      : `bg-gradient-to-r ${item.bgGradient} hover:shadow-lg hover:-translate-y-1`
-                  }`}
-                >
-                  <div className="flex items-center gap-4 px-5 py-4 font-semibold text-sm">
-                    <span
-                      className={`p-2 rounded-lg ${
-                        item.active ? "bg-white/20" : `bg-gradient-to-r ${item.gradient} text-white`
-                      }`}
-                    >
-                      <item.icon className="w-5 h-5" />
-                    </span>
-                    <span className={`${item.active ? "text-white" : "text-gray-800"}`}>
-                      {item.title}
-                    </span>
-                    <span
-                      className={`ml-auto text-xs font-normal ${
-                        item.active ? "text-white/80" : "text-gray-500"
-                      }`}
-                    >
-                      {item.count}
-                    </span>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </nav>
+          <SidebarNav items={sidebarItems} />
         </aside>
       </div>
     </div>

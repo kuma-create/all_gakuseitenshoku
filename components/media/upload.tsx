@@ -1,16 +1,14 @@
-
-
 /* ------------------------------------------------------------------
    components/media/upload.tsx  – 画像アップロード (Supabase Storage)
 ------------------------------------------------------------------ */
 "use client";
 
 import { useRef, useState, DragEvent } from "react";
-import { createClient } from "@supabase/supabase-js";
-import Image from "next/image";
 import { Upload, Loader2, CheckCircle } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
+import { supabase } from "@/lib/supabase/client";
 
 /* -------------------- 型 -------------------- */
 interface ImageUploadProps {
@@ -39,11 +37,6 @@ export default function ImageUpload({
   pathPrefix = "covers",
   className = "",
 }: ImageUploadProps) {
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [preview, setPreview] = useState<string | null>(initialUrl ?? null);
   const [uploading, setUploading] = useState(false);
@@ -98,7 +91,7 @@ export default function ImageUpload({
 
   return (
     <div
-      className={`relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${className}`}
+      className={`relative h-48 w-full border-2 border-dashed rounded-lg flex items-center justify-center overflow-hidden cursor-pointer ${className}`}
       onClick={() => fileInputRef.current?.click()}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
@@ -117,9 +110,8 @@ export default function ImageUpload({
         <Image
           src={preview}
           alt="preview"
-          width={400}
-          height={225}
-          className="mx-auto rounded-md object-contain"
+          fill
+          className="w-full h-full object-contain"
         />
       ) : uploading ? (
         <div className="flex flex-col items-center justify-center space-y-2 py-10">

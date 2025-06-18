@@ -301,6 +301,15 @@ export default function AdminGrandPrixPage() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [selectedTime, setSelectedTime] = useState("23:59")
 
+  // 回答閲覧モーダル
+  const [answerModalOpen, setAnswerModalOpen] = useState(false)
+  const [viewingSubmission, setViewingSubmission] = useState<SubmissionRow | null>(null)
+
+  const openAnswerModal = (sub: SubmissionRow) => {
+    setViewingSubmission(sub)
+    setAnswerModalOpen(true)
+  }
+
   // 新規お題作成モード
   const [isCreating, setIsCreating] = useState(false)
   // 編集対象の challenge ID（ハイライト用）
@@ -410,17 +419,62 @@ export default function AdminGrandPrixPage() {
         if (err2) throw err2
         setSubmissions((subs ?? []) as SubmissionRow[])
       } else {
-        // 現在のお題が無い場合はクリア
-        setCurrentChallenge(null)
-        setSubmissions([])
-        setChallengeForm({
-          title: "",
-          description: "",
-          word_limit: 500,
-          num_questions: 50,
-          randomize: true,
-          deadline: new Date(),
-        })
+        // 現在公開中のお題が無い場合は、直近（締切が一番近い過去のお題）を取得して表示
+        const { data: latest, error: errLatest } = await supabase
+          .from("challenges")
+          .select("*")
+          .or(`type.is.null,type.eq.${grandType}`)
+          .order("deadline", { ascending: false })
+          .limit(1)
+          .single()
+
+        if (!errLatest && latest) {
+          // 直近のお題を「対象」にしてフォーム・提出物をセット
+          setCurrentChallenge(latest)
+          setChallengeForm({
+            title: latest.title ?? "",
+            description: latest.description ?? "",
+            word_limit: latest.word_limit ?? 500,
+            num_questions: (latest as any).num_questions ?? 50,
+            randomize: (latest as any).randomize ?? true,
+            deadline: latest.deadline ? new Date(latest.deadline) : new Date(),
+          })
+          setSelectedTime(
+            latest.deadline
+              ? format(new Date(latest.deadline), "HH:mm", { locale: ja })
+              : "23:59",
+          )
+
+          // そのお題に対する提出物を取得
+          const { data: subs, error: errSub } = await supabase
+            .from("challenge_submissions")
+            .select(
+              `
+              *,
+              student_profiles:student_id (
+                full_name,
+                university
+              )
+            `,
+            )
+            .eq("challenge_id", latest.id)
+            .order("created_at", { ascending: false })
+
+          if (errSub) throw errSub
+          setSubmissions((subs ?? []) as SubmissionRow[])
+        } else {
+          // 過去にもお題が一つも無い場合はクリア
+          setCurrentChallenge(null)
+          setSubmissions([])
+          setChallengeForm({
+            title: "",
+            description: "",
+            word_limit: 500,
+            num_questions: 50,
+            randomize: true,
+            deadline: new Date(),
+          })
+        }
       }
 
       // 2-1) これから公開中/予定のお題を取得
@@ -774,6 +828,22 @@ export default function AdminGrandPrixPage() {
         .eq("id", scoringSubmission.id)
 
       if (err) throw err
+
+      // --- 通知作成 ----------------------------------------------------
+      // 採点結果を学生へ通知 (notifications テーブルに INSERT)
+      await supabase
+        .from("notifications")
+        .insert([
+          {
+            user_id: scoringSubmission.student_id,
+            title: "グランプリの採点結果が届きました",
+            message: `スコア: ${score} 点${feedback ? `\nフィードバック: ${feedback}` : ""}`,
+            notification_type: "grandprix_feedback",
+            related_id: scoringSubmission.id,
+            channel: "in_app",
+            url: `/grandprix/result/${scoringSubmission.id}`,
+          } as Database["public"]["Tables"]["notifications"]["Insert"],
+        ])
 
       toast({
         title: "採点が完了しました",
@@ -1353,7 +1423,14 @@ export default function AdminGrandPrixPage() {
                           <td className="py-3 px-2 text-center">
                             {sub.score ?? "-"}
                           </td>
-                          <td className="py-3 px-2 text-right">
+                          <td className="py-3 px-2 text-right space-x-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => openAnswerModal(sub)}
+                            >
+                              回答を見る
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -1406,12 +1483,19 @@ export default function AdminGrandPrixPage() {
                         <p className="text-sm line-clamp-3 mb-3">
                           {sub.answer.substring(0, 100)}…
                         </p>
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center gap-2">
                           {sub.score !== null ? (
                             <div className="font-medium">スコア: {sub.score}</div>
                           ) : (
                             <div className="text-muted-foreground">未採点</div>
                           )}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => openAnswerModal(sub)}
+                          >
+                            回答を見る
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -1602,27 +1686,24 @@ export default function AdminGrandPrixPage() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>回答の採点</DialogTitle>
-            <DialogDescription>
-              {scoringSubmission && (
-                <div className="flex flex-col sm:flex-row justify-between text-sm mt-2">
-                  <div>
-                    <span className="font-medium">
-                      {scoringSubmission.student_profiles?.full_name ?? "－"}
-                    </span>
-                    <span className="text-muted-foreground ml-2">
-                      ({scoringSubmission.student_profiles?.university ?? "－"})
-                    </span>
-                  </div>
-                  <div className="text-muted-foreground">
-                    提出日時:{" "}
-                    {format(
-                      new Date(scoringSubmission.created_at!),
-                      "yyyy/MM/dd HH:mm"
-                    )}
-                  </div>
-                </div>
-              )}
-            </DialogDescription>
+            {scoringSubmission && (
+              <DialogDescription>
+                <span className="font-medium">
+                  {scoringSubmission.student_profiles?.full_name ?? "－"}
+                </span>
+                <span className="text-muted-foreground ml-1">
+                  ({scoringSubmission.student_profiles?.university ?? "－"})
+                </span>
+                <br className="sm:hidden" />
+                <span className="text-muted-foreground sm:ml-2">
+                  提出日時:{" "}
+                  {format(
+                    new Date(scoringSubmission.created_at!),
+                    "yyyy/MM/dd HH:mm"
+                  )}
+                </span>
+              </DialogDescription>
+            )}
           </DialogHeader>
 
           {scoringSubmission && (
@@ -1682,6 +1763,38 @@ export default function AdminGrandPrixPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Answer View Modal */}
+      <Dialog open={answerModalOpen} onOpenChange={setAnswerModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>回答詳細</DialogTitle>
+            {viewingSubmission && (
+              <DialogDescription>
+                {viewingSubmission.student_profiles?.full_name ?? "－"} /
+                {viewingSubmission.student_profiles?.university ?? "－"}
+                <span className="ml-2 text-muted-foreground">
+                  提出日時:{" "}
+                  {format(
+                    new Date(viewingSubmission.created_at!),
+                    "yyyy/MM/dd HH:mm"
+                  )}
+                </span>
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          {viewingSubmission && (
+            <div className="border rounded-md p-4 bg-muted/30 whitespace-pre-line">
+              {viewingSubmission.answer}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAnswerModalOpen(false)}>
+              閉じる
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       {/* Question Edit Modal */}

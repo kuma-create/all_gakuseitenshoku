@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------
-   app/media/[slug]/page.tsx – Published article view (magazine style) – v2
+   app/media/preview/[id]/page.tsx – Rich article view (magazine style) – v2
 ------------------------------------------------------------------ */
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -97,8 +97,8 @@ const sidebarItems = [
   },
 ] as const;
 
-/* ---------- Data Fetch ---------- */
-async function fetchPost(slug: string): Promise<FullPost | null> {
+async function fetchDraft(id: string, token: string | null): Promise<FullPost | null> {
+  if (!token) return null;
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -116,11 +116,9 @@ async function fetchPost(slug: string): Promise<FullPost | null> {
         )
       `
     )
-    .eq("slug", slug)
-    .eq("status", "published")
-    .is("deleted_at", null)
+    .eq("id", id)
+    .eq("preview_token", token)
     .single();
-
   return data as FullPost | null;
 }
 
@@ -149,7 +147,6 @@ async function fetchRelated(
     .neq("id", excludeId)
     .order("published_at", { ascending: false })
     .limit(3);
-
   return (
     data?.map((d) => ({
       id: d.id,
@@ -165,10 +162,12 @@ async function fetchRelated(
 /* ---------- Metadata ---------- */
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
-  params: { slug: string };
+  params: { id: string };
+  searchParams: { token?: string };
 }): Promise<Metadata> {
-  const post = await fetchPost(params.slug);
+  const post = await fetchDraft(params.id, searchParams.token ?? null);
   if (!post) return {};
   return {
     title: post.title,
@@ -182,19 +181,18 @@ export async function generateMetadata({
 }
 
 /* ---------- Page ---------- */
-export default async function MediaDetailPage({
+export default async function MediaPostPreviewPage({
   params,
+  searchParams,
 }: {
-  params: { slug: string };
+  params: { id: string };
+  searchParams: { token?: string };
 }) {
-  const post = await fetchPost(params.slug);
+  const post = await fetchDraft(params.id, searchParams.token ?? null);
   if (!post) notFound();
 
   const readTime = estimateReadTime(post.content_html);
-  const related = await fetchRelated(
-    post.media_categories?.slug ?? null,
-    post.id
-  );
+  const related = await fetchRelated(post.media_categories?.slug ?? null, post.id);
 
   const formatDate = (d: string | null) =>
     d
@@ -283,9 +281,7 @@ export default async function MediaDetailPage({
                 </h1>
 
                 {post.excerpt && (
-                  <p className="text-xl text-gray-600 leading-relaxed mb-8">
-                    {post.excerpt}
-                  </p>
+                  <p className="text-xl text-gray-600 leading-relaxed mb-8">{post.excerpt}</p>
                 )}
 
                 {/* AUTHOR */}
