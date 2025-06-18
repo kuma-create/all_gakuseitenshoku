@@ -123,6 +123,13 @@ export async function POST(req: Request) {
         full_name: `${last_name ?? ""} ${first_name ?? ""}`.trim(),
       },
     });
+    // --- 管理者通知 ---
+    await sgMail.send({
+      to: "system@gakuten.co.jp",
+      from: "no-reply@gakuten.co.jp",
+      subject: "【学生転職】新規学生登録通知",
+      text: `新しい学生が登録しました。\n\n氏名: ${last_name ?? ""} ${first_name ?? ""}\nメール: ${email}`,
+    });
   } catch (mailErr: any) {
     const sgDetail =
       mailErr?.response?.body?.errors?.[0]?.message ??
