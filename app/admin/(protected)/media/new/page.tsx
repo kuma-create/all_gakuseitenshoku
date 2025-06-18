@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
 import ImageUpload from "@/components/media/upload";
+import { marked } from "marked";
 
 /* ---------------------- 型 ---------------------- */
 type Category = {
@@ -92,12 +93,15 @@ export default function NewMediaPage() {
       return;
     }
 
+    // marked.parse can be sync or async → `await` で Promise<string> を解消
+    const html = await marked.parse(content) as string;
     setIsSaving(true);
     const { error } = await supabase.from("media_posts").insert({
       title,
       slug,
       excerpt,
       content_md: content,
+      content_html: html,
       status,
       author_id: null, // 後で自動紐付けする場合は変更
       category_id: categoryId,

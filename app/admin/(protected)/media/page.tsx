@@ -1,5 +1,3 @@
-
-
 /* ------------------------------------------------------------------
    app/admin/(protected)/media/page.tsx  – 管理画面: 投稿一覧
 ------------------------------------------------------------------ */
@@ -11,7 +9,8 @@ import { ja } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Edit2, Trash } from "lucide-react";
+import { Plus, Edit2 } from "lucide-react";
+import DeletePostButton from "@/components/media/delete-button";
 
 import type { Database } from "@/lib/supabase/types";
 
@@ -37,6 +36,7 @@ async function fetchMyPosts(): Promise<AdminPost[]> {
       media_categories ( name, slug )
     `
     )
+    .is("deleted_at", null)              // 追加
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -56,12 +56,12 @@ export default async function AdminMediaPage() {
       {/* heading */}
       <div className="flex items-center justify-between mb-10">
         <h1 className="text-3xl font-bold">メディア投稿管理</h1>
-        <Link href="/admin/media/new">
-          <Button>
+        <Button asChild>
+          <Link href="/admin/media/new">
             <Plus className="w-4 h-4 mr-2" />
             新規作成
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       {/* posts list */}
@@ -110,22 +110,13 @@ export default async function AdminMediaPage() {
 
                 {/* actions */}
                 <div className="mt-6 flex gap-3">
-                  <Link href={`/admin/media/${post.id}/edit`}>
-                    <Button size="sm" variant="secondary">
+                  <Button asChild size="sm" variant="secondary">
+                    <Link href={`/admin/media/${post.id}/edit`}>
                       <Edit2 className="w-4 h-4 mr-1" />
                       編集
-                    </Button>
-                  </Link>
-                  {/* 削除は後で実装予定 */}
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    <Trash className="w-4 h-4 mr-1" />
-                    削除
+                    </Link>
                   </Button>
+                  <DeletePostButton id={post.id as string} />
                 </div>
               </CardContent>
             </Card>

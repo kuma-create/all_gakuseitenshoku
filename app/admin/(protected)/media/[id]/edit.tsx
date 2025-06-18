@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
 import ImageUpload from "@/components/media/upload";
+import { marked } from "marked";
 
 /* ---------------------- 型 ---------------------- */
 type Category = {
@@ -119,6 +120,9 @@ export default function EditMediaPage() {
       return;
     }
 
+    // marked.parse の戻り値は string | Promise<string> → Promise を解消して string に
+    const html = (await marked.parse(content)) as string;
+
     setIsSaving(true);
     const { error } = await supabase
       .from("media_posts")
@@ -127,6 +131,7 @@ export default function EditMediaPage() {
         slug,
         excerpt,
         content_md: content,
+        content_html: html,
         status,
         category_id: categoryId,
         cover_image_url: coverUrl,

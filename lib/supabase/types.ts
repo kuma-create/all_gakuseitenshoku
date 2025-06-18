@@ -1506,6 +1506,7 @@ export type Database = {
           content_md: string | null
           cover_image_url: string | null
           created_at: string | null
+          deleted_at: string | null
           excerpt: string | null
           id: string
           published_at: string | null
@@ -1521,6 +1522,7 @@ export type Database = {
           content_md?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           excerpt?: string | null
           id?: string
           published_at?: string | null
@@ -1536,6 +1538,7 @@ export type Database = {
           content_md?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           excerpt?: string | null
           id?: string
           published_at?: string | null

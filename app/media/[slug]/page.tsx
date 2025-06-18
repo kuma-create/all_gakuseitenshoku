@@ -41,6 +41,7 @@ async function getPost(slug: string): Promise<FullPost | null> {
       `
     )
     .eq("slug", slug)
+    .is("deleted_at", null)
     .single();
 
   if (error) {
