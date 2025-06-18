@@ -61,6 +61,7 @@ const companyMain: NavItem[] = [
 const adminMain: NavItem[] = [
   { href: "/admin", label: "Admin", icon: LayoutDashboard },
   { href: "/admin/grandprix", label: "GP", icon: LayoutDashboard },
+  { href: "/admin/media", label: "記事", icon: LayoutDashboard },
 ];
 
 /* ---------- Notification Bell ---------- */
