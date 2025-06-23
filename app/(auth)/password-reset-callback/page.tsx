@@ -23,16 +23,17 @@ export default function PasswordResetCallback() {
     const refreshToken = params.get("refresh_token");
     const type         = params.get("type");
 
-    // recovery 以外、またはトークン欠如ならエラー
-    if (type !== "recovery" || !accessToken || !refreshToken) {
+    // access_token は必須。refresh_token は付かないケースもあるので空文字で代替
+    if (type !== "recovery" || !accessToken) {
       setError("リンクが無効です");
       setPhase("error");
       return;
     }
+    const finalRefreshToken = refreshToken ?? "";
 
     // Supabase セッションにトークンを設定
     supabase.auth
-      .setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .setSession({ access_token: accessToken, refresh_token: finalRefreshToken })
       .then(({ error }) => {
         if (error) {
           setError(error.message);
