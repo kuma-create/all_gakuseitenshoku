@@ -31,17 +31,22 @@ export default function PasswordResetCallback() {
     }
     const finalRefreshToken = refreshToken ?? "";
 
-    // Supabase セッションにトークンを設定
-    supabase.auth
-      .setSession({ access_token: accessToken, refresh_token: finalRefreshToken })
-      .then(({ error }) => {
-        if (error) {
-          setError(error.message);
-          setPhase("error");
-        } else {
-          setPhase("enter");
-        }
+    // 既存ログイン状態をクリアしてからリカバリ用トークンで再ログイン
+    (async () => {
+      await supabase.auth.signOut().catch(() => {/* ignore */});
+
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: finalRefreshToken,
       });
+
+      if (setErr) {
+        setError(setErr.message);
+        setPhase("error");
+      } else {
+        setPhase("enter");
+      }
+    })();
   }, []);
 
   const handleSave = async () => {
