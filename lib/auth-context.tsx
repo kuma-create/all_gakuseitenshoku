@@ -75,6 +75,7 @@ const PUBLIC_ROUTES = new Set([
   "/terms",  
   "/media",
   "/forgot-password",          // 利用規約
+  "/password-reset-callback",    // パスワード再設定コールバック
   "/privacy-policy",   // プライバシーポリシー
 ]);
 

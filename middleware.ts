@@ -30,6 +30,7 @@ const PUBLIC_PREFIXES = [
   "/admin/login", 
   "/media",
   "/forgot-password",            // 管理者ログイン
+  "/password-reset-callback",    // パスワード再設定用コールバック
   "/email-callback",        // メールリンク用コールバック
   /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
   "/offers",                 // スカウト /offers(/...)

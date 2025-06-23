@@ -23,6 +23,7 @@ export default function AuthGuard() {
           "/grandprix",   
           "/media",
           "/forgot-password",              // グランプリ一覧
+          "/password-reset-callback",    // パスワード再設定コールバック
           /* --- 以下はクライアント側ガードで制御 --- */
           "/offers",                   // 学生スカウト
           "/applications",             // 学生応募履歴
