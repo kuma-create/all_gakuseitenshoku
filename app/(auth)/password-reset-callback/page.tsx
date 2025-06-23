@@ -32,18 +32,23 @@ useEffect(() => {
     return;
   }
 
-  // 既存セッションがあっても上書きできるので signOut は不要
-  supabase.auth
-    .setSession({ access_token: accessToken, refresh_token: refreshToken })
-    .then(({ error }) => {
-      if (error) {
-        console.error("setSession error:", error);
-        setError(error.message);
-        setPhase("error");
-      } else {
-        setPhase("enter");         // 新パスワード入力フォームへ
-      }
+  // Supabase の verifyOtp (recovery) でトークンを検証しセッションを保存
+  (async () => {
+    const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+      type: "recovery",
+      token: accessToken,
+      email: params.get("email") ?? "", // ハッシュに email パラメータが含まれる場合のみ
     });
+
+    console.log("verifyOtp:", { verifyData, verifyErr });
+
+    if (verifyErr) {
+      setError(verifyErr.message ?? "リンクが無効か、期限切れです");
+      setPhase("error");
+    } else {
+      setPhase("enter");           // 新パスワード入力フォームへ
+    }
+  })();
 }, []);
 /* ------------------------------------------------------------------ */
 
