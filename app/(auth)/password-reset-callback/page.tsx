@@ -26,8 +26,22 @@ useEffect(() => {
   const refreshToken = params.get("refresh_token") ?? ""; // 無い場合は空文字
   const type         = params.get("type");                // recovery か確認
 
-  if (type !== "recovery" || !accessToken) {
-    setError("リンクが無効か、期限切れです");
+  // fallback: fragment が無くても既にログイン済みならそのままパスワード変更へ
+  if (!accessToken) {
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        setPhase("enter");
+      } else {
+        setError("リンクが無効か、期限切れです");
+        setPhase("error");
+      }
+    })();
+    return;
+  }
+
+  if (type !== "recovery") {
+    setError("リンクが無効です");
     setPhase("error");
     return;
   }
