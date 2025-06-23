@@ -76,6 +76,7 @@ const PUBLIC_ROUTES = new Set([
   "/media",
   "/forgot-password",          // 利用規約
   "/password-reset-callback",    // パスワード再設定コールバック
+  "/auth",                    // Supabase auth-helper routes (/auth/set, /auth/logout)
   "/privacy-policy",   // プライバシーポリシー
 ]);
 

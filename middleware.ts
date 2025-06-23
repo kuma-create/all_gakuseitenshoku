@@ -22,6 +22,7 @@ const PUBLIC_PREFIXES = [
   "/signup",                 // 新規登録
   "/auth/student/register",  // 学生登録フロー
   "/auth/reset",             // パスワードリセット
+  "/auth",                  // Supabase auth-helper routes (/auth/set, /auth/logout)
   "/terms",                  // 利用規約
   "/privacy-policy",         // プライバシーポリシー
   "/grandprix",              // グランプリ一覧
