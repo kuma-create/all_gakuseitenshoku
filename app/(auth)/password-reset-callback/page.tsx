@@ -9,46 +9,45 @@ import { Input } from "@/components/ui/input";
 export default function PasswordResetCallback() {
   const router = useRouter();
   const [newPw, setNewPw] = useState("");
-  const [phase, setPhase] = useState<"verifying" | "enter" | "saving" | "done" | "error">(
-    "verifying"
-  );
+  const [phase, setPhase] = useState<
+    "verifying" | "enter" | "saving" | "done" | "error"
+  >("verifying");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    // URL ハッシュからトークンを抽出し、セッションに設定
-    const hash = window.location.hash.substring(1); // # を除去
-    const params = new URLSearchParams(hash);
+/* ------------------------------------------------------------------ */
+/* 手動でハッシュを解析 → setSession() でセッションに設定               */
+/* ------------------------------------------------------------------ */
+useEffect(() => {
+  // #access_token=… を取り出し
+  const hash   = window.location.hash.substring(1);      // 先頭の # を除去
+  const params = new URLSearchParams(hash);
 
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
-    const type         = params.get("type");
+  const accessToken  = params.get("access_token");
+  const refreshToken = params.get("refresh_token") ?? ""; // 無い場合は空文字
+  const type         = params.get("type");                // recovery か確認
 
-    // access_token は必須。refresh_token は付かないケースもあるので空文字で代替
-    if (type !== "recovery" || !accessToken) {
-      setError("リンクが無効です");
-      setPhase("error");
-      return;
-    }
-    const finalRefreshToken = refreshToken ?? "";
+  if (type !== "recovery" || !accessToken) {
+    setError("リンクが無効か、期限切れです");
+    setPhase("error");
+    return;
+  }
 
-    // 既存ログイン状態をクリアしてからリカバリ用トークンで再ログイン
-    (async () => {
-      await supabase.auth.signOut().catch(() => {/* ignore */});
-
-      const { error: setErr } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: finalRefreshToken,
-      });
-
-      if (setErr) {
-        setError(setErr.message);
+  // 既存セッションがあっても上書きできるので signOut は不要
+  supabase.auth
+    .setSession({ access_token: accessToken, refresh_token: refreshToken })
+    .then(({ error }) => {
+      if (error) {
+        console.error("setSession error:", error);
+        setError(error.message);
         setPhase("error");
       } else {
-        setPhase("enter");
+        setPhase("enter");         // 新パスワード入力フォームへ
       }
-    })();
-  }, []);
+    });
+}, []);
+/* ------------------------------------------------------------------ */
 
+  /* パスワード保存処理 */
   const handleSave = async () => {
     setPhase("saving");
     const { error } = await supabase.auth.updateUser({ password: newPw });
@@ -61,9 +60,10 @@ export default function PasswordResetCallback() {
     }
   };
 
-  if (phase === "verifying") {
+  /* ---------- UI ---------- */
+
+  if (phase === "verifying")
     return <p className="p-8 text-center">リンクを検証中…</p>;
-  }
 
   if (phase === "done")
     return (
@@ -73,7 +73,7 @@ export default function PasswordResetCallback() {
       </div>
     );
 
-  if (phase === "error") {
+  if (phase === "error")
     return (
       <div className="p-8 text-center space-y-4">
         <p className="text-destructive">{error || "リンクが無効です"}</p>
@@ -82,8 +82,8 @@ export default function PasswordResetCallback() {
         </Button>
       </div>
     );
-  }
 
+  /* phase === "enter" or "saving" */
   return (
     <div className="mx-auto max-w-sm p-8 space-y-4">
       <h1 className="text-lg font-bold">新しいパスワードを設定</h1>
