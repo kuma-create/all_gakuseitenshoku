@@ -103,15 +103,18 @@ type OverviewRow = {
 
 type Student = {
   id: string;
-  full_name: string;
-  university: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  university?: string | null;
+  graduation_year?: string | null;
   created_at: string;
-  status: string;
+  status?: string | null;
 };
 
 type Company = {
   id: string;
-  name: string 
+  name: string;
   created_at: string;
   status: string;
   jobs_count: number;
@@ -121,6 +124,7 @@ type Job = {
   id: string;
   title: string;
   published_until: string | null;
+  companies: { name: string } | null;
 };
 
 type Application = {
@@ -234,6 +238,7 @@ export default function AdminDashboard() {
   const [activityPage, setActivityPage] = useState(1);
   const [featurePage, setFeaturePage] = useState(1);
   const [eventPage, setEventPage] = useState(1);
+  const [notificationPage, setNotificationPage] = useState(1);
 
   const [dateRange, setDateRange] = useState<DayPickerRange>({
     from: subDays(new Date(), 30),
@@ -260,6 +265,17 @@ export default function AdminDashboard() {
   const [editCompanyStatus, setEditCompanyStatus] = useState<
     "承認済み" | "承認待ち" | "停止"
   >("承認待ち");
+
+  /* ---------- 学生詳細 ---------- */
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  /* ---------- 求人詳細 ---------- */
+  const [selectedJob, setSelectedJob] = useState<{
+    id: string;
+    title: string;
+    company_name: string;
+    published_until: string | null;
+  } | null>(null);
 
   /* ---------- 会社削除 ---------- */
   async function deleteCompany(companyId: string) {
@@ -310,17 +326,63 @@ export default function AdminDashboard() {
         );
 
         // 学生一覧
-        const { data: st } = await supabase
+        type RawStudent = {
+          id: string;
+          first_name: string | null;
+          last_name: string | null;
+          full_name: string | null;
+          university: string | null;
+          graduation_month: string | null;
+          created_at: string | null;
+          status: string | null;
+        };
+
+        const { data: stData, error: stErr } = await supabase
           .from("student_profiles")
-          .select("id,full_name,university,created_at,status")
+          .select(
+            `
+            id,
+            first_name,
+            last_name,
+            full_name,
+            university,
+            graduation_month,
+            created_at,
+            status
+          `
+          )
           .order("created_at", { ascending: false })
-          .range((studentPage - 1) * 5, studentPage * 5 - 1);
-        setStudents((st ?? []) as Student[]);
+          .range((studentPage - 1) * 50, studentPage * 50 - 1);
+
+        if (stErr) {
+          console.error("students fetch error:", stErr);
+          setStudents([]);
+        } else {
+          const rawSt = (stData ?? []) as RawStudent[];
+          setStudents(
+            rawSt.map((s) => {
+              const gradYear = s.graduation_month
+                ? new Date(s.graduation_month).getFullYear().toString()
+                : "—";
+              return {
+                id: s.id,
+                full_name:
+                  s.full_name ??
+                  [s.last_name, s.first_name].filter(Boolean).join(" ") ??
+                  "—",
+                university: s.university ?? "—",
+                graduation_year: gradYear,
+                created_at: s.created_at ?? "",
+                status: s.status ?? "—",
+              };
+            })
+          );
+        }
 
         // 企業一覧
         type RawCompany = {
           id: string;
-          name: string | null
+          name: string | null;
           created_at: string | null;
           status: string | null;
           jobs: { count: number | null }[] | null;
@@ -337,7 +399,7 @@ export default function AdminDashboard() {
           `
           )
           .order("created_at", { ascending: false })
-          .range((companyPage - 1) * 5, companyPage * 5 - 1);
+          .range((companyPage - 1) * 50, companyPage * 50 - 1);
         if (coErr) throw coErr;
         const rawCompanies = (coData ?? []) as RawCompany[];
         setCompanies(
@@ -353,9 +415,11 @@ export default function AdminDashboard() {
         // 求人一覧
         const { data: jbData, error: jbErr } = await supabase
           .from("jobs")
-          .select("id,title,published_until")
+          .select(
+            "id,title,published_until,companies!jobs_company_id_fkey(name)"
+          )
           .order("created_at", { ascending: false })
-          .range((jobPage - 1) * 5, jobPage * 5 - 1);
+          .range((jobPage - 1) * 50, jobPage * 50 - 1);
         if (jbErr) {
           console.error("jobs fetch error:", jbErr);
           setJobs([]);
@@ -368,7 +432,7 @@ export default function AdminDashboard() {
           .from("features")
           .select("id,title,status,created_at")
           .order("created_at", { ascending: false })
-          .range((featurePage - 1) * 5, featurePage * 5 - 1);
+          .range((featurePage - 1) * 50, featurePage * 50 - 1);
 
         if (ftErr) {
           console.error("features fetch error:", ftErr);
@@ -382,7 +446,7 @@ export default function AdminDashboard() {
           .from("events")
           .select("id,title,event_date,status,updated_at")
           .order("updated_at", { ascending: false })
-          .range((eventPage - 1) * 5, eventPage * 5 - 1);
+          .range((eventPage - 1) * 50, eventPage * 50 - 1);
 
         if (evErr) {
           console.error("events fetch error:", evErr);
@@ -407,7 +471,7 @@ export default function AdminDashboard() {
           `
           )
           .order("created_at", { ascending: false })
-          .range((requestPage - 1) * 5, requestPage * 5 - 1);
+          .range((requestPage - 1) * 50, requestPage * 50 - 1);
         if (appsErr) {
           console.error("applications fetch error:", appsErr);
           setRequests([]);
@@ -422,7 +486,7 @@ export default function AdminDashboard() {
           .gte("timestamp", dateRange.from!.toISOString())
           .lte("timestamp", dateRange.to!.toISOString())
           .order("timestamp", { ascending: false })
-          .range((activityPage - 1) * 5, activityPage * 5 - 1)
+          .range((activityPage - 1) * 50, activityPage * 50 - 1)
         
         if (lgErr) {
           console.error("logs fetch error:", lgErr);
@@ -450,7 +514,7 @@ export default function AdminDashboard() {
           `
           )
           .order("created_at", { ascending: false })
-          .range((activityPage - 1) * 5, activityPage * 5 - 1);
+          .range((notificationPage - 1) * 50, notificationPage * 50 - 1);
         if (notificationsErr) {
           console.error(
             "notifications fetch error:",
@@ -480,6 +544,7 @@ export default function AdminDashboard() {
       dateRange,
       featurePage,
       eventPage,
+      notificationPage,
     ]
   );
 
@@ -518,6 +583,23 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    const ch = supabase
+      .channel("admin_notifications")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications" },
+        (payload) => {
+          setNotifications((prev) => mergeRows(prev, payload as any));
+        }
+      )
+      .subscribe();
+  
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
   // フィルタ済みログ
   const filteredLogs = logs.filter((l) => {
     if (roleFilter !== "all" && l.role !== roleFilter) return false;
@@ -546,6 +628,43 @@ export default function AdminDashboard() {
         setSelectedCompany(data as Company);
         setEditCompanyName(data.name ?? "");
         setEditCompanyStatus((data.status as any) ?? "承認待ち");
+      }
+    }
+    else if (type === "view-student") {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select(
+          "id,full_name,university,graduation_month,status,created_at"
+        )
+        .eq("id", id)
+        .single();
+      if (data) {
+        setSelectedStudent({
+          id: data.id,
+          full_name: data.full_name ?? "—",
+          university: data.university ?? "—",
+          graduation_year: data.graduation_month
+            ? new Date(data.graduation_month).getFullYear().toString()
+            : "—",
+          status: data.status ?? "—",
+          created_at: data.created_at ?? "",
+        } as any);
+      }
+    } else if (type === "view-job") {
+      const { data } = await supabase
+        .from("jobs")
+        .select(
+          "id,title,published_until,companies!jobs_company_id_fkey(name)"
+        )
+        .eq("id", id)
+        .single();
+      if (data) {
+        setSelectedJob({
+          id: data.id,
+          title: data.title,
+          company_name: data.companies?.name ?? "—",
+          published_until: data.published_until,
+        });
       }
     }
   };
@@ -776,6 +895,7 @@ export default function AdminDashboard() {
                 <TableHead>ID</TableHead>
                 <TableHead>名前</TableHead>
                 <TableHead>大学</TableHead>
+                <TableHead>卒業年度</TableHead>
                 <TableHead>登録日</TableHead>
                 <TableHead>ステータス</TableHead>
                 <TableHead>操作</TableHead>
@@ -787,6 +907,7 @@ export default function AdminDashboard() {
                   <TableCell>{s.id}</TableCell>
                   <TableCell>{s.full_name}</TableCell>
                   <TableCell>{s.university}</TableCell>
+                  <TableCell>{s.graduation_year}</TableCell>
                   <TableCell>
                     {format(
                       new Date(s.created_at),
@@ -867,6 +988,13 @@ export default function AdminDashboard() {
                   </TableCell>
                 </TableRow>
               ))}
+              {students.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    学生が見つかりません
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
           <Pagination className="my-2">
@@ -911,7 +1039,7 @@ export default function AdminDashboard() {
                 <TableRow key={c.id}>
                   <TableCell>{c.id}</TableCell>
                   <TableCell>
-                  {c.name ?? c.name ?? "—"}
+                    {c.name ?? c.name ?? "—"}
                   </TableCell>
                   <TableCell>{c.jobs_count}</TableCell>
                   <TableCell>
@@ -1013,8 +1141,8 @@ export default function AdminDashboard() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>タイトル</TableHead>
+                <TableHead>企業名</TableHead>
+                <TableHead>求人タイトル</TableHead>
                 <TableHead>公開期限</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -1022,7 +1150,7 @@ export default function AdminDashboard() {
             <TableBody>
               {jobs.map((j) => (
                 <TableRow key={j.id}>
-                  <TableCell>{j.id}</TableCell>
+                  <TableCell>{j.companies?.name ?? "—"}</TableCell>
                   <TableCell>{j.title}</TableCell>
                   <TableCell>
                     {j.published_until
@@ -1373,7 +1501,9 @@ export default function AdminDashboard() {
                     {n.related_id ?? "-"}
                   </TableCell>
                   <TableCell>
-                    {n.is_read ? "✓" : ""}
+                    <Badge variant={n.is_read ? "secondary" : "default"}>
+                      {n.is_read ? "既読" : "未読"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {format(
@@ -1385,6 +1515,13 @@ export default function AdminDashboard() {
               ))}
             </TableBody>
           </Table>
+          <Pagination className="my-2">
+            <PaginationPrevious onClick={() => setNotificationPage(p => Math.max(1, p - 1))} />
+            <PaginationItem>
+              <PaginationLink isActive>{notificationPage}</PaginationLink>
+            </PaginationItem>
+            <PaginationNext onClick={() => setNotificationPage(p => p + 1)} />
+          </Pagination>
         </TabsContent>
 
         {/* --- 設定 --- */}
@@ -1421,6 +1558,58 @@ export default function AdminDashboard() {
           </Table>
         </TabsContent>
       </Tabs>
+
+      {/* ----- 学生詳細 ----- */}
+      <Dialog
+        open={modalState.type === "view-student"}
+        onOpenChange={closeModal}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>学生詳細</DialogTitle>
+          </DialogHeader>
+          {selectedStudent ? (
+            <div className="space-y-1">
+              <p><b>ID:</b> {selectedStudent.id}</p>
+              <p><b>名前:</b> {selectedStudent.full_name}</p>
+              <p><b>大学:</b> {selectedStudent.university}</p>
+              <p><b>卒業年度:</b> {selectedStudent.graduation_year}</p>
+              <p><b>ステータス:</b> {selectedStudent.status}</p>
+              <p><b>登録日:</b> {format(new Date(selectedStudent.created_at),"yyyy/MM/dd")}</p>
+            </div>
+          ) : (
+            <Skeleton className="h-24 w-full" />
+          )}
+          <DialogFooter>
+            <Button onClick={closeModal}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ----- 求人詳細 ----- */}
+      <Dialog
+        open={modalState.type === "view-job"}
+        onOpenChange={closeModal}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>求人詳細</DialogTitle>
+          </DialogHeader>
+          {selectedJob ? (
+            <div className="space-y-1">
+              <p><b>ID:</b> {selectedJob.id}</p>
+              <p><b>企業名:</b> {selectedJob.company_name}</p>
+              <p><b>求人タイトル:</b> {selectedJob.title}</p>
+              <p><b>公開期限:</b> {selectedJob.published_until ? format(new Date(selectedJob.published_until),"yyyy/MM/dd") : "—"}</p>
+            </div>
+          ) : (
+            <Skeleton className="h-24 w-full" />
+          )}
+          <DialogFooter>
+            <Button onClick={closeModal}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ----- 会社詳細 ----- */}
 <Dialog open={modalState.type === "view-company"} onOpenChange={closeModal}>

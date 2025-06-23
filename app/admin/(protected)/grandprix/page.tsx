@@ -102,6 +102,7 @@ export default function AdminGrandPrixPage() {
   const [challengeForm, setChallengeForm] = useState({
     title: "",
     description: "",
+    answer_video_url: "",        // 解説動画 URL
     word_limit: 500,     // Case / Bizscore 用
     num_questions: 50,   // WebTest 用
     randomize: true,     // WebTest 用
@@ -388,6 +389,7 @@ export default function AdminGrandPrixPage() {
         setChallengeForm({
           title: current.title ?? "",
           description: current.description ?? "",
+          answer_video_url: current.answer_video_url ?? "",
           word_limit: current.word_limit ?? 500,
           num_questions: (current as any).num_questions ?? 50,
           randomize: (current as any).randomize ?? true,
@@ -434,6 +436,7 @@ export default function AdminGrandPrixPage() {
           setChallengeForm({
             title: latest.title ?? "",
             description: latest.description ?? "",
+            answer_video_url: latest.answer_video_url ?? "",
             word_limit: latest.word_limit ?? 500,
             num_questions: (latest as any).num_questions ?? 50,
             randomize: (latest as any).randomize ?? true,
@@ -469,6 +472,7 @@ export default function AdminGrandPrixPage() {
           setChallengeForm({
             title: "",
             description: "",
+            answer_video_url: "",
             word_limit: 500,
             num_questions: 50,
             randomize: true,
@@ -587,6 +591,7 @@ export default function AdminGrandPrixPage() {
     setChallengeForm({
       title: "",
       description: "",
+      answer_video_url: "",
       word_limit: 500,
       num_questions: 50,
       randomize: true,
@@ -604,6 +609,7 @@ export default function AdminGrandPrixPage() {
     setChallengeForm({
       title: ch.title ?? "",
       description: ch.description ?? "",
+      answer_video_url: ch.answer_video_url ?? "",
       word_limit: ch.word_limit ?? 500,
       num_questions: (ch as any).num_questions ?? 50,
       randomize: (ch as any).randomize ?? true,
@@ -644,6 +650,7 @@ export default function AdminGrandPrixPage() {
       const base = {
         title: challengeForm.title,
         description: challengeForm.description,
+        answer_video_url: challengeForm.answer_video_url || null,
         deadline: dateTime.toISOString(),
         type: grandType,          // 同義カラム (旧)
         category: grandType,      // ← UI で参照している category も常に同期
@@ -1072,6 +1079,22 @@ export default function AdminGrandPrixPage() {
                     }
                     className="min-h-[100px]"
                     required
+                  />
+                </div>
+                {/* 解説動画 URL（任意） */}
+                <div className="space-y-2">
+                  <Label htmlFor="videoUrl">解説動画 URL（任意）</Label>
+                  <Input
+                    id="videoUrl"
+                    type="url"
+                    placeholder="https://youtu.be/..."
+                    value={challengeForm.answer_video_url}
+                    onChange={(e) =>
+                      setChallengeForm((p) => ({
+                        ...p,
+                        answer_video_url: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 

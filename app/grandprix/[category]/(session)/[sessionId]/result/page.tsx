@@ -31,6 +31,34 @@ type WebTestQuestionRow = Database["public"]["Tables"]["question_bank"]["Row"]
 const fmtScore = (n: number | null | undefined) =>
   n != null ? n.toFixed(1) : "—"
 
+/**
+ * YouTube URL → 埋め込み用 src 変換
+ * 変換できない場合は null を返す
+ */
+const toYoutubeEmbed = (raw: string | null): string | null => {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+
+    // youtu.be/<id>
+    if (url.hostname === "youtu.be") {
+      return `https://www.youtube.com/embed/${url.pathname.slice(1)}`;
+    }
+
+    // youtube.com/watch?v=<id>
+    if (url.hostname.includes("youtube.com")) {
+      const v = url.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+
+      // 既に /embed/<id>
+      if (url.pathname.startsWith("/embed/")) return raw;
+    }
+  } catch {
+    /* ignore malformed URL */
+  }
+  return null;
+};
+
 export default function WebTestResultPage() {
   const { category, sessionId } = useParams<{ category: string; sessionId: string }>()
   const isWeb = category === "webtest";
@@ -41,6 +69,9 @@ export default function WebTestResultPage() {
   const [submission, setSubmission]     = useState<SubmissionRow | null>(null)
   const [questions, setQuestions]       = useState<WebTestQuestionRow[]>([])
   const [caseQuestions, setCaseQuestions] = useState<WebTestQuestionRow[]>([]);
+
+  // 解説動画 URL (Case/Bizscore 用)
+  const [answerUrl, setAnswerUrl] = useState<string | null>(null);
 
   /* ---------------- fetch ---------------- */
   useEffect(() => {
@@ -93,6 +124,18 @@ export default function WebTestResultPage() {
             const flattened = (qs ?? []).map((row) => row.question) as WebTestQuestionRow[];
             setCaseQuestions(flattened);
           }
+        }
+
+        /* ---------- 3. 解説動画 URL 取得 ---------- */
+        if (!isWeb && sub?.challenge_id) {
+          const { data: ch, error: chErr } = await supabase
+            .from("challenges")              // チャレンジマスタ
+            .select("answer_video_url")
+            .eq("id", sub.challenge_id)
+            .maybeSingle();
+
+          if (chErr) toast({ description: chErr.message });
+          else setAnswerUrl(ch?.answer_video_url ?? null);
         }
       }
 
@@ -298,6 +341,40 @@ export default function WebTestResultPage() {
                 </CardContent>
               </Card>
             </>
+          )}
+
+          {/* ---- 解説動画 ---- */}
+          {answerUrl && (
+            <Card>
+              <CardHeader>
+                <CardTitle>解説動画</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                {(() => {
+                  const embedSrc = toYoutubeEmbed(answerUrl);
+                  if (embedSrc) {
+                    return (
+                      <div className="aspect-video w-full">
+                        <iframe
+                          src={embedSrc}
+                          title="解説動画"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="h-full w-full rounded-md border"
+                        />
+                      </div>
+                    );
+                  }
+                  return (
+                    <Button asChild variant="outline">
+                      <a href={answerUrl} target="_blank" rel="noopener noreferrer">
+                        YouTubeで解説を見る
+                      </a>
+                    </Button>
+                  );
+                })()}
+              </CardContent>
+            </Card>
           )}
         </div>
       </main>

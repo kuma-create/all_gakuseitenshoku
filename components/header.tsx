@@ -17,7 +17,7 @@ import Link  from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Search, Mail, MessageSquare, Bell,
-  LogIn, Menu, User, Briefcase, LogOut, ChevronDown, Trophy, BookOpen,
+  LogIn, Menu, User, Briefcase, LogOut, ChevronDown, Trophy, BookOpen, Key,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetTrigger, SheetClose,
@@ -266,6 +266,11 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/forgot-password" className="flex items-center">
+                    <Key size={16} className="mr-2" /> パスワード変更
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-red-600 focus:bg-red-50"
