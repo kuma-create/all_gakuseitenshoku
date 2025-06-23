@@ -6,11 +6,22 @@ import sgMail from "@sendgrid/mail";
 export const runtime  = "nodejs";
 export const dynamic  = "force-dynamic";
 
+/* -------------------------  環境変数  ------------------------- */
+// SITE_URL を優先し、無ければ NEXT_PUBLIC_SITE_URL を利用
+const SITE_URL = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL;
+
 /* -------------------------  SendGrid 初期化  ------------------------- */
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export async function POST(req: Request) {
   const { email } = await req.json();
+
+  if (!SITE_URL) {
+    return NextResponse.json(
+      { error: "SITE_URL env is missing" },
+      { status: 500 }
+    );
+  }
 
   if (!email?.trim()) {
     return NextResponse.json({ error: "email required" }, { status: 400 });
@@ -26,7 +37,7 @@ export async function POST(req: Request) {
     email,
     type: "recovery",
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/password-reset-callback`,
+      redirectTo: `${SITE_URL}/password-reset-callback`,
     },
   });
 
