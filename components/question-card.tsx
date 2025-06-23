@@ -35,7 +35,7 @@ interface Props {
   sessionId: string
   initialAnswer?: { choice?: number; text?: string }
   onSaved?: () => void
-  onAnswered?: (questionId: string, choice: number | null) => void
+  onAnswered?: (questionId: string, choice: number | string | null) => void
 }
 
 /**
@@ -148,10 +148,10 @@ export function QuestionCard({
       <p className="font-medium" dangerouslySetInnerHTML={{ __html: getDisplayText(question) }} />
       <Textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        /* onBlur 時に差分があれば保存 */
-        onBlur={() => {
-          if (text !== initialAnswer?.text) save({ text })
+        onChange={(e) => {
+          const v = e.target.value
+          setText(v)
+          onAnswered?.(question.id, v)            //  ← 即時反映
         }}
         rows={6}
         placeholder="自由記述欄"

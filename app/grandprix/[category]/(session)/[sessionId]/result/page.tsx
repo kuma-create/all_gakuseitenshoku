@@ -50,11 +50,11 @@ export default function WebTestResultPage() {
       /* ---------- 1. submission ---------- */
       const { data: sub, error: subErr } = await supabase
         .from("challenge_submissions")
-        .select("id, session_id, answer, answers, auto_score, final_score, challenge_id, created_at")
-        .eq("session_id", sessionId)                       // ← change target column
-        .order("created_at", { ascending: false })         // newest first
+        .select("id, session_id, answer, answers, auto_score, final_score, challenge_id, created_at, updated_at")
+        .eq("session_id", sessionId)
+        .order("updated_at", { ascending: false })         // 最新更新順
         .limit(1)
-        .maybeSingle();                                    // avoid 406 when 0 row
+        .maybeSingle();                                    // 0 行でも 406 を回避
 
       if (subErr) {
         toast({ description: subErr.message })

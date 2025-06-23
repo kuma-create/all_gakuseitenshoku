@@ -905,6 +905,23 @@ export default function AdminGrandPrixPage() {
   })
 
   // ------------------------------------------------------------------
+  // Helper: get plain-text answer for both essay (answer) and JSON (answers)
+  // ------------------------------------------------------------------
+  const getAnswerText = (sub: SubmissionRow): string => {
+    if (sub.answer && sub.answer.trim()) return sub.answer
+    if (sub.answers) {
+      try {
+        const obj =
+          typeof sub.answers === "string"
+            ? JSON.parse(sub.answers as any)
+            : (sub.answers as any)
+        const firstVal = Object.values(obj ?? {})[0]
+        if (firstVal != null) return String(firstVal)
+      } catch {}
+    }
+    return ""
+  }
+  // ------------------------------------------------------------------
   // 統計情報
   // ------------------------------------------------------------------
   const stats = {
@@ -1408,7 +1425,7 @@ export default function AdminGrandPrixPage() {
                           </td>
                           <td className="py-3 px-2">
                             <p className="text-sm line-clamp-2">
-                              {sub.answer.substring(0, 100)}…
+                              {getAnswerText(sub).substring(0, 100)}…
                             </p>
                           </td>
                           <td className="py-3 px-2 text-center">
@@ -1481,7 +1498,7 @@ export default function AdminGrandPrixPage() {
                           )}
                         </div>
                         <p className="text-sm line-clamp-3 mb-3">
-                          {sub.answer.substring(0, 100)}…
+                          {getAnswerText(sub).substring(0, 100)}…
                         </p>
                         <div className="flex justify-between items-center gap-2">
                           {sub.score !== null ? (
@@ -1711,7 +1728,7 @@ export default function AdminGrandPrixPage() {
               <div className="border rounded-md p-4 my-4 bg-muted/30">
                 <h3 className="font-medium mb-2">回答内容:</h3>
                 <p className="whitespace-pre-line">
-                  {scoringSubmission.answer}
+                  {getAnswerText(scoringSubmission)}
                 </p>
               </div>
 
@@ -1787,7 +1804,7 @@ export default function AdminGrandPrixPage() {
           </DialogHeader>
           {viewingSubmission && (
             <div className="border rounded-md p-4 bg-muted/30 whitespace-pre-line">
-              {viewingSubmission.answer}
+              {getAnswerText(viewingSubmission)}
             </div>
           )}
           <DialogFooter>

@@ -9,7 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
@@ -48,6 +48,8 @@ export default function WebTestPage() {
   } | null>(null);
   const [loading,   setLoading]   = useState(true)
   const [answers,   setAnswers]   = useState<AnswerRow[]>([])
+  // answers のリアルタイム値を同期的に保持（setState の遅延対策）
+  const answersRef = useRef<Record<string, any>>({});
   const [current,   setCurrent]   = useState(0)
   const total = answers.length
   const [deadline,  setDeadline]  = useState<Date | null>(null)
@@ -69,7 +71,13 @@ export default function WebTestPage() {
         .order("question_id", { ascending: true, nullsFirst: false })
 
       if (error) toast({ description: error.message })
-      else setAnswers((data as AnswerRow[]).filter((r) => r.question))
+      else {
+        setAnswers((data as AnswerRow[]).filter((r) => r.question))
+        answersRef.current = (data as AnswerRow[]).reduce<Record<string, any>>((acc, r) => {
+          if (r.question_id) acc[r.question_id] = r.answer_raw;
+          return acc;
+        }, {});
+      }
 
       /* ---------- fallback ----------
          セッションに answers がまだ無い場合は challenge_sessions から
@@ -105,6 +113,10 @@ export default function WebTestPage() {
               question:       row.question,
             })) as any;
             setAnswers(fallbackAnswers);
+            answersRef.current = fallbackAnswers.reduce<Record<string, any>>((acc, r) => {
+              if (r.question_id) acc[r.question_id] = r.answer_raw;
+              return acc;
+            }, {});
           }
         }
       }
@@ -197,6 +209,7 @@ export default function WebTestPage() {
           row.question_id === qid ? { ...row, answer_raw: choice } : row,
         ),
       )
+      answersRef.current[qid] = choice;
     },
     [],
   )
@@ -206,14 +219,12 @@ export default function WebTestPage() {
     try {
       console.log("[handleSubmit] invoked");
       /* ----------------------------------------------------------
-         1. answers[] から設問 UUID → 選択肢番号 or 文字列 のマップを生成
+         1. answersRef から最新の回答マップを生成
       ---------------------------------------------------------- */
-      const answerMap = answers.reduce<Record<string, any>>((acc, row) => {
-        if (row.question_id && row.answer_raw != null) {
-          acc[row.question_id] = row.answer_raw;
-        }
-        return acc;
-      }, {});
+      const answerMap: Record<string, any> = {};
+      for (const [qid, val] of Object.entries(answersRef.current)) {
+        if (val != null) answerMap[qid] = val;
+      }
 
       /* 未回答がある場合は確認ダイアログ ----------------------- */
       if (Object.keys(answerMap).length !== answers.length) {
@@ -241,10 +252,20 @@ export default function WebTestPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      const studentId =
+      let studentId =
         sessionInfo?.student_id ??
         user?.id ??
         null;
+
+      // --- fallback: obtain from challenge_sessions if still null ---
+      if (!studentId) {
+        const { data: sessRow2 } = await supabase
+          .from("challenge_sessions")
+          .select("student_id")
+          .eq("id", sessionId)
+          .single();
+        studentId = sessRow2?.student_id ?? null;
+      }
 
       /* challengeId がまだ取れない場合は DB を直接再取得 -------- */
       let finalChallengeId = challengeId;
@@ -287,11 +308,11 @@ export default function WebTestPage() {
         .upsert(
           [
             {
-              challenge_id: finalChallengeId,
-              student_id:   studentId,
+              challenge_id: finalChallengeId!,
+              student_id:   studentId!,
               session_id:   sessionId,
-              answer:       (isWeb || isBiz) ? "" : "",  // keep empty; use answers map
-              answers:      answerMap as any,            // numbers for web/biz, strings for case
+              answer:       "",
+              answers:      answerMap as any,
               auto_score:   (isWeb || isBiz) ? finalScore : null,
               final_score:  (isWeb || isBiz) ? finalScore : null,
               status:       (isWeb || isBiz) ? "採点済み" : "未採点",

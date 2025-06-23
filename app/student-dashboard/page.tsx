@@ -511,7 +511,7 @@ function GrandPrixCard({ events }: { events: GrandPrix[] }) {
         {events.map((e) => (
           <Link
             key={e.id}
-            href={`/grandprix/${e.id}`}
+            href={`/grandprix`}
             className="flex items-center gap-3 rounded-md p-2 hover:bg-gray-50"
           >
             <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-white p-1 ring-1 ring-gray-200">
