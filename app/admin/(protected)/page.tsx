@@ -759,7 +759,9 @@ export default function AdminDashboard() {
                   <TableCell>{f.id}</TableCell>
                   <TableCell>{f.title}</TableCell>
                   <TableCell><Badge>{f.status}</Badge></TableCell>
-                  <TableCell>{format(new Date(f.created_at), "yyyy/MM/dd")}</TableCell>
+                  <TableCell>
+                    {f.created_at ? format(new Date(f.created_at), "yyyy/MM/dd") : "—"}
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -820,7 +822,7 @@ export default function AdminDashboard() {
                   <TableCell>{e.id}</TableCell>
                   <TableCell>{e.title}</TableCell>
                   <TableCell>
-                    {format(new Date(e.event_date), "yyyy/MM/dd")}
+                    {e.event_date ? format(new Date(e.event_date), "yyyy/MM/dd") : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge>{e.status}</Badge>
@@ -909,10 +911,7 @@ export default function AdminDashboard() {
                   <TableCell>{s.university}</TableCell>
                   <TableCell>{s.graduation_year}</TableCell>
                   <TableCell>
-                    {format(
-                      new Date(s.created_at),
-                      "yyyy/MM/dd"
-                    )}
+                    {s.created_at ? format(new Date(s.created_at), "yyyy/MM/dd") : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge>{s.status}</Badge>
@@ -1043,10 +1042,7 @@ export default function AdminDashboard() {
                   </TableCell>
                   <TableCell>{c.jobs_count}</TableCell>
                   <TableCell>
-                    {format(
-                      new Date(c.created_at),
-                      "yyyy/MM/dd"
-                    )}
+                    {c.created_at ? format(new Date(c.created_at), "yyyy/MM/dd") : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge>{c.status}</Badge>
