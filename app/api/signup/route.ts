@@ -11,7 +11,14 @@ export const dynamic = "force-dynamic";
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export async function POST(req: Request) {
-  const { email, password, first_name, last_name, referral } = await req.json();
+  const {
+    email,
+    password,
+    first_name,
+    last_name,
+    referral,
+    graduation_month,
+  } = await req.json();
 
   /* 1) バリデーション -------------------------------------------------- */
   if (!email?.trim()) {
@@ -33,6 +40,9 @@ export async function POST(req: Request) {
       password: password || crypto.randomUUID(),
       user_metadata: {
         full_name: `${last_name ?? ""} ${first_name ?? ""}`.trim(),
+        first_name,
+        last_name,
+        graduation_month,
         referral_source: referral ?? "",
       },
     });
@@ -78,10 +88,14 @@ export async function POST(req: Request) {
     .upsert(
       [
         {
-          id: userId,               // PK
-          user_id: userId,          // FK to auth.users.id  ←★追加
-          auth_user_id: userId,     // 兼用フィールド
+          id: userId,             // PK
+          user_id: userId,        // FK to auth.users.id  ←★追加
+          auth_user_id: userId,   // 兼用フィールド
+          first_name,
+          last_name,
           full_name: `${last_name ?? ""} ${first_name ?? ""}`.trim(),
+          graduation_month,
+          referral_source: referral ?? "",
         },
       ],
       { onConflict: "id" }          // PK/UNIQUE 列名
