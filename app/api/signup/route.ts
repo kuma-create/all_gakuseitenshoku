@@ -79,6 +79,7 @@ export async function POST(req: Request) {
       [
         {
           id: userId,               // PK
+          user_id: userId,          // FK to auth.users.id  ←★追加
           auth_user_id: userId,     // 兼用フィールド
           full_name: `${last_name ?? ""} ${first_name ?? ""}`.trim(),
         },
