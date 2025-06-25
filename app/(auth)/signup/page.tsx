@@ -45,7 +45,10 @@ export default function SignupPage() {
     email     : "",
     password  : "",
     referral  : "",
+    graduation_year: "",
   });
+
+  const graduationYears = Array.from({ length: 6 }, (_, i) => (new Date().getFullYear() + i).toString());
 
   /* handlers */
   const handleInputChange = (
@@ -76,6 +79,7 @@ export default function SignupPage() {
           first_name: formData.first_name,
           last_name : formData.last_name,
           referral  : formData.referral,
+          graduation_year : formData.graduation_year,
         }),
       });
 
@@ -246,6 +250,25 @@ export default function SignupPage() {
                       </select>
                     </div>
 
+                    {/* graduation year */}
+                    <div className="grid gap-2">
+                      <Label htmlFor="graduation_year">卒業予定年度（西暦）</Label>
+                      <select
+                        id="graduation_year"
+                        required
+                        value={formData.graduation_year}
+                        onChange={handleInputChange}
+                        className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-red-600"
+                      >
+                        <option value="">選択してください</option>
+                        {graduationYears.map((y) => (
+                          <option key={y} value={y}>
+                            {y}年
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* terms */}
                     <div className="flex items-center gap-2">
                       <Checkbox
@@ -289,7 +312,7 @@ export default function SignupPage() {
                     <Button
                       type="submit"
                       className="w-full bg-red-600 hover:bg-red-700"
-                      disabled={isLoading || !allPasswordOK || !termsChecked}
+                      disabled={isLoading || !allPasswordOK || !termsChecked || !formData.graduation_year}
                     >
                       {isLoading ? (
                         <>
