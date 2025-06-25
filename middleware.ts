@@ -30,6 +30,7 @@ const PUBLIC_PREFIXES = [
   "/jobs",                  // API ルート
   "/admin/login", 
   "/media",
+  "/features",
   "/forgot-password",            // 管理者ログイン
   "/password-reset-callback",    // パスワード再設定用コールバック
   "/email-callback",        // メールリンク用コールバック

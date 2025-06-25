@@ -20,7 +20,8 @@ export default function AuthGuard() {
           "/auth/reset",          // パスワードリセット
           "/terms",                  // 利用規約
           "/privacy-policy",         // プライバシーポリシー
-          "/grandprix",   
+          "/grandprix",  
+          "features", 
           "/media",
           "/auth",                  // Supabase auth-helper routes (/auth/set, /auth/logout)
           "/forgot-password",              // グランプリ一覧
