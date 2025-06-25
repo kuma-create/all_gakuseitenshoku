@@ -48,7 +48,14 @@ export default function SignupPage() {
     graduation_month: "",
   });
 
-  const graduationMonths = Array.from({ length: 6 }, (_, i) => (new Date().getFullYear() + i).toString());
+  // 例: 2026 → "2026-03-31"
+  const graduationDates = Array.from({ length: 6 }, (_, i) => {
+    const year = new Date().getFullYear() + i;
+    return {
+      value: `${year}-03-31`,
+      label: `${year}年3月卒`,
+    };
+  });
 
   /* handlers */
   const handleInputChange = (
@@ -261,9 +268,9 @@ export default function SignupPage() {
                         className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-red-600"
                       >
                         <option value="">選択してください</option>
-                        {graduationMonths.map((y) => (
-                          <option key={y} value={y}>
-                            {y}年
+                        {graduationDates.map((d) => (
+                          <option key={d.value} value={d.value}>
+                            {d.label}
                           </option>
                         ))}
                       </select>
