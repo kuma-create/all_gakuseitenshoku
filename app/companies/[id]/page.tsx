@@ -227,7 +227,7 @@ export default function CompanyDetailPage() {
           id: c.id,
           name: c.name,
           logo: c.logo ?? '/placeholder.svg?height=80&width=80',
-          coverImage: c.cover_image_url ?? '/placeholder.svg?height=400&width=1200',
+          coverImage: c.cover_image ?? c.cover_image_url ?? '/placeholder.svg?height=400&width=1200',
           rating: c.rating ?? 0,
           favoriteCount: c.favorite_count ?? 0,
           industry: c.industry ?? '',
@@ -629,23 +629,32 @@ export default function CompanyDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* ヒーローセクション */}
-      <div className="relative h-[300px] md:h-[400px] w-full bg-red-600 overflow-hidden">
+      <div
+        className={`relative h-[300px] md:h-[400px] w-full overflow-hidden ${
+          company.coverImage ? "" : "bg-red-600"
+        }`}
+      >
         <Image
           src={company.coverImage || "/placeholder.svg"}
           alt={company.name}
           fill
-          className="object-cover opacity-90"
+          className={`object-cover ${company.coverImage ? "" : "opacity-90"}`}
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-red-600/90 to-red-600/50"></div>
-        <div className="absolute inset-0 flex items-center">
-          <div className="container mx-auto px-4 md:px-8">
-            <div className="max-w-3xl">
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">{company.tagline}</h1>
-              <p className="text-xl text-white/90">{company.description}</p>
+        {/* 赤いグラデーションはカバー画像が無い時だけ表示 */}
+        {!company.coverImage && (
+          <div className="absolute inset-0 bg-gradient-to-r from-red-600/90 to-red-600/50"></div>
+        )}
+        {!company.coverImage && (
+          <div className="absolute inset-0 flex items-center">
+            <div className="container mx-auto px-4 md:px-8">
+              <div className="max-w-3xl">
+                <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">{company.tagline}</h1>
+                <p className="text-xl text-white/90">{company.description}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ナビゲーションとパンくずリスト */}
@@ -693,6 +702,9 @@ export default function CompanyDetailPage() {
                     </Badge>
                   </div>
                   <h1 className="text-2xl font-bold">{company.name}</h1>
+                  {company.coverImage && company.tagline && (
+                    <p className="text-sm text-gray-600 mt-1">{company.tagline}</p>
+                  )}
                   <div className="flex items-center gap-2 mt-2">
                     <div className="flex">{renderStars(company.rating)}</div>
                     <span className="text-lg font-semibold">{company.rating}</span>
@@ -963,7 +975,7 @@ export default function CompanyDetailPage() {
                         <div className="text-sm text-gray-500 mt-1">{reviews.length}件の口コミ</div>
                       </div>
                       <Separator orientation="vertical" className="h-16" />
-                      <div className="grid grid-cols-2 gap-4 flex-grow">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-grow">
                         <div>
                             <div className="text-sm text-gray-500">成長環境</div>
                             <div className="flex items-center mt-1">
@@ -1136,7 +1148,7 @@ export default function CompanyDetailPage() {
                   {/* ---- フィルタ UI ---- */}
                   <div className="space-y-4 mb-6">
                     {/* 選考種別 */}
-                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg overflow-x-auto">
                       {["インターン選考","本選考","説明会"].map((cat)=>(
                         <label key={cat} className="flex items-center gap-1 cursor-pointer">
                           <input
@@ -1153,7 +1165,7 @@ export default function CompanyDetailPage() {
                       ))}
                     </div>
                     {/* 卒年 */}
-                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg overflow-x-auto">
                       {[27,26,25].map((yr)=>(
                         <label key={yr} className="flex items-center gap-1 cursor-pointer">
                           <input
@@ -1182,7 +1194,7 @@ export default function CompanyDetailPage() {
                       </label>
                     </div>
                     {/* フェーズ */}
-                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg overflow-x-auto">
                       {["ES","テスト","GD","面接/面談","セミナー","OB訪問","インターン","内定"].map((ph)=>(
                         <label key={ph} className="flex items-center gap-1 cursor-pointer">
                           <input
@@ -1207,29 +1219,31 @@ export default function CompanyDetailPage() {
                   ) : (
                     <div className="space-y-6">
                       {filteredInterviews.map((iv) => (
-                        <Card key={iv.id} className="p-6 space-y-4">
-                          <div>
-                            <h3 className="font-semibold mb-2">よく聞かれた質問</h3>
-                            <p className="text-gray-700">{iv.question}</p>
-                            {iv.answerHint && (
-                              <div className="bg-gray-50 p-4 rounded-lg mt-2">
-                                <p className="text-gray-700 whitespace-pre-line">{iv.answerHint}</p>
+                        <div className="overflow-x-auto" key={iv.id}>
+                          <Card className="p-6 space-y-4">
+                            <div>
+                              <h3 className="font-semibold mb-2">よく聞かれた質問</h3>
+                              <p className="text-gray-700">{iv.question}</p>
+                              {iv.answerHint && (
+                                <div className="bg-gray-50 p-4 rounded-lg mt-2">
+                                  <p className="text-gray-700 whitespace-pre-line">{iv.answerHint}</p>
+                                </div>
+                              )}
+                            </div>
+                            {iv.experienceText && (
+                              <div>
+                                <h3 className="font-semibold mb-2">面接体験談</h3>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                  <p className="text-gray-700 whitespace-pre-line">{iv.experienceText}</p>
+                                </div>
                               </div>
                             )}
-                          </div>
-                          {iv.experienceText && (
-                            <div>
-                              <h3 className="font-semibold mb-2">面接体験談</h3>
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <p className="text-gray-700 whitespace-pre-line">{iv.experienceText}</p>
-                              </div>
-                            </div>
-                          )}
-                          <div className="text-sm text-gray-500">
-                            {iv.graduationYear && `${iv.graduationYear}年卒 / `}投稿:
-                            {` ${new Date(iv.postedAt).toLocaleDateString()}`}
-                          </div>
-                        </Card>
+                            <div className="text-sm text-gray-500">
+                              {iv.graduationYear && `${iv.graduationYear}年卒 / `}投稿:
+                              {` ${new Date(iv.postedAt).toLocaleDateString()}`}
+                            </div>  
+                          </Card>
+                        </div>
                       ))}
                     </div>
                   )}

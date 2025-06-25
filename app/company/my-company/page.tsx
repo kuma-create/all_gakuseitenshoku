@@ -32,6 +32,7 @@ type CompanyForm = {
   positions: string[]
   highlights: HighlightFormItem[]
   logo: string
+  cover_image: string
 }
 
 /**
@@ -51,6 +52,7 @@ type CompaniesRow = {
   employee_count: number | null
   video_url: string | null
   logo: string | null
+  cover_image: string | null
 }
 
 const INDUSTRY_OPTIONS = [
@@ -90,6 +92,7 @@ export default function MyCompanyPage() {
     positions: [''],
     highlights: [{ icon: 'growth', title: '', body: '' }],
     logo: '',
+    cover_image: '',
   })
   const [loading, setLoading] = useState(true)
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -110,7 +113,7 @@ export default function MyCompanyPage() {
       const { data, error } = await supabase
         .from('companies')
         .select(
-          'id, tagline, representative, founded_year, capital_jpy, revenue_jpy, location, industry, employee_count, video_url, logo',
+          'id, tagline, representative, founded_year, capital_jpy, revenue_jpy, location, industry, employee_count, video_url, logo, cover_image',
         )
         .eq('user_id', user.id)
         .single()
@@ -133,6 +136,7 @@ export default function MyCompanyPage() {
         employee_count: company.employee_count !== null ? String(company.employee_count) : '',
         video_url: company.video_url ?? '',
         logo: company.logo ?? '',
+        cover_image: company.cover_image ?? '',
       }))
 
       const [
@@ -156,7 +160,7 @@ export default function MyCompanyPage() {
           .from('company_recruit_info')
           .select('message')
           .eq('company_id', company.id)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('company_positions')
           .select('position, ordinal')
@@ -281,6 +285,37 @@ export default function MyCompanyPage() {
     setUploadingLogo(false)
   }
 
+  // カバー画像アップロード
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingLogo(true)
+
+    const timestamp = Date.now()
+    const fileExt   = file.name.split('.').pop()
+    const filePath  = `covers/${timestamp}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('company-covers')
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) {
+      alert(`アップロードに失敗しました: ${uploadError.message}`)
+      setUploadingLogo(false)
+      return
+    }
+
+    const { data } = supabase.storage
+      .from('company-covers')
+      .getPublicUrl(filePath)
+
+    if (data?.publicUrl) {
+      setForm((prev) => ({ ...prev, cover_image: data.publicUrl }))
+    }
+
+    setUploadingLogo(false)
+  }
+
   // 送信
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -307,6 +342,7 @@ export default function MyCompanyPage() {
       employee_count: form.employee_count ? Number(form.employee_count) : null,
       video_url     : form.video_url.trim() || null,
       logo          : form.logo.trim() || null,
+      cover_image   : form.cover_image.trim() || null,
     }
 
     const { error: updateError } = await supabase
@@ -462,6 +498,35 @@ export default function MyCompanyPage() {
                 disabled={uploadingLogo}
               >
                 {uploadingLogo ? 'アップロード中…' : '画像をアップロード'}
+              </Button>
+            </div>
+          </div>
+
+          {/* カバー画像 */}
+          <div>
+            <Label htmlFor="coverFileTrigger">カバー画像 <span className="text-xs text-muted-foreground">(横長推奨)</span></Label>
+            <div className="mt-2 flex flex-col gap-3 items-start">
+              {form.cover_image && (
+                <img
+                  src={form.cover_image}
+                  alt="Cover Preview"
+                  className="h-32 w-full object-cover border rounded-md"
+                />
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                id="coverFileTrigger"
+                className="hidden"
+                onChange={handleCoverFileChange}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => document.getElementById('coverFileTrigger')?.click()}
+                disabled={uploadingLogo}
+              >
+                {uploadingLogo ? 'アップロード中…' : 'カバー画像をアップロード'}
               </Button>
             </div>
           </div>

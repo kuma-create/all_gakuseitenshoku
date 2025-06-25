@@ -368,6 +368,23 @@ export default function CompanyDashboard() {
             </Button>
           </CardFooter>
         </Card>
+
+        <Card className="bg-gradient-to-br from-yellow-50 to-white transition-all duration-200 hover:shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Users className="h-5 w-5 text-yellow-600" />
+              メンバー管理
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600">この企業に所属するメンバーの追加・削除を行えます。</p>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full bg-yellow-600 hover:bg-yellow-700" asChild>
+              <Link href="/company/members">メンバー一覧を見る</Link>
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </main>
   )
