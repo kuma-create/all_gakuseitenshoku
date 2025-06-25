@@ -45,10 +45,10 @@ export default function SignupPage() {
     email     : "",
     password  : "",
     referral  : "",
-    graduation_year: "",
+    graduation_month: "",
   });
 
-  const graduationYears = Array.from({ length: 6 }, (_, i) => (new Date().getFullYear() + i).toString());
+  const graduationMonths = Array.from({ length: 6 }, (_, i) => (new Date().getFullYear() + i).toString());
 
   /* handlers */
   const handleInputChange = (
@@ -79,7 +79,7 @@ export default function SignupPage() {
           first_name: formData.first_name,
           last_name : formData.last_name,
           referral  : formData.referral,
-          graduation_year : formData.graduation_year,
+          graduation_month : formData.graduation_month,
         }),
       });
 
@@ -250,18 +250,18 @@ export default function SignupPage() {
                       </select>
                     </div>
 
-                    {/* graduation year */}
+                    {/* graduation month */}
                     <div className="grid gap-2">
-                      <Label htmlFor="graduation_year">卒業予定年度（西暦）</Label>
+                      <Label htmlFor="graduation_month">卒業予定月（西暦）</Label>
                       <select
-                        id="graduation_year"
+                        id="graduation_month"
                         required
-                        value={formData.graduation_year}
+                        value={formData.graduation_month}
                         onChange={handleInputChange}
                         className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-red-600"
                       >
                         <option value="">選択してください</option>
-                        {graduationYears.map((y) => (
+                        {graduationMonths.map((y) => (
                           <option key={y} value={y}>
                             {y}年
                           </option>
@@ -312,7 +312,7 @@ export default function SignupPage() {
                     <Button
                       type="submit"
                       className="w-full bg-red-600 hover:bg-red-700"
-                      disabled={isLoading || !allPasswordOK || !termsChecked || !formData.graduation_year}
+                      disabled={isLoading || !allPasswordOK || !termsChecked || !formData.graduation_month}
                     >
                       {isLoading ? (
                         <>
