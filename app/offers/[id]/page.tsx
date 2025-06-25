@@ -54,6 +54,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
+/* ---------------------------- 表示用ユーティリティ ---------------------------- */
+/** 「300-600」→「300-600万円」のように末尾に「万円」を付与する */
+const formatSalary = (s?: string | null) =>
+  s && !s.endsWith("万円") ? `${s}万円` : s ?? "";
+/* --------------------------------------------------------------------------- */
+
 /* ------------------------------------------------------------------ */
 /*                               型定義                                */
 /* ------------------------------------------------------------------ */
@@ -81,7 +87,7 @@ interface OfferDetail {
   detailedMessage: string
   location: string
   workStyle: string
-  salary: string
+  salary: string | null
   benefits: string[]
   skills: string[]
   culture: string[]
@@ -105,6 +111,8 @@ type ScoutWithRelations = {
   message: string
   status: string | null
   created_at: string | null
+  offer_amount: string | null
+  offer_position: string | null
   companies: {
     name: string
     logo: string | null
@@ -167,6 +175,8 @@ export default function OfferDetailPage() {
              message,
              status,
              created_at,
+             offer_amount,
+             offer_position,
              companies!fk_scouts_company (
                name,
                logo,
@@ -196,7 +206,7 @@ export default function OfferDetailPage() {
         const personalizedMsg = personalize(data.message, {
           name:     fullName,
           company:  data.companies?.name ?? "",
-          position: data.jobs?.title ?? "",
+          position: data.offer_position ?? data.jobs?.title ?? "",
         })
 
         /* ③ クエリ結果 → 画面用構造に変換 -------- */
@@ -211,7 +221,7 @@ export default function OfferDetailPage() {
           created_at: data.created_at,
 
           // jobs
-          position: data.jobs?.title ?? null,
+          position: data.offer_position ?? data.jobs?.title ?? null,
 
           // companies
           company_name: data.companies?.name ?? "",
@@ -227,7 +237,12 @@ export default function OfferDetailPage() {
           detailedMessage: personalizedMsg,
           location: "未設定",
           workStyle: "未設定",
-          salary: data.jobs?.salary_range ?? "未設定",
+          salary:
+            data.offer_amount && data.offer_amount !== "テスト"
+            ? data.offer_amount
+            : (data.jobs?.salary_range && data.jobs.salary_range !== "テスト"
+              ? data.jobs.salary_range
+              : null),
           benefits: [],
           skills: [],
           culture: [],
@@ -468,11 +483,25 @@ export default function OfferDetailPage() {
                 <CardHeader>
                   <CardTitle>想定年収</CardTitle>
                 </CardHeader>
-                <CardContent className="rounded-lg bg-gray-50 p-4 text-center">
-                  <p className="text-xl font-bold text-red-600">
-                    {offer.salary}
+                <CardContent className="rounded-lg bg-gradient-to-r from-orange-50 to-amber-50 p-6 text-center shadow-inner">
+                  <p className="text-2xl font-extrabold tracking-tight text-red-600">
+                    {formatSalary(offer.salary)}
                   </p>
                   <p className="text-xs text-gray-500">※変動あり</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* オファーポジション */}
+            {offer.position && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>オファーポジション</CardTitle>
+                </CardHeader>
+                <CardContent className="rounded-lg bg-gray-50 p-6 text-center shadow-sm">
+                  <p className="text-lg font-semibold tracking-wide text-gray-800">
+                    {offer.position}
+                  </p>
                 </CardContent>
               </Card>
             )}

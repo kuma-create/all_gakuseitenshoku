@@ -14,8 +14,11 @@ export const dynamic = "force-dynamic";
  * - session が有効    → setSession() して auth クッキーを発行
  */
 export async function POST(req: Request) {
-  // Supabase クライアントを cookies 関数ごと渡して生成
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+  // Next.js 15 以降は cookies() が async なので await する
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient<Database>({
+    cookies: () => cookieStore,
+  });
 
   const session = (await req.json()) as
     | { access_token: string; refresh_token: string; expires_at: number }
