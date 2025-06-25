@@ -255,6 +255,7 @@ export default function ResumePage() {
 
   useEffect(() => {
     const calculateSectionCompletion = (section: SectionKey, fields: Fields): number => {
+      if (!fields || typeof fields !== "object") return 0;
       const totalFields = Object.keys(fields).length;
       const filledFields = Object.values(fields).filter((value) => {
         if (value === "" || value == null) return false;
@@ -265,8 +266,8 @@ export default function ResumePage() {
       return Math.round((filledFields / totalFields) * 100);
     };
 
-    const basic = calculateSectionCompletion("basic", formData.basic);
-    const education = calculateSectionCompletion("education", formData.education);
+    const basic = calculateSectionCompletion("basic", formData.basic ?? {});
+    const education = calculateSectionCompletion("education", formData.education ?? {});
     // ───── 職歴セクション完了度 (0–100) ─────────
     // 「使用技術」を除外し、下記 6 要素を均等配点とする：
     // 1. 企業名
@@ -297,9 +298,9 @@ export default function ResumePage() {
 
       work = Math.round((filled / totalRequired) * 100);
     }
-    const skills = calculateSectionCompletion("skills", formData.skills);
-    const pr = calculateSectionCompletion("pr", formData.pr);
-    const conditions = calculateSectionCompletion("conditions", formData.conditions);
+    const skills = calculateSectionCompletion("skills", formData.skills ?? {});
+    const pr = calculateSectionCompletion("pr", formData.pr ?? {});
+    const conditions = calculateSectionCompletion("conditions", formData.conditions ?? {});
 
     const newSectionCompletion: Record<SectionKey, number> = {
       basic,
