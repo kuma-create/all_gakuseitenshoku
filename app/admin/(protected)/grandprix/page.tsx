@@ -1226,7 +1226,7 @@ export default function AdminGrandPrixPage() {
                       この種別の問題が登録されていません
                     </p>
                   ) : (
-                    <ScrollArea className="max-h-[200px] border rounded">
+                    <ScrollArea className="max-h-[200px] overflow-y-auto border rounded">
                       {questions.map((q) => (
                         <div
                           key={q.id}
@@ -1669,7 +1669,7 @@ export default function AdminGrandPrixPage() {
                   この種別にはまだ問題が登録されていません
                 </p>
               ) : (
-                <ScrollArea className="max-h-[60vh]">
+                <ScrollArea className="h-[60vh] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b sticky top-0 bg-background">
