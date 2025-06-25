@@ -323,12 +323,21 @@ export default function ScoutPage() {
     /* 0) フリーワード */
     const term = search.trim().toLowerCase()
     if (term) {
-      list = list.filter((s) =>
-        [s.full_name, s.university, s.major]
+      list = list.filter((s) => {
+        const resume = s.resumes?.[0]
+        const workTexts = Array.isArray(resume?.work_experiences)
+          ? resume.work_experiences.map((w) =>
+              [w.company, w.position, w.description, w.achievements]
+                .filter(Boolean)
+                .join(" ")
+            ).join(" ")
+          : ""
+
+        return [s.university, s.major, workTexts]
           .join(" ")
           .toLowerCase()
-          .includes(term),
-      )
+          .includes(term)
+      })
     }
 
     /* 1) 卒業年 */

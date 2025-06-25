@@ -13,10 +13,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Send, Star } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import type { Database } from "@/lib/supabase/types"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase/client"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import StudentDetailTabs from "./StudentDetailTabs"
 
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
@@ -113,6 +114,79 @@ export default function ScoutDrawer({
     })();
   }, [open, companyId]);
 
+  /* ------------------ ログイン中メンバーIDを取得 ------------------ */
+  const [companyMemberId, setCompanyMemberId] = useState<string | null>(null)
+
+  // ログインユーザーの company_members.id を取得
+  useEffect(() => {
+    if (!open) return
+    if (!companyId) return
+
+    const supabaseClient = createClientComponentClient<Database>()
+
+    ;(async () => {
+      const {
+        data: { user },
+      } = await supabaseClient.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabaseClient
+        .from("company_members")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("user_id", user.id)
+        .maybeSingle<{ id: string }>()
+
+      if (!error && data?.id) {
+        setCompanyMemberId(data.id)
+      }
+    })()
+  }, [open, companyId])
+
+  /**
+   * 最新のインターン先会社名を取得
+   *
+   * - student.resumes が配列でない場合（単一オブジェクト）も考慮
+   * - fallback で student.experiences も参照（旧スキーマ）
+   * - company_name / company / name のいずれかを優先して返す
+   */
+  const latestInternCompany = useMemo(() => {
+    type RawExp = {
+      company_name?: string | null
+      company?: string | null
+      name?: string | null
+      start_date?: string | null
+      end_date?: string | null
+    }
+
+    // 1) resumes → work_experiences
+    const resumesArray =
+      Array.isArray(student?.resumes)
+        ? student.resumes
+        : student?.resumes
+        ? [student.resumes]
+        : []
+
+    const resumeExps: RawExp[] = resumesArray.flatMap((r) =>
+      (r?.work_experiences as RawExp[] | null | undefined) ?? []
+    )
+
+    // 2) fallback: student.experiences
+    const directExps: RawExp[] = Array.isArray((student as any)?.experiences)
+      ? (student as any).experiences
+      : []
+
+    const exps: RawExp[] = [...resumeExps, ...directExps]
+    if (exps.length === 0) return null
+
+    // ソート: end_date → start_date の降順
+    const sortKey = (e: RawExp) => e.end_date ?? e.start_date ?? ""
+    exps.sort((a, b) => sortKey(b).localeCompare(sortKey(a)))
+
+    const latest = exps[0]
+    return latest.company_name ?? latest.company ?? latest.name ?? null
+  }, [student])
+
   const isDisabled: boolean =
     !student ||
     !message.trim() ||
@@ -140,11 +214,19 @@ export default function ScoutDrawer({
     if (readOnly) return
     if (!student) return
 
+    // company_member_id は NOT NULL 制約があるため必須
+    if (!companyMemberId) {
+      toast.error("ログインユーザーが company_members に登録されていません。スカウトを送信できません。")
+      return
+    }
+
     const payload: Database["public"]["Tables"]["scouts"]["Insert"] & {
+      company_member_id?: string | null
       offer_amount?: string | null
       offer_position?: string | null
     } = {
       company_id: companyId,
+      company_member_id: companyMemberId,
       job_id: selectedJobId,
       student_id: student.id,
       message,
@@ -153,31 +235,48 @@ export default function ScoutDrawer({
       offer_amount: offerAmount.trim() || null,
     }
 
-    const { data, error } = await supabase
+    // RLS ポリシーにより自社スカウトは SELECT 可能
+    const { data: scoutRow, error: scoutErr } = await supabase
       .from("scouts")
       .insert(payload)
-      .select()
-      .single()
+      .select()          // フルカラムを返す
+      .single();
 
-    if (error) {
+    if (scoutErr) {
       toast.error("送信に失敗しました")
     } else {
       toast.success("スカウトを送信しました")
+      // 通知レコードは DB トリガー (notify_on_scout_insert) で自動生成される
+      const studentAuthUid =
+        // auth_user_id があれば優先
+        (student as any).auth_user_id ?? (student as any).user_id ?? null;
 
       // --- 通知メールを送信 ---
-      if (student.auth_user_id) {
-        await supabase.functions.invoke("send-email", {
-          body: {
-            user_id:            student.auth_user_id,   // 学生の Auth UID
-            from_role:          "company",
-            company_name:       companyName,
-            notification_type:  "scout",
-            message,                                 // スカウト本文
-          },
-        });
+      // studentAuthUid is already set above
+      if (studentAuthUid) {
+        const { error: invokeError } = await supabase.functions.invoke(
+          "send-email",
+          {
+            body: {
+              user_id: studentAuthUid, // 学生の Auth UID
+              from_role: "company",
+              company_name: companyName,
+              notification_type: "scout",
+              related_id: scoutRow.id,     // 追加: scouts.id を通知に渡す
+              message, // スカウト本文
+            },
+          }
+        );
+
+        if (invokeError) {
+          console.error("send-email invoke error:", invokeError);
+          toast.warning("メール通知の送信に失敗しました");
+        }
+      } else {
+        toast.warning("学生のユーザーIDが取得できず、メール通知をスキップしました");
       }
 
-      if (data && onSent) onSent(data)
+      if (scoutRow && onSent) onSent(scoutRow)
       onOpenChange(false)
     }
   }
@@ -202,25 +301,29 @@ export default function ScoutDrawer({
               <div className="border-l p-6 flex flex-col space-y-6 overflow-y-auto">
                 {/* 学生サマリー */}
                 <Card>
-                  <CardContent className="pt-4 flex items-center gap-3">
+                  <CardContent className="pt-4 flex items-start gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarImage
                         src={student.avatar_url ?? "/placeholder.svg"}
-                        alt={student.full_name ?? ""}
+                        alt="student avatar"
                       />
-                      <AvatarFallback>
-                        {student.full_name?.slice(0, 2) ?? "👤"}
-                      </AvatarFallback>
+                      <AvatarFallback>👤</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <h3 className="font-medium">{student.full_name}</h3>
-                      <p className="text-sm text-gray-500 truncate">
-                        {student.university}
-                      </p>
-                      <div className="flex items-center mt-1">
+                    <div className="space-y-1 min-w-0">
+                      {student.university && (
+                        <p className="text-base font-semibold text-gray-900 break-words">
+                          {student.university}
+                        </p>
+                      )}
+                      {latestInternCompany && (
+                        <p className="text-sm text-gray-500 break-words">
+                          インターン: {latestInternCompany}
+                        </p>
+                      )}
+                      <div className="flex items-center mt-2">
                         <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
                         <span className="text-sm">
-                            項目入力率 {student.match_score ?? "--"}%
+                          項目入力率 {student.match_score ?? "--"}%
                         </span>
                       </div>
                     </div>

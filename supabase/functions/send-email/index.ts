@@ -79,6 +79,7 @@ let {
   message,
   from_role,
   notification_type,
+  related_id,   // ★ 追加: 関連レコードID
   company_name,
 } = rec ?? {};
 
@@ -113,6 +114,11 @@ const companyLabel = company_name && company_name.trim() !== ""
     return new Response("bad payload", { status: 400, headers: corsHeaders });
   }
 
+  if (!related_id) {
+    console.error("missing related_id in payload", payload);
+    return new Response("related_id required", { status: 400, headers: corsHeaders });
+  }
+
   // -------------------------------------------------------------
   // derive flags *before* we possibly insert
   const isFromCompany = from_role === "company";
@@ -135,7 +141,8 @@ const companyLabel = company_name && company_name.trim() !== ""
         title: fallbackTitle,
         message,
         channel: "email",
-        notification_type: "chat",
+        notification_type,   // ★ 変数をそのまま
+        related_id,          // ★ NOT NULL 制約を満たす
         send_status: "pending",
       })
       .select("id")

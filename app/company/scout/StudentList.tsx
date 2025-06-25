@@ -48,6 +48,45 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   status?: string | null
 }
 
+/** 最新のインターン先会社名を取得 */
+function getLatestInternCompany(stu: Student): string | null {
+  type RawExp = {
+    company_name?: string | null
+    company?: string | null
+    name?: string | null
+    start_date?: string | null
+    end_date?: string | null
+  }
+
+  // ---- 1) resumes → work_experiences ----
+  // stu.resumes が配列でない場合（単一オブジェクト or null）も吸収
+  const resumesArray =
+    Array.isArray(stu?.resumes)
+      ? stu.resumes
+      : stu?.resumes
+      ? [stu.resumes]
+      : []
+
+  const resumeExps: RawExp[] = resumesArray.flatMap((r) =>
+    (r?.work_experiences as RawExp[] | null | undefined) ?? []
+  )
+
+  // ---- 2) fallback: stu.experiences (旧スキーマ) ----
+  const directExps: RawExp[] = Array.isArray((stu as any)?.experiences)
+    ? (stu as any).experiences
+    : []
+
+  const exps: RawExp[] = [...resumeExps, ...directExps]
+  if (exps.length === 0) return null
+
+  // end_date → start_date の降順でソート
+  const sortKey = (e: RawExp) => e.end_date ?? e.start_date ?? ""
+  exps.sort((a, b) => sortKey(b).localeCompare(sortKey(a)))
+
+  const latest = exps[0]
+  return latest.company_name ?? latest.company ?? latest.name ?? null
+}
+
 interface Props {
   students: Student[]
   selectedId: string | null
@@ -56,87 +95,93 @@ interface Props {
 
 export default function StudentList({ students, selectedId, onSelect }: Props) {
   return (
-    <div className="space-y-4 h-[calc(100vh-56px)] overflow-y-auto p-4">
-      {students.map((stu) => (
-        <Card
-          key={stu.id}
-          onClick={() => onSelect(stu)}
-          className={clsx(
-            "cursor-pointer transition hover:shadow-md",
-            selectedId === stu.id && "ring-2 ring-indigo-400"
-          )}
-        >
-          <CardContent className="p-4 flex items-start gap-3">
-            <Avatar className="h-12 w-12 shrink-0">
-              <AvatarImage
-                src={stu.avatar_url ?? "/placeholder.svg"}
-                alt={stu.full_name ?? ""}
-              />
-              <AvatarFallback>{stu.full_name?.slice(0, 2) ?? "👤"}</AvatarFallback>
-            </Avatar>
-
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold truncate">{stu.full_name}</p>
-              <p className="text-xs text-gray-500 truncate">{stu.university}</p>
-              {(stu.major || stu.location) && (
-                <p className="text-[11px] text-gray-500 truncate">
-                  {[stu.major, stu.location].filter(Boolean).join(" / ")}
-                </p>
-              )}
-
-              <div className="flex flex-wrap gap-1 mt-2">
-                {stu.skills?.slice(0, 2).map((sk) => (
-                  <Badge key={sk} variant="secondary" className="text-[10px]">
-                    {sk}
-                  </Badge>
-                ))}
-
-                {stu.qualifications?.slice(0, 1).map((ql) => (
-                  <Badge key={ql} variant="secondary" className="text-[10px]">
-                    {ql}
-                  </Badge>
-                ))}
-
-                {stu.has_internship_experience && (
-                  <Badge variant="outline" className="text-[10px]">
-                    インターン
-                  </Badge>
-                )}
-
-                {formatLastActive(stu.last_active) && (
-                  <Badge variant="outline" className="text-[10px]">
-                    {formatLastActive(stu.last_active)}
-                  </Badge>
-                )}
-
-                {stu.graduation_year && (
-                  <Badge variant="outline" className="text-[10px]">
-                    {stu.graduation_year}卒
-                  </Badge>
-                )}
-
-                {typeof stu.profile_completion === "number" && (
-                  <Badge variant="outline" className="text-[10px]">
-                    記載率{stu.profile_completion}%
-                  </Badge>
-                )}
-
-                {typeof stu.match_score === "number" && (
-                  <Badge variant="outline" className="text-[10px]">
-                    {stu.match_score}%
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {stu.status && (
-              <Badge variant="secondary" className="shrink-0 text-xs">
-                {stu.status}
-              </Badge>
+    <div className="space-y-4 overflow-y-auto p-4 max-h-full">
+      {students.map((stu) => {
+        const company = getLatestInternCompany(stu)
+        return (
+          <Card
+            key={stu.id}
+            onClick={() => onSelect(stu)}
+            className={clsx(
+              "cursor-pointer transition hover:shadow-md",
+              selectedId === stu.id && "ring-2 ring-indigo-400"
             )}
-          </CardContent>
-        </Card>
-      ))}
+          >
+            <CardContent className="p-4 flex items-start gap-3">
+              <Avatar className="h-12 w-12 shrink-0">
+                {stu.avatar_url ? (
+                  <AvatarImage src={stu.avatar_url} alt={stu.full_name ?? ""} />
+                ) : null}
+                <AvatarFallback>
+                  {stu.avatar_url ? null : company?.slice(0, 2) ?? "👤"}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold truncate">{stu.university}</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {company ?? "インターン情報なし"}
+                </p>
+                {(stu.major || stu.location) && (
+                  <p className="text-[11px] text-gray-500 truncate">
+                    {[stu.major, stu.location].filter(Boolean).join(" / ")}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {stu.skills?.slice(0, 2).map((sk) => (
+                    <Badge key={sk} variant="secondary" className="text-[10px]">
+                      {sk}
+                    </Badge>
+                  ))}
+
+                  {stu.qualifications?.slice(0, 1).map((ql) => (
+                    <Badge key={ql} variant="secondary" className="text-[10px]">
+                      {ql}
+                    </Badge>
+                  ))}
+
+                  {stu.has_internship_experience && (
+                    <Badge variant="outline" className="text-[10px]">
+                      インターン
+                    </Badge>
+                  )}
+
+                  {formatLastActive(stu.last_active) && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {formatLastActive(stu.last_active)}
+                    </Badge>
+                  )}
+
+                  {stu.graduation_year && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {stu.graduation_year}卒
+                    </Badge>
+                  )}
+
+                  {typeof stu.profile_completion === "number" && (
+                    <Badge variant="outline" className="text-[10px]">
+                      記載率{stu.profile_completion}%
+                    </Badge>
+                  )}
+
+                  {typeof stu.match_score === "number" && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {stu.match_score}%
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {stu.status && (
+                <Badge variant="secondary" className="shrink-0 text-xs">
+                  {stu.status}
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
+        )
+      })}
       {students.length === 0 && (
         <p className="text-sm text-gray-500 text-center pt-20">学生が見つかりません</p>
       )}
