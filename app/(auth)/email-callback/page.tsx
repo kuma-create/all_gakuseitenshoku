@@ -19,13 +19,20 @@ export default function EmailCallbackPage() {
   ------------------------------------------------------------- */
   useEffect(() => {
     (async () => {
+      const isSignup = search.get("type") === "signup";  // signup フロー判定（早期に定義）
       /* ----- 0) すでにセッションがあれば即リダイレクト ----- */
       const {
         data: { session: initialSession },
       } = await supabase.auth.getSession();
       if (initialSession) {
         const nextPath0 = search.get("next");
-        router.replace(nextPath0 ?? "/onboarding/profile"); // オンボーディングを既定に
+        if (!isSignup && nextPath0) {
+          // 既存ユーザー向け (magiclink 等) は next を優先
+          router.replace(nextPath0);
+        } else {
+          // signup フロー、または next が無い場合はオンボーディングへ
+          router.replace("/onboarding/profile");
+        }
         return;
       }
       /* ---------- 1) ハッシュフラグメント (#access_token) ---------- */
@@ -86,7 +93,6 @@ export default function EmailCallbackPage() {
       }
 
       /* ---------- 3) next パラメータがあれば優先リダイレクト ---------- */
-      const isSignup = search.get("type") === "signup";  // signup フロー判定
       const nextPath = search.get("next");
       if (nextPath && !isSignup) {          // signup 時は next を無視
         router.replace(nextPath);
