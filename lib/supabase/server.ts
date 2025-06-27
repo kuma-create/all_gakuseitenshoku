@@ -11,9 +11,8 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  * next/headers は動的インポートすることでクライアントバンドルを汚染しません。
  */
 export async function createServerSupabase() {
-  // 動的インポートで next/headers を読み込む
-  const { cookies } = await /* @next-codemod-error The APIs under 'next/headers' are async now, need to be manually awaited. */
-  import("next/headers");
+  // Next 15: next/headers APIs は Promise を返すので await する
+  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
