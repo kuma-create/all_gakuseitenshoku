@@ -30,8 +30,8 @@ export default function EmailCallbackPage() {
           // 既存ユーザー向け (magiclink 等) は next を優先
           router.replace(nextPath0);
         } else {
-          // signup フロー、または next が無い場合はオンボーディングへ
-          router.replace("/onboarding/profile");
+          // signup フローなら onboarding、magiclink 等はダッシュボードへ
+          router.replace(isSignup ? "/onboarding/profile" : "/student-dashboard");
         }
         return;
       }
@@ -99,8 +99,8 @@ export default function EmailCallbackPage() {
         return;
       }
 
-      /* ---------- 4) デフォルト遷移先を onboarding/profile に固定 ---------- */
-      router.replace("/onboarding/profile");
+      /* ---------- 4) デフォルト遷移先 ---------- */
+      router.replace(isSignup ? "/onboarding/profile" : "/student-dashboard");
     })();
   }, [router, search]);
 

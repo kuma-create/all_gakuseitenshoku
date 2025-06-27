@@ -80,11 +80,17 @@ export default function StudentDashboard() {
       // fetch student_profiles.id (some tables reference this instead of auth.users.id)
       const { data: sp } = await supabase
         .from("student_profiles")
-        .select("id,full_name,first_name,last_name")
+        .select("id,full_name,first_name,last_name,last_name_kana,first_name_kana")
         .eq("user_id", studentId)
         .maybeSingle();
 
       const sid = sp?.id ?? studentId;   // use profile.id if exists, otherwise fallback to auth.uid
+
+      /* ----- 名前フリガナ未入力ならオンボーディングへ ---------------- */
+      if (sp && (!sp.last_name_kana || !sp.first_name_kana)) {
+        router.replace("/onboarding/profile");
+        return;  // 以降の処理を止める
+      }
 
       // decide display name for greeting
       const dname =
