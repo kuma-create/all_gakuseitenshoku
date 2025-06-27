@@ -102,64 +102,64 @@ export default async function MediaPage() {
         </div>
       </header>
 
+      {/* Hero Section – full‑width */}
+      {hero && (
+        <section className="relative h-[600px] overflow-hidden">
+          <div className="absolute inset-0">
+            <Image
+              src={hero.cover_image_url}
+              alt={hero.title}
+              fill
+              className="object-cover scale-105 hover:scale-100 transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+          </div>
+
+          <div className="relative z-10 container mx-auto px-4 h-full flex items-center">
+            <div className="text-white max-w-3xl">
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-4 py-2 mb-6 border border-white/20">
+                <Star className="w-4 h-4 text-yellow-400" />
+                <span className="text-sm font-medium">
+                  学生に選ばれるキャリアメディア
+                </span>
+              </div>
+
+              <h1 className="text-5xl md:text-6xl font-black mb-6 leading-tight line-clamp-2">
+                {hero.title}
+              </h1>
+
+              {hero.excerpt && (
+                <p className="text-lg mb-8 text-gray-200 line-clamp-3">
+                  {hero.excerpt}
+                </p>
+              )}
+
+              <div className="flex gap-4">
+                <Link href={`/media/${encodeURIComponent(hero.slug)}`}>
+                  <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-8 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                    記事を読む
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+                <Button
+                  className="bg-white/80 text-gray-900 hover:bg-white shadow-lg px-8 py-3 rounded-full font-semibold transition-all duration-300 backdrop-blur-sm"
+                >
+                  サービス紹介
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Floating elements */}
+          <div className="absolute top-20 right-20 w-20 h-20 bg-gradient-to-r from-orange-400/20 to-amber-400/20 rounded-full blur-xl animate-pulse" />
+          <div className="absolute bottom-32 left-32 w-32 h-32 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 rounded-full blur-xl animate-pulse delay-1000" />
+        </section>
+      )}
+
       <div className="flex">
         {/* Main Content */}
         <main className="flex-1">
-          {/* Hero Section */}
-          {hero && (
-            <section className="relative h-[600px] overflow-hidden">
-              <div className="absolute inset-0">
-                <Image
-                  src={hero.cover_image_url}
-                  alt={hero.title}
-                  fill
-                  className="object-cover scale-105 hover:scale-100 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-              </div>
-
-              <div className="relative z-10 container mx-auto px-4 h-full flex items-center">
-                <div className="text-white max-w-3xl">
-                  <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-4 py-2 mb-6 border border-white/20">
-                    <Star className="w-4 h-4 text-yellow-400" />
-                    <span className="text-sm font-medium">
-                      学生に選ばれるキャリアメディア
-                    </span>
-                  </div>
-
-                  <h1 className="text-5xl md:text-6xl font-black mb-6 leading-tight line-clamp-2">
-                    {hero.title}
-                  </h1>
-
-                  {hero.excerpt && (
-                    <p className="text-lg mb-8 text-gray-200 line-clamp-3">
-                      {hero.excerpt}
-                    </p>
-                  )}
-
-                  <div className="flex gap-4">
-                    <Link href={`/media/${hero.slug}`}>
-                      <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-8 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                        記事を読む
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="outline"
-                      className="border-white/30 text-white hover:bg-white/10 backdrop-blur-md px-8 py-3 rounded-full font-semibold transition-all duration-300"
-                    >
-                      サービス紹介
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating elements */}
-              <div className="absolute top-20 right-20 w-20 h-20 bg-gradient-to-r from-orange-400/20 to-amber-400/20 rounded-full blur-xl animate-pulse" />
-              <div className="absolute bottom-32 left-32 w-32 h-32 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 rounded-full blur-xl animate-pulse delay-1000" />
-            </section>
-          )}
 
           {/* Featured Articles Section */}
           {featuredArticles.length > 0 && (
@@ -183,7 +183,7 @@ export default async function MediaPage() {
                       index === 1 ? "md:scale-105" : ""
                     }`}
                   >
-                    <Link href={`/media/${article.slug}`}>
+                    <Link href={`/media/${encodeURIComponent(article.slug)}`}>
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <Image
                           src={article.cover_image_url}
@@ -241,7 +241,7 @@ export default async function MediaPage() {
                     key={post.id}
                     className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white/80 backdrop-blur-sm border-0"
                   >
-                    <Link href={`/media/${post.slug}`}>
+                    <Link href={`/media/${encodeURIComponent(post.slug)}`}>
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <Image
                           src={post.cover_image_url}
