@@ -86,8 +86,9 @@ export default function EmailCallbackPage() {
       }
 
       /* ---------- 3) next パラメータがあれば優先リダイレクト ---------- */
+      const isSignup = search.get("type") === "signup";  // signup フロー判定
       const nextPath = search.get("next");
-      if (nextPath) {
+      if (nextPath && !isSignup) {          // signup 時は next を無視
         router.replace(nextPath);
         return;
       }
