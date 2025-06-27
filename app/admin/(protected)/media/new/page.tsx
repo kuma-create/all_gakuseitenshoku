@@ -95,6 +95,15 @@ export default function NewMediaPage() {
   /* submit handler */
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    // 現在のユーザーを取得
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr) {
+      console.error(userErr);
+    }
+    if (!user) {
+      toast.error("セッションが切れています。再ログインしてください");
+      return;
+    }
     if (slugDuplicate) {
       toast.error("スラッグが重複しています");
       return;
@@ -129,7 +138,7 @@ export default function NewMediaPage() {
         content_md: content,
         content_html: html,
         status,
-        author_id: null, // 後で自動紐付けする場合は変更
+        author_id: user.id, // ログインユーザーを紐付け
         category_id: categoryId,
         cover_image_url: coverUrl,
       })
