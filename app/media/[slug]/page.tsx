@@ -240,11 +240,11 @@ export default async function MediaDetailPage(
       : "";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-50 via-white to-blue-50">
       {/* ===== HEADER ===== */}
       <header
         id="pageTop"
-        className="backdrop-blur-md bg-white/80 border-b border-white/20 sticky top-0 z-50"
+        className="backdrop-blur-md bg-white/80 border-b border-white/20 sticky top-0 z-50 overflow-x-hidden"
       >
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center">
@@ -255,7 +255,7 @@ export default async function MediaDetailPage(
               <span className="text-lg font-bold bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent ml-1">
                 Media
               </span>
-              <div className="absolute -top-1 -right-2 w-2 h-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full animate-pulse" />
+              <div className="absolute -top-1 right-0 w-2 h-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full animate-pulse" />
             </div>
           </Link>
 
@@ -309,7 +309,7 @@ export default async function MediaDetailPage(
                   </div>
                 </div>
 
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-6 leading-tight">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-6 leading-tight break-words">
                   {post.title}
                 </h1>
 
