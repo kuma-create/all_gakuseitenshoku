@@ -278,10 +278,10 @@ export default async function MediaDetailPage(
           記事一覧に戻る
         </Link>
 
-        <div className="grid lg:grid-cols-4 gap-8">
+        <div className="grid gap-0 lg:grid-cols-4 lg:gap-8">
           {/* ----- MAIN ----- */}
           <main className="lg:col-span-3">
-            <article className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 overflow-hidden">
+            <article className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 overflow-hidden w-full max-w-[600px] mx-auto">
               {/* HEADER */}
               <header className="p-8 pb-0">
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 mb-4 md:mb-6">
