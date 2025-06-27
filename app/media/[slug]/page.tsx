@@ -283,7 +283,7 @@ export default async function MediaDetailPage(
           <main className="lg:col-span-3">
             <article className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 overflow-hidden w-full max-w-[600px] mx-auto">
               {/* HEADER */}
-              <header className="p-8 pb-0">
+              <header className="p-4 md:p-8 pb-0">
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 mb-4 md:mb-6">
                   {post.media_categories && (
                     <Badge className="bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0 px-4 py-1">
@@ -334,7 +334,7 @@ export default async function MediaDetailPage(
 
               {/* COVER */}
               {post.cover_image_url && (
-                <div className="px-8 mb-8">
+                <div className="px-4 md:px-8 mb-8">
                   <div className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-2xl">
                     <Image
                       src={post.cover_image_url}
@@ -348,7 +348,7 @@ export default async function MediaDetailPage(
               )}
 
               {/* BODY */}
-              <div className="px-8 pb-8">
+              <div className="px-4 md:px-8 pb-8">
                 {headings.length > 0 && (
                   <nav className="hidden md:block md:mb-10">
                     <details
