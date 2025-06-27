@@ -17,6 +17,9 @@ import {
   FolderOpen,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
+
 import type { Database } from "@/lib/supabase/types";
 
 /* -------- 型 -------- */
