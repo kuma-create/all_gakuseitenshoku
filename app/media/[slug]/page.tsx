@@ -30,7 +30,7 @@ import type { Metadata } from "next";
 import type { Database } from "@/lib/supabase/types";
 import { SidebarNav } from "@/components/ui/sidebarnav";
 
-export const revalidate = 60 * 60; // 1 時間
+export const revalidate = 3600; // 1時間（Next.js の page ファイルでは式不可）
 
 /* ---------- Types ---------- */
 type FullPost = Database["public"]["Tables"]["media_posts"]["Row"] & {
