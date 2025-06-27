@@ -8,17 +8,13 @@ import { createClient } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SidebarNav } from "@/components/ui/sidebarnav";
 import {
-  Mail,
-  TrendingUp,
-  Users,
-  Calendar,
-  Briefcase,
   ArrowRight,
   Star,
   Eye,
   Heart,
+  Search,
+  FolderOpen,
 } from "lucide-react";
 
 import type { Database } from "@/lib/supabase/types";
@@ -72,46 +68,6 @@ async function fetchPosts(): Promise<MediaPostUI[]> {
   })) as MediaPostUI[];
 }
 
-/* -------- Sidebar アイテム（固定） -------- */
-const sidebarItems = [
-  {
-    title: "インターン情報",
-    icon: TrendingUp,
-    href: "/intern",
-    gradient: "from-pink-500 to-rose-500",
-    bgGradient: "from-pink-50 to-rose-50",
-    count: "120+",
-    active: false,
-  },
-  {
-    title: "スタートアップ情報",
-    icon: Users,
-    href: "/startup",
-    gradient: "from-blue-500 to-cyan-500",
-    bgGradient: "from-blue-50 to-cyan-50",
-    count: "85+",
-    active: false,
-  },
-  {
-    title: "キャリア情報",
-    icon: Briefcase,
-    href: "/career",
-    gradient: "from-orange-500 to-amber-500",
-    bgGradient: "from-orange-50 to-amber-50",
-    active: true,
-    count: "200+",
-  },
-  {
-    title: "イベント情報",
-    icon: Calendar,
-    href: "/events",
-    gradient: "from-purple-500 to-indigo-500",
-    bgGradient: "from-purple-50 to-indigo-50",
-    count: "45+",
-    active: false,
-  },
-];
-
 /* ================================================================== */
 
 export default async function MediaPage() {
@@ -140,9 +96,6 @@ export default async function MediaPage() {
               <div className="absolute -top-1 -right-2 w-2 h-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full animate-pulse" />
             </div>
           </div>
-          <Button className="bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <Mail className="w-5 h-5" />
-          </Button>
         </div>
       </header>
 
@@ -320,7 +273,7 @@ export default async function MediaPage() {
         </main>
 
         {/* Sidebar */}
-        <aside className="w-80 bg-gradient-to-b from-white/50 to-gray-50/50 backdrop-blur-sm min-h-screen p-6 border-l border-white/20">
+        <aside className="w-80 lg:sticky lg:top-32 bg-gradient-to-b from-white/50 to-gray-50/50 backdrop-blur-sm min-h-screen p-6 border-l border-white/20">
           <div className="mb-8">
             <span className="text-2xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
               GAKUTEN
@@ -330,7 +283,37 @@ export default async function MediaPage() {
             </span>
           </div>
 
-          <SidebarNav items={sidebarItems} />
+          <div className="space-y-4">
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white rounded-full"
+            >
+              <Link href="/jobs" className="flex items-center justify-center">
+                <Search className="w-4 h-4 mr-2" />
+                求人を探す
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-full"
+            >
+              <Link href="/media" className="flex items-center justify-center">
+                <Star className="w-4 h-4 mr-2" />
+                おすすめ記事
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-lime-500 to-emerald-500 hover:from-lime-600 hover:to-emerald-600 text-white rounded-full"
+            >
+              <Link href="/media/categories" className="flex items-center justify-center">
+                <FolderOpen className="w-4 h-4 mr-2" />
+                カテゴリ一覧
+              </Link>
+            </Button>
+          </div>
         </aside>
       </div>
     </div>

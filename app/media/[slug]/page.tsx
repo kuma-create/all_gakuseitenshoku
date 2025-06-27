@@ -10,25 +10,24 @@ import {
   Calendar,
   Eye,
   Clock,
-  Mail,
   Heart,
-  MessageCircle,
   Bookmark,
   Twitter,
   Facebook,
   Linkedin,
   Copy,
   ChevronUp,
-  TrendingUp,
-  Users,
-  Briefcase,
+  List,
+  Search,
+  Star,
+  FolderOpen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Metadata } from "next";
 import type { Database } from "@/lib/supabase/types";
-import { SidebarNav } from "@/components/ui/sidebarnav";
+import { load } from "cheerio";
 
 export const revalidate = 3600; // 1時間（Next.js の page ファイルでは式不可）
 
@@ -59,45 +58,36 @@ function estimateReadTime(html: string | null): string {
   return `${minutes}分`;
 }
 
-/* ---------- Sidebar Items ---------- */
-const sidebarItems = [
-  {
-    title: "インターン情報",
-    icon: TrendingUp,
-    href: "/intern",
-    gradient: "from-pink-500 to-rose-500",
-    bgGradient: "from-pink-50 to-rose-50",
-    count: "120+",
-    active: false,
-  },
-  {
-    title: "キャリア情報",
-    icon: Briefcase,
-    href: "/media",
-    gradient: "from-orange-500 to-amber-500",
-    bgGradient: "from-orange-50 to-amber-50",
-    active: true,
-    count: "300+",
-  },
-  {
-    title: "コミュニティ",
-    icon: Users,
-    href: "/community",
-    gradient: "from-sky-500 to-cyan-500",
-    bgGradient: "from-sky-50 to-cyan-50",
-    count: "1.2k",
-    active: false,
-  },
-  {
-    title: "お問い合わせ",
-    icon: Mail,
-    href: "/contact",
-    gradient: "from-purple-500 to-fuchsia-500",
-    bgGradient: "from-purple-50 to-fuchsia-50",
-    count: "",
-    active: false,
-  },
-] as const;
+/** slugify – same rule set as editor */
+function slugify(str: string) {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9一-龠ぁ-んァ-ンー]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Extract h1–h3 headings and ensure each has an id.
+ *  Returns { headings, html } where html includes injected ids.
+ */
+function extractToc(html: string) {
+  const $ = load(html);
+  const headings: { id: string; text: string; level: number }[] = [];
+
+  $("h1, h2, h3").each((_, el) => {
+    const level = Number(el.tagName.slice(1));
+    const text = $(el).text();
+    let id = $(el).attr("id");
+    if (!id) {
+      id = slugify(text);
+      $(el).attr("id", id);
+    }
+    headings.push({ id, text, level });
+  });
+
+  return { headings, html: $.html() };
+}
+
 
 /* ---------- Data Fetch ---------- */
 async function fetchPost(slug: string): Promise<FullPost | null> {
@@ -211,6 +201,7 @@ export default async function MediaDetailPage({
   if (!post) notFound();
 
   const readTime = estimateReadTime(post.content_html);
+  const { headings, html: htmlWithAnchors } = extractToc(post.content_html ?? "");
   const related = await fetchRelated(
     post.media_categories?.slug ?? null,
     post.id
@@ -273,9 +264,6 @@ export default async function MediaDetailPage({
             </div>
           </div>
 
-          <Button className="bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <Mail className="w-5 h-5" />
-          </Button>
         </div>
       </header>
 
@@ -329,38 +317,15 @@ export default async function MediaDetailPage({
                   </p>
                 )}
 
-                {/* AUTHOR */}
+                {/* AUTHOR (SEO only, hidden) */}
                 {post.media_authors && (
-                  <div className="flex items-center justify-between mb-8 p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-100">
-                    <div className="flex items-center gap-4">
-                      {post.media_authors.avatar_url ? (
-                        <Image
-                          src={post.media_authors.avatar_url}
-                          alt={post.media_authors.display_name}
-                          width={48}
-                          height={48}
-                          className="rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold">
-                          {post.media_authors.display_name.charAt(0)}
-                        </div>
+                  <div className="hidden" aria-hidden="true">
+                    <span itemProp="author" itemScope itemType="http://schema.org/Person">
+                      <meta itemProp="name" content={post.media_authors.display_name} />
+                      {post.media_authors.avatar_url && (
+                        <meta itemProp="image" content={post.media_authors.avatar_url} />
                       )}
-                      <div className="font-semibold text-gray-900">
-                        {post.media_authors.display_name}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="rounded-full">
-                        <Heart className="w-4 h-4 mr-1 text-red-500" />
-                        --
-                      </Button>
-                      <Button variant="outline" size="sm" className="rounded-full">
-                        <MessageCircle className="w-4 h-4 mr-1" />
-                        --
-                      </Button>
-                    </div>
+                    </span>
                   </div>
                 )}
               </header>
@@ -382,6 +347,33 @@ export default async function MediaDetailPage({
 
               {/* BODY */}
               <div className="px-8 pb-8">
+                {headings.length > 0 && (
+                  <nav className="mb-10">
+                    <details
+                      open
+                      className="group bg-gray-50/80 dark:bg-gray-800/20 border border-gray-100 dark:border-gray-700 rounded-2xl p-6 shadow-sm"
+                    >
+                      <summary className="flex items-center gap-2 cursor-pointer font-semibold text-gray-900 dark:text-gray-100 select-none">
+                        <List className="w-4 h-4 text-orange-500 transition-transform group-open:rotate-90" />
+                        目次
+                      </summary>
+
+                      <ol className="mt-4 space-y-2 text-sm">
+                        {headings.map(({ id, text, level }) => (
+                          <li key={id} style={{ marginLeft: (level - 1) * 16 }}>
+                            <a
+                              href={`#${id}`}
+                              className="block hover:text-orange-600 transition-colors"
+                            >
+                              {text}
+                            </a>
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  </nav>
+                )}
+
                 {post.content_html ? (
                   <div
                     className="prose prose-lg max-w-none
@@ -391,7 +383,7 @@ export default async function MediaDetailPage({
                       prose-blockquote:border-l-4 prose-blockquote:border-orange-500 prose-blockquote:bg-orange-50 prose-blockquote:p-6 prose-blockquote:rounded-r-lg prose-blockquote:my-8
                       prose-ul:space-y-2 prose-ol:space-y-2
                       prose-li:text-gray-700"
-                    dangerouslySetInnerHTML={{ __html: post.content_html }}
+                    dangerouslySetInnerHTML={{ __html: htmlWithAnchors }}
                   />
                 ) : (
                   <p>本文がまだありません。</p>
@@ -460,8 +452,7 @@ export default async function MediaDetailPage({
           </main>
 
           {/* ----- SIDEBAR ----- */}
-          <aside className="lg:col-span-1 space-y-6">
-            <SidebarNav items={sidebarItems} />
+          <aside className="lg:col-span-1 sticky top-32 space-y-6">
 
             {related.length > 0 && (
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
@@ -502,6 +493,36 @@ export default async function MediaDetailPage({
                 </CardContent>
               </Card>
             )}
+
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white rounded-full"
+            >
+              <Link href="/jobs" className="flex items-center justify-center">
+                <Search className="w-4 h-4 mr-2" />
+                求人を探す
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-full"
+            >
+              <Link href="/media" className="flex items-center justify-center">
+                <Star className="w-4 h-4 mr-2" />
+                おすすめ記事
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-lime-500 to-emerald-500 hover:from-lime-600 hover:to-emerald-600 text-white rounded-full"
+            >
+              <Link href="/media/categories" className="flex items-center justify-center">
+                <FolderOpen className="w-4 h-4 mr-2" />
+                カテゴリ一覧
+              </Link>
+            </Button>
 
             <Button
               asChild

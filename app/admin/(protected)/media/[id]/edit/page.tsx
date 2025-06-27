@@ -1,9 +1,10 @@
+// NOTE: Requires @tiptap/* packages and lowlight (see package.json)
 /* ------------------------------------------------------------------
    app/admin/(protected)/media/[id]/edit.tsx  – 管理画面: 投稿編集
 ------------------------------------------------------------------ */
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,9 +21,16 @@ import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
 import { supabase } from "@/lib/supabase/client";
 import ImageUpload from "@/components/media/upload";
-import { marked } from "marked";
-import dynamic from "next/dynamic";
-const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
+
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
+import Highlight from "@tiptap/extension-highlight";
+import Underline from "@tiptap/extension-underline";
+import { Cta } from "@/components/tiptap/cta";
+import { Node } from "@tiptap/core";
+
 
 import {
   Dialog,
@@ -44,12 +52,178 @@ type PostRow = Database["public"]["Tables"]["media_posts"]["Row"] & {
 };
 
 /* ---------------------- UTILS ---------------------- */
+
+/* ---------------------- IFRAME EXT ---------------------- */
+const Iframe = Node.create({
+  name: "iframe",
+  group: "block",
+  atom: true,
+  selectable: true,
+
+  addAttributes() {
+    return {
+      src: {
+        default: null,
+      },
+      width: {
+        default: "100%",
+      },
+      height: {
+        default: "400",
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: "iframe" }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "iframe",
+      {
+        ...HTMLAttributes,
+        frameborder: "0",
+        allowfullscreen: "true",
+      },
+    ];
+  },
+});
+
+/* ---------------------- HTML PREVIEW EXT ---------------------- */
+const HtmlPreview = Node.create({
+  name: "htmlpreview",
+  group: "block",
+  atom: true,
+  selectable: true,
+
+  addAttributes() {
+    return {
+      code: {
+        default: "",
+      },
+      width: {
+        default: "100%",
+      },
+      height: {
+        default: "400",
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: "iframe[data-htmlpreview]" }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const { code, width, height, ...rest } = HTMLAttributes;
+    return [
+      "iframe",
+      {
+        ...rest,
+        "data-htmlpreview": "true",
+        width,
+        height,
+        srcdoc: code,
+        sandbox: "allow-scripts allow-same-origin",
+        frameborder: "0",
+      },
+    ];
+  },
+});
 function slugify(str: string) {
   return str
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9一-龠ぁ-んァ-ンー]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function Toolbar({
+  editor,
+  fileInputRef,
+}: {
+  editor: ReturnType<typeof useEditor> | null;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  if (!editor) return null;
+
+  const Btn = (
+    label: string,
+    command: () => void,
+    active: boolean = false
+  ) => (
+    <Button
+      type="button"
+      size="sm"
+      variant={active ? "default" : "secondary"}
+      onMouseDown={(e) => {
+        e.preventDefault();  // keep editor selection
+        command();
+      }}
+    >
+      {label}
+    </Button>
+  );
+
+  return (
+    <div className="flex flex-wrap gap-1 mb-2 sticky top-16 z-20 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/40 border-b">
+      {Btn("B", () => editor.chain().focus().toggleBold().run(), editor.isActive("bold"))}
+      {Btn("I", () => editor.chain().focus().toggleItalic().run(), editor.isActive("italic"))}
+      {Btn("U", () => editor.chain().focus().toggleUnderline().run(), editor.isActive("underline"))}
+      {Btn("S", () => editor.chain().focus().toggleStrike().run(), editor.isActive("strike"))}
+      {Btn("H1", () => editor.chain().focus().toggleHeading({ level: 1 }).run(), editor.isActive("heading", { level: 1 })) }
+      {Btn("H2", () => editor.chain().focus().toggleHeading({ level: 2 }).run(), editor.isActive("heading", { level: 2 })) }
+      {Btn("H3", () => editor.chain().focus().toggleHeading({ level: 3 }).run(), editor.isActive("heading", { level: 3 })) }
+      {Btn("•", () => editor.chain().focus().toggleBulletList().run(), editor.isActive("bulletList"))}
+      {Btn("1.", () => editor.chain().focus().toggleOrderedList().run(), editor.isActive("orderedList"))}
+      {Btn("`", () => editor.chain().focus().toggleCode().run(), editor.isActive("code"))}
+      {Btn("Code", () => editor.chain().focus().toggleCodeBlock().run(), editor.isActive("codeBlock"))}
+      {Btn("CTA", () => {
+        const label = prompt("ボタンのラベル", "応募する");
+        if (label === null) return;
+        const href = prompt("リンク URL", "https://example.com/");
+        if (href === null) return;
+        editor
+          .chain()
+          .focus()
+          .insertContent({ type: "cta", attrs: { href, label } })
+          .run();
+      })}
+      {Btn("Link", () => {
+        const prev = editor.getAttributes("link").href || "";
+        const url = prompt("リンク URL を入力", prev);
+        if (url === null) return;
+        if (url === "") {
+          editor.chain().focus().unsetLink().run();
+        } else {
+          editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+        }
+      })}
+      {Btn("Img", () => {
+        fileInputRef.current?.click();
+      })}
+      {Btn("Embed", () => {
+        const url = prompt("埋め込み URL (YouTube, Figma など)", "https://");
+        if (!url) return;
+        editor
+          ?.chain()
+          .focus()
+          .insertContent({ type: "iframe", attrs: { src: url } })
+          .run();
+      })}
+      {Btn("HTML", () => {
+        const init = "<style>body{margin:0}</style><h1>Hello!</h1>";
+        const code = prompt("貼り付けたい HTML/CSS を入力してください", init);
+        if (code === null || code.trim() === "") return;
+        editor
+          ?.chain()
+          .focus()
+          .insertContent({ type: "htmlpreview", attrs: { code } })
+          .run();
+      })}
+    </div>
+  );
 }
 
 /* ---------------------- COMPONENT ---------------------- */
@@ -61,7 +235,7 @@ export default function EditMediaPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [excerpt, setExcerpt] = useState("");
-  const [content, setContent] = useState("");
+  const [contentHtml, setContentHtml] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [status, setStatus] = useState<"draft" | "published">("draft");
@@ -72,7 +246,64 @@ export default function EditMediaPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [slugDuplicate, setSlugDuplicate] = useState(false);
   const MAX_EXCERPT_LEN = 150;
+  /* ---------- inline image upload ---------- */
+const fileInputRef = useRef<HTMLInputElement>(null);
+
+async function handleEmbedImage(files: FileList | null) {
+  if (!files || !files[0]) return;
+  const file = files[0];
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const fileName =
+    `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+  // Supabase Storage へアップロード (bucket: media)
+  const { data, error } = await supabase.storage
+    .from("media")
+    .upload(`inline-images/${fileName}`, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (error) {
+    toast.error("画像アップロードに失敗しました");
+    console.error(error);
+    return;
+  }
+  const { data: urlData } = supabase.storage
+    .from("media")
+    .getPublicUrl(data.path);
+  const url = urlData.publicUrl;
+
+  editor?.chain().focus().setImage({ src: url }).run();
+}
+/* ---------------------------------------- */
   const [previewToken, setPreviewToken] = useState<string | null>(null);
+
+  /* ---- TipTap editor ---- */
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Link.configure({ openOnClick: false }),
+      Image,
+      Highlight,
+      Underline,
+      Cta,           // CTA button block
+      Iframe,        // Generic iframe embed
+      HtmlPreview,   // Embedded HTML/CSS preview
+    ],
+    content: "",
+    editorProps: {
+      attributes: {
+        class:
+          "prose max-w-none focus:outline-none min-h-[600px] lg:min-h-[70vh]",
+      },
+    },
+    onUpdate({ editor }) {
+      setContentHtml(editor.getHTML());
+    },
+  });
+  /* ----------------------- */
 
   /* fetch all data */
   useEffect(() => {
@@ -97,7 +328,9 @@ export default function EditMediaPage() {
         setTitle(post.title);
         setSlug(post.slug);
         setExcerpt(post.excerpt ?? "");
-        setContent(post.content_md ?? "");
+        const initialHtml = post.content_html ?? "";
+        setContentHtml(initialHtml);
+        if (editor) editor.commands.setContent(initialHtml);
         setCoverUrl(post.cover_image_url ?? null);
         setStatus(post.status as "draft" | "published");
         setCategoryId(post.category_id ?? post.media_categories?.id ?? null);
@@ -117,7 +350,7 @@ export default function EditMediaPage() {
         router.push("/admin/media");
       }
     })();
-  }, [params.id]);
+  }, [params.id, editor]);
 
   /* auto slug */
   useEffect(() => setSlug(slugify(title)), [title]);
@@ -185,7 +418,7 @@ export default function EditMediaPage() {
     }
     if (!coverUrl) return toast.error("カバー画像をアップロードしてください");
 
-    const html = (await marked.parse(content)) as string;
+    const html = contentHtml;
     setIsSaving(true);
 
     // 1) update post
@@ -195,7 +428,6 @@ export default function EditMediaPage() {
         title,
         slug,
         excerpt,
-        content_md: content,
         content_html: html,
         status,
         author_id: authorId!, // media_authors.id を紐付け
@@ -266,16 +498,29 @@ export default function EditMediaPage() {
           </div>
 
           {/* content */}
-          <div data-color-mode="light">
+          <div>
             <label className="block text-sm font-medium mb-1">
-              本文 (Markdown)
+              本文 (リッチテキスト)
             </label>
-            <MDEditor
-              value={content}
-              onChange={(val) => setContent(val ?? "")}
-              height={600}
-              preview="live"
-            />
+            {editor ? (
+              <>
+                <Toolbar editor={editor} fileInputRef={fileInputRef} />
+                <EditorContent editor={editor} />
+                {/* hidden file chooser for inline image */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleEmbedImage(e.target.files);
+                      e.target.value = ""; // allow re-selecting same file
+                    }}
+                  />
+              </>
+            ) : (
+              <p className="text-muted-foreground">エディタを初期化中...</p>
+            )}
           </div>
         </div>
 

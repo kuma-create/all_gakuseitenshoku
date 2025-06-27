@@ -19,11 +19,46 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
 import ImageUpload from "@/components/media/upload";
-import { marked } from "marked";
 import { supabase } from "@/lib/supabase/client";
 
+import * as ReactDOM from "react-dom";
+
+/**
+ * ------------------------------------------------------------------
+ * Shim for React 18.3+
+ * ReactQuill v2 still expects `react-dom`.default.findDOMNode.
+ * React 18.3’s ESM build removed the legacy default export, so we
+ * recreate it and, if necessary, attach `findDOMNode`.
+ * ------------------------------------------------------------------
+ */
+// Re‑expose the module namespace as a pseudo‑default export.
+if (!(ReactDOM as any).default) {
+  (ReactDOM as any).default = ReactDOM;
+}
+
+// Provide a minimal, safe polyfill for `findDOMNode`.
+if (!(ReactDOM as any).default.findDOMNode) {
+  (ReactDOM as any).default.findDOMNode = (instance: any) => {
+    // 1) DOM element
+    if (instance && instance.nodeType === 1) return instance as HTMLElement;
+
+    // 2) React ref object
+    if (instance?.current && instance.current.nodeType === 1) {
+      return instance.current as HTMLElement;
+    }
+
+    // 3) Known ReactQuill internals
+    if (instance?.root?.nodeType === 1) return instance.root;
+    if (instance?.editor?.root?.nodeType === 1) return instance.editor.root;
+
+    return null;
+  };
+}
+
 import dynamic from "next/dynamic";
-const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
+import TurndownService from "turndown";
 
 import {
   Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -55,7 +90,7 @@ export default function NewMediaPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [excerpt, setExcerpt] = useState("");
-  const [content, setContent] = useState("");
+  const [contentHtml, setContentHtml] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [status, setStatus] = useState<"draft" | "published">("draft");
@@ -167,8 +202,9 @@ export default function NewMediaPage() {
       return;
     }
 
-    // marked.parse can be sync or async → `await` で Promise<string> を解消
-    const html = await marked.parse(content) as string;
+    // ReactQuill returns HTML directly
+    const html = contentHtml;
+    const md = new TurndownService().turndown(html);
     setIsSaving(true);
     // まず記事を INSERT し、返却された id を取得
     const { data: inserted, error: insertError } = await supabase
@@ -177,7 +213,7 @@ export default function NewMediaPage() {
         title,
         slug,
         excerpt,
-        content_md: content,
+        content_md: md,
         content_html: html,
         status,
         author_id: authorId!, // media_authors.id を紐付け
@@ -236,15 +272,21 @@ export default function NewMediaPage() {
           </div>
 
           {/* content */}
-          <div data-color-mode="light">
-            <label className="block text-sm font-medium mb-1">
-              本文 (Markdown)
-            </label>
-            <MDEditor
-              value={content}
-              onChange={(val) => setContent(val ?? "")}
-              height={600}
-              preview="live"
+          <div>
+            <label className="block text-sm font-medium mb-1">本文 (リッチテキスト)</label>
+            <ReactQuill
+              value={contentHtml}
+              onChange={setContentHtml}
+              className="h-96"
+              modules={{
+                toolbar: [
+                  [{ header: [1, 2, 3, false] }],
+                  ["bold", "italic", "underline", "strike"],
+                  [{ list: "ordered" }, { list: "bullet" }],
+                  ["link", "image", "video"],
+                  ["clean"],
+                ],
+              }}
             />
           </div>
         </div>
