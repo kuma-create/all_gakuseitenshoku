@@ -278,10 +278,10 @@ export default async function MediaDetailPage(
           記事一覧に戻る
         </Link>
 
-        <div className="grid gap-0 lg:grid-cols-4 lg:gap-8">
+        <div className="grid grid-cols-1 gap-0 lg:grid-cols-4 lg:gap-8">
           {/* ----- MAIN ----- */}
           <main className="lg:col-span-3">
-            <article className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 overflow-hidden w-full max-w-[600px] mx-auto">
+            <article className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 overflow-hidden w-full max-w-full lg:max-w-none mx-auto">
               {/* HEADER */}
               <header className="p-4 md:p-8 pb-0">
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 mb-4 md:mb-6">
@@ -309,7 +309,7 @@ export default async function MediaDetailPage(
                   </div>
                 </div>
 
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-6 leading-tight break-words">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-6 leading-tight break-all">
                   {post.title}
                 </h1>
 
@@ -384,7 +384,8 @@ export default async function MediaDetailPage(
                       prose-strong:text-gray-900 prose-strong:font-semibold
                       prose-blockquote:border-l-4 prose-blockquote:border-orange-500 prose-blockquote:bg-orange-50 prose-blockquote:p-6 prose-blockquote:rounded-r-lg prose-blockquote:my-8
                       prose-ul:space-y-2 prose-ol:space-y-2
-                      prose-li:text-gray-700"
+                      prose-li:text-gray-700
+                      prose-p:break-all prose-headings:break-all"
                     dangerouslySetInnerHTML={{ __html: htmlWithAnchors }}
                   />
                 ) : (
