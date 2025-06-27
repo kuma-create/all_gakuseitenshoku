@@ -27,7 +27,7 @@ async function fetchMyPosts(): Promise<AdminPost[]> {
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_KEY!, // service_role key – only on the server
-    { global: { headers: { Cookie: cookies().toString() } } }
+    { global: { headers: { Cookie: (await cookies()).toString() } } }
   );
 
   const { data, error } = await supabase

@@ -3,7 +3,7 @@
 ------------------------------------------------------------------- */
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { supabase } from "@/lib/supabase/client"
@@ -56,11 +56,12 @@ type JobSummary = {
 }
 
 /* ---------------------------- 画面 ----------------------------- */
-export default function ScoutDetailPage({
-  params,
-}: {
-  params: { id: string }
-}) {
+export default function ScoutDetailPage(
+  props: {
+    params: Promise<{ id: string }>
+  }
+) {
+  const params = use(props.params);
   const router = useRouter()
 
   const [data, setData] = useState<ScoutDetail | null>(null)

@@ -156,7 +156,8 @@ async function fetchRelated(
 
 
 /* ---------- Metadata ---------- */
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const post = await fetchPost(params.slug);
   if (!post) return {};
 
@@ -192,11 +193,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 /* ---------- Page ---------- */
-export default async function MediaDetailPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
+export default async function MediaDetailPage(
+  props: {
+    params: Promise<{ slug: string }>;
+  }
+) {
+  const params = await props.params;
   const post = await fetchPost(params.slug);
   if (!post) notFound();
 

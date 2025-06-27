@@ -12,7 +12,8 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  */
 export async function createServerSupabase() {
   // 動的インポートで next/headers を読み込む
-  const { cookies } = await import("next/headers");
+  const { cookies } = await /* @next-codemod-error The APIs under 'next/headers' are async now, need to be manually awaited. */
+  import("next/headers");
   const cookieStore = await cookies();
 
   return createServerClient<Database>(

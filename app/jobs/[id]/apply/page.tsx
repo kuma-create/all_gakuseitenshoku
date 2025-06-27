@@ -19,9 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useState } from "react"
+import { useState, use } from "react";
 
-export default function JobApplyPage({ params }: { params: { id: string } }) {
+export default function JobApplyPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   // Mock data for the job
   const job = {
     id: params.id,

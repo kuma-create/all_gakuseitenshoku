@@ -155,13 +155,14 @@ async function fetchRelated(
 }
 
 /* ---------- Metadata ---------- */
-export async function generateMetadata({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { token?: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ token?: string }>;
+  }
+): Promise<Metadata> {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const post = await fetchDraft(params.id, searchParams.token ?? null);
   if (!post) return {};
   return {
@@ -176,13 +177,14 @@ export async function generateMetadata({
 }
 
 /* ---------- Page ---------- */
-export default async function MediaPostPreviewPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { token?: string };
-}) {
+export default async function MediaPostPreviewPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ token?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const post = await fetchDraft(params.id, searchParams.token ?? null);
   if (!post) notFound();
 

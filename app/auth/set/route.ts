@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   // `createRouteHandlerClient` には CookieStore を返す「非同期関数」を渡す
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookies(), // Promise<ReadonlyRequestCookies> を返す
+    cookies: async () => await cookies(), // Promise<ReadonlyRequestCookies> を返す
   });
 
   const session = (await req.json()) as
