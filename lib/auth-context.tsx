@@ -71,6 +71,7 @@ const PUBLIC_ROUTES = new Set([
   "/email-callback",
   "/admin/login",
   "/job",
+  "/onboarding/profile",
   "/grandprix",  
   "/terms",  
   "/media",

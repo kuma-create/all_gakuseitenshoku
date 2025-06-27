@@ -31,6 +31,7 @@ const PUBLIC_PREFIXES = [
   "/admin/login", 
   "/media",
   "/features",
+  "/onboarding/profile",
   "/forgot-password",            // 管理者ログイン
   "/password-reset-callback",    // パスワード再設定用コールバック
   "/email-callback",        // メールリンク用コールバック
@@ -197,6 +198,6 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume|companies|jobs|terms|privacy-policy).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy).*)",
   ],
 };
