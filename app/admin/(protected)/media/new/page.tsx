@@ -104,6 +104,48 @@ export default function NewMediaPage() {
       toast.error("セッションが切れています。再ログインしてください");
       return;
     }
+
+    // ---- resolve author_id (media_authors.id) ----
+    let authorId: string | null = null;
+    {
+      // Try to fetch an existing author record for this user
+      const { data: existingAuthor, error: fetchErr } = await supabase
+        .from("media_authors")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (fetchErr) {
+        console.error(fetchErr);
+        toast.error("著者情報の取得に失敗しました");
+        return;
+      }
+
+      if (existingAuthor) {
+        authorId = existingAuthor.id;
+      } else {
+        // Create a new author record if none exists
+        const { data: newAuthor, error: insertErr } = await supabase
+          .from("media_authors")
+          .insert({
+            user_id: user.id,
+            // display_name は NOT NULL 制約があるため必須
+            display_name:
+              (user.user_metadata?.full_name as string | undefined) ??
+              (user.user_metadata?.name as string | undefined) ??
+              user.email ??
+              "anonymous",
+          })
+          .select("id")
+          .single();
+        if (insertErr || !newAuthor) {
+          console.error(insertErr);
+          toast.error("著者情報の作成に失敗しました");
+          return;
+        }
+        authorId = newAuthor.id;
+      }
+    }
+
     if (slugDuplicate) {
       toast.error("スラッグが重複しています");
       return;
@@ -138,7 +180,7 @@ export default function NewMediaPage() {
         content_md: content,
         content_html: html,
         status,
-        author_id: user.id, // ログインユーザーを紐付け
+        author_id: authorId!, // media_authors.id を紐付け
         category_id: categoryId,
         cover_image_url: coverUrl,
       })
