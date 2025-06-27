@@ -284,7 +284,7 @@ export default async function MediaDetailPage(
             <article className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 overflow-hidden">
               {/* HEADER */}
               <header className="p-8 pb-0">
-                <div className="flex items-center gap-3 mb-6">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 mb-4 md:mb-6">
                   {post.media_categories && (
                     <Badge className="bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0 px-4 py-1">
                       {post.media_categories.name}
@@ -309,12 +309,12 @@ export default async function MediaDetailPage(
                   </div>
                 </div>
 
-                <h1 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 leading-tight">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-gray-900 mb-4 md:mb-6 leading-tight">
                   {post.title}
                 </h1>
 
                 {post.excerpt && (
-                  <p className="text-xl text-gray-600 leading-relaxed mb-8">
+                  <p className="hidden md:block text-lg lg:text-xl text-gray-600 leading-relaxed md:mb-8">
                     {post.excerpt}
                   </p>
                 )}
@@ -350,7 +350,7 @@ export default async function MediaDetailPage(
               {/* BODY */}
               <div className="px-8 pb-8">
                 {headings.length > 0 && (
-                  <nav className="mb-10">
+                  <nav className="hidden md:block md:mb-10">
                     <details
                       open
                       className="group bg-gray-50/80 dark:bg-gray-800/20 border border-gray-100 dark:border-gray-700 rounded-2xl p-6 shadow-sm"
