@@ -104,7 +104,7 @@ export default async function MediaPage() {
 
       {/* Hero Section – full‑width */}
       {hero && (
-        <section className="relative h-[600px] overflow-hidden">
+        <section className="relative h-96 md:h-[600px] overflow-hidden">
           <div className="absolute inset-0">
             <Image
               src={hero.cover_image_url}
@@ -157,7 +157,7 @@ export default async function MediaPage() {
         </section>
       )}
 
-      <div className="flex">
+      <div className="flex flex-col lg:flex-row">
         {/* Main Content */}
         <main className="flex-1">
 
@@ -175,7 +175,7 @@ export default async function MediaPage() {
                 <p className="text-xl text-gray-600 font-medium">特集記事</p>
               </div>
 
-              <div className="grid md:grid-cols-3 gap-8">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {featuredArticles.map((article, index) => (
                   <Card
                     key={article.id}
@@ -276,7 +276,7 @@ export default async function MediaPage() {
         </main>
 
         {/* Sidebar */}
-        <aside className="w-80 lg:sticky lg:top-32 bg-gradient-to-b from-white/50 to-gray-50/50 backdrop-blur-sm min-h-screen p-6 border-l border-white/20">
+        <aside className="w-full lg:w-80 lg:sticky lg:top-32 bg-gradient-to-b from-white/50 to-gray-50/50 backdrop-blur-sm min-h-screen p-6 border-t lg:border-t-0 lg:border-l border-white/20">
           <div className="mb-8">
             <span className="text-2xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
               GAKUTEN
