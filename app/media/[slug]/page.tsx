@@ -30,6 +30,8 @@ import type { Metadata } from "next";
 import type { Database } from "@/lib/supabase/types";
 import { SidebarNav } from "@/components/ui/sidebarnav";
 
+export const revalidate = 60 * 60; // 1 時間
+
 /* ---------- Types ---------- */
 type FullPost = Database["public"]["Tables"]["media_posts"]["Row"] & {
   media_categories: { name: string; slug: string } | null;
@@ -162,21 +164,39 @@ async function fetchRelated(
   );
 }
 
+
 /* ---------- Metadata ---------- */
-export async function generateMetadata({
-  params,
-}: {
-  params: { slug: string };
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const post = await fetchPost(params.slug);
   if (!post) return {};
+
+  const keywords =
+    post.media_posts_tags
+      .map(t => t.media_tags?.name)
+      .filter(Boolean)
+      .join(", ") || undefined;
+
   return {
     title: post.title,
     description: post.excerpt ?? undefined,
+    keywords,
+    alternates: { canonical: `https://gakuten.co.jp/media/${post.slug}` },
     openGraph: {
+      type: "article",
+      locale: "ja_JP",
       title: post.title,
       description: post.excerpt ?? "",
+      url: `https://gakuten.co.jp/media/${post.slug}`,
       images: post.cover_image_url ? [{ url: post.cover_image_url }] : [],
+      publishedTime: post.published_at ?? undefined,
+      modifiedTime: post.updated_at ?? post.published_at ?? undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.excerpt ?? "",
+      images: post.cover_image_url ? [post.cover_image_url] : [],
+      site: "@gakuten_media",
     },
   };
 }
@@ -195,6 +215,27 @@ export default async function MediaDetailPage({
     post.media_categories?.slug ?? null,
     post.id
   );
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.excerpt ?? "",
+    image: post.cover_image_url ? [post.cover_image_url] : undefined,
+    datePublished: post.published_at,
+    dateModified: post.updated_at ?? post.published_at,
+    author: post.media_authors
+      ? { "@type": "Person", name: post.media_authors.display_name }
+      : undefined,
+    publisher: {
+      "@type": "Organization",
+      name: "GAKUTEN",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://gakuten.co.jp/logo.png",
+      },
+    },
+  };
 
   const formatDate = (d: string | null) =>
     d
@@ -330,7 +371,7 @@ export default async function MediaDetailPage({
                   <div className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-2xl">
                     <Image
                       src={post.cover_image_url}
-                      alt={post.title}
+                      alt={`${post.title} | GAKUTEN Media`}
                       fill
                       className="object-cover"
                     />
@@ -411,6 +452,10 @@ export default async function MediaDetailPage({
                   </div>
                 </div>
               </footer>
+              <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+              />
             </article>
           </main>
 

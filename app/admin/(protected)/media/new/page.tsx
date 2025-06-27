@@ -63,6 +63,8 @@ export default function NewMediaPage() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [slugDuplicate, setSlugDuplicate] = useState(false);
+  const MAX_EXCERPT_LEN = 150;
 
   /* fetch categories once */
   useEffect(() => {
@@ -93,12 +95,20 @@ export default function NewMediaPage() {
   /* submit handler */
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (slugDuplicate) {
+      toast.error("スラッグが重複しています");
+      return;
+    }
     if (!title) {
       toast.error("タイトルを入力してください");
       return;
     }
     if (!categoryId) {
       toast.error("カテゴリを選択してください");
+      return;
+    }
+    if (excerpt.length > MAX_EXCERPT_LEN) {
+      toast.error(`抜粋は ${MAX_EXCERPT_LEN} 文字以内にしてください`);
       return;
     }
     if (!coverUrl) {
@@ -195,9 +205,36 @@ export default function NewMediaPage() {
             <label className="block text-sm font-medium mb-1">スラッグ</label>
             <Input
               value={slug}
-              onChange={(e) => setSlug(slugify(e.target.value))}
+              onChange={(e) => {
+                const val = slugify(e.target.value);
+                setSlug(val);
+                // 入力中は重複フラグを一旦リセット
+                setSlugDuplicate(false);
+              }}
+              onBlur={async () => {
+                if (!slug) return;
+                // 同一 slug が存在するかチェック
+                const { data, error } = await supabase
+                  .from("media_posts")
+                  .select("id")
+                  .eq("slug", slug)
+                  .limit(1)
+                  .maybeSingle();
+                if (error) {
+                  console.error(error);
+                  return;
+                }
+                if (data) {
+                  setSlugDuplicate(true);
+                  toast.error("同じスラッグの記事が存在します");
+                }
+              }}
               placeholder="slug"
+              className={slugDuplicate ? "border-red-500" : undefined}
             />
+            <p className="text-xs mt-1 text-red-500">
+              {slugDuplicate && "※ このスラッグは既に使用されています"}
+            </p>
           </div>
 
           {/* category */}
@@ -259,7 +296,9 @@ export default function NewMediaPage() {
 
           {/* cover image */}
           <div>
-            <label className="block text-sm font-medium mb-2">カバー画像</label>
+            <label className="block text-sm font-medium mb-2">
+              カバー画像 <span className="text-xs text-gray-400">(推奨 1200×630px)</span>
+            </label>
             <ImageUpload
               initialUrl={coverUrl ?? undefined}
               onUpload={(url) => setCoverUrl(url)}
@@ -281,6 +320,13 @@ export default function NewMediaPage() {
               rows={3}
               placeholder="一覧に表示される短い説明文"
             />
+            <p
+              className={`text-xs mt-1 ${
+                excerpt.length > MAX_EXCERPT_LEN ? "text-red-500" : "text-gray-500"
+              }`}
+            >
+              {excerpt.length}/{MAX_EXCERPT_LEN} 文字
+            </p>
           </div>
 
           {/* status */}

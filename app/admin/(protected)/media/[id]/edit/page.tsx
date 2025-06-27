@@ -70,6 +70,8 @@ export default function EditMediaPage() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [slugDuplicate, setSlugDuplicate] = useState(false);
+  const MAX_EXCERPT_LEN = 150;
   const [previewToken, setPreviewToken] = useState<string | null>(null);
 
   /* fetch all data */
@@ -123,8 +125,16 @@ export default function EditMediaPage() {
   /* submit */
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (slugDuplicate) {
+      toast.error("スラッグが重複しています");
+      return;
+    }
     if (!title) return toast.error("タイトルを入力してください");
     if (!categoryId) return toast.error("カテゴリを選択してください");
+    if (excerpt.length > MAX_EXCERPT_LEN) {
+      toast.error(`抜粋は ${MAX_EXCERPT_LEN} 文字以内にしてください`);
+      return;
+    }
     if (!coverUrl) return toast.error("カバー画像をアップロードしてください");
 
     const html = (await marked.parse(content)) as string;
@@ -227,9 +237,36 @@ export default function EditMediaPage() {
             <label className="block text-sm font-medium mb-1">スラッグ</label>
             <Input
               value={slug}
-              onChange={(e) => setSlug(slugify(e.target.value))}
+              onChange={(e) => {
+                const v = slugify(e.target.value);
+                setSlug(v);
+                setSlugDuplicate(false); // reset while typing
+              }}
+              onBlur={async () => {
+                if (!slug) return;
+                // 同一 slug で自分以外の記事があるか確認
+                const { data, error } = await supabase
+                  .from("media_posts")
+                  .select("id")
+                  .eq("slug", slug)
+                  .neq("id", params.id)
+                  .limit(1)
+                  .maybeSingle();
+                if (error) {
+                  console.error(error);
+                  return;
+                }
+                if (data) {
+                  setSlugDuplicate(true);
+                  toast.error("同じスラッグの記事が存在します");
+                }
+              }}
               placeholder="slug"
+              className={slugDuplicate ? "border-red-500" : undefined}
             />
+            <p className="text-xs mt-1 text-red-500">
+              {slugDuplicate && "※ このスラッグは既に使用されています"}
+            </p>
           </div>
 
           {/* category */}
@@ -294,7 +331,9 @@ export default function EditMediaPage() {
 
           {/* cover image */}
           <div>
-            <label className="block text-sm font-medium mb-2">カバー画像</label>
+            <label className="block text-sm font-medium mb-2">
+              カバー画像 <span className="text-xs text-gray-400">(推奨 1200×630px)</span>
+            </label>
             <ImageUpload
               initialUrl={coverUrl ?? undefined}
               onUpload={(url) => setCoverUrl(url)}
@@ -316,6 +355,13 @@ export default function EditMediaPage() {
               rows={3}
               placeholder="一覧に表示される短い説明文"
             />
+            <p
+              className={`text-xs mt-1 ${
+                excerpt.length > MAX_EXCERPT_LEN ? "text-red-500" : "text-gray-500"
+              }`}
+            >
+              {excerpt.length}/{MAX_EXCERPT_LEN} 文字
+            </p>
           </div>
 
           {/* status */}
