@@ -108,7 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setUserType(null);
         setReady(true);
-        if (!PUBLIC_ROUTES.has(pathname)) router.replace("/login");
+        // `/media` とそのサブパスは誰でも閲覧可能
+        const isPublic =
+          PUBLIC_ROUTES.has(pathname) || pathname === "/media" || pathname.startsWith("/media/");
+        if (!isPublic) router.replace("/login");
         return;
       }
 
