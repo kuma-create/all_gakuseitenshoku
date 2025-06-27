@@ -30,6 +30,8 @@ import type { Metadata } from "next";
 import type { Database } from "@/lib/supabase/types";
 import { SidebarNav } from "@/components/ui/sidebarnav";
 
+export const dynamic = "force-dynamic"; // ensure SSR so ?token=... is evaluated each request
+
 /* ---------- Types ---------- */
 type FullPost = Database["public"]["Tables"]["media_posts"]["Row"] & {
   media_categories: { name: string; slug: string } | null;
@@ -101,7 +103,7 @@ async function fetchDraft(id: string, token: string | null): Promise<FullPost | 
   if (!token) return null;
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_KEY! // service_role key – safe on server components
   );
 
   const { data } = await supabase

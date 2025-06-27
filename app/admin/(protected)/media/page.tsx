@@ -14,6 +14,8 @@ import DeletePostButton from "@/components/media/delete-button";
 
 import type { Database } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic"; // always SSR to avoid stale cache in admin list
+
 /* ------------------------- 型 ------------------------- */
 type AdminPost =
   Database["public"]["Tables"]["media_posts"]["Row"] & {
@@ -24,7 +26,7 @@ type AdminPost =
 async function fetchMyPosts(): Promise<AdminPost[]> {
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_KEY!, // service_role key – only on the server
     { global: { headers: { Cookie: cookies().toString() } } }
   );
 
