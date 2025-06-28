@@ -3,7 +3,7 @@
 ------------------------------------------------------------------ */
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,54 +16,28 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import type { Database } from "@/lib/supabase/types";
 import ImageUpload from "@/components/media/upload";
 import { supabase } from "@/lib/supabase/client";
 
-import * as ReactDOM from "react-dom";
-
-/**
- * ------------------------------------------------------------------
- * Shim for React 18.3+
- * ReactQuill v2 still expects `react-dom`.default.findDOMNode.
- * React 18.3’s ESM build removed the legacy default export, so we
- * recreate it and, if necessary, attach `findDOMNode`.
- * ------------------------------------------------------------------
- */
-// Re‑expose the module namespace as a pseudo‑default export.
-if (!(ReactDOM as any).default) {
-  (ReactDOM as any).default = ReactDOM;
-}
-
-// Provide a minimal, safe polyfill for `findDOMNode`.
-if (!(ReactDOM as any).default.findDOMNode) {
-  (ReactDOM as any).default.findDOMNode = (instance: any) => {
-    // 1) DOM element
-    if (instance && instance.nodeType === 1) return instance as HTMLElement;
-
-    // 2) React ref object
-    if (instance?.current && instance.current.nodeType === 1) {
-      return instance.current as HTMLElement;
-    }
-
-    // 3) Known ReactQuill internals
-    if (instance?.root?.nodeType === 1) return instance.root;
-    if (instance?.editor?.root?.nodeType === 1) return instance.editor.root;
-
-    return null;
-  };
-}
-
-import dynamic from "next/dynamic";
-const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
-import "react-quill/dist/quill.snow.css";
-import TurndownService from "turndown";
-
-import {
-  Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
+import Highlight from "@tiptap/extension-highlight";
+import Underline from "@tiptap/extension-underline";
+import { Cta } from "@/components/tiptap/cta";
+import { Node } from "@tiptap/core";
 
 /* ---------------------- 型 ---------------------- */
 type Category = {
@@ -82,9 +56,197 @@ function slugify(str: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+/* ---------------------- IFRAME EXT ---------------------- */
+const Iframe = Node.create({
+  name: "iframe",
+  group: "block",
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+      width: { default: "100%" },
+      height: { default: "400" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "iframe" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "iframe",
+      { ...HTMLAttributes, frameborder: "0", allowfullscreen: "true" },
+    ];
+  },
+});
+
+/* ---------------------- HTML PREVIEW EXT ---------------------- */
+const HtmlPreview = Node.create({
+  name: "htmlpreview",
+  group: "block",
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      code: { default: "" },
+      width: { default: "100%" },
+      height: { default: "400" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "iframe[data-htmlpreview]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { code, width, height, ...rest } = HTMLAttributes;
+    return [
+      "iframe",
+      {
+        ...rest,
+        "data-htmlpreview": "true",
+        width,
+        height,
+        srcdoc: code,
+        sandbox: "allow-scripts allow-same-origin",
+        frameborder: "0",
+      },
+    ];
+  },
+});
+
+/* ---------------------- Toolbar Component ---------------------- */
+function Btn({
+  onClick,
+  active,
+  children,
+  disabled,
+}: {
+  onClick: () => void;
+  active?: boolean;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`p-1 rounded ${
+        active ? "bg-blue-500 text-white" : "hover:bg-gray-200"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Toolbar({
+  editor,
+  fileInputRef,
+}: {
+  editor: ReturnType<typeof useEditor>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  if (!editor) return null;
+
+  const setLink = () => {
+    const previousUrl = editor.getAttributes("link").href;
+    const url = window.prompt("リンクURLを入力してください", previousUrl);
+    // cancel
+    if (url === null) {
+      return;
+    }
+    // empty
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    // set
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  };
+
+  const addIframe = () => {
+    const url = window.prompt("埋め込みiframeのURLを入力してください", "");
+    if (!url) return;
+    editor.chain().focus().insertContent({
+      type: "iframe",
+      attrs: { src: url },
+    }).run();
+  };
+
+  const addHtmlPreview = () => {
+    const code = window.prompt("HTMLコードを入力してください", "");
+    if (!code) return;
+    editor.chain().focus().insertContent({
+      type: "htmlpreview",
+      attrs: { code },
+    }).run();
+  };
+
+  const embedImage = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="flex flex-wrap gap-1 mb-2">
+      <Btn
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        active={editor.isActive("bold")}
+      >
+        <b>B</b>
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        active={editor.isActive("italic")}
+      >
+        <i>I</i>
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        active={editor.isActive("underline")}
+      >
+        U
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleHighlight().run()}
+        active={editor.isActive("highlight")}
+      >
+        <span className="bg-yellow-300 px-1">H</span>
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        active={editor.isActive("strike")}
+      >
+        S
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        active={editor.isActive("bulletList")}
+      >
+        ・リスト
+      </Btn>
+      <Btn
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        active={editor.isActive("orderedList")}
+      >
+        1.リスト
+      </Btn>
+      <Btn onClick={setLink} active={editor.isActive("link")}>
+        リンク
+      </Btn>
+      <Btn onClick={embedImage}>画像</Btn>
+      <Btn onClick={addIframe}>iframe</Btn>
+      <Btn onClick={addHtmlPreview}>HTML</Btn>
+      <Btn onClick={() => editor.chain().focus().undo().run()}>元に戻す</Btn>
+      <Btn onClick={() => editor.chain().focus().redo().run()}>やり直し</Btn>
+    </div>
+  );
+}
+
 /* ---------------------- コンポーネント ---------------------- */
 export default function NewMediaPage() {
   const router = useRouter();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* form state */
   const [title, setTitle] = useState("");
@@ -100,6 +262,55 @@ export default function NewMediaPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [slugDuplicate, setSlugDuplicate] = useState(false);
   const MAX_EXCERPT_LEN = 150;
+
+  async function handleEmbedImage(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    // upload to supabase storage
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Math.random().toString(36).slice(2)}.${fileExt}`;
+    const { data, error } = await supabase.storage
+      .from("media-uploads")
+      .upload(fileName, file, { cacheControl: "3600", upsert: false });
+    if (error) {
+      toast.error("画像アップロードに失敗しました");
+      return;
+    }
+    const { data: urlData } = supabase
+      .storage
+      .from("media-uploads")
+      .getPublicUrl(data.path);
+    const url = urlData.publicUrl;
+    if (!url) {
+      toast.error("画像URLの取得に失敗しました");
+      return;
+    }
+    editor?.chain().focus().setImage({ src: url }).run();
+  }
+
+  /* ---- TipTap editor ---- */
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Link.configure({ openOnClick: false }),
+      Image,
+      Highlight,
+      Underline,
+      Cta,
+      Iframe,
+      HtmlPreview,
+    ],
+    content: "",
+    editorProps: {
+      attributes: {
+        class:
+          "prose max-w-none focus:outline-none min-h-[600px] lg:min-h-[70vh]",
+      },
+    },
+    onUpdate({ editor }) {
+      setContentHtml(editor.getHTML());
+    },
+  });
 
   /* fetch categories once */
   useEffect(() => {
@@ -204,7 +415,6 @@ export default function NewMediaPage() {
 
     // ReactQuill returns HTML directly
     const html = contentHtml;
-    const md = new TurndownService().turndown(html);
     setIsSaving(true);
     // まず記事を INSERT し、返却された id を取得
     const { data: inserted, error: insertError } = await supabase
@@ -213,7 +423,6 @@ export default function NewMediaPage() {
         title,
         slug,
         excerpt,
-        content_md: md,
         content_html: html,
         status,
         author_id: authorId!, // media_authors.id を紐付け
@@ -274,20 +483,24 @@ export default function NewMediaPage() {
           {/* content */}
           <div>
             <label className="block text-sm font-medium mb-1">本文 (リッチテキスト)</label>
-            <ReactQuill
-              value={contentHtml}
-              onChange={setContentHtml}
-              className="h-96"
-              modules={{
-                toolbar: [
-                  [{ header: [1, 2, 3, false] }],
-                  ["bold", "italic", "underline", "strike"],
-                  [{ list: "ordered" }, { list: "bullet" }],
-                  ["link", "image", "video"],
-                  ["clean"],
-                ],
-              }}
-            />
+            {editor ? (
+              <>
+                <Toolbar editor={editor} fileInputRef={fileInputRef} />
+                <EditorContent editor={editor} />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleEmbedImage(e.target.files);
+                    e.target.value = ""; // allow re‑select
+                  }}
+                />
+              </>
+            ) : (
+              <p className="text-muted-foreground">エディタを初期化中...</p>
+            )}
           </div>
         </div>
 
