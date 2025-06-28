@@ -663,10 +663,13 @@ export default function AdminGrandPrixPage() {
       payload.category = grandType;
 
       if (grandType === "webtest") {
+        // WebTest 用のカラムだけ設定し、word_limit は送信しない
         payload.num_questions = challengeForm.num_questions
         payload.randomize = challengeForm.randomize
-        payload.word_limit = null
+        // word_limit を明示的に削除して NOT NULL 制約／デフォルト値を尊重する
+        delete payload.word_limit
       } else {
+        // Case / Bizscore では従来通り word_limit を設定
         payload.word_limit = challengeForm.word_limit
       }
 
@@ -1045,6 +1048,96 @@ export default function AdminGrandPrixPage() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* ===== 公開状況 ===== */}
+              <div className="space-y-8 mb-8">
+                {/* ---------- 現在公開中のお題 ---------- */}
+                <div>
+                  <h3 className="font-medium mb-2">現在公開中のお題</h3>
+                  {currentChallenge ? (
+                    <Card>
+                      <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-medium">{currentChallenge.title}</p>
+                          <p className="text-sm text-muted-foreground">
+                            締切:{" "}
+                            {currentChallenge.deadline
+                              ? format(
+                                  new Date(currentChallenge.deadline),
+                                  "yyyy/MM/dd HH:mm"
+                                )
+                              : "－"}
+                          </p>
+                        </div>
+                        <div className="mt-3 sm:mt-0 space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => startEdit(currentChallenge)}
+                          >
+                            編集
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => openPsModal(currentChallenge)}
+                          >
+                            問題セット
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      現在公開中のお題はありません
+                    </p>
+                  )}
+                </div>
+
+                {/* ---------- 公開予定のお題 ---------- */}
+                <div>
+                  <h3 className="font-medium mb-2">公開予定のお題</h3>
+                  {upcomingChallenges.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">お題はありません</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {upcomingChallenges.map((ch) => (
+                        <Card key={ch.id}>
+                          <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="font-medium">{ch.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                締切:{" "}
+                                {ch.deadline
+                                  ? format(
+                                      new Date(ch.deadline),
+                                      "yyyy/MM/dd HH:mm"
+                                    )
+                                  : "－"}
+                              </p>
+                            </div>
+                            <div className="mt-3 sm:mt-0 space-x-2">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openPsModal(ch)}
+                              >
+                                問題
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startEdit(ch)}
+                              >
+                                編集
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <form
                 onSubmit={handleChallengeSubmit}
                 className="space-y-4"
@@ -1258,100 +1351,7 @@ export default function AdminGrandPrixPage() {
                     </ScrollArea>
                   )}
                 </div>
-              </form>
-              {/* ===== 一覧 ===== */}
-              {/* ---------- 現在公開中のお題 ---------- */}
-              {currentChallenge ? (
-                <div className="mb-8">
-                  <h3 className="font-medium mb-2">現在公開中のお題</h3>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-2 px-1 text-left">タイトル</th>
-                        <th className="py-2 px-1 text-left">締切</th>
-                        <th className="py-2 px-1 text-right">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b bg-muted/40">
-                        <td className="py-2 px-1">{currentChallenge.title}</td>
-                        <td className="py-2 px-1">
-                          {currentChallenge.deadline
-                            ? format(new Date(currentChallenge.deadline), "yyyy/MM/dd HH:mm")
-                            : "－"}
-                        </td>
-                        <td className="py-2 px-1 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => startEdit(currentChallenge)}
-                          >
-                            編集
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="ml-2"
-                            onClick={() => openPsModal(currentChallenge)}
-                          >
-                            問題セット
-                          </Button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-
-              {/* ---------- 今後公開予定のお題 ---------- */}
-              <div>
-                <h3 className="font-medium mb-2">公開予定のお題</h3>
-                {upcomingChallenges.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">お題はありません</p>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-2 px-1 text-left">タイトル</th>
-                        <th className="py-2 px-1 text-left">締切</th>
-                        <th className="py-2 px-1 text-right">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {upcomingChallenges.map((ch) => (
-                        <tr
-                          key={ch.id}
-                          className={`border-b ${editingId === ch.id ? "bg-muted/40" : ""}`}
-                        >
-                          <td className="py-2 px-1">{ch.title}</td>
-                          <td className="py-2 px-1">
-                            {ch.deadline
-                              ? format(new Date(ch.deadline), "yyyy/MM/dd HH:mm")
-                              : "－"}
-                          </td>
-                          <td className="py-2 px-1 text-right">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="mr-2"
-                              onClick={() => openPsModal(ch)}
-                            >
-                              問題
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => startEdit(ch)}
-                            >
-                              編集
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+                </form>
             </CardContent>
           </Card>
         </TabsContent>
