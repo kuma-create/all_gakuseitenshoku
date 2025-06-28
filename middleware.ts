@@ -25,7 +25,8 @@ const PUBLIC_PREFIXES = [
   "/auth",                  // Supabase auth-helper routes (/auth/set, /auth/logout)
   "/terms",                  // 利用規約
   "/privacy-policy",         // プライバシーポリシー
-  "/grandprix",              // グランプリ一覧
+  "/grandprix", 
+  "whitepapers",             // グランプリ一覧
   "/api",
   "/jobs",                  // API ルート
   "/admin/login", 
@@ -198,6 +199,6 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|media).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|media|whitepapers).*)",
   ],
 };
