@@ -419,8 +419,8 @@ export default async function MediaDetailPage(
                   </div>
                 )}
 
-                <div className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl">
-                  <div className="flex gap-3">
+                <div className="flex flex-wrap items-center justify-center sm:justify-between gap-4 p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl">
+                  <div className="flex gap-3 w-full sm:w-auto justify-center">
                     <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-full">
                       <Heart className="w-4 h-4 mr-2" />
                       いいね
@@ -431,7 +431,7 @@ export default async function MediaDetailPage(
                     </Button>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full sm:w-auto justify-center sm:justify-end">
                     <Button variant="outline" size="sm" className="rounded-full">
                       <Twitter className="w-4 h-4" />
                     </Button>
