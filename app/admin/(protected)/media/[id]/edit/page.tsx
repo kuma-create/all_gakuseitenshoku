@@ -134,6 +134,7 @@ const HtmlPreview = Node.create({
         srcdoc: code,
         sandbox: "allow-scripts allow-same-origin",
         frameborder: "0",
+        style: `width:${width};height:${height};`, // ensure visible in editor
       },
     ];
   },
