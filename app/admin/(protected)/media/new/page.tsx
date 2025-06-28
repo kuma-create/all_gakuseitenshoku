@@ -114,130 +114,89 @@ const HtmlPreview = Node.create({
 });
 
 /* ---------------------- Toolbar Component ---------------------- */
-function Btn({
-  onClick,
-  active,
-  children,
-  disabled,
-}: {
-  onClick: () => void;
-  active?: boolean;
-  children: React.ReactNode;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`p-1 rounded ${
-        active ? "bg-blue-500 text-white" : "hover:bg-gray-200"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Toolbar({
   editor,
   fileInputRef,
 }: {
-  editor: ReturnType<typeof useEditor>;
+  editor: ReturnType<typeof useEditor> | null;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   if (!editor) return null;
 
-  const setLink = () => {
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("リンクURLを入力してください", previousUrl);
-    // cancel
-    if (url === null) {
-      return;
-    }
-    // empty
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    // set
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  };
-
-  const addIframe = () => {
-    const url = window.prompt("埋め込みiframeのURLを入力してください", "");
-    if (!url) return;
-    editor.chain().focus().insertContent({
-      type: "iframe",
-      attrs: { src: url },
-    }).run();
-  };
-
-  const addHtmlPreview = () => {
-    const code = window.prompt("HTMLコードを入力してください", "");
-    if (!code) return;
-    editor.chain().focus().insertContent({
-      type: "htmlpreview",
-      attrs: { code },
-    }).run();
-  };
-
-  const embedImage = () => {
-    fileInputRef.current?.click();
-  };
+  const Btn = (
+    label: string,
+    command: () => void,
+    active: boolean = false
+  ) => (
+    <Button
+      type="button"
+      size="sm"
+      variant={active ? "default" : "secondary"}
+      onMouseDown={(e) => {
+        e.preventDefault(); // keep editor selection
+        command();
+      }}
+    >
+      {label}
+    </Button>
+  );
 
   return (
-    <div className="flex flex-wrap gap-1 mb-2">
-      <Btn
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        active={editor.isActive("bold")}
-      >
-        <b>B</b>
-      </Btn>
-      <Btn
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        active={editor.isActive("italic")}
-      >
-        <i>I</i>
-      </Btn>
-      <Btn
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-        active={editor.isActive("underline")}
-      >
-        U
-      </Btn>
-      <Btn
-        onClick={() => editor.chain().focus().toggleHighlight().run()}
-        active={editor.isActive("highlight")}
-      >
-        <span className="bg-yellow-300 px-1">H</span>
-      </Btn>
-      <Btn
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-        active={editor.isActive("strike")}
-      >
-        S
-      </Btn>
-      <Btn
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        active={editor.isActive("bulletList")}
-      >
-        ・リスト
-      </Btn>
-      <Btn
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        active={editor.isActive("orderedList")}
-      >
-        1.リスト
-      </Btn>
-      <Btn onClick={setLink} active={editor.isActive("link")}>
-        リンク
-      </Btn>
-      <Btn onClick={embedImage}>画像</Btn>
-      <Btn onClick={addIframe}>iframe</Btn>
-      <Btn onClick={addHtmlPreview}>HTML</Btn>
-      <Btn onClick={() => editor.chain().focus().undo().run()}>元に戻す</Btn>
-      <Btn onClick={() => editor.chain().focus().redo().run()}>やり直し</Btn>
+    <div className="flex flex-wrap gap-1 mb-2 sticky top-16 z-20 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/40 border-b">
+      {Btn("B", () => editor.chain().focus().toggleBold().run(), editor.isActive("bold"))}
+      {Btn("I", () => editor.chain().focus().toggleItalic().run(), editor.isActive("italic"))}
+      {Btn("U", () => editor.chain().focus().toggleUnderline().run(), editor.isActive("underline"))}
+      {Btn("S", () => editor.chain().focus().toggleStrike().run(), editor.isActive("strike"))}
+      {Btn("H1", () => editor.chain().focus().toggleHeading({ level: 1 }).run(), editor.isActive("heading", { level: 1 })) }
+      {Btn("H2", () => editor.chain().focus().toggleHeading({ level: 2 }).run(), editor.isActive("heading", { level: 2 })) }
+      {Btn("H3", () => editor.chain().focus().toggleHeading({ level: 3 }).run(), editor.isActive("heading", { level: 3 })) }
+      {Btn("•", () => editor.chain().focus().toggleBulletList().run(), editor.isActive("bulletList"))}
+      {Btn("1.", () => editor.chain().focus().toggleOrderedList().run(), editor.isActive("orderedList"))}
+      {Btn("`", () => editor.chain().focus().toggleCode().run(), editor.isActive("code"))}
+      {Btn("Code", () => editor.chain().focus().toggleCodeBlock().run(), editor.isActive("codeBlock"))}
+      {Btn("CTA", () => {
+        const label = prompt("ボタンのラベル", "応募する");
+        if (label === null) return;
+        const href = prompt("リンク URL", "https://example.com/");
+        if (href === null) return;
+        editor
+          .chain()
+          .focus()
+          .insertContent({ type: "cta", attrs: { href, label } })
+          .run();
+      })}
+      {Btn("Link", () => {
+        const prev = editor.getAttributes("link").href || "";
+        const url = prompt("リンク URL を入力", prev);
+        if (url === null) return;
+        if (url === "") {
+          editor.chain().focus().unsetLink().run();
+        } else {
+          editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+        }
+      })}
+      {Btn("Img", () => {
+        fileInputRef.current?.click();
+      })}
+      {Btn("Embed", () => {
+        const url = prompt("埋め込み URL (YouTube, Figma など)", "https://");
+        if (!url) return;
+        editor
+          ?.chain()
+          .focus()
+          .insertContent({ type: "iframe", attrs: { src: url } })
+          .run();
+      })}
+      {Btn("HTML", () => {
+        const init = "<style>body{margin:0}</style><h1>Hello!</h1>";
+        const code = prompt("貼り付けたい HTML/CSS を入力してください", init);
+        if (code === null || code.trim() === "") return;
+        editor
+          ?.chain()
+          .focus()
+          .insertContent({ type: "htmlpreview", attrs: { code } })
+          .run();
+      })}
     </div>
   );
 }
@@ -270,15 +229,15 @@ export default function NewMediaPage() {
     const fileExt = file.name.split(".").pop();
     const fileName = `${Math.random().toString(36).slice(2)}.${fileExt}`;
     const { data, error } = await supabase.storage
-      .from("media-uploads")
-      .upload(fileName, file, { cacheControl: "3600", upsert: false });
+      .from("media")
+      .upload(`inline-images/${fileName}`, file, { cacheControl: "3600", upsert: false });
     if (error) {
       toast.error("画像アップロードに失敗しました");
       return;
     }
     const { data: urlData } = supabase
       .storage
-      .from("media-uploads")
+      .from("media")
       .getPublicUrl(data.path);
     const url = urlData.publicUrl;
     if (!url) {
@@ -485,7 +444,7 @@ export default function NewMediaPage() {
             <label className="block text-sm font-medium mb-1">本文 (リッチテキスト)</label>
             {editor ? (
               <>
-                <Toolbar editor={editor} fileInputRef={fileInputRef} />
+                <Toolbar editor={editor ?? null} fileInputRef={fileInputRef} />
                 <EditorContent editor={editor} />
                 <input
                   ref={fileInputRef}
