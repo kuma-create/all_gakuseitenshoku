@@ -663,13 +663,10 @@ export default function AdminGrandPrixPage() {
       payload.category = grandType;
 
       if (grandType === "webtest") {
-        // WebTest 用のカラムだけ設定し、word_limit は送信しない
-        payload.num_questions = challengeForm.num_questions
-        payload.randomize = challengeForm.randomize
-        // word_limit を明示的に削除して NOT NULL 制約／デフォルト値を尊重する
-        delete payload.word_limit
+        // まだ DB に num_questions / randomize カラムが無いため送信しない
+        delete payload.word_limit      // ← NOT NULL 制約を回避
+        // num_questions, randomize は今後スキーマ追加後に対応
       } else {
-        // Case / Bizscore では従来通り word_limit を設定
         payload.word_limit = challengeForm.word_limit
       }
 
