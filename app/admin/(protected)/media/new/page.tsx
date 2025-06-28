@@ -86,6 +86,7 @@ const HtmlPreview = Node.create({
   group: "block",
   atom: true,
   selectable: true,
+
   addAttributes() {
     return {
       code: { default: "" },
@@ -93,9 +94,24 @@ const HtmlPreview = Node.create({
       height: { default: "400" },
     };
   },
+
+  // Pick up saved srcdoc/width/height so preview is visible on reload
   parseHTML() {
-    return [{ tag: "iframe[data-htmlpreview]" }];
+    return [
+      {
+        tag: "iframe[data-htmlpreview]",
+        getAttrs: (el) => {
+          const dom = el as HTMLElement;
+          return {
+            code: dom.getAttribute("srcdoc") ?? "",
+            width: dom.getAttribute("width") ?? "100%",
+            height: dom.getAttribute("height") ?? "400",
+          };
+        },
+      },
+    ];
   },
+
   renderHTML({ HTMLAttributes }) {
     const { code, width, height, ...rest } = HTMLAttributes;
     return [

@@ -99,20 +99,27 @@ const HtmlPreview = Node.create({
 
   addAttributes() {
     return {
-      code: {
-        default: "",
-      },
-      width: {
-        default: "100%",
-      },
-      height: {
-        default: "400",
-      },
+      code: { default: "" },
+      width: { default: "100%" },
+      height: { default: "400" },
     };
   },
 
+  /* ---- make TipTap PICK UP saved attrs ---- */
   parseHTML() {
-    return [{ tag: "iframe[data-htmlpreview]" }];
+    return [
+      {
+        tag: "iframe[data-htmlpreview]",
+        getAttrs: (el) => {
+          const dom = el as HTMLElement;
+          return {
+            code: dom.getAttribute("srcdoc") ?? "",
+            width: dom.getAttribute("width") ?? "100%",
+            height: dom.getAttribute("height") ?? "400",
+          };
+        },
+      },
+    ];
   },
 
   renderHTML({ HTMLAttributes }) {
