@@ -7,8 +7,7 @@ import { cookies } from "next/headers";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
 import { Plus, Edit2 } from "lucide-react";
 import DeletePostButton from "@/components/media/delete-button";
 
@@ -48,7 +47,52 @@ async function fetchMyPosts(): Promise<AdminPost[]> {
   return data as AdminPost[];
 }
 
-/* =================================================================== */
+/* -------------------- Client component: status toggle -------------------- */
+function StatusToggle({
+  id,
+  current,
+}: {
+  id: string;
+  current: "published" | "draft" | "private";
+}) {
+  "use client";
+  const [status, setStatus] = useState<"published" | "draft" | "private">(current);
+
+  const supabase = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  // 公開→下書き→非公開→公開… の順でループ
+  const cycle = async () => {
+    const next =
+      status === "published"
+        ? "draft"
+        : status === "draft"
+        ? "private"
+        : "published";
+
+    // 楽観的 UI
+    setStatus(next);
+
+    const { error } = await supabase.from("media_posts").update({ status: next }).eq("id", id);
+    if (error) {
+      alert(error.message);
+      // rollback
+      setStatus(status);
+    }
+  };
+
+  return (
+    <button
+      onClick={cycle}
+      className="px-2 py-1 rounded border text-xs hover:bg-gray-50"
+      title="クリックで公開状態を切替"
+    >
+      {status === "published" ? "公開中" : status === "draft" ? "下書き" : "非公開"}
+    </button>
+  );
+}
 
 export default async function AdminMediaPage() {
   const posts = await fetchMyPosts();
@@ -70,60 +114,48 @@ export default async function AdminMediaPage() {
       {posts.length === 0 ? (
         <p className="text-muted-foreground">投稿がありません。</p>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.map((post) => (
-            <Card key={post.id} className="relative">
-              <CardContent className="pt-6 pb-8">
-                {/* status */}
-                <Badge
-                  variant={
-                    post.status === "published"
-                      ? "default"
-                      : post.status === "draft"
-                      ? "secondary"
-                      : "outline"
-                  }
-                  className="mb-2"
-                >
-                  {post.status === "published"
-                    ? "公開中"
-                    : post.status === "draft"
-                    ? "下書き"
-                    : "非公開"}
-                </Badge>
-
-                {/* title */}
-                <h3 className="font-semibold line-clamp-2">{post.title}</h3>
-
-                {/* category + date */}
-                <div className="mt-3 flex items-center text-sm text-gray-500 gap-2">
-                  {post.media_categories?.name && (
-                    <span>{post.media_categories.name}</span>
-                  )}
-                  <span>・</span>
-                  <time>
-                    {format(
-                      new Date((post.updated_at ?? post.created_at) as string),
-                      "yyyy/MM/dd HH:mm",
-                      { locale: ja }
-                    )}
-                  </time>
-                </div>
-
-                {/* actions */}
-                <div className="mt-6 flex gap-3">
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/admin/media/${post.id}/edit`}>
-                      <Edit2 className="w-4 h-4 mr-1" />
-                      編集
-                    </Link>
-                  </Button>
-                  <DeletePostButton id={post.id as string} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <table className="w-full text-sm border border-gray-200">
+          <thead className="bg-muted">
+            <tr>
+              <th className="p-2 font-medium">タイトル</th>
+              <th className="p-2 font-medium">カテゴリ</th>
+              <th className="p-2 font-medium">更新日</th>
+              <th className="p-2 font-medium">公開状態</th>
+              <th className="p-2 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {posts.map((post) => (
+              <tr key={post.id} className="border-t">
+                <td className="p-2">
+                  <Link href={`/admin/media/${post.id}/edit`} className="hover:underline">
+                    {post.title}
+                  </Link>
+                </td>
+                <td className="p-2">{post.media_categories?.name ?? "-"}</td>
+                <td className="p-2">
+                  {format(new Date((post.updated_at ?? post.created_at) as string), "yyyy/MM/dd HH:mm", {
+                    locale: ja,
+                  })}
+                </td>
+                <td className="p-2">
+                  <StatusToggle id={post.id as string} current={post.status as any} />
+                </td>
+                <td className="p-2">
+                  <div className="flex gap-3">
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href={`/admin/media/${post.id}/edit`}>
+                        <Edit2 className="w-4 h-4 mr-1" />
+                        編集
+                      </Link>
+                    </Button>
+                    <DeletePostButton id={post.id as string} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </section>
   );

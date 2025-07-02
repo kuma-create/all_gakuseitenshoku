@@ -56,8 +56,7 @@ type SelectionWithCompany = SelectionRow & { company?: CompanyRow | null }
 
 /* ---------- メイン ---------- */
 export default function JobDetailPage(props: { params: Promise<{ id: string }> }) {
-  const params = use(props.params);
-  const { id } = usePromise(params)           // unwrap the promise
+  const { id } = usePromise(props.params);           // unwrap the promise
   const { userType } = useAuth()
   const router        = useRouter()
 

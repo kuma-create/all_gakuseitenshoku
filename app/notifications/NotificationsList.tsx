@@ -117,6 +117,7 @@ export default function NotificationsList({ userId: initialUserId }: { userId?: 
 
   /** 一覧表示と同時に未読をすべて既読化する */
   const markAllAsRead = async (items: Noti[]) => {
+    if (!uid) return
     // まだ未読の ID 一覧を抽出
     const unreadIds = items.filter(i => !i.is_read).map(i => i.id)
     if (unreadIds.length === 0) return
@@ -133,6 +134,7 @@ export default function NotificationsList({ userId: initialUserId }: { userId?: 
       .from("notifications")
       .update({ is_read: true })
       .in("id", unreadIds)
+      .eq("user_id", uid!)
 
     // 3) 失敗時はロールバック
     if (error) {
