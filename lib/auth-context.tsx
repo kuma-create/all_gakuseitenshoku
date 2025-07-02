@@ -70,7 +70,7 @@ const PUBLIC_ROUTES = new Set([
   "/signup",
   "/email-callback",
   "/admin/login",
-  "/job",
+  "/jobs",
   "/onboarding/profile",
   "/grandprix",  
   "/terms",  
