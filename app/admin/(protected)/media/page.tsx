@@ -7,7 +7,6 @@ import { cookies } from "next/headers";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { Plus, Edit2 } from "lucide-react";
 import DeletePostButton from "@/components/media/delete-button";
 
@@ -56,7 +55,7 @@ function StatusToggle({
   current: "published" | "draft" | "private";
 }) {
   "use client";
-  const [status, setStatus] = useState<"published" | "draft" | "private">(current);
+  const status = current; // we’ll just reload after update
 
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,14 +71,16 @@ function StatusToggle({
         ? "private"
         : "published";
 
-    // 楽観的 UI
-    setStatus(next);
+    const { error } = await supabase
+      .from("media_posts")
+      .update({ status: next })
+      .eq("id", id);
 
-    const { error } = await supabase.from("media_posts").update({ status: next }).eq("id", id);
     if (error) {
       alert(error.message);
-      // rollback
-      setStatus(status);
+    } else {
+      // 反映を確認するためページをリロード
+      window.location.reload();
     }
   };
 
