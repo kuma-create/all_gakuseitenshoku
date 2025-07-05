@@ -26,9 +26,10 @@ const PUBLIC_PREFIXES = [
   "/terms",                  // 利用規約
   "/privacy-policy",         // プライバシーポリシー
   "/grandprix", 
-  "whitepapers",             // グランプリ一覧
+  "/whitepapers",             // グランプリ一覧
   "/api",
-  "/jobs",                  // API ルート
+  "/jobs", 
+  "/lp",                 // API ルート
   "/admin/login", 
   "/media",
   "/features",
@@ -46,6 +47,12 @@ const PUBLIC_PREFIXES = [
 
 /* ------------------------------------------------------------------ */
 export async function middleware(req: NextRequest) {
+  // ----- PUBLIC: /lp marketing pages -----
+  if (req.nextUrl.pathname.startsWith("/lp")) {
+    return NextResponse.next(); // Skip auth & redirects for anything under /lp
+  }
+  // ---------------------------------------
+
   /* ---------- ① ルート・静的アセット・公開ページは早期リターン ---------- */
   const { pathname } = req.nextUrl;
 
@@ -199,6 +206,6 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|media|whitepapers).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|admin|company|lp|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|media|whitepapers).*)",
   ],
 };

@@ -74,6 +74,7 @@ const PUBLIC_ROUTES = new Set([
   "/onboarding/profile",
   "/grandprix",  
   "/terms",  
+  "/lp/students/fee",
   "/media",
   "/forgot-password",          // 利用規約
   "/password-reset-callback",    // パスワード再設定コールバック

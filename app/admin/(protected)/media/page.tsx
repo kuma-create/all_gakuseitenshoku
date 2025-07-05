@@ -9,6 +9,7 @@ import { ja } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit2 } from "lucide-react";
 import DeletePostButton from "@/components/media/delete-button";
+import StatusToggle from "@/components/media/StatusToggle";
 
 import type { Database } from "@/lib/supabase/types";
 
@@ -44,55 +45,6 @@ async function fetchMyPosts(): Promise<AdminPost[]> {
     return [];
   }
   return data as AdminPost[];
-}
-
-/* -------------------- Client component: status toggle -------------------- */
-function StatusToggle({
-  id,
-  current,
-}: {
-  id: string;
-  current: "published" | "draft" | "private";
-}) {
-  "use client";
-  const status = current; // we’ll just reload after update
-
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  // 公開→下書き→非公開→公開… の順でループ
-  const cycle = async () => {
-    const next =
-      status === "published"
-        ? "draft"
-        : status === "draft"
-        ? "private"
-        : "published";
-
-    const { error } = await supabase
-      .from("media_posts")
-      .update({ status: next })
-      .eq("id", id);
-
-    if (error) {
-      alert(error.message);
-    } else {
-      // 反映を確認するためページをリロード
-      window.location.reload();
-    }
-  };
-
-  return (
-    <button
-      onClick={cycle}
-      className="px-2 py-1 rounded border text-xs hover:bg-gray-50"
-      title="クリックで公開状態を切替"
-    >
-      {status === "published" ? "公開中" : status === "draft" ? "下書き" : "非公開"}
-    </button>
-  );
 }
 
 export default async function AdminMediaPage() {

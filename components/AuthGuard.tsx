@@ -16,7 +16,8 @@ export default function AuthGuard() {
       "/auth/reset",          // パスワードリセット
       "/terms",                  // 利用規約
       "/privacy-policy",         // プライバシーポリシー
-      "/grandprix",  
+      "/grandprix", 
+      "/lp/students/fee", 
       "/features", 
       "/onboarding/profile",
       "/media",
