@@ -210,7 +210,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
-            <div className="space-y-8">
+            <div className="order-2 lg:order-1 space-y-8">
               <div className="space-y-6">
                 <div className="inline-flex items-center bg-red-50 text-red-600 px-4 py-2 rounded-full text-sm font-medium">
                   <Sparkles className="w-4 h-4 mr-2" />
@@ -263,7 +263,7 @@ export default function LandingPage() {
             </div>
 
             {/* Right Image */}
-            <div className="relative">
+            <div className="order-1 lg:order-2 relative mb-8 lg:mb-0">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <Image
                   src="/shukatu.jpg?height=600&width=500"
