@@ -109,7 +109,7 @@ export default function LandingPage() {
     {
       icon: <Users className="w-6 h-6 text-red-600" />,
       title: "あなただけのポジション",
-      description: "スキルがあればポジション確約・MGポジションでのオファーも",
+      description: "スキルがあればポジション確約・経営企画ポジションでのオファーも",
       image: "/position.jpg?height=300&width=400",
     },
     {
@@ -206,11 +206,11 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
 
       {/* Hero Section */}
-      <section className="pt-24 pb-16 md:pb-24">
+      <section className="pt-12 pb-10 md:pb-16">
         <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
-            <div className="order-2 lg:order-1 space-y-8">
+            <div className="space-y-8">
               <div className="space-y-6">
                 <div className="inline-flex items-center bg-red-50 text-red-600 px-4 py-2 rounded-full text-sm font-medium">
                   <Sparkles className="w-4 h-4 mr-2" />
@@ -234,6 +234,20 @@ export default function LandingPage() {
                 </p>
               </div>
 
+              {/* Mobile Image */}
+              <div className="block lg:hidden">
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl mb-6">
+                  <Image
+                    src="/shukatu.jpg?height=600&width=500"
+                    alt="成功した学生"
+                    width={500}
+                    height={600}
+                    className="w-full h-auto object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
                   size="lg"
@@ -248,22 +262,22 @@ export default function LandingPage() {
               {/* Stats */}
               <div className="grid grid-cols-3 gap-8 pt-8 border-t border-gray-100">
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">3ヶ月から</div>
+                  <div className="text-2xl font-bold text-gray-900 whitespace-nowrap">3ヶ月から</div>
                   <div className="text-sm text-gray-500">職歴経験</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">95%</div>
+                  <div className="text-2xl font-bold text-gray-900 whitespace-nowrap">95%</div>
                   <div className="text-sm text-gray-500">満足度</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">620万円</div>
+                  <div className="text-2xl font-bold text-gray-900 whitespace-nowrap">620万円</div>
                   <div className="text-sm text-gray-500">平均年収</div>
                 </div>
               </div>
             </div>
 
             {/* Right Image */}
-            <div className="order-1 lg:order-2 relative mb-8 lg:mb-0">
+            <div className="relative mb-8 lg:mb-0 hidden lg:block">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <Image
                   src="/shukatu.jpg?height=600&width=500"
@@ -307,7 +321,7 @@ export default function LandingPage() {
 
 
       {/* Features Section */}
-      <section id="features" className="py-20 scroll-animate opacity-0">
+      <section id="features" className="py-12 md:py-16 scroll-animate opacity-0">
         <div className="container mx-auto px-6 max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
