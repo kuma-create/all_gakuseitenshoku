@@ -217,7 +217,7 @@ export default function LandingPage() {
                   長期インターン経験のある学生が利用中
                 </div>
 
-                <h1 className="text-4xl md:text-6xl font-bold text-gray-900 leading-tight">
+                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-gray-900 leading-tight">
                   新卒で年収
                   <span className="block text-red-600">600万円以上</span>
                 </h1>
@@ -237,7 +237,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
                   size="lg"
-                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
+                  className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
                   onClick={scrollToFullSimulator}
                 >
                   私の市場価値を知る
@@ -345,7 +345,7 @@ export default function LandingPage() {
           <div className="text-center mt-16">
             <Button
               size="lg"
-              className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
               onClick={() => router.push("/signup")}
             >
               無料で登録する
@@ -664,7 +664,7 @@ export default function LandingPage() {
       {/* Final CTA */}
       <section className="py-20 bg-red-600 text-white scroll-animate opacity-0">
         <div className="container mx-auto px-6 max-w-4xl text-center">
-          <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
+          <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-6 leading-tight">
             あなたの真の市場価値を
             <br />
             解き放つ準備はできていますか？
@@ -677,7 +677,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
             <Button
               size="lg"
-              className="bg-white text-red-600 hover:bg-gray-100 text-xl px-12 py-4 rounded-lg font-semibold"
+              className="w-full sm:w-auto bg-white text-red-600 hover:bg-gray-100 text-xl px-12 py-4 rounded-lg font-semibold"
               onClick={() => router.push("/signup")}
             >
               無料で始める
@@ -686,7 +686,7 @@ export default function LandingPage() {
             <Button
               size="lg"
               variant="outline"
-              className="border-2 border-white text-white hover:bg-white hover:text-red-600 text-xl px-10 py-4 rounded-lg font-semibold bg-transparent"
+              className="w-full sm:w-auto border-2 border-white text-white hover:bg-white hover:text-red-600 text-xl px-10 py-4 rounded-lg font-semibold bg-transparent"
               onClick={scrollToFullSimulator}
             >
               年収シミュレーターを試す
