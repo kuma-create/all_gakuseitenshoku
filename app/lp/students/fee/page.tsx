@@ -34,10 +34,6 @@ export default function LandingPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showSalaryResult, setShowSalaryResult] = useState(false)
   const [salaryResult, setSalaryResult] = useState<any>(null)
-  const [quickData, setQuickData] = useState({
-    role: "",
-    hours: "",
-  })
   const [salaryData, setSalaryData] = useState({
     role: "",
     hours: "",
@@ -128,19 +124,19 @@ export default function LandingPage() {
     {
       number: "01",
       title: "無料登録",
-      description: "2分でプロフィール作成完了",
+      description: "簡単に登録可能！まだ職歴がない、インターンを始めたばかりでも登録可能です！あなたの市場価値を調べよう",
       image: "/new_enroll.png?height=200&width=300",
     },
     {
       number: "02",
       title: "経歴入力",
-      description: "インターンシップとプロジェクトを詳細に追加",
+      description: "これまでの長期インターンの経験やビジネス経験をしっかり記入しましょう。企業はあなたの職歴に興味を持ってヘッドハンティング！",
       image: "/syokureki.png?height=200&width=300",
     },
     {
       number: "03",
       title: "オファー受信",
-      description: "あなたに最適化された求人機会を獲得",
+      description: "あなただけのオファーレターを手に入れましょう。給与とポジションが書かれたオファーで選考優遇を",
       image: "/offer.jpg?height=200&width=300",
     },
   ]
@@ -242,7 +238,7 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={scrollToFullSimulator}
                 >
                   私の市場価値を知る
                   <ArrowRight className="ml-2 w-5 h-5" />
@@ -309,64 +305,6 @@ export default function LandingPage() {
       </section>
 
 
-      {/* Quick Salary Check Card */}
-      <section className="py-16">
-        <div className="container mx-auto px-6 flex justify-center">
-          <Card className="w-full max-w-md shadow-xl rounded-2xl border border-gray-100 bg-white">
-            <CardContent className="p-8">
-            <div className="flex items-center mb-6">
-              <div className="p-2 bg-red-100 rounded-lg mr-3">
-                <Calculator className="w-5 h-5 text-red-600" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900">クイック年収チェック</h3>
-            </div>
-
-              <div className="space-y-6">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block">希望職種</Label>
-                  <Select value={quickData.role} onValueChange={(value) => setQuickData({ ...quickData, role: value })}>
-                    <SelectTrigger className="h-12 border border-gray-200 focus:border-red-500 rounded-lg">
-                      <SelectValue placeholder="選択してください" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="engineer">エンジニア</SelectItem>
-                      <SelectItem value="pm">プロダクトマネージャー</SelectItem>
-                      <SelectItem value="data">データサイエンティスト</SelectItem>
-                      <SelectItem value="consultant">コンサルタント</SelectItem>
-                      <SelectItem value="trading">商社</SelectItem>
-                      <SelectItem value="other">その他</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block">月間インターンシップ時間</Label>
-                  <Select
-                    value={quickData.hours}
-                    onValueChange={(value) => setQuickData({ ...quickData, hours: value })}
-                  >
-                    <SelectTrigger className="h-12 border border-gray-200 focus:border-red-500 rounded-lg">
-                      <SelectValue placeholder="選択してください" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0-40">0-40時間</SelectItem>
-                      <SelectItem value="41-80">41-80時間</SelectItem>
-                      <SelectItem value="81+">81時間以上</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <button
-                  onClick={scrollToFullSimulator}
-                  className="w-full text-red-600 hover:text-red-700 font-medium text-sm py-3 text-center transition-colors duration-200 hover:underline"
-                >
-                  詳細を入力して年収を確認 →
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
 
       {/* Features Section */}
       <section id="features" className="py-20 scroll-animate opacity-0">
@@ -376,7 +314,7 @@ export default function LandingPage() {
               なぜ<span className="text-red-600">学生転職</span>なのか
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              従来の就職活動とは一線を画す、革新的なアプローチで理想のキャリアを実現
+              長期インターンなどの職歴を用いて、初任給もポジションも上げていこう
             </p>
           </div>
 
@@ -402,6 +340,17 @@ export default function LandingPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+          {/* CTA Button */}
+          <div className="text-center mt-16">
+            <Button
+              size="lg"
+              className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-lg font-semibold text-lg"
+              onClick={() => router.push("/signup")}
+            >
+              無料で登録する
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
           </div>
         </div>
       </section>
@@ -609,7 +558,7 @@ export default function LandingPage() {
 
                     <div className="mt-6 text-center">
                       <Button
-                        onClick={() => router.push("/auth/student/register")}
+                        onClick={() => router.push("/signup")}
                         className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold"
                       >
                         この条件で企業を探す
@@ -729,6 +678,7 @@ export default function LandingPage() {
             <Button
               size="lg"
               className="bg-white text-red-600 hover:bg-gray-100 text-xl px-12 py-4 rounded-lg font-semibold"
+              onClick={() => router.push("/signup")}
             >
               無料で始める
               <ArrowRight className="ml-2 w-6 h-6" />
@@ -737,6 +687,7 @@ export default function LandingPage() {
               size="lg"
               variant="outline"
               className="border-2 border-white text-white hover:bg-white hover:text-red-600 text-xl px-10 py-4 rounded-lg font-semibold bg-transparent"
+              onClick={scrollToFullSimulator}
             >
               年収シミュレーターを試す
             </Button>
