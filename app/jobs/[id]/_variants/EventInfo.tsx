@@ -129,7 +129,7 @@ export default function EventInfo({
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Link
-                      href={`/company/${company.id}`}
+                      href={`/companies/${company.id}`}
                       className="text-base font-medium text-red-600 hover:text-red-700 hover:underline sm:text-lg"
                     >
                       {company.name}
