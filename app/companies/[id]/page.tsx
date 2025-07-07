@@ -138,6 +138,20 @@ const toYouTubeEmbed = (url: string): string => {
   return url; // fallback
 };
 
+/** Job category -> badge color utility */
+const categoryClass = (cat: string): string => {
+  switch (cat) {
+    case "インターン":
+      return "bg-blue-100 text-blue-800 hover:bg-blue-200";
+    case "本選考":
+      return "bg-green-100 text-green-800 hover:bg-green-200";
+    case "アルバイト":
+      return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
+    default:
+      return "bg-gray-100 text-gray-800 hover:bg-gray-200";
+  }
+};
+
 
 export default function CompanyDetailPage() {
     
@@ -875,7 +889,11 @@ export default function CompanyDetailPage() {
                         >
                           <Link href={`/jobs/${job.id}`} className="block p-6 hover:bg-gray-50">
                             <div className="flex flex-col md:flex-row md:items-center gap-4">
-                              <Badge variant="outline" className="w-fit">
+                              <Badge
+                                className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${categoryClass(
+                                  job.category
+                                )}`}
+                              >
                                 {job.category}
                               </Badge>
                               <div className="flex-grow">
