@@ -3,7 +3,7 @@
    ※ このファイルはサーバーコンポーネントにし、React Hooks を
      直接使わないようにします。
 -------------------------------------------------------------------*/
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 import type { Metadata }  from "next";
 import { Inter }          from "next/font/google";
 import Script from "next/script";
@@ -91,16 +91,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         className={`${inter.className} overflow-x-hidden bg-background text-foreground`}
         suppressHydrationWarning
       >
-        <Providers>
-          {/* クライアント側で認可判定 */}
-          <AuthGuard />
+        <Suspense fallback={null}>
+          <Providers>
+            {/* クライアント側で認可判定 */}
+            <AuthGuard />
 
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1 pb-16 md:pb-0">{children}</main>
-            <MobileNavigation />
-          </div>
-        </Providers>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1 pb-16 md:pb-0">{children}</main>
+              <MobileNavigation />
+            </div>
+          </Providers>
+        </Suspense>
       </body>
     </html>
   );

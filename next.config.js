@@ -29,6 +29,5 @@ module.exports = {
     return config;
   },
 
-  // ---------- SWC 圧縮も保険で切る ----------
-  swcMinify: false,
+  minify: true,
 };
