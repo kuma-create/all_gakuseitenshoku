@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import type { Metadata }  from "next";
 import { Inter }          from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 /* ---------- 共通 UI ---------- */
@@ -70,6 +71,22 @@ export const viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ja" className="scroll-smooth antialiased" suppressHydrationWarning>
+      <head>
+        {/* Google tag (gtag.js) */}
+        <Script
+          id="ga4"
+          src="https://www.googletagmanager.com/gtag/js?id=G-FNPBR7XJT6"
+          strategy="afterInteractive"
+        />
+        <Script id="ga4-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-FNPBR7XJT6', { send_page_view: false });
+          `}
+        </Script>
+      </head>
       <body
         className={`${inter.className} overflow-x-hidden bg-background text-foreground`}
         suppressHydrationWarning

@@ -779,13 +779,24 @@ function JobGrid({
           <Card key={j.id} className="flex overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
             <Link href={`/jobs/${j.id}`} className="flex flex-1 hover:bg-gray-50">
               {j.cover_image_url && (
-                <Image
-                  src={j.cover_image_url || "/placeholder.svg"}
-                  alt="cover"
-                  width={160}
-                  height={120}
-                  className="h-auto w-40 object-cover"
-                />
+                <div className="relative">
+                  <Image
+                    src={j.cover_image_url || "/placeholder.svg"}
+                    alt="cover"
+                    width={160}
+                    height={120}
+                    className="h-auto w-40 object-cover"
+                  />
+                  {j.companies?.logo && (
+                    <Image
+                      src={j.companies.logo || "/placeholder.svg"}
+                      alt={j.companies?.name ?? "logo"}
+                      width={56}
+                      height={56}
+                      className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                    />
+                  )}
+                </div>
               )}
               <div className="flex flex-1 flex-col gap-2 p-4">
                 <Badge variant="outline" className="mb-0.5 text-[10px] rounded-full w-fit">
@@ -858,6 +869,15 @@ function JobGrid({
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                {j.companies?.logo && (
+                  <Image
+                    src={j.companies.logo || "/placeholder.svg"}
+                    alt={j.companies?.name ?? "logo"}
+                    width={64}
+                    height={64}
+                    className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                  />
+                )}
                 {j.is_featured && (
                   <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
                     <Star size={12} />
@@ -877,7 +897,9 @@ function JobGrid({
                 }
               </Badge>
               <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
-              <p className="line-clamp-1 text-sm text-gray-600">{j.companies?.name ?? "-"}</p>
+              <p className="line-clamp-1 text-sm text-gray-600">
+                {j.companies?.name ?? "-"}
+              </p>
               <div className="mt-2 flex flex-wrap gap-1">
                 {(j.tags ?? []).slice(0, 3).map((t) => (
                   <Badge key={t} className="bg-red-100 text-red-700 rounded-full">

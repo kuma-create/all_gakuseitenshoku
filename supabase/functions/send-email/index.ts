@@ -71,7 +71,15 @@ serve(async (req) => {
   }
   // payload が { record: {...} } なら DB トリガ、直接 JSON ならクライアント
   const payload = await req.json();
+
   const rec = ("record" in payload) ? payload.record : payload;
+
+  // -------------------------------------------------------------
+  // shared helper vars
+  // -------------------------------------------------------------
+  let studentName = ""; // 学生の氏名（未取得時は空文字）
+  const disclaimer =
+    "※本メールは配信専用のため、ご返信いただきましても企業へメッセージは届きません。";
 
 let {
   id,
@@ -111,8 +119,7 @@ const companyLabel = company_name && company_name.trim() !== ""
       .eq("id", user_id as string)
       .maybeSingle<{ auth_user_id: string | null; full_name: string | null }>();
 
-    let studentName = mapRow?.full_name?.trim() ?? "";
-    const disclaimer = "※本メールは配信専用のため、ご返信いただきましても企業へメッセージは届きません。";
+    studentName = mapRow?.full_name?.trim() ?? "";
 
     if (mapErr) {
       console.error("map lookup error:", mapErr);
