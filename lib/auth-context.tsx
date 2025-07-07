@@ -111,7 +111,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setReady(true);
         // `/media` とそのサブパスは誰でも閲覧可能
         const isPublic =
-          PUBLIC_ROUTES.has(pathname) || pathname === "/media" || pathname.startsWith("/media/");
+          PUBLIC_ROUTES.has(pathname) ||
+          pathname === "/media" ||
+          pathname.startsWith("/media/") ||
+          pathname === "/jobs" ||
+          pathname.startsWith("/jobs/");
+          pathname === "/companies" ||
+          pathname.startsWith("/companies/");
         if (!isPublic) router.replace("/login");
         return;
       }
