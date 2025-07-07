@@ -1377,7 +1377,7 @@ export default function CompanyDetailPage() {
                   {related.map((co) => (
                     <Link
                       key={co.id}
-                      href={`/jobs/companies/${co.id}`}
+                      href={`/companies/${co.id}`}
                       className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg"
                     >
                       <Image

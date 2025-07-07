@@ -76,6 +76,7 @@ const PUBLIC_ROUTES = new Set([
   "/terms",  
   "/lp/students/fee",
   "/media",
+  "/companies",
   "/forgot-password",          // 利用規約
   "/password-reset-callback",    // パスワード再設定コールバック
   "/auth",                    // Supabase auth-helper routes (/auth/set, /auth/logout)
@@ -115,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pathname === "/media" ||
           pathname.startsWith("/media/") ||
           pathname === "/jobs" ||
-          pathname.startsWith("/jobs/");
+          pathname.startsWith("/jobs/") ||
           pathname === "/companies" ||
           pathname.startsWith("/companies/");
         if (!isPublic) router.replace("/login");

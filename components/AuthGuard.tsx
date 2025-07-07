@@ -21,6 +21,7 @@ export default function AuthGuard() {
       "/features", 
       "/onboarding/profile",
       "/media",
+      "/companies",
       "/whitepapers", 
       "/auth",                  // Supabase auth-helper routes (/auth/set, /auth/logout)
       "/forgot-password",              // グランプリ一覧

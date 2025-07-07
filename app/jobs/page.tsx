@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { Briefcase, ChevronRight, Filter, Heart, MapPin, Search, Star } from "lucide-react"
+import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
@@ -805,9 +805,22 @@ function JobGrid({
                   <MapPin size={12} />
                   <span>{j.location}</span>
                   <Briefcase size={12} />
-                  <span>
-                    {j.salary_min ?? "-"}万 – {j.salary_max ?? "応相談"}万
-                  </span>
+                  {/* salary & deadline display */}
+                  {(j.salary_min || j.salary_max) && (
+                    <span>
+                      {j.salary_min && j.salary_max
+                        ? `${j.salary_min}万 – ${j.salary_max}万`
+                        : j.salary_min
+                        ? `${j.salary_min}万〜`
+                        : `${j.salary_max}万以下`}
+                    </span>
+                  )}
+                  {j.application_deadline && (
+                    <>
+                      <Calendar size={12} />
+                      <span>締切 {j.application_deadline}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </Link>
@@ -872,9 +885,25 @@ function JobGrid({
                   </Badge>
                 ))}
               </div>
-              <div className="mt-3 text-xs text-gray-500">
-                {j.salary_min ?? "-"}万 – {j.salary_max ?? "応相談"}万
-              </div>
+              {(j.salary_min || j.salary_max || j.application_deadline) && (
+                <div className="mt-3 text-xs text-gray-500 flex gap-1 items-center">
+                  {(j.salary_min || j.salary_max) && (
+                    <span>
+                      {j.salary_min && j.salary_max
+                        ? `${j.salary_min}万 – ${j.salary_max}万`
+                        : j.salary_min
+                        ? `${j.salary_min}万〜`
+                        : `${j.salary_max}万以下`}
+                    </span>
+                  )}
+                  {j.application_deadline && (
+                    <>
+                      <Calendar size={12} />
+                      <span>締切 {j.application_deadline}</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </Link>
           <Button
