@@ -22,7 +22,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+
 import Image from "next/image"
+import heroImg from "@/public/shukatu.jpg";
 
 import { useRouter } from "next/navigation"
 
@@ -238,10 +240,13 @@ export default function LandingPage() {
               <div className="block lg:hidden">
                 <div className="relative rounded-2xl overflow-hidden shadow-2xl mb-6">
                   <Image
-                    src="/shukatu.jpg?height=600&width=500"
+                    src={heroImg}
                     alt="成功した学生"
                     width={500}
                     height={600}
+                    placeholder="blur"
+                    priority
+                    sizes="(min-width: 1024px) 500px, 100vw"
                     className="w-full h-auto object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
@@ -280,10 +285,13 @@ export default function LandingPage() {
             <div className="relative mb-8 lg:mb-0 hidden lg:block">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <Image
-                  src="/shukatu.jpg?height=600&width=500"
+                  src={heroImg}
                   alt="成功した学生"
                   width={500}
                   height={600}
+                  placeholder="blur"
+                  priority
+                  sizes="(min-width: 1024px) 500px, 100vw"
                   className="w-full h-auto object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
