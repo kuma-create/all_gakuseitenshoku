@@ -1,4 +1,4 @@
--- Ensure resumes table exists before adding the UNIQUE constraint (secondary patch)
+-- Ensure the resumes table exists before attempting to add the UNIQUE constraint
 DO $$
 BEGIN
   -- Proceed only if the table exists
