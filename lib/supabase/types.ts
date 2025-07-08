@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instanciate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   public: {
     Tables: {
       activity_logs: {
@@ -330,9 +335,12 @@ export type Database = {
           id: string
           question_count: number
           score: number
+          section_type: Database["public"]["Enums"]["section_type"] | null
           start_date: string
           student_id: string | null
+          test_code: Database["public"]["Enums"]["test_code"] | null
           time_limit_min: number
+          time_limit_s: number
           title: string
           type: Database["public"]["Enums"]["grandprix_type"]
           updated_at: string
@@ -350,9 +358,12 @@ export type Database = {
           id?: string
           question_count?: number
           score?: number
+          section_type?: Database["public"]["Enums"]["section_type"] | null
           start_date?: string
           student_id?: string | null
+          test_code?: Database["public"]["Enums"]["test_code"] | null
           time_limit_min?: number
+          time_limit_s?: number
           title: string
           type?: Database["public"]["Enums"]["grandprix_type"]
           updated_at?: string
@@ -370,9 +381,12 @@ export type Database = {
           id?: string
           question_count?: number
           score?: number
+          section_type?: Database["public"]["Enums"]["section_type"] | null
           start_date?: string
           student_id?: string | null
+          test_code?: Database["public"]["Enums"]["test_code"] | null
           time_limit_min?: number
+          time_limit_s?: number
           title?: string
           type?: Database["public"]["Enums"]["grandprix_type"]
           updated_at?: string
@@ -473,8 +487,10 @@ export type Database = {
           address: string | null
           capital_jpy: number | null
           contact_email: string | null
+          cover_image: string | null
           cover_image_url: string | null
           created_at: string | null
+          created_by: string | null
           description: string | null
           employee_count: number | null
           founded_on: string | null
@@ -499,8 +515,10 @@ export type Database = {
           address?: string | null
           capital_jpy?: number | null
           contact_email?: string | null
+          cover_image?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           employee_count?: number | null
           founded_on?: string | null
@@ -525,8 +543,10 @@ export type Database = {
           address?: string | null
           capital_jpy?: number | null
           contact_email?: string | null
+          cover_image?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           employee_count?: number | null
           founded_on?: string | null
@@ -1085,65 +1105,6 @@ export type Database = {
         }
         Relationships: []
       }
-      experiences: {
-        Row: {
-          achievements: string | null
-          company_name: string | null
-          created_at: string | null
-          end_date: string | null
-          id: string
-          kind: string | null
-          order: number | null
-          payload: Json | null
-          profile_id: string | null
-          qualification_text: string | null
-          role: string | null
-          skill_text: string | null
-          start_date: string | null
-          summary_text: string | null
-        }
-        Insert: {
-          achievements?: string | null
-          company_name?: string | null
-          created_at?: string | null
-          end_date?: string | null
-          id?: string
-          kind?: string | null
-          order?: number | null
-          payload?: Json | null
-          profile_id?: string | null
-          qualification_text?: string | null
-          role?: string | null
-          skill_text?: string | null
-          start_date?: string | null
-          summary_text?: string | null
-        }
-        Update: {
-          achievements?: string | null
-          company_name?: string | null
-          created_at?: string | null
-          end_date?: string | null
-          id?: string
-          kind?: string | null
-          order?: number | null
-          payload?: Json | null
-          profile_id?: string | null
-          qualification_text?: string | null
-          role?: string | null
-          skill_text?: string | null
-          start_date?: string | null
-          summary_text?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "experiences_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       features: {
         Row: {
           content: string | null
@@ -1668,7 +1629,7 @@ export type Database = {
           is_read: boolean | null
           message: string
           notification_type: string
-          related_id: string | null
+          related_id: string
           send_after: string | null
           send_status: string | null
           title: string
@@ -1683,7 +1644,7 @@ export type Database = {
           is_read?: boolean | null
           message: string
           notification_type: string
-          related_id?: string | null
+          related_id: string
           send_after?: string | null
           send_status?: string | null
           title: string
@@ -1698,7 +1659,7 @@ export type Database = {
           is_read?: boolean | null
           message?: string
           notification_type?: string
-          related_id?: string | null
+          related_id?: string
           send_after?: string | null
           send_status?: string | null
           title?: string
@@ -1727,6 +1688,7 @@ export type Database = {
           category: Database["public"]["Enums"]["question_category"] | null
           challenge_id: string | null
           choices: Json | null
+          choices_img: Json | null
           correct_choice: number | null
           created_at: string | null
           difficulty: number | null
@@ -1736,12 +1698,14 @@ export type Database = {
           id: string
           order_no: number | null
           stem: string
+          stem_img_url: string | null
           weight: number | null
         }
         Insert: {
           category?: Database["public"]["Enums"]["question_category"] | null
           challenge_id?: string | null
           choices?: Json | null
+          choices_img?: Json | null
           correct_choice?: number | null
           created_at?: string | null
           difficulty?: number | null
@@ -1751,12 +1715,14 @@ export type Database = {
           id?: string
           order_no?: number | null
           stem: string
+          stem_img_url?: string | null
           weight?: number | null
         }
         Update: {
           category?: Database["public"]["Enums"]["question_category"] | null
           challenge_id?: string | null
           choices?: Json | null
+          choices_img?: Json | null
           correct_choice?: number | null
           created_at?: string | null
           difficulty?: number | null
@@ -1766,6 +1732,7 @@ export type Database = {
           id?: string
           order_no?: number | null
           stem?: string
+          stem_img_url?: string | null
           weight?: number | null
         }
         Relationships: [
@@ -2002,6 +1969,7 @@ export type Database = {
           accepted_at: string | null
           chat_room_id: string | null
           company_id: string
+          company_member_id: string
           created_at: string | null
           declined_at: string | null
           id: string
@@ -2018,6 +1986,7 @@ export type Database = {
           accepted_at?: string | null
           chat_room_id?: string | null
           company_id: string
+          company_member_id: string
           created_at?: string | null
           declined_at?: string | null
           id?: string
@@ -2034,6 +2003,7 @@ export type Database = {
           accepted_at?: string | null
           chat_room_id?: string | null
           company_id?: string
+          company_member_id?: string
           created_at?: string | null
           declined_at?: string | null
           id?: string
@@ -2087,6 +2057,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scouts_company_member_id_fkey"
+            columns: ["company_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
             referencedColumns: ["id"]
           },
           {
@@ -2215,6 +2192,7 @@ export type Database = {
           preferred_industries: string[] | null
           qualification_text: string | null
           qualifications: string[] | null
+          referral_source: string | null
           research_theme: string | null
           salary_range: string | null
           skill_text: string | null
@@ -2271,6 +2249,7 @@ export type Database = {
           preferred_industries?: string[] | null
           qualification_text?: string | null
           qualifications?: string[] | null
+          referral_source?: string | null
           research_theme?: string | null
           salary_range?: string | null
           skill_text?: string | null
@@ -2327,6 +2306,7 @@ export type Database = {
           preferred_industries?: string[] | null
           qualification_text?: string | null
           qualifications?: string[] | null
+          referral_source?: string | null
           research_theme?: string | null
           salary_range?: string | null
           skill_text?: string | null
@@ -2337,6 +2317,177 @@ export type Database = {
           strength3?: string | null
           university?: string | null
           updated_at?: string
+          user_id?: string | null
+          work_style?: string | null
+          work_style_options?: string[] | null
+        }
+        Relationships: []
+      }
+      student_profiles_backup: {
+        Row: {
+          about: string | null
+          address: string | null
+          address_line: string | null
+          admission_month: string | null
+          auth_user_id: string | null
+          avatar_url: string | null
+          birth_date: string | null
+          city: string | null
+          created_at: string | null
+          department: string | null
+          desired_industries: string[] | null
+          desired_locations: string[] | null
+          desired_positions: string[] | null
+          employment_type: string | null
+          experience: Json | null
+          faculty: string | null
+          first_name: string | null
+          first_name_kana: string | null
+          full_name: string | null
+          gender: string | null
+          graduation_month: string | null
+          has_internship_experience: boolean | null
+          hometown: string | null
+          id: string | null
+          interests: string[] | null
+          is_completed: boolean | null
+          join_ipo: boolean | null
+          language_skill: string | null
+          last_name: string | null
+          last_name_kana: string | null
+          motive: string | null
+          phone: string | null
+          postal_code: string | null
+          pr_body: string | null
+          pr_text: string | null
+          pr_title: string | null
+          prefecture: string | null
+          preference_note: string | null
+          preferred_industries: string[] | null
+          qualification_text: string | null
+          qualifications: string[] | null
+          research_theme: string | null
+          salary_range: string | null
+          skill_text: string | null
+          skills: string[] | null
+          status: string | null
+          strength1: string | null
+          strength2: string | null
+          strength3: string | null
+          university: string | null
+          updated_at: string | null
+          user_id: string | null
+          work_style: string | null
+          work_style_options: string[] | null
+        }
+        Insert: {
+          about?: string | null
+          address?: string | null
+          address_line?: string | null
+          admission_month?: string | null
+          auth_user_id?: string | null
+          avatar_url?: string | null
+          birth_date?: string | null
+          city?: string | null
+          created_at?: string | null
+          department?: string | null
+          desired_industries?: string[] | null
+          desired_locations?: string[] | null
+          desired_positions?: string[] | null
+          employment_type?: string | null
+          experience?: Json | null
+          faculty?: string | null
+          first_name?: string | null
+          first_name_kana?: string | null
+          full_name?: string | null
+          gender?: string | null
+          graduation_month?: string | null
+          has_internship_experience?: boolean | null
+          hometown?: string | null
+          id?: string | null
+          interests?: string[] | null
+          is_completed?: boolean | null
+          join_ipo?: boolean | null
+          language_skill?: string | null
+          last_name?: string | null
+          last_name_kana?: string | null
+          motive?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          pr_body?: string | null
+          pr_text?: string | null
+          pr_title?: string | null
+          prefecture?: string | null
+          preference_note?: string | null
+          preferred_industries?: string[] | null
+          qualification_text?: string | null
+          qualifications?: string[] | null
+          research_theme?: string | null
+          salary_range?: string | null
+          skill_text?: string | null
+          skills?: string[] | null
+          status?: string | null
+          strength1?: string | null
+          strength2?: string | null
+          strength3?: string | null
+          university?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          work_style?: string | null
+          work_style_options?: string[] | null
+        }
+        Update: {
+          about?: string | null
+          address?: string | null
+          address_line?: string | null
+          admission_month?: string | null
+          auth_user_id?: string | null
+          avatar_url?: string | null
+          birth_date?: string | null
+          city?: string | null
+          created_at?: string | null
+          department?: string | null
+          desired_industries?: string[] | null
+          desired_locations?: string[] | null
+          desired_positions?: string[] | null
+          employment_type?: string | null
+          experience?: Json | null
+          faculty?: string | null
+          first_name?: string | null
+          first_name_kana?: string | null
+          full_name?: string | null
+          gender?: string | null
+          graduation_month?: string | null
+          has_internship_experience?: boolean | null
+          hometown?: string | null
+          id?: string | null
+          interests?: string[] | null
+          is_completed?: boolean | null
+          join_ipo?: boolean | null
+          language_skill?: string | null
+          last_name?: string | null
+          last_name_kana?: string | null
+          motive?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          pr_body?: string | null
+          pr_text?: string | null
+          pr_title?: string | null
+          prefecture?: string | null
+          preference_note?: string | null
+          preferred_industries?: string[] | null
+          qualification_text?: string | null
+          qualifications?: string[] | null
+          research_theme?: string | null
+          salary_range?: string | null
+          skill_text?: string | null
+          skills?: string[] | null
+          status?: string | null
+          strength1?: string | null
+          strength2?: string | null
+          strength3?: string | null
+          university?: string | null
+          updated_at?: string | null
           user_id?: string | null
           work_style?: string | null
           work_style_options?: string[] | null
@@ -2597,6 +2748,7 @@ export type Database = {
         Row: {
           business_areas: Json | null
           capital_jpy: number | null
+          cover_image: string | null
           cover_image_url: string | null
           employee_count: number | null
           favorite_count: number | null
@@ -2762,6 +2914,28 @@ export type Database = {
           },
         ]
       }
+      user_companies: {
+        Row: {
+          company_id: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_messages_with_sender: {
         Row: {
           answered_at: string | null
@@ -2884,6 +3058,10 @@ export type Database = {
           updated_at: string | null
         }
       }
+      get_user_role: {
+        Args: { p_uid: string }
+        Returns: string
+      }
       grade_session: {
         Args: { p_session_id: string }
         Returns: number
@@ -2954,10 +3132,17 @@ export type Database = {
       event_format: "online" | "onsite" | "hybrid"
       grandprix_type: "case" | "webtest" | "bizscore"
       offer_status: "pending" | "accepted" | "rejected"
-      question_category: "web_lang" | "web_math" | "case" | "biz_battle"
+      question_category:
+        | "web_lang"
+        | "web_math"
+        | "case"
+        | "biz_battle"
+        | "spi_language"
       role_enum: "student" | "company" | "company_admin" | "admin"
+      section_type: "quant" | "verbal" | "english" | "logical"
       selection_type: "fulltime" | "internship_short" | "event"
       session_status: "in_progress" | "submitted" | "graded"
+      test_code: "spi" | "tamatebako" | "case" | "bizscore"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2965,21 +3150,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -2997,14 +3186,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -3020,14 +3211,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -3043,14 +3236,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -3058,14 +3253,16 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
@@ -3090,10 +3287,18 @@ export const Constants = {
       event_format: ["online", "onsite", "hybrid"],
       grandprix_type: ["case", "webtest", "bizscore"],
       offer_status: ["pending", "accepted", "rejected"],
-      question_category: ["web_lang", "web_math", "case", "biz_battle"],
+      question_category: [
+        "web_lang",
+        "web_math",
+        "case",
+        "biz_battle",
+        "spi_language",
+      ],
       role_enum: ["student", "company", "company_admin", "admin"],
+      section_type: ["quant", "verbal", "english", "logical"],
       selection_type: ["fulltime", "internship_short", "event"],
       session_status: ["in_progress", "submitted", "graded"],
+      test_code: ["spi", "tamatebako", "case", "bizscore"],
     },
   },
 } as const
