@@ -5,6 +5,9 @@
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.5
 
+CREATE SCHEMA public;
+COMMENT ON SCHEMA public IS 'standard public schema';
+
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SET check_function_bodies = false;
@@ -16,14 +19,12 @@ SET row_security = off;
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
 
-CREATE SCHEMA public;
 
 
 --
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
 
-COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
@@ -2967,7 +2968,8 @@ COPY public.challenges (id, title, description, word_limit, deadline, created_at
 COPY public.chat_rooms (id, company_id, student_id, job_id, created_at, updated_at, scout_id) FROM stdin;
 \.
 
-
+COPY public.users (id, email, password, role, created_at) FROM stdin;
+\.
 --
 -- Data for Name: companies; Type: TABLE DATA; Schema: public; Owner: -
 --
@@ -4264,8 +4266,7 @@ COPY public.user_signups (id, user_id, referral_source, created_at) FROM stdin;
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.users (id, email, password, role, created_at) FROM stdin;
-\.
+
 
 
 --
