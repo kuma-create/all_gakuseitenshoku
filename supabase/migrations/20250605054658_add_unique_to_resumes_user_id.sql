@@ -1,7 +1,7 @@
--- Ensure the resumes table exists before adding the UNIQUE constraint
+-- Ensure resumes table exists before adding the UNIQUE constraint (secondary patch)
 DO $$
 BEGIN
-  -- Only proceed if the table exists
+  -- Proceed only if the table exists
   IF EXISTS (
     SELECT 1
     FROM   pg_tables
@@ -11,10 +11,8 @@ BEGIN
     -- Add the constraint only if it is not already present
     IF NOT EXISTS (
       SELECT 1
-      FROM   pg_indexes
-      WHERE  schemaname = 'public'
-        AND  tablename  = 'resumes'
-        AND  indexname  = 'resumes_user_id_key'
+      FROM   pg_constraint
+      WHERE  conname = 'resumes_user_id_key'
     ) THEN
       ALTER TABLE public.resumes
         ADD CONSTRAINT resumes_user_id_key UNIQUE (user_id);
