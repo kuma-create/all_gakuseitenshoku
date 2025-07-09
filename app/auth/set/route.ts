@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   // Next 15 では cookies 関数そのものを渡すだけで OK
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => nextCookies() });
+  const supabase = createRouteHandlerClient<Database>({ cookies: nextCookies });
 
   const session = (await req.json()) as
     | { access_token: string; refresh_token: string; expires_at: number }
