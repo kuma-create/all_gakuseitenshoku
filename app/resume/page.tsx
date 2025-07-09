@@ -64,6 +64,7 @@ interface WorkExperience {
   isOpen: boolean;
   company: string;
   position: string;
+  jobType: string;
   startDate: string;
   endDate: string;
   isCurrent: boolean;
@@ -137,6 +138,7 @@ export default function ResumePage() {
       isOpen: true,
       company: "",
       position: "",
+      jobType: "",
       startDate: "",
       endDate: "",
       isCurrent: false,
@@ -350,6 +352,7 @@ export default function ResumePage() {
         isOpen: true,
         company: "",
         position: "",
+        jobType: "",
         startDate: "",
         endDate: "",
         isCurrent: false,
@@ -618,6 +621,31 @@ export default function ResumePage() {
                         value={exp.company}
                         onChange={(e) => handleWorkExperienceChange(exp.id, "company", e.target.value)}
                       />
+                    </div>
+                    <div className="space-y-1 sm:space-y-2">
+                      <Label htmlFor={`jobType-${exp.id}`} className="text-xs sm:text-sm">
+                        職種
+                      </Label>
+                      <Select
+                        id={`jobType-${exp.id}`}
+                        value={exp.jobType}
+                        onValueChange={(value) => handleWorkExperienceChange(exp.id, "jobType", value)}
+                      >
+                        <SelectTrigger className="h-8 text-xs sm:h-10 sm:text-sm">
+                          <SelectValue placeholder="職種を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="営業">営業</SelectItem>
+                          <SelectItem value="IT">IT</SelectItem>
+                          <SelectItem value="マーケティング">マーケティング</SelectItem>
+                          <SelectItem value="事務">事務</SelectItem>
+                          <SelectItem value="販売・サービス">販売・サービス</SelectItem>
+                          <SelectItem value="クリエイティブ">クリエイティブ</SelectItem>
+                          <SelectItem value="医療・福祉">医療・福祉</SelectItem>
+                          <SelectItem value="教育・保育・公共サービス">教育・保育・公共サービス</SelectItem>
+                          <SelectItem value="その他">その他</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       <Label htmlFor={`position-${exp.id}`} className="text-xs sm:text-sm">
