@@ -408,7 +408,7 @@ function CompanyInfo({ company }: { company: Company }) {
 
       <div className="flex justify-center">
         <Button variant="outline" size="sm" asChild className="gap-1">
-          <Link href={`/company/${company.id}`}>
+          <Link href={`/companies/${company.id}`}>
             <ExternalLink size={14} />
             企業詳細を見る
           </Link>

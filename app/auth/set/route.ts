@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies as nextCookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   // Next 15 では cookies 関数そのものを渡すだけで OK
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+  const supabase = createRouteHandlerClient<Database>({ cookies: nextCookies });
 
   const session = (await req.json()) as
     | { access_token: string; refresh_token: string; expires_at: number }
