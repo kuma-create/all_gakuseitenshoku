@@ -1,0 +1,36 @@
+# .github/workflows/supabase-migrations.yml
+name: Deploy Supabase Migrations
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Node.js & Supabase CLI
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Configure Supabase credentials
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_REF:          ${{ secrets.SUPABASE_REF }}
+        run: |
+          # Supabase CLI に本番プロジェクトをリンク
+          supabase link --project-ref "$SUPABASE_REF" --service-role-key "$SUPABASE_ACCESS_TOKEN"
+
+      - name: Run migrations (db push)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_REF:          ${{ secrets.SUPABASE_REF }}
+        run: |
+          supabase db push --project-ref "$SUPABASE_REF"
