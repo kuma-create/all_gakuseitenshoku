@@ -47,6 +47,7 @@ const PREFECTURES = [
   "海外","リモート"
 ] as const
 
+
 /** 固定の希望職種リスト */
 const JOB_POSITIONS = [
   "エンジニア","営業","コンサルタント","研究・開発",
@@ -82,6 +83,8 @@ type Student = StudentRow & {
   location?: string | null
   skills?: string[] | null
   qualifications?: string[] | null
+  /** 経験職種（student_resume_jobtypes.job_types）*/
+  job_types?: string[] | null
   has_internship_experience?: boolean | null
   graduation_year?: number | null
   status?: string | null
@@ -124,6 +127,9 @@ export default function ScoutPage() {
   /** 並び替え: score = マッチ度 / recent = 登録が新しい順 / name = 氏名順 */
   const [sortBy, setSortBy] = useState<"score" | "recent" | "name">("score")
 
+  /** 履歴書の経験職種(jobType)フィルタ */
+  const [experienceJobTypes, setExperienceJobTypes] = useState<string[]>([])
+
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
     const init = async () => {
@@ -153,8 +159,26 @@ export default function ScoutPage() {
       // 🔽 page.tsx の学生取得クエリをこれに置き換え
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
-        // ← 外部キー名を明示しつつ !left で LEFT JOIN
-        .select("*, resumes!resumes_user_id_profile_fkey!left(form_data, work_experiences)")
+        // ← レジュメのみを JOIN。経験職種は別クエリで取得する
+        .select(`
+          *,
+          resumes!left(
+            form_data,
+            work_experiences
+          )
+        `)
+
+      // ───────── 経験職種ビュー ─────────
+      const { data: jtRows, error: jtErr } = await sb
+        .from("student_resume_jobtypes")
+        .select("student_id, job_types")
+      if (jtErr) console.error("student_resume_jobtypes fetch error:", jtErr)
+      const jobTypesMap = new Map<string, string[]>()
+      ;(jtRows ?? []).forEach((r) => {
+        if (r.student_id) {
+          jobTypesMap.set(r.student_id, r.job_types ?? [])
+        }
+      })
       console.log("stuErr =", stuErr)     // ★追加
       console.log("stuRows =", stuRows)
 
@@ -210,9 +234,21 @@ export default function ScoutPage() {
           )
 
           /* ---------- 職務経歴書入力率 ---------- */
-          const works = Array.isArray(resume?.work_experiences)
-            ? (resume!.work_experiences as any[])
-            : []
+          // ---------- work_experiences ---------- //
+          let worksRaw: unknown = resume?.work_experiences ?? []
+          if (typeof worksRaw === "string") {
+            try {
+              worksRaw = JSON.parse(worksRaw)
+            } catch {
+              worksRaw = []
+            }
+          }
+          const works = Array.isArray(worksRaw) ? (worksRaw as any[]) : []
+          // → 解析結果を元データへ反映
+          if (resume) {
+            // work_experiences が文字列だった場合は配列へ置換
+            (resume as any).work_experiences = works
+          }
           let totalReq = 0, totalFilled = 0
           works.forEach((w) => {
             totalReq += 6
@@ -238,6 +274,10 @@ export default function ScoutPage() {
             last_active: row.created_at
               ? `${Math.round((now - new Date(row.created_at).getTime()) / 60000)}分前`
               : "",
+          }
+          // 経験職種をビューから付与
+          if (normalized.job_types == null) {
+            normalized.job_types = jobTypesMap.get(normalized.id) ?? null
           }
           // grad_year という列名で来るケースを補完
           if (
@@ -310,6 +350,8 @@ export default function ScoutPage() {
   /* ── フィルタリング ───────────── */
   const filtered = useMemo(() => {
     let list = students
+    // [DEBUG] total students
+    console.log("[DEBUG] total students:", students.length)
     // ★ 25 卒以下は非表示
     list = list.filter((s) => {
       const yr =
@@ -373,6 +415,14 @@ export default function ScoutPage() {
     /* 5) インターン経験 */
     if (hasInternship) {
       list = list.filter((s) => s.has_internship_experience)
+      console.log("[DEBUG] after internship filter:", list.length)
+    }
+
+    /* 6) 経験職種(jobType) */
+    if (experienceJobTypes.length) {
+      list = list.filter((s) =>
+        (s.job_types ?? []).some((jt) => experienceJobTypes.includes(jt)),
+      )
     }
 
     /* 6) スキル */
@@ -380,6 +430,7 @@ export default function ScoutPage() {
       list = list.filter((s) =>
         skills.every((sk) => (s.skills ?? []).includes(sk)),
       )
+      console.log("[DEBUG] after skills filter:", list.length)
     }
 
     /* 7) 資格 */
@@ -428,6 +479,7 @@ export default function ScoutPage() {
     statuses,
     selectedMajor,
     hasInternship,
+    experienceJobTypes,
     skills,
     qualificationsFilter,
     desiredPosition,
@@ -554,6 +606,37 @@ export default function ScoutPage() {
                 <label htmlFor="intern" className="text-sm">
                   インターン経験あり
                 </label>
+              </div>
+
+              {/* 経験職種 */}
+              <div>
+                <h4 className="font-semibold mb-2">経験職種</h4>
+                {[
+                  "営業",
+                  "IT",
+                  "マーケティング",
+                  "事務",
+                  "販売・サービス",
+                  "クリエイティブ",
+                  "医療・福祉",
+                  "教育・保育・公共サービス",
+                  "その他",
+                ].map((jt) => (
+                  <div key={jt} className="flex items-center mb-1">
+                    <Checkbox
+                      id={`jobType-${jt}`}
+                      checked={experienceJobTypes.includes(jt)}
+                      onCheckedChange={(v) => {
+                        setExperienceJobTypes((prev) =>
+                          v ? [...prev, jt] : prev.filter((x) => x !== jt)
+                        )
+                      }}
+                    />
+                    <label htmlFor={`jobType-${jt}`} className="ml-2 text-sm">
+                      {jt}
+                    </label>
+                  </div>
+                ))}
               </div>
 
               {/* ステータス */}
