@@ -1,0 +1,4 @@
+# supabase/config.toml  （セクションヘッダは不要）
+
+# すでに `supabase link` 済みなら project_id は省略可
+project_id = "cpinzmlynykyrxdvkshl"
