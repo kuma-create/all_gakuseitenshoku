@@ -2,13 +2,9 @@
 # supabase/config.toml
 ###############################################################################
 
-# ─── remotes.preview : PR 用。deploy = false で本番は触らない ─────────
-[remotes.preview]
-project_id = "webfgicvknvldgsctvhl"   # Preview 用 ID
-deploy     = false                    # ← ここがポイント
+# ―― 本番プロジェクト（main にマージされたらここへ流れる） ―――――――――――
+project_id = "cpinzmlynykyrxdvkshl"   # ← 本番 ID だけ残す
 
-# ─── remotes.production : main ブランチにマージされたときだけ実行 ───
-[remotes.production]
-branch     = "main"                   # main への push でトリガー
-project_id = "cpinzmlynykyrxdvkshl"   # 本番 ID
-deploy     = true                     # デフォルトなので書かなくても OK
+# ―― PR 用 Preview プロジェクト ―――――――――――――――――――――――――――――
+[remotes.preview]
+project_id = "webfgicvknvldgsctvhl"   # ← Preview 用 ID だけ
