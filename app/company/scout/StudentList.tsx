@@ -1,10 +1,14 @@
 "use client"
 
+import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Check } from "lucide-react"
 import clsx from "clsx"
 import type { Database } from "@/lib/supabase/types"
 import { Card, CardContent } from "@/components/ui/card"
+import { supabase as sb } from "@/lib/supabase/client"
 
 /** 最終アクティブを「○分前 / ○時間前 / ○日前」に整形 */
 function formatLastActive(ts?: string | null): string | null {
@@ -94,6 +98,8 @@ interface Props {
 }
 
 export default function StudentList({ students, selectedId, onSelect }: Props) {
+  const [memos, setMemos] = useState<Record<string, string>>({})
+
   return (
     <div className="space-y-4 overflow-y-auto p-4 max-h-full">
       {students.map((stu) => {
@@ -107,77 +113,105 @@ export default function StudentList({ students, selectedId, onSelect }: Props) {
               selectedId === stu.id && "ring-2 ring-indigo-400"
             )}
           >
-            <CardContent className="p-4 flex items-start gap-3">
-              <Avatar className="h-12 w-12 shrink-0">
-                {stu.avatar_url ? (
-                  <AvatarImage src={stu.avatar_url} alt={stu.full_name ?? ""} />
-                ) : null}
-                <AvatarFallback>
-                  {stu.avatar_url ? null : company?.slice(0, 2) ?? "👤"}
-                </AvatarFallback>
-              </Avatar>
+            <CardContent className="p-4 flex flex-col gap-3">
+              <div className="flex items-start gap-3">
+                <Avatar className="h-12 w-12 shrink-0">
+                  {stu.avatar_url ? (
+                    <AvatarImage src={stu.avatar_url} alt={stu.full_name ?? ""} />
+                  ) : null}
+                  <AvatarFallback>
+                    {stu.avatar_url ? null : company?.slice(0, 2) ?? "👤"}
+                  </AvatarFallback>
+                </Avatar>
 
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{stu.university}</p>
-                <p className="text-xs text-gray-500 truncate">
-                  {company ?? "インターン情報なし"}
-                </p>
-                {(stu.major || stu.location) && (
-                  <p className="text-[11px] text-gray-500 truncate">
-                    {[stu.major, stu.location].filter(Boolean).join(" / ")}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{stu.university}</p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {company ?? "インターン情報なし"}
                   </p>
-                )}
-
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {stu.skills?.slice(0, 2).map((sk) => (
-                    <Badge key={sk} variant="secondary" className="text-[10px]">
-                      {sk}
-                    </Badge>
-                  ))}
-
-                  {stu.qualifications?.slice(0, 1).map((ql) => (
-                    <Badge key={ql} variant="secondary" className="text-[10px]">
-                      {ql}
-                    </Badge>
-                  ))}
-
-                  {stu.has_internship_experience && (
-                    <Badge variant="outline" className="text-[10px]">
-                      インターン
-                    </Badge>
+                  {(stu.major || stu.location) && (
+                    <p className="text-[11px] text-gray-500 truncate">
+                      {[stu.major, stu.location].filter(Boolean).join(" / ")}
+                    </p>
                   )}
 
-                  {formatLastActive(stu.last_active) && (
-                    <Badge variant="outline" className="text-[10px]">
-                      {formatLastActive(stu.last_active)}
-                    </Badge>
-                  )}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {stu.skills?.slice(0, 2).map((sk) => (
+                      <Badge key={sk} variant="secondary" className="text-[10px]">
+                        {sk}
+                      </Badge>
+                    ))}
 
-                  {stu.graduation_year && (
-                    <Badge variant="outline" className="text-[10px]">
-                      {stu.graduation_year}卒
-                    </Badge>
-                  )}
+                    {stu.qualifications?.slice(0, 1).map((ql) => (
+                      <Badge key={ql} variant="secondary" className="text-[10px]">
+                        {ql}
+                      </Badge>
+                    ))}
 
-                  {typeof stu.profile_completion === "number" && (
-                    <Badge variant="outline" className="text-[10px]">
-                      記載率{stu.profile_completion}%
-                    </Badge>
-                  )}
+                    {stu.has_internship_experience && (
+                      <Badge variant="outline" className="text-[10px]">
+                        インターン
+                      </Badge>
+                    )}
 
-                  {typeof stu.match_score === "number" && (
-                    <Badge variant="outline" className="text-[10px]">
-                      {stu.match_score}%
-                    </Badge>
-                  )}
+                    {formatLastActive(stu.last_active) && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {formatLastActive(stu.last_active)}
+                      </Badge>
+                    )}
+
+                    {stu.graduation_year && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {stu.graduation_year}卒
+                      </Badge>
+                    )}
+
+                    {typeof stu.profile_completion === "number" && (
+                      <Badge variant="outline" className="text-[10px]">
+                        記載率{stu.profile_completion}%
+                      </Badge>
+                    )}
+
+                    {typeof stu.match_score === "number" && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {stu.match_score}%
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {stu.status && (
-                <Badge variant="secondary" className="shrink-0 text-xs">
-                  {stu.status}
-                </Badge>
-              )}
+                {stu.status && (
+                  <Badge variant="secondary" className="shrink-0 text-xs">
+                    {stu.status}
+                  </Badge>
+                )}
+              </div>
+              <div
+                className="flex items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Input
+                  placeholder="メモを入力"
+                  className="flex-1 text-sm"
+                  value={memos[stu.id] ?? ""}
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    setMemos({ ...memos, [stu.id]: e.target.value })
+                  }}
+                />
+                <Check
+                  className="h-5 w-5 text-green-500 cursor-pointer"
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    const memoText = memos[stu.id] ?? ""
+                    const { error } = await sb
+                      .from("student_profiles")
+                      .update({ memo: memoText })
+                      .eq("id", stu.id)
+                    if (error) console.error("Memo save error:", error)
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
         )
