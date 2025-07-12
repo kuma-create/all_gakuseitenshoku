@@ -86,115 +86,122 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
-CREATE TYPE "public"."application_status" AS ENUM (
-    '未対応',
-    '書類選考中',
-    '一次面接調整中',
-    '一次面接済',
-    '二次面接調整中',
-    '二次面接済',
-    '最終面接調整中',
-    '最終面接済',
-    '内定',
-    '内定辞退',
-    '不採用',
-    'スカウト承諾'
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type WHERE typname = 'application_status'
+  ) THEN
+    CREATE TYPE public.application_status AS ENUM (
+      '未対応',
+      '書類選考中',
+      '一次面接調整中',
+      '一次面接済',
+      '二次面接調整中',
+      '二次面接済',
+      '最終面接調整中',
+      '最終面接済',
+      '内定',
+      '内定辞退',
+      '不採用',
+      'スカウト承諾'
+    );
+  END IF;
+END$$;
 
 
 ALTER TYPE "public"."application_status" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."event_format" AS ENUM (
-    'online',
-    'onsite',
-    'hybrid'
-);
+--CREATE TYPE "public"."event_format" AS ENUM (
+  --  'online',
+  --  'onsite',
+  --  'hybrid'
+--);
 
 
 ALTER TYPE "public"."event_format" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."grandprix_type" AS ENUM (
-    'case',
-    'webtest',
-    'bizscore'
-);
+--CREATE TYPE "public"."grandprix_type" AS ENUM (
+  --  'case',
+  --  'webtest',
+  --  'bizscore'
+--);
 
 
 ALTER TYPE "public"."grandprix_type" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."offer_status" AS ENUM (
-    'pending',
-    'accepted',
-    'rejected'
-);
+--CREATE TYPE "public"."offer_status" AS ENUM (
+  --  'pending',
+  --  'accepted',
+  --  'rejected'
+--);
 
 
 ALTER TYPE "public"."offer_status" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."question_category" AS ENUM (
-    'web_lang',
-    'web_math',
-    'case',
-    'biz_battle',
-    'spi_language'
-);
+--CREATE TYPE "public"."question_category" AS ENUM (
+  --  'web_lang',
+  --  'web_math',
+  --  'case',
+  --  'biz_battle',
+  --  'spi_language'
+--);
 
 
 ALTER TYPE "public"."question_category" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."role_enum" AS ENUM (
-    'student',
-    'company',
-    'company_admin',
-    'admin'
-);
+--CREATE TYPE "public"."role_enum" AS ENUM (
+  --  'student',
+  --  'company',
+  --  'company_admin',
+  --  'admin'
+--);
 
 
 ALTER TYPE "public"."role_enum" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."section_type" AS ENUM (
-    'quant',
-    'verbal',
-    'english',
-    'logical'
-);
+--CREATE TYPE "public"."section_type" AS ENUM (
+  --  'quant',
+  --  'verbal',
+  --  'english',
+  --  'logical'
+--);
 
 
 ALTER TYPE "public"."section_type" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."selection_type" AS ENUM (
-    'fulltime',
-    'internship_short',
-    'event'
-);
+--CREATE TYPE "public"."selection_type" AS ENUM (
+  --  'fulltime',
+  --  'internship_short',
+  --  'event'
+--);
 
 
 ALTER TYPE "public"."selection_type" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."session_status" AS ENUM (
-    'in_progress',
-    'submitted',
-    'graded'
-);
+--CREATE TYPE "public"."session_status" AS ENUM (
+  --  'in_progress',
+  --  'submitted',
+  --  'graded'
+--);
 
 
 ALTER TYPE "public"."session_status" OWNER TO "postgres";
 
 
-CREATE TYPE "public"."test_code" AS ENUM (
-    'spi',
-    'tamatebako',
-    'case',
-    'bizscore'
-);
+--CREATE TYPE "public"."test_code" AS ENUM (
+  --  'spi',
+  --  'tamatebako',
+  --  'case',
+  --  'bizscore'
+--);
 
 
 ALTER TYPE "public"."test_code" OWNER TO "postgres";
@@ -3027,9 +3034,6 @@ ALTER TABLE ONLY "public"."referral_uses"
     ADD CONSTRAINT "referral_uses_pkey" PRIMARY KEY ("id");
 
 
-
-ALTER TABLE ONLY "public"."resumes"
-    ADD CONSTRAINT "resumes_pkey" PRIMARY KEY ("id");
 
 
 
