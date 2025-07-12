@@ -4,18 +4,21 @@ name: Supabase Backup
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 毎日 2:00 JST
+    # UTC 15,18,21,0,3,6,9,12 → JST 0,3,6,9,12,15,18,21
+    - cron: '0 15,18,21,0,3,6,9,12 * * *'  # 3時間おき (JST ベース)
 
 jobs:
   backup:
     runs-on: ubuntu-latest
+    env:
+      TZ: 'Asia/Tokyo'   # ジョブ内コマンドを JST 表示に
     steps:
       - uses: supabase/github-action@v1
         with:
           args: |
             link --project-ref ${{ secrets.SUPABASE_REF }} --password ${{ secrets.SUPABASE_DB_PASSWORD }}
             db dump --file=backup.sql
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: supabase-backup
           path: backup.sql

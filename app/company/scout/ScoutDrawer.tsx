@@ -76,7 +76,7 @@ export default function ScoutDrawer({
   const MAX_LEN = 1000
   // 400-600 / 400〜600 / 400‐600 などを許可（全角半角数字 & 区切り）
   const isValidRange = (str: string) =>
-    /^[0-9０-９]+\s*[-〜‐‑–—~]\s*[0-9０-９]+$/.test(str.trim())
+    /^[0-9 0-9]+\s*[-〜‐‑–—~]\s*[0-9 0-9]+$/.test(str.trim())
 
   // 企業が持つ求人一覧を取得
   useEffect(() => {
