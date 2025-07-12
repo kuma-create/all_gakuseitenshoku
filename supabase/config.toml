@@ -2,3 +2,12 @@
 
 # すでに `supabase link` 済みなら project_id は省略可
 project_id = "cpinzmlynykyrxdvkshl"
+
+# --- Preview settings -----------------------------------------------------
+# Pull Request ブランチを毎回 "preview" プロジェクトへデプロイし、
+# production プロジェクトには反映しないようにする設定です。
+# `project_id` は Preview 用（無料枠など）の Supabase プロジェクト ID に置き換えてください。
+[remotes.preview]
+branch     = "*"                 # すべての PR / 開発ブランチ
+project_id = "webfgicvknvldgsctvhl"
+deploy     = false               # 本番には流さず Preview DB のみ更新
