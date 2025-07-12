@@ -1,4 +1,10 @@
-# supabase/config.toml  （セクションヘッダは不要）
+###############################################################################
+# supabase/config.toml
+###############################################################################
 
-# すでに `supabase link` 済みなら project_id は省略可
-project_id = "cpinzmlynykyrxdvkshl"
+# ―― 本番プロジェクト（main にマージされたらここへ流れる） ―――――――――――
+project_id = "cpinzmlynykyrxdvkshl"   # ← 本番 ID だけ残す
+
+# ―― PR 用 Preview プロジェクト ―――――――――――――――――――――――――――――
+[remotes.preview]
+project_id = "webfgicvknvldgsctvhl"   # ← Preview 用 ID だけ
