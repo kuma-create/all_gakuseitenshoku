@@ -18,7 +18,7 @@ revoke truncate on table "public"."user_roles" from "authenticated";
 
 --alter table "public"."resumes" drop column "title";
 
-alter table "public"."resumes" add column "desired_job_title" text;
+--alter table "public"."resumes" add column "desired_job_title" text;
 
 alter table "public"."resumes" add column "educations" jsonb;
 
