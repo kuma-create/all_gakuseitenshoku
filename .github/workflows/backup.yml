@@ -13,6 +13,8 @@ jobs:
     env:
       TZ: 'Asia/Tokyo'   # ジョブ内コマンドを JST 表示に
     steps:
+      - name: Ensure backup directory exists
+        run: mkdir -p hei-gakuseitenshoku/all_gakuseitenshoku
       - uses: supabase/github-action@v1
         with:
           args: |
