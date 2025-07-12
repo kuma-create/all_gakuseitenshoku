@@ -6,6 +6,7 @@ on:
   schedule:
     # UTC 15,18,21,0,3,6,9,12 → JST 0,3,6,9,12,15,18,21
     - cron: '0 15,18,21,0,3,6,9,12 * * *'  # 3時間おき (JST ベース)
+  workflow_dispatch:       # ← 追加：手動実行ボタン用
 
 jobs:
   backup:
