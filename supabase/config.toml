@@ -1,13 +1,14 @@
-# supabase/config.toml  （セクションヘッダは不要）
+###############################################################################
+# supabase/config.toml
+###############################################################################
 
-# すでに `supabase link` 済みなら project_id は省略可
-project_id = "cpinzmlynykyrxdvkshl"
-
-# --- Preview settings -----------------------------------------------------
-# Pull Request ブランチを毎回 "preview" プロジェクトへデプロイし、
-# production プロジェクトには反映しないようにする設定です。
-# `project_id` は Preview 用（無料枠など）の Supabase プロジェクト ID に置き換えてください。
+# ─── remotes.preview : PR 用。deploy = false で本番は触らない ─────────
 [remotes.preview]
-branch     = "*"                 # すべての PR / 開発ブランチ
-project_id = "webfgicvknvldgsctvhl"
-deploy     = false               # 本番には流さず Preview DB のみ更新
+project_id = "webfgicvknvldgsctvhl"   # Preview 用 ID
+deploy     = false                    # ← ここがポイント
+
+# ─── remotes.production : main ブランチにマージされたときだけ実行 ───
+[remotes.production]
+branch     = "main"                   # main への push でトリガー
+project_id = "cpinzmlynykyrxdvkshl"   # 本番 ID
+deploy     = true                     # デフォルトなので書かなくても OK
