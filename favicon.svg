@@ -1,0 +1,16 @@
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type":   "Organization",
+  "name":    "学生転職",
+  "url":     "https://culture.gakuten.co.jp/",
+  "logo": {
+    "@type": "ImageObject",
+    "url":  "https://culture.gakuten.co.jp/logo-600x600.png",
+    "width": 600,
+    "height": 600
+  }
+}
+</script>
