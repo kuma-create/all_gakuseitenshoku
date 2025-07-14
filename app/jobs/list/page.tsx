@@ -498,7 +498,7 @@ job_tags!job_tags_job_id_fkey (
       <Footer />
     </div>
     </>
-}
+)}
 
 /* =============== components ================ */
 function FilterPanel({
