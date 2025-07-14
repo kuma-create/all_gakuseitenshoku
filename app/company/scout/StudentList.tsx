@@ -29,12 +29,27 @@ function formatLastActive(ts?: string | null): string | null {
   return `${diffDays}日前`
 }
 
+/** ISO 文字列を `YYYY/MM/DD` 形式へ */
+function formatDate(ts?: string | null): string | null {
+  if (!ts) return null
+  const date = new Date(ts)
+  if (Number.isNaN(date.getTime())) return null
+
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, "0")
+  const dd = String(date.getDate()).padStart(2, "0")
+  return `${yyyy}/${mm}/${dd}`
+}
+
 /** 学生リストで追加メタ情報も扱えるよう intersection 型に */
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   /** 動的計算されたマッチ度 */
   match_score?: number
   /** 最終アクティブ時刻を元にした表示用文字列 */
   last_active?: string
+
+  /** student_profiles の last_sign_in_at */
+  last_sign_in_at?: string | null
 
   /** ネスト取得したレジュメ */
   resumes?: {
@@ -50,9 +65,11 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   graduation_year?: number | null
   profile_completion?: number | null
   status?: string | null
+
+  work_experiences?: any[] | null
 }
 
-/** 最新のインターン先会社名を取得 */
+/** 最新のインターン先会社名を取得（複数スキーマ互換） */
 function getLatestInternCompany(stu: Student): string | null {
   type RawExp = {
     company_name?: string | null
@@ -62,28 +79,30 @@ function getLatestInternCompany(stu: Student): string | null {
     end_date?: string | null
   }
 
-  // ---- 1) resumes → work_experiences ----
-  // stu.resumes が配列でない場合（単一オブジェクト or null）も吸収
-  const resumesArray =
-    Array.isArray(stu?.resumes)
-      ? stu.resumes
-      : stu?.resumes
-      ? [stu.resumes]
-      : []
-
-  const resumeExps: RawExp[] = resumesArray.flatMap((r) =>
-    (r?.work_experiences as RawExp[] | null | undefined) ?? []
-  )
-
-  // ---- 2) fallback: stu.experiences (旧スキーマ) ----
-  const directExps: RawExp[] = Array.isArray((stu as any)?.experiences)
-    ? (stu as any).experiences
+  /* ----------------------------- 1) 現行スキーマ ----------------------------- */
+  // student_profiles.work_experiences が直接来る場合
+  const directWorkExps: RawExp[] = Array.isArray((stu as any).work_experiences)
+    ? ((stu as any).work_experiences as RawExp[])
     : []
 
-  const exps: RawExp[] = [...resumeExps, ...directExps]
+  /* ----------------------------- 2) resumes テーブル ----------------------------- */
+  const resumesArray =
+    Array.isArray(stu.resumes) ? stu.resumes : stu.resumes ? [stu.resumes] : []
+
+  const resumesWorkExps: RawExp[] = resumesArray.flatMap((r) =>
+    Array.isArray(r?.work_experiences) ? (r.work_experiences as RawExp[]) : []
+  )
+
+  /* ----------------------------- 3) 旧スキーマ fallback ----------------------------- */
+  const legacyExps: RawExp[] = Array.isArray((stu as any).experiences)
+    ? ((stu as any).experiences as RawExp[])
+    : []
+
+  /* ----------------------------- 集約＆整形 ----------------------------- */
+  const exps: RawExp[] = [...directWorkExps, ...resumesWorkExps, ...legacyExps]
   if (exps.length === 0) return null
 
-  // end_date → start_date の降順でソート
+  // 日付が新しい順（end_date → start_date）でソート（null/空は最後）
   const sortKey = (e: RawExp) => e.end_date ?? e.start_date ?? ""
   exps.sort((a, b) => sortKey(b).localeCompare(sortKey(a)))
 
@@ -92,9 +111,13 @@ function getLatestInternCompany(stu: Student): string | null {
 }
 
 interface Props {
-  companyId?: string  // ← prop may be undefined when not passed
+  /** 企業 ID */
+  companyId?: string
+  /** 学生一覧（表示順は上位コンポーネントでフィルタ／ソート済み） */
   students: Student[]
+  /** 現在選択されている学生 ID（なければ null） */
   selectedId: string | null
+  /** 学生カードがクリックされたときのハンドラ */
   onSelect: (student: Student) => void
 }
 
@@ -127,7 +150,7 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
 
   return (
     <div className="space-y-4 overflow-y-auto p-4 max-h-full">
-      {students.map((stu) => {
+      {students.map((stu: Student) => {
         const company = getLatestInternCompany(stu)
         return (
           <Card
@@ -159,6 +182,9 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                       {[stu.major, stu.location].filter(Boolean).join(" / ")}
                     </p>
                   )}
+                  <p className="text-[11px] text-gray-500 truncate">
+                    登録: {formatDate(stu.created_at) ?? "－"} / 最終ログイン: {formatDate(stu.last_sign_in_at) ?? "－"}
+                  </p>
 
                   <div className="flex flex-wrap gap-1 mt-2">
                     {stu.skills?.slice(0, 2).map((sk) => (
@@ -179,9 +205,9 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                       </Badge>
                     )}
 
-                    {formatLastActive(stu.last_active) && (
+                    {formatLastActive(stu.last_sign_in_at) && (
                       <Badge variant="outline" className="text-[10px]">
-                        {formatLastActive(stu.last_active)}
+                        {formatLastActive(stu.last_sign_in_at)}
                       </Badge>
                     )}
 
