@@ -762,6 +762,7 @@ export default function StudentProfilePage() {
                 id="pr_title"
                 label="PR タイトル"
                 value={profile.pr_title ?? ''}
+                placeholder="あなたを一言で表してみましょう"
                 onChange={(v) => updateMark({ pr_title: v })}
                 onBlur={handleBlur}
               />

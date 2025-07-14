@@ -123,6 +123,8 @@ interface Props {
 
 export default function StudentList({ companyId, students, selectedId, onSelect }: Props) {
   const [memos, setMemos] = useState<Record<string, string>>({})
+  /** 既にオファー済みの学生 ID 集合 */
+  const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const loadMemos = async () => {
@@ -146,6 +148,32 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
       }
     }
     loadMemos()
+  }, [companyId ?? ""])
+
+  useEffect(() => {
+    if (!companyId) return
+
+    const loadOffers = async () => {
+      const { data, error } = await sb
+        .from("scouts")
+        .select("student_id, status")
+        .eq("company_id", companyId)
+
+      if (!error && data) {
+        const ids = new Set<string>()
+        data.forEach((row) => {
+          // 「draft」は下書きスカウトなので除外
+          if (row.status && row.status !== "draft") {
+            ids.add(row.student_id as string)
+          }
+        })
+        setOfferedIds(ids)
+      } else if (error) {
+        console.error("Load offers error:", error)
+      }
+    }
+
+    loadOffers()
   }, [companyId ?? ""])
 
   return (
@@ -232,9 +260,19 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                 </div>
 
                 {stu.status && (
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    {stu.status}
-                  </Badge>
+                  <>
+                    <Badge variant="secondary" className="shrink-0 text-xs">
+                      {stu.status}
+                    </Badge>
+                    {offeredIds.has(stu.id) && (
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 text-[10px] text-red-500 ml-1"
+                      >
+                        オファー済
+                      </Badge>
+                    )}
+                  </>
                 )}
               </div>
               <div
