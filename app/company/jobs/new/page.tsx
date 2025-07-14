@@ -6,8 +6,25 @@ import { useState } from "react"
 import { useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, MapPin, Calendar, DollarSign, Eye, EyeOff, Briefcase, Clock, Building2 } from "lucide-react"
+import {
+  ArrowLeft,
+  Save,
+  MapPin,
+  Calendar,
+  DollarSign,
+  Eye,
+  EyeOff,
+  Briefcase,
+  Clock,
+  Building2,
+  FileText,
+  CheckCircle,
+  Check,
+  Plus,
+  Users,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -39,6 +56,7 @@ export default function NewJobPage() {
   const [showSuccessOptions, setShowSuccessOptions] = useState(false)
 
   const [isUploadingCover, setIsUploadingCover] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   
   const [formData, setFormData] = useState({
@@ -349,14 +367,109 @@ export default function NewJobPage() {
     }
   }
 
+    /* ---------- preview helpers ---------- */
+    function SummaryItem({
+      icon,
+      label,
+      value,
+    }: {
+      icon: React.ReactNode
+      label: string
+      value: React.ReactNode
+    }) {
+      return (
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600">
+            {icon}
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">{label}</p>
+            <p className="font-medium">{value}</p>
+          </div>
+        </div>
+      )
+    }
+
+    function SectionCard({
+      icon: Icon,
+      title,
+      children,
+    }: {
+      icon: any
+      title: string
+      children: React.ReactNode
+    }) {
+      return (
+        <Card className="mb-6 border-0 shadow-md">
+          <CardHeader className="border-b border-gray-100 bg-gray-50 pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
+              <Icon className="h-5 w-5 text-red-600" />
+              {title}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">{children}</CardContent>
+        </Card>
+      )
+    }
+
+    function RequirementBlock({
+      title,
+      icon,
+      list,
+    }: {
+      title: string
+      icon: React.ReactNode
+      list?: string
+    }) {
+      if (!list) return null
+      return (
+        <div className="mb-6 last:mb-0">
+          <h3 className="mb-3 text-base font-medium">{title}</h3>
+          <ul className="space-y-2 text-gray-700">
+            {list
+              .split("\n")
+              .filter(Boolean)
+              .map((l: string, i: number) => (
+                <li key={i} className="flex items-start gap-2">
+                  <div className="mt-1 text-red-600">{icon}</div>
+                  <span>{l}</span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )
+    }
+
+    function ConditionBox({ title, text }: { title: string; text: string }) {
+      return (
+        <div className="rounded-lg bg-gray-50 p-4">
+          <h3 className="mb-2 text-base font-medium">{title}</h3>
+          <p className="text-gray-700">{text}</p>
+        </div>
+      )
+    }
+
   return (
     <div className="container mx-auto py-8 px-4 pb-24">
       <div className="flex flex-col space-y-6">
-        {/* Header with back button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <Button variant="outline" onClick={() => router.push("/company/jobs")} className="w-fit">
+        {/* Header with back & preview buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/company/jobs")}
+            className="w-fit"
+          >
             <ArrowLeft className="mr-2 h-4 w-4" />
             選考一覧へ戻る
+          </Button>
+
+          <Button
+            variant="outline"
+            className="gap-2 sm:ml-auto"
+            onClick={() => setShowPreview(true)}
+          >
+            <Eye className="h-4 w-4" />
+            プレビュー
           </Button>
         </div>
 
@@ -804,6 +917,242 @@ export default function NewJobPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Preview trigger */}
+
+            {/* Preview Modal */}
+            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+            <DialogContent className="max-w-3xl w-full max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5 text-red-600" />
+                    プレビュー
+                  </DialogTitle>
+                </DialogHeader>
+
+                {/* --- Preview Card (same layout as before) --- */}
+                <Card className="overflow-hidden border-0 shadow-md">
+                  {/* header (always gradient, no cover image) */}
+                  <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
+
+                  <CardContent className="relative -mt-16 bg-white p-6">
+                    {/* Title & meta */}
+                    <div className="mb-6 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl md:text-3xl">
+                        {formData.title || "求人タイトル"}
+                      </h1>
+                      <p className="text-sm text-gray-500">
+                        {formData.employmentType}
+                      </p>
+                    </div>
+
+                    {/* summary */}
+                    {isInternship ? (
+                      /* ---------- Internship preview ---------- */
+                      <>
+                        {/* internship summary grid */}
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<Calendar size={16} />}
+                            label="期間"
+                            value={
+                              formData.startDate && formData.endDate
+                                ? `${formData.startDate} 〜 ${formData.endDate}`
+                                : "未設定"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="勤務日数"
+                            value={
+                              formData.workDaysPerWeek
+                                ? `${formData.workDaysPerWeek}日 / 週`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="報酬"
+                            value={formData.allowance || "応相談"}
+                          />
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="勤務地"
+                            value={formData.location || "オンライン可"}
+                          />
+                        </div>
+
+                        {/* description */}
+                        <SectionCard icon={FileText} title="インターン内容">
+                          <p className="whitespace-pre-wrap text-gray-700">
+                            {formData.description || "職務内容がここに表示されます。"}
+                          </p>
+                        </SectionCard>
+
+                        {/* requirements */}
+                        {formData.requirements && (
+                          <SectionCard icon={CheckCircle} title="応募条件">
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              {formData.requirements
+                                .split("\n")
+                                .filter(Boolean)
+                                .map((r: string, i: number) => (
+                                  <li key={i} className="flex gap-2">
+                                    <Plus size={16} className="text-red-600 mt-0.5" />
+                                    <span>{r}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </SectionCard>
+                        )}
+                      </>
+                    ) : isEvent ? (
+                      /* ---------- Event preview ---------- */
+                      <>
+                        {/* event summary grid */}
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<Calendar size={16} />}
+                            label="開催日"
+                            value={
+                              formData.eventDate
+                                ? new Date(formData.eventDate).toLocaleDateString("ja-JP")
+                                : "未設定"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Users size={16} />}
+                            label="定員"
+                            value={formData.capacity || "未設定"}
+                          />
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="会場 / URL"
+                            value={formData.venue || "未設定"}
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="開催形態"
+                            value={
+                              formData.format === "online"
+                                ? "オンライン"
+                                : formData.format === "hybrid"
+                                ? "ハイブリッド"
+                                : "対面"
+                            }
+                          />
+                        </div>
+
+                        {/* event overview */}
+                        <SectionCard icon={FileText} title="イベント概要">
+                          <p className="whitespace-pre-wrap text-gray-700">
+                            {formData.description || "イベント概要がここに表示されます。"}
+                          </p>
+                        </SectionCard>
+
+                        {/* schedule */}
+                        {formData.schedule && (
+                          <SectionCard icon={Clock} title="スケジュール">
+                            <p className="whitespace-pre-wrap text-gray-700">
+                              {formData.schedule}
+                            </p>
+                          </SectionCard>
+                        )}
+                      </>
+                    ) : (
+                      /* ---------- Full‑time preview ---------- */
+                      <>
+                        {/* fulltime summary grid */}
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="勤務地"
+                            value={formData.location || "未設定"}
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="雇用形態"
+                            value={formData.employmentType}
+                          />
+                          <SummaryItem
+                            icon={<DollarSign size={16} />}
+                            label="給与"
+                            value={formData.salary || "非公開"}
+                          />
+                          <SummaryItem
+                            icon={<Calendar size={16} />}
+                            label="応募締切"
+                            value={
+                              formData.applicationDeadline
+                                ? new Date(formData.applicationDeadline).toLocaleDateString("ja-JP")
+                                : "期限なし"
+                            }
+                          />
+                        </div>
+
+                        {/* description */}
+                        <SectionCard icon={FileText} title="業務内容">
+                          <div
+                            className="prose max-w-none text-gray-700"
+                            dangerouslySetInnerHTML={{
+                              __html: (formData.description ||
+                                "職務内容がここに表示されます。"
+                              ).replace(/\n/g, "<br/>"),
+                            }}
+                          />
+                        </SectionCard>
+
+                        {/* requirements */}
+                        {formData.requirements && (
+                          <SectionCard icon={CheckCircle} title="応募条件・スキル">
+                            <RequirementBlock
+                              title="応募資格"
+                              icon={<Check size={16} />}
+                              list={formData.requirements}
+                            />
+                            {formData.preferredSkills && (
+                              <RequirementBlock
+                                title="歓迎スキル"
+                                icon={<Plus size={16} />}
+                                list={formData.preferredSkills}
+                              />
+                            )}
+                          </SectionCard>
+                        )}
+
+                        {/* working conditions */}
+                        <SectionCard icon={Clock} title="勤務時間・給与">
+                          <div className="space-y-5">
+                            <ConditionBox
+                              title="勤務時間"
+                              text={formData.workingHours || "9:00〜18:00（休憩1時間）"}
+                            />
+                            <ConditionBox
+                              title="給与"
+                              text={`${formData.salary || "非公開"}（経験・能力により決定）`}
+                            />
+                            <div>
+                              <h3 className="mb-3 text-base font-medium">福利厚生</h3>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {(formData.benefits || "")
+                                  .split("\n")
+                                  .filter(Boolean)
+                                  .map((b: string, i: number) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <Check size={16} className="text-green-600" />
+                                      <span className="text-gray-700">{b}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </div>
+                        </SectionCard>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </DialogContent>
+            </Dialog>
 
             {/* Publication Settings */}
             <Card>
