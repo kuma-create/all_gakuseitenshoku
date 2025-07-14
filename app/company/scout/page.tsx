@@ -729,6 +729,7 @@ export default function ScoutPage() {
             {/* ── 学生リスト ─────────────────── */}
             <div className="flex-1 overflow-hidden">
               <StudentList
+                companyId={companyId ?? undefined}
                 students={filtered}
                 selectedId={selectedStudent?.id ?? null}
                 onSelect={handleSelect}

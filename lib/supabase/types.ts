@@ -156,6 +156,13 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "applications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
+          },
         ]
       }
       bizscore_questions: {
@@ -261,6 +268,13 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "challenge_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
+          },
         ]
       }
       challenge_submissions: {
@@ -319,6 +333,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -479,6 +500,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_rooms_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -980,6 +1008,62 @@ export type Database = {
           },
         ]
       }
+      company_student_memos: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          memo: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          memo: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          memo?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_student_memos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_student_memos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_student_memos_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_student_memos_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       event_details: {
         Row: {
           capacity: number | null
@@ -1066,6 +1150,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_participants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -1300,6 +1391,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_interests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -2039,6 +2137,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_scouts_student"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
+          },
+          {
             foreignKeyName: "scouts_chat_room_id_fkey"
             columns: ["chat_room_id"]
             isOneToOne: false
@@ -2086,6 +2191,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scouts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -2522,6 +2634,13 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "student_qualifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
+          },
         ]
       }
       student_skills: {
@@ -2551,6 +2670,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skills_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -2742,6 +2868,13 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "applications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
+          },
         ]
       }
       companies_view: {
@@ -2806,6 +2939,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -2912,6 +3052,13 @@ export type Database = {
             referencedRelation: "student_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "applications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_with_email"
+            referencedColumns: ["student_id"]
+          },
         ]
       }
       student_resume_jobtypes: {
@@ -2935,6 +3082,16 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      student_with_email: {
+        Row: {
+          email: string | null
+          full_name: string | null
+          graduation_month: string | null
+          student_id: string | null
+          university: string | null
+        }
+        Relationships: []
       }
       user_companies: {
         Row: {
