@@ -49,12 +49,12 @@ async function fetchPosts(): Promise<MediaPostUI[]> {
         slug,
         excerpt,
         cover_image_url,
-        published_at,
+        updated_at,
         media_categories ( name )
       `
     )
     .eq("status", "published")
-    .order("published_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(30);
 
   if (error) {
@@ -218,7 +218,7 @@ export default async function MediaPage() {
 
                         <div className="flex items-center justify-between text-xs text-gray-500">
                           <span>
-                            {new Date(article.published_at!).toLocaleDateString(
+                            {new Date(article.updated_at!).toLocaleDateString(
                               "ja-JP"
                             )}
                           </span>
@@ -262,7 +262,7 @@ export default async function MediaPage() {
                         )}
 
                         <div className="text-xs text-gray-500">
-                          {new Date(post.published_at!).toLocaleDateString(
+                          {new Date(post.updated_at!).toLocaleDateString(
                             "ja-JP"
                           )}
                         </div>
