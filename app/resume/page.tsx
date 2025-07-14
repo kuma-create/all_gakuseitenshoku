@@ -627,11 +627,10 @@ export default function ResumePage() {
                         職種
                       </Label>
                       <Select
-                        id={`jobType-${exp.id}`}
                         value={exp.jobType}
                         onValueChange={(value) => handleWorkExperienceChange(exp.id, "jobType", value)}
                       >
-                        <SelectTrigger className="h-8 text-xs sm:h-10 sm:text-sm">
+                        <SelectTrigger id={`jobType-${exp.id}`} className="h-8 text-xs sm:h-10 sm:text-sm">
                           <SelectValue placeholder="職種を選択" />
                         </SelectTrigger>
                         <SelectContent>
