@@ -30,6 +30,12 @@ import {
   TabsContent,
 } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 
 /* ---------- 型 ---------- */
 type ApplicationRow = {
@@ -254,12 +260,25 @@ export default function CompanyDashboard() {
               スカウト画面へ
             </Button>
           </Link>
-          <Link href="/company/jobs/new">
-            <Button className="flex items-center gap-2">
-              <PlusCircle className="h-4 w-4" />
-              新規求人作成
-            </Button>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <PlusCircle className="h-4 w-4" />
+                新規求人作成
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href="/company/jobs/new?type=fulltime">本選考</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/company/jobs/new?type=internship_short">インターン（短期）</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/company/jobs/new?type=event">説明会/イベント</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
             通知
