@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -64,7 +64,7 @@ interface WorkExperience {
   isOpen: boolean;
   company: string;
   position: string;
-  jobType: string;
+  jobTypes: string[];
   startDate: string;
   endDate: string;
   isCurrent: boolean;
@@ -138,7 +138,7 @@ export default function ResumePage() {
       isOpen: true,
       company: "",
       position: "",
-      jobType: "",
+      jobTypes: [],
       startDate: "",
       endDate: "",
       isCurrent: false,
@@ -352,7 +352,7 @@ export default function ResumePage() {
         isOpen: true,
         company: "",
         position: "",
-        jobType: "",
+        jobTypes: [],
         startDate: "",
         endDate: "",
         isCurrent: false,
@@ -381,11 +381,31 @@ export default function ResumePage() {
   const handleWorkExperienceChange = (
     id: number,
     field: keyof WorkExperience,
-    value: string | boolean
+    value: string | boolean | string[]
   ): void => {
     setWorkExperiences(
       workExperiences.map((exp) =>
         exp.id === id ? { ...exp, [field]: value } : exp
+      )
+    );
+  };
+
+  // Toggle 職種 selections
+  const handleJobTypeToggle = (
+    id: number,
+    value: string,
+    checked: boolean
+  ): void => {
+    setWorkExperiences((prev) =>
+      prev.map((exp) =>
+        exp.id === id
+          ? {
+              ...exp,
+              jobTypes: checked
+                ? [...new Set([...(exp.jobTypes || []), value])]
+                : (exp.jobTypes || []).filter((v) => v !== value),
+            }
+          : exp
       )
     );
   };
@@ -623,34 +643,42 @@ export default function ResumePage() {
                       />
                     </div>
                     <div className="space-y-1 sm:space-y-2">
-                      <Label htmlFor={`jobType-${exp.id}`} className="text-xs sm:text-sm">
-                        職種
-                      </Label>
-                      <Select
-                        value={exp.jobType}
-                        onValueChange={(value) => handleWorkExperienceChange(exp.id, "jobType", value)}
-                      >
-                        <SelectTrigger
-                          id={`jobType-${exp.id}`}
-                          className="h-8 text-xs sm:h-10 sm:text-sm"
-                        >
-                          <SelectValue placeholder="職種を選択" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="エンジニア">エンジニア</SelectItem>
-                          <SelectItem value="営業">営業</SelectItem>
-                          <SelectItem value="コンサルタント">コンサルタント</SelectItem>
-                          <SelectItem value="研究・開発">研究・開発</SelectItem>
-                          <SelectItem value="総務・人事">総務・人事</SelectItem>
-                          <SelectItem value="経理・財務">経理・財務</SelectItem>
-                          <SelectItem value="品質管理">品質管理</SelectItem>
-                          <SelectItem value="物流">物流</SelectItem>
-                          <SelectItem value="企画・マーケティング">企画・マーケティング</SelectItem>
-                          <SelectItem value="デザイナー">デザイナー</SelectItem>
-                          <SelectItem value="生産管理">生産管理</SelectItem>
-                          <SelectItem value="販売・サービス">販売・サービス</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-1 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">職種（複数選択可）</Label>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-2">
+                          {[
+                            "エンジニア",
+                            "営業",
+                            "コンサルタント",
+                            "研究・開発",
+                            "総務・人事",
+                            "経理・財務",
+                            "品質管理",
+                            "物流",
+                            "企画・マーケティング",
+                            "デザイナー",
+                            "生産管理",
+                            "販売・サービス",
+                          ].map((opt) => (
+                            <div key={opt} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`jobType-${exp.id}-${opt}`}
+                                className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                                checked={(exp.jobTypes || []).includes(opt)}
+                                onCheckedChange={(checked) =>
+                                  handleJobTypeToggle(exp.id, opt, checked as boolean)
+                                }
+                              />
+                              <Label
+                                htmlFor={`jobType-${exp.id}-${opt}`}
+                                className="text-[10px] sm:text-xs"
+                              >
+                                {opt}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       <Label htmlFor={`position-${exp.id}`} className="text-xs sm:text-sm">
@@ -673,8 +701,8 @@ export default function ResumePage() {
                           id={`startDate-${exp.id}`}
                           type="month"
                           className="h-8 text-xs sm:h-10 sm:text-sm"
-                          value={exp.startDate}
-                          onChange={(e) => handleWorkExperienceChange(exp.id, "startDate", e.target.value)}
+                        value={exp.startDate}
+                        onChange={(e) => handleWorkExperienceChange(exp.id, "startDate", e.target.value)}
                         />
                       </div>
                       <div className="space-y-1 sm:space-y-2">
@@ -685,9 +713,9 @@ export default function ResumePage() {
                           id={`endDate-${exp.id}`}
                           type="month"
                           className="h-8 text-xs sm:h-10 sm:text-sm"
-                          value={exp.endDate}
-                          onChange={(e) => handleWorkExperienceChange(exp.id, "endDate", e.target.value)}
-                          disabled={exp.isCurrent}
+                        value={exp.endDate}
+                        onChange={(e) => handleWorkExperienceChange(exp.id, "endDate", e.target.value)}
+                        disabled={exp.isCurrent}
                         />
                       </div>
                     </div>
@@ -735,15 +763,19 @@ export default function ResumePage() {
                         value={exp.technologies}
                         onChange={(e) => handleWorkExperienceChange(exp.id, "technologies", e.target.value)}
                       />
-                      {exp.technologies && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {exp.technologies.split(",").map((tech, i) => (
-                            <Badge key={i} variant="outline" className="bg-blue-50 text-xs">
-                              {tech.trim()}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+                          {exp.technologies && exp.technologies.split(",").some((tech) => tech.trim() !== "") && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {exp.technologies.split(",").map((tech, i) => {
+                                const trimmed = tech.trim();
+                                if (!trimmed) return null;
+                                return (
+                                  <Badge key={i} variant="outline" className="bg-blue-50 text-xs">
+                                    {trimmed}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       <Label htmlFor={`achievements-${exp.id}`} className="text-xs sm:text-sm">
