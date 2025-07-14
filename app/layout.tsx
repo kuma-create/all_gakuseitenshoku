@@ -54,6 +54,10 @@ export const metadata: Metadata = {
     images: ["/ogp.png"],
     site: "@syukatsu25kk",
   },
+  icons: {
+    icon : "/学生転職 (13).png",
+    apple: "/学生転職 (13).png",
+  },
   robots: {
     index: true,
     follow: true,
@@ -72,6 +76,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ja" className="scroll-smooth antialiased" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/学生転職 (13).png" sizes="any" />
+        <link rel="apple-touch-icon" href="/学生転職 (13).png" />
+        <meta name="theme-color" content="#ffffff" />
         {/* Google tag (gtag.js) */}
         <Script
           id="ga4"
