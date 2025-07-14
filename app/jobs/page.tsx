@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
+import Head from "next/head"
 
 /** Supabase 型を拡張 */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
@@ -298,7 +299,24 @@ job_tags!job_tags_job_id_fkey (
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <>
+      <Head>
+        <title>学生転職 | インターン・本選考求人一覧</title>
+        <meta
+          name="description"
+          content="学生転職であなたに合ったインターンや本選考求人を見つけましょう。業界・職種・年収など多彩なフィルターで簡単検索。締切間近の求人も見逃さずチェック！"
+        />
+        <meta property="og:title" content="学生転職 | インターン・本選考求人一覧" />
+        <meta
+          property="og:description"
+          content="学生向けインターン・本選考求人を多数掲載。あなたにぴったりのキャリアを探すなら学生転職。"
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://culture.gakuten.co.jp/jobs" />
+        <meta property="og:image" content="/ogp/jobs.png" />
+        <link rel="canonical" href="https://culture.gakuten.co.jp/jobs" />
+      </Head>
+      <div className="min-h-screen bg-gray-50 pb-20">
       {/* Featured Banners Carousel */}
 
       {/* Featured Banners Carousel */}
@@ -672,6 +690,7 @@ job_tags!job_tags_job_id_fkey (
         </nav>
       </footer>
     </div>
+    </>
   )
 }
 
