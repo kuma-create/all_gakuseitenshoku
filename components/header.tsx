@@ -192,6 +192,13 @@ export default function Header() {
               <Search size={16} />
               探す
             </Link>
+            <Link
+              href="/media"
+              className="flex items-center gap-1 text-sm text-gray-700 font-semibold hover:text-gray-900"
+            >
+              <BookOpen size={16} />
+              学転メディア
+            </Link>
           </nav>
         )}
 
@@ -350,6 +357,14 @@ export default function Header() {
                         className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         探す
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link
+                        href="/media"
+                        className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        学転メディア
                       </Link>
                     </SheetClose>
                     <SheetClose asChild>
