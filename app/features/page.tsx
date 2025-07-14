@@ -117,6 +117,32 @@ export default function FeaturesPage() {
   const rewardYen = completed.length * 2000
   const referralLink = `https://gakuten.co.jp/refer?code=${referral.code}`
 
+  // ── コピー & シェア（モバイル） ─────────────────────
+  const handleCopy = async () => {
+    try {
+      // クリップボードへコピー
+      await navigator.clipboard.writeText(referralLink)
+
+      // スマホ / タブレット判定
+      const isMobile =
+        /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
+      // Web Share API が使える端末でのみシェアシートを表示
+      if (isMobile && typeof (navigator as any).share === 'function') {
+        await (navigator as any).share({
+          title: '学生転職',
+          text: '学生転職に登録してAmazonギフト券をもらおう！',
+          url: referralLink,
+        })
+      } else {
+        // PC などでは従来のアラート
+        alert('リンクをコピーしました')
+      }
+    } catch (err) {
+      console.error('Copy / Share error', err)
+    }
+  }
+
   // 就活役立ちツール: ホワイトペーパー一覧
   const whitepapers = [
     {
@@ -233,10 +259,7 @@ export default function FeaturesPage() {
                           <Button
                             variant="outline"
                             className="flex-shrink-0 gap-1 border-red-200 text-red-600 hover:bg-red-50"
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(referralLink)
-                              alert('リンクをコピーしました')
-                            }}
+                            onClick={handleCopy}
                           >
                             <Share className="h-4 w-4" />
                             <span>コピー</span>
