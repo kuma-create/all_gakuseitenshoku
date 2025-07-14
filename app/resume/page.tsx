@@ -627,23 +627,28 @@ export default function ResumePage() {
                         職種
                       </Label>
                       <Select
-                        id={`jobType-${exp.id}`}
                         value={exp.jobType}
                         onValueChange={(value) => handleWorkExperienceChange(exp.id, "jobType", value)}
                       >
-                        <SelectTrigger className="h-8 text-xs sm:h-10 sm:text-sm">
+                        <SelectTrigger
+                          id={`jobType-${exp.id}`}
+                          className="h-8 text-xs sm:h-10 sm:text-sm"
+                        >
                           <SelectValue placeholder="職種を選択" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="エンジニア">エンジニア</SelectItem>
                           <SelectItem value="営業">営業</SelectItem>
-                          <SelectItem value="IT">IT</SelectItem>
-                          <SelectItem value="マーケティング">マーケティング</SelectItem>
-                          <SelectItem value="事務">事務</SelectItem>
+                          <SelectItem value="コンサルタント">コンサルタント</SelectItem>
+                          <SelectItem value="研究・開発">研究・開発</SelectItem>
+                          <SelectItem value="総務・人事">総務・人事</SelectItem>
+                          <SelectItem value="経理・財務">経理・財務</SelectItem>
+                          <SelectItem value="品質管理">品質管理</SelectItem>
+                          <SelectItem value="物流">物流</SelectItem>
+                          <SelectItem value="企画・マーケティング">企画・マーケティング</SelectItem>
+                          <SelectItem value="デザイナー">デザイナー</SelectItem>
+                          <SelectItem value="生産管理">生産管理</SelectItem>
                           <SelectItem value="販売・サービス">販売・サービス</SelectItem>
-                          <SelectItem value="クリエイティブ">クリエイティブ</SelectItem>
-                          <SelectItem value="医療・福祉">医療・福祉</SelectItem>
-                          <SelectItem value="教育・保育・公共サービス">教育・保育・公共サービス</SelectItem>
-                          <SelectItem value="その他">その他</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
