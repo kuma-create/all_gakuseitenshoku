@@ -612,15 +612,18 @@ export default function ScoutPage() {
               <div>
                 <h4 className="font-semibold mb-2">経験職種</h4>
                 {[
+                  "エンジニア",
                   "営業",
-                  "IT",
-                  "マーケティング",
-                  "事務",
+                  "コンサルタント",
+                  "研究・開発",
+                  "総務・人事",
+                  "経理・財務",
+                  "品質管理",
+                  "物流",
+                  "企画・マーケティング",
+                  "デザイナー",
+                  "生産管理",
                   "販売・サービス",
-                  "クリエイティブ",
-                  "医療・福祉",
-                  "教育・保育・公共サービス",
-                  "その他",
                 ].map((jt) => (
                   <div key={jt} className="flex items-center mb-1">
                     <Checkbox
