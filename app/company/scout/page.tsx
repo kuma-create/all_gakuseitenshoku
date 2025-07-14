@@ -179,8 +179,6 @@ export default function ScoutPage() {
           jobTypesMap.set(r.student_id, r.job_types ?? [])
         }
       })
-      console.log("stuErr =", stuErr)     // ★追加
-      console.log("stuRows =", stuRows)
 
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
@@ -554,6 +552,8 @@ export default function ScoutPage() {
               </select>
             </div>
 
+            
+
             {/* 卒業年 */}
             <div>
               <h4 className="font-semibold mb-2">卒業年</h4>
@@ -808,7 +808,7 @@ export default function ScoutPage() {
         student={selectedStudent}
         templates={templates}
         companyId={companyId ?? ""}
-        readOnly={selectedAlreadySent}
+        readOnly={false}
         /* 送信完了後 callback */
         onSent={handleSent}
       />
