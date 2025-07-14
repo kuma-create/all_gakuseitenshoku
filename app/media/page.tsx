@@ -17,6 +17,54 @@ import {
   FolderOpen,
 } from "lucide-react";
 
+import type { Metadata } from "next";
+
+/* ------------------------------------------------------------------
+   SEO metadata
+------------------------------------------------------------------ */
+export const metadata: Metadata = {
+  title: {
+    default: "GAKUTEN Media | 学生に選ばれるキャリアメディア",
+    template: "%s | GAKUTEN Media",
+  },
+  description:
+    "学生のキャリア・就活に役立つ情報を届ける『GAKUTEN Media』のトップページ。インターン・就活・キャリア形成の最新記事をチェック。",
+  keywords: [
+    "学生転職",
+    "就活",
+    "インターン",
+    "キャリア支援",
+    "GAKUTEN",
+    "キャリアメディア",
+  ],
+  openGraph: {
+    type: "website",
+    url: "https://gakuten.co.jp/media",
+    siteName: "GAKUTEN Media",
+    title: "GAKUTEN Media | 学生に選ばれるキャリアメディア",
+    description:
+      "学生のキャリア・就活に役立つ情報を届ける『GAKUTEN Media』のトップページ。インターン・就活・キャリア形成の最新記事をチェック。",
+    images: [
+      {
+        url: "/ogp-media.png",
+        width: 1200,
+        height: 630,
+        alt: "GAKUTEN Media OGP Image",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GAKUTEN Media | 学生に選ばれるキャリアメディア",
+    description:
+      "学生のキャリア・就活に役立つ情報を届ける『GAKUTEN Media』のトップページ。インターン・就活・キャリア形成の最新記事をチェック。",
+    images: ["/ogp-media.png"],
+  },
+  alternates: {
+    canonical: "https://gakuten.co.jp/media",
+  },
+};
+
 export const dynamic = "force-dynamic";
 
 

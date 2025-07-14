@@ -5,6 +5,7 @@ import type React from "react"
 import { ArrowLeft, Briefcase, Heart, MapPin, Search, Star, SlidersHorizontal } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import Head from "next/head"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
@@ -58,6 +59,11 @@ export default function JobSearchPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const qParam = searchParams.get("q") ?? ""
+  // --- SEO meta ----------------------------------------------------
+  const pageTitle = qParam ? `${qParam}の求人検索結果 | 学生転職` : "求人検索結果 | 学生転職"
+  const pageDescription = qParam
+    ? `「${qParam}」の求人を検索。業界・職種・年収など細かくフィルターして自分に合った仕事を見つけましょう。`
+    : "学生向け転職サービス「学生転職」の求人検索ページ。業界・職種・年収など細かくフィルターして自分に合った仕事を見つけましょう。"
   const tabParam = (searchParams.get("tab") ?? "company") as "company" | "fulltime" | "intern" | "event"
 
   const [loading, setLoading] = useState(true)
@@ -225,7 +231,16 @@ job_tags!job_tags_job_id_fkey (
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <Head>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:type" content="website" />
+      </Head>
+
+      <div className="min-h-screen bg-gray-50">
       {/* Search Header - Sticky */}
       <section className="sticky top-0 z-50 bg-white border-b shadow-sm">
         <div className="container mx-auto max-w-7xl px-4 py-4">
@@ -482,8 +497,8 @@ job_tags!job_tags_job_id_fkey (
 
       <Footer />
     </div>
-  )
-}
+    </>
+)}
 
 /* =============== components ================ */
 function FilterPanel({
