@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -92,13 +92,38 @@ function getLatestInternCompany(stu: Student): string | null {
 }
 
 interface Props {
+  companyId?: string  // ← prop may be undefined when not passed
   students: Student[]
   selectedId: string | null
   onSelect: (student: Student) => void
 }
 
-export default function StudentList({ students, selectedId, onSelect }: Props) {
+export default function StudentList({ companyId, students, selectedId, onSelect }: Props) {
   const [memos, setMemos] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    const loadMemos = async () => {
+      if (!companyId) {
+        console.warn("StudentList: companyId is undefined; skip memo fetch")
+        return
+      }
+      const { data, error } = await sb
+        .from("company_student_memos")
+        .select("student_id, memo")
+        .eq("company_id", companyId)
+
+      if (!error && data) {
+        const initial = data.reduce<Record<string, string>>((acc, cur) => {
+          acc[cur.student_id as string] = (cur.memo as string) ?? ""
+          return acc
+        }, {})
+        setMemos(initial)
+      } else if (error) {
+        console.error("Load memos error:", error)
+      }
+    }
+    loadMemos()
+  }, [companyId ?? ""])
 
   return (
     <div className="space-y-4 overflow-y-auto p-4 max-h-full">
@@ -203,11 +228,20 @@ export default function StudentList({ students, selectedId, onSelect }: Props) {
                   className="h-5 w-5 text-green-500 cursor-pointer"
                   onClick={async (e) => {
                     e.stopPropagation()
-                    const memoText = memos[stu.id] ?? ""
+                    if (!companyId) {
+                      console.error("Memo save aborted: companyId is undefined")
+                      return
+                    }
+                    const memoText = (memos[stu.id] ?? "").trim()
                     const { error } = await sb
-                      .from("student_profiles")
-                      .update({ memo: memoText })
-                      .eq("id", stu.id)
+                      .from("company_student_memos")
+                      .upsert(
+                        {
+                          student_id: stu.id,
+                          company_id: companyId,
+                          memo: memoText,               // ← 空文字でも OK（null だと型エラー）
+                        } as Database["public"]["Tables"]["company_student_memos"]["Insert"]
+                      )
                     if (error) console.error("Memo save error:", error)
                   }}
                 />
