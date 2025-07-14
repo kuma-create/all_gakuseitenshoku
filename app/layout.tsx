@@ -55,8 +55,8 @@ export const metadata: Metadata = {
     site: "@syukatsu25kk",
   },
   icons: {
-    icon : "/favicon.png",
-    apple: "/apple-touch-icon.png",
+    icon : "/学生転職 (13).png",
+    apple: "/学生転職 (13).png",
   },
   robots: {
     index: true,
