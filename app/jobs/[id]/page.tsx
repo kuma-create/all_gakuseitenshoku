@@ -38,6 +38,8 @@ const JobDescription = dynamic(() => import("./JobDescription"), {
 /* Variant UIs */
 import { FulltimeInfo, InternInfo, EventInfo } from "./_variants"
 
+import Head from "next/head";
+
 /* ---------- 型 (簡略) ---------- */
 type SelectionRow = Database["public"]["Views"]["selections_view"]["Row"]
 type CompanyRow = {
@@ -250,10 +252,28 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
     )
   }
 
-  /* ---------- variant render ---------- */
+  /* ---------- SEO meta & variant render ---------- */
+  // --- dynamic meta tags ---
+  const metaTitle =
+    job && company
+      ? `${job.title} | ${company.name ?? "求人詳細"} - 学生転職`
+      : "求人詳細 - 学生転職";
+  const metaDescription =
+    job && company
+      ? `${company.name ?? ""}が募集する${
+          job.selection_type === "event" ? "イベント" : "ポジション"
+        }「${job.title}」の詳細ページです。勤務地：${
+          job.location ?? "未定"
+        }。給与：${job.salary_min ?? "非公開"}〜${
+          job.salary_max ?? "非公開"
+        }。`
+      : "学生向け求人詳細ページ。";
+
+  // --- choose variant component ---
+  let Body: JSX.Element;
   switch (job.selection_type as "fulltime" | "internship_short" | "event") {
     case "internship_short":
-      return (
+      Body = (
         <InternInfo
           job={job}
           company={company!}
@@ -264,9 +284,10 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
           showForm={showForm}
           setShowForm={setShowForm}
         />
-      )
+      );
+      break;
     case "event":
-      return (
+      Body = (
         <EventInfo
           job={job}
           company={company!}
@@ -277,9 +298,10 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
           showForm={showForm}
           setShowForm={setShowForm}
         />
-      )
+      );
+      break;
     default:
-      return (
+      Body = (
         <FulltimeInfo
           job={job}
           company={company!}
@@ -290,6 +312,29 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
           showForm={showForm}
           setShowForm={setShowForm}
         />
-      )
+      );
   }
+
+  // --- final render with SEO meta ---
+  return (
+    <>
+      <Head>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription} />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        {company?.logo && <meta property="og:image" content={company.logo} />}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:url"
+          content={`${process.env.NEXT_PUBLIC_BASE_URL}/jobs/${id}`}
+        />
+        <link
+          rel="canonical"
+          href={`${process.env.NEXT_PUBLIC_BASE_URL}/jobs/${id}`}
+        />
+      </Head>
+      {Body}
+    </>
+  );
 }
