@@ -8,7 +8,6 @@ on:
     - cron: '0 15,18,21,0,3,6,9,12 * * *'  # 3時間おき (JST ベース)
   workflow_dispatch:       # ← 追加：手動実行ボタン用
 
-
 jobs:
   backup:
     runs-on: ubuntu-latest
@@ -22,10 +21,11 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
       - name: Dump database
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase link --project-ref "${{ secrets.SUPABASE_REF }}" \
-                        --password    "${{ secrets.SUPABASE_DB_PASSWORD }}" \
-                        --token       "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+                        --password    "${{ secrets.SUPABASE_DB_PASSWORD }}"
           supabase db dump --file hei-gakuseitenshoku/all_gakuseitenshoku/backup.sql
       - uses: actions/upload-artifact@v4
         with:
