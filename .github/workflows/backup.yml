@@ -8,6 +8,7 @@ on:
     - cron: '0 15,18,21,0,3,6,9,12 * * *'  # 3時間おき (JST ベース)
   workflow_dispatch:       # ← 追加：手動実行ボタン用
 
+
 jobs:
   backup:
     runs-on: ubuntu-latest
