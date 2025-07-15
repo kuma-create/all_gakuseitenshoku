@@ -20,6 +20,7 @@ import {
   Users,
   Trash2,
   MoreHorizontal,
+  Copy,
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase/client"
@@ -276,7 +277,7 @@ const companyId = companyRow.id    // ★ ここで変数を定義
               </Button>
             ))}
           </div>
-        </DialogContent>  c
+        </DialogContent>  
       </Dialog>
 
       {/* 検索・ソート */}
@@ -372,6 +373,14 @@ function JobGrid({
                     <DropdownMenuItem onClick={()=>push(`/company/jobs/${job.id!}`)}>
                       <Edit className="mr-2 h-4 w-4"/> 編集する
                     </DropdownMenuItem>
+
+                    {/* ▼▼ 追加：複製ボタン ▼▼ */}
+                    <DropdownMenuItem onClick={()=>
+                      push(`/company/jobs/new?type=${job.selection_type}&copy=${job.id!}`)
+                    }>
+                      <Copy className="mr-2 h-4 w-4"/> 複製する
+                    </DropdownMenuItem>
+                    {/* ▲▲ 追加ここまで ▲▲ */}
                     <DropdownMenuItem
                       onClick={()=>push(`/company/applicants?jobId=${job.id!}`)}
                       disabled={job.applicants===0}
