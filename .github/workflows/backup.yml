@@ -20,12 +20,11 @@ jobs:
         run: mkdir -p hei-gakuseitenshoku/all_gakuseitenshoku
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
-        with:
-          supabase_token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       - name: Dump database
         run: |
           supabase link --project-ref "${{ secrets.SUPABASE_REF }}" \
-                        --password    "${{ secrets.SUPABASE_DB_PASSWORD }}"
+                        --password    "${{ secrets.SUPABASE_DB_PASSWORD }}" \
+                        --token       "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
           supabase db dump --file hei-gakuseitenshoku/all_gakuseitenshoku/backup.sql
       - uses: actions/upload-artifact@v4
         with:
