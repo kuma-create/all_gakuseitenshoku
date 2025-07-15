@@ -83,6 +83,8 @@ type Student = StudentRow & {
   location?: string | null
   skills?: string[] | null
   qualifications?: string[] | null
+  /** タグ（例: "オファー済み" など）*/
+  tags?: string[] | null
   /** 経験職種（student_resume_jobtypes.job_types）*/
   job_types?: string[] | null
   has_internship_experience?: boolean | null
@@ -124,6 +126,8 @@ export default function ScoutPage() {
   const [desiredPosition, setDesiredPosition] = useState<string>("all")
   /** 希望勤務地（ドロップダウン：all or specific） */
   const [desiredWorkLocation, setDesiredWorkLocation] = useState<string>("all")
+  /** オファー済み除外フラグ */
+  const [excludeOffer, setExcludeOffer] = useState<boolean>(false)
   /** 並び替え: score = マッチ度 / recent = 登録が新しい順 / name = 氏名順 */
   const [sortBy, setSortBy] = useState<"score" | "recent" | "name">("score")
 
@@ -345,6 +349,15 @@ export default function ScoutPage() {
   /** 希望勤務地リスト（固定） */
   const availableDesiredWorkLocations = PREFECTURES
 
+  /** オファー済み学生の id 一覧（scouts.offer_amount または offer_position が入っている学生を対象） */
+  const offeredIds = useMemo<Set<string>>(() => {
+    return new Set(
+      sentScouts
+        .filter((sc) => sc.offer_amount != null || sc.offer_position != null)
+        .map((sc) => sc.student_id)
+    )
+  }, [sentScouts])
+
   /* ── フィルタリング ───────────── */
   const filtered = useMemo(() => {
     let list = students
@@ -401,6 +414,11 @@ export default function ScoutPage() {
           (!sent && statuses.includes("未スカウト"))
         )
       })
+    }
+
+    /* -1) オファー済み除外 */
+    if (excludeOffer) {
+      list = list.filter((s) => !offeredIds.has(s.id))
     }
 
     /* 3) 専攻 */
@@ -475,6 +493,7 @@ export default function ScoutPage() {
     search,
     gradYears,
     statuses,
+    excludeOffer,
     selectedMajor,
     hasInternship,
     experienceJobTypes,
@@ -483,6 +502,7 @@ export default function ScoutPage() {
     desiredPosition,
     desiredWorkLocation,
     sortBy,
+    offeredIds,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -552,6 +572,17 @@ export default function ScoutPage() {
               </select>
             </div>
 
+            {/* オファー済み除外 */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="exclude-offer"
+                checked={excludeOffer}
+                onCheckedChange={(v) => setExcludeOffer(!!v)}
+              />
+              <label htmlFor="exclude-offer" className="text-sm">
+                オファー済を除く
+              </label>
+            </div>
             
 
             {/* 卒業年 */}
@@ -711,6 +742,7 @@ export default function ScoutPage() {
                 variant="outline"
                 className="w-full"
                 onClick={() => {
+                  setExcludeOffer(false)
                   setSearch("")
                   setGradYears([])
                   setStatuses([])
