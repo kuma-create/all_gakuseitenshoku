@@ -41,7 +41,35 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
+import { exportClientPdf } from "@/lib/pdf/exportClientPdf";
+import ResumeTemplate from "@/components/pdf/ResumeTemplate";
+
+
 import { supabase } from "@/lib/supabase/client";
+
+// ─── PDF Export Button ─────────────────────────────────────────────
+interface ExportButtonProps {
+  targetRef: React.RefObject<HTMLDivElement | null>;
+  filename: string;
+}
+
+const ExportButton: React.FC<ExportButtonProps> = ({ targetRef, filename }) => (
+  <Button
+    variant="default"
+    onClick={() => {
+      if (targetRef.current) {
+        exportClientPdf(targetRef.current, filename);
+      } else {
+        alert("プレビューがまだレンダリングされていません");
+      }
+    }}
+    className="relative h-8 gap-1 text-xs sm:h-10 sm:gap-2 sm:text-sm"
+  >
+    <FileText size={14} className="sm:h-4 sm:w-4" />
+    PDF出力
+  </Button>
+);
+// ───────────────────────────────────────────────────────────────────
 
 
 
@@ -149,6 +177,7 @@ export default function ResumePage() {
   ]);
 
   const [saving, setSaving] = useState<boolean>(false);
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<SectionKey>("basic");
   const [completionPercentage, setCompletionPercentage] = useState<number>(0);
@@ -209,6 +238,8 @@ export default function ResumePage() {
   // 初期ロード済みフラグ
   const [initialLoaded, setInitialLoaded] = useState(false);
 
+  const pdfFilename = `${formData.basic.lastName}${formData.basic.firstName || ""}_職務経歴書.pdf`;
+
   // ─── 既存レジュメを取得 ─────────────────────────────────────
   useEffect(() => {
     const loadResume = async () => {
@@ -241,6 +272,48 @@ export default function ResumePage() {
         } else {
           console.log("ℹ️ No existing resume found / fetch error:", error?.message);
         }
+
+        /* --- 基本情報を student_profiles から取得 ------------------- */
+        try {
+          const { data: profile, error: profileErr } = await supabase
+            .from("student_profiles")
+            .select(
+              "last_name, first_name, last_name_kana, first_name_kana, birth_date, gender, phone, address, admission_month, graduation_month, university, faculty, research_theme"
+            )
+            .eq("user_id", uid)
+            .single();
+
+          if (!profileErr && profile) {
+            setFormData((prev) => ({
+              ...prev,
+              basic: {
+                ...prev.basic,
+                lastName: profile.last_name ?? prev.basic.lastName,
+                firstName: profile.first_name ?? prev.basic.firstName,
+                lastNameKana: profile.last_name_kana ?? prev.basic.lastNameKana,
+                firstNameKana: profile.first_name_kana ?? prev.basic.firstNameKana,
+                birthdate: profile.birth_date ?? prev.basic.birthdate,
+                gender: (profile.gender as any) ?? prev.basic.gender,
+                email: session?.user?.email ?? prev.basic.email,
+                phone: profile.phone ?? prev.basic.phone,
+                address: profile.address ?? prev.basic.address,
+              },
+              education: {
+                ...prev.education,
+                university: profile.university ?? prev.education.university,
+                faculty: profile.faculty ?? prev.education.faculty,
+                admissionDate: profile.admission_month ?? prev.education.admissionDate,
+                graduationDate: profile.graduation_month ?? prev.education.graduationDate,
+                researchTheme: profile.research_theme ?? prev.education.researchTheme,
+              },
+            }));
+          } else if (profileErr && profileErr.code !== "PGRST116") {
+            console.warn("⚠️ student_profiles fetch error:", profileErr.message);
+          }
+        } catch (err) {
+          console.error("❌ student_profiles fetch error:", err);
+        }
+        /* ------------------------------------------------------------- */
       } catch (err) {
         console.error("❌ loadResume error:", err);
       } finally {
@@ -534,11 +607,11 @@ export default function ResumePage() {
             <h1 className="text-xl font-bold sm:text-2xl">職務経歴書</h1>
             <p className="text-xs text-gray-500 sm:text-sm">あなたのキャリアや学歴情報を入力してください</p>
           </div>
-          <div className="hidden">
+          <div className="flex items-center gap-2">
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="relative h-8 gap-1 text-xs sm:h-10 sm:gap-2 sm:text-sm"
+              className="relative h-8 gap-1 text-xs sm:h-10 sm:gap-2 sm:text-sm hidden"
             >
               {saving ? (
                 <>
@@ -558,7 +631,7 @@ export default function ResumePage() {
                 </span>
               )}
             </Button>
-
+          <ExportButton targetRef={previewRef} filename={pdfFilename} />
           </div>
         </div>
 
@@ -807,6 +880,33 @@ export default function ResumePage() {
           </Button>
         </CardContent>
       </Card>
+      <div
+        ref={previewRef}
+        id="resume-preview"
+        className="border shadow-sm overflow-auto max-h-[80vh]"
+      >
+        <ResumeTemplate
+          basic={{
+            ...formData.basic,
+          }}
+          workExperiences={workExperiences}
+          skills={
+            formData.skills.skills
+              ? formData.skills.skills.split(/[\\s,]+/).filter((s) => s.trim() !== "")
+              : []
+          }
+          educations={
+            formData.education.university
+              ? [
+                  `${
+                    formData.education.graduationDate ||
+                    formData.education.admissionDate
+                  } ${formData.education.university} ${formData.education.faculty}`,
+                ]
+              : []
+          }
+        />
+      </div>
       <div className="h-16"></div>
     </div>
     )
