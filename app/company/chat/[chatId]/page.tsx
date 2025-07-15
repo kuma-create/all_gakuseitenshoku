@@ -232,6 +232,7 @@ export default function ChatPage() {
           from_role: "company",       // 件名テンプレ切替
           company_name: company?.name ?? "", // 件名に差し込む会社名
           notification_type: "chat",  // 通常チャット
+          related_id: chatId,         // ★ 追加: notifications.related_id 用
           message: content.trim(),
         },
       });
