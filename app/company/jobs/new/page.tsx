@@ -2,8 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import {
@@ -43,6 +42,8 @@ export default function NewJobPage() {
     | "fulltime"
     | "internship_short"
     | "event"
+
+  const copyId = searchParams.get("copy") ?? null
 
   const router = useRouter()
   const { toast } = useToast()
@@ -93,6 +94,99 @@ export default function NewJobPage() {
     venue: "",
     format: "onsite",
   })
+
+  useEffect(() => {
+    if (!copyId) return;
+
+    (async () => {
+      try {
+        // 1) main job record
+        const { data: base, error: baseErr } = await supabase
+          .from("jobs")
+          .select(
+            `selection_type, title, description, requirements,
+             location, work_type, salary_range, cover_image_url,
+             application_deadline, start_date`
+          )
+          .eq("id", copyId)
+          .maybeSingle();
+
+        if (baseErr) throw baseErr;
+        if (!base) return;  // invalid id
+
+        // pre‑fill common fields
+        setFormData(prev => ({
+          ...prev,
+          title               : base.title        ?? "",
+          employmentType      : base.work_type    ?? prev.employmentType,
+          description         : base.description  ?? "",
+          requirements        : base.requirements ?? "",
+          location            : base.location     ?? "",
+          salary              : base.salary_range ?? "",
+          coverImageUrl       : base.cover_image_url ?? "",
+          applicationDeadline : base.application_deadline ?? "",
+          startDate           : base.start_date   ?? "",
+        }));
+
+        // 2) fetch detail table by type
+        if (base.selection_type === "fulltime") {
+          const { data: child } = await supabase
+            .from("fulltime_details")
+            .select(`working_days, working_hours`)
+            .eq("job_id", copyId)
+            .maybeSingle();
+
+          if (child) {
+            setFormData(prev => ({
+              ...prev,
+              workingDays  : child.working_days  ?? "",
+              workingHours : child.working_hours ?? "",
+            }));
+          }
+        } else if (base.selection_type === "internship_short") {
+          const { data: child } = await supabase
+            .from("internship_details")
+            .select(`start_date, end_date, duration_weeks, work_days_per_week, allowance`)
+            .eq("job_id", copyId)
+            .maybeSingle();
+
+          if (child) {
+            setFormData(prev => ({
+              ...prev,
+              startDate        : child.start_date        ?? "",
+              endDate          : child.end_date          ?? "",
+              durationWeeks    : child.duration_weeks?.toString() ?? "",
+              workDaysPerWeek  : child.work_days_per_week?.toString() ?? "",
+              allowance        : child.allowance         ?? "",
+            }));
+          }
+        } else if (base.selection_type === "event") {
+          const { data: child } = await supabase
+            .from("event_details")
+            .select(`event_date, capacity, venue, format`)
+            .eq("job_id", copyId)
+            .maybeSingle();
+
+          if (child) {
+            setFormData(prev => ({
+              ...prev,
+              eventDate : child.event_date ?? "",
+              capacity  : child.capacity?.toString() ?? "",
+              venue     : child.venue ?? "",
+              format    : child.format ?? "onsite",
+            }));
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: "コピー失敗",
+          description: "求人情報の取得に失敗しました。",
+          variant: "destructive",
+        });
+      }
+    })();
+  }, [copyId]);
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -296,11 +390,11 @@ export default function NewJobPage() {
 
       // ---- 子テーブルへ詳細を保存 --------------------------
       if (selectionType === "fulltime") {
-        await supabase
+        const { error: ftErr } = await supabase
           .from("fulltime_details")
           .upsert(
             {
-              selection_id : jobId,
+              selection_id : jobId,      // ← remove this line if the column doesn't exist
               job_id       : jobId,
               working_days : formData.workingDays || null,
               salary_min   : null,
@@ -308,12 +402,13 @@ export default function NewJobPage() {
               is_ongoing   : false,
             } as Database["public"]["Tables"]["fulltime_details"]["Insert"]
           )
+        if (ftErr) throw ftErr;
       } else if (selectionType === "internship_short") {
-        await supabase
+        const { error: isErr } = await supabase
           .from("internship_details")
           .upsert(
             {
-              selection_id      : jobId,
+              selection_id      : jobId,   // ← remove if col doesn't exist
               job_id            : jobId,
               start_date        : formData.startDate || null,
               end_date          : formData.endDate   || null,
@@ -333,12 +428,13 @@ export default function NewJobPage() {
               notes             : null,
             } as Database["public"]["Tables"]["internship_details"]["Insert"]
           )
+        if (isErr) throw isErr;
       } else if (selectionType === "event") {
-        await supabase
+        const { error: evErr } = await supabase
           .from("event_details")
           .upsert(
             {
-              selection_id      : jobId,
+              selection_id      : jobId,  // ← remove if column absent
               job_id            : jobId,
               event_date        : formData.eventDate || null,
               capacity          : formData.capacity ? Number(formData.capacity) : null,
@@ -351,6 +447,7 @@ export default function NewJobPage() {
               notes             : null,
             } as Database["public"]["Tables"]["event_details"]["Insert"]
           )
+        if (evErr) throw evErr;
       }
 
       toast({ title: "作成完了", description: "新しい選考が作成されました。" })
@@ -1110,13 +1207,6 @@ export default function NewJobPage() {
                               icon={<Check size={16} />}
                               list={formData.requirements}
                             />
-                            {formData.preferredSkills && (
-                              <RequirementBlock
-                                title="歓迎スキル"
-                                icon={<Plus size={16} />}
-                                list={formData.preferredSkills}
-                              />
-                            )}
                           </SectionCard>
                         )}
 
