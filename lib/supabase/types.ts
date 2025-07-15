@@ -2293,6 +2293,7 @@ export type Database = {
           language_skill: string | null
           last_name: string | null
           last_name_kana: string | null
+          last_sign_in_at: string | null
           motive: string | null
           phone: string | null
           postal_code: string | null
@@ -2350,6 +2351,7 @@ export type Database = {
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
+          last_sign_in_at?: string | null
           motive?: string | null
           phone?: string | null
           postal_code?: string | null
@@ -2407,6 +2409,7 @@ export type Database = {
           language_skill?: string | null
           last_name?: string | null
           last_name_kana?: string | null
+          last_sign_in_at?: string | null
           motive?: string | null
           phone?: string | null
           postal_code?: string | null
