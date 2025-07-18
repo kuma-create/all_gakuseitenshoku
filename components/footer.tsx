@@ -52,7 +52,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
+                <Link href="https://intern.gakuten.co.jp/" className="text-gray-600 transition-colors hover:text-red-600">
                   長期インターン
                 </Link>
               </li>
@@ -64,22 +64,22 @@ export default function Footer() {
             <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">会社情報</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                  会社概要
+                <Link href="https://www.makeculture.jp/" className="text-gray-600 transition-colors hover:text-red-600">
+                  運営会社
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
+                <Link href="https://gakuten.co.jp/privacy-policy" className="text-gray-600 transition-colors hover:text-red-600">
                   プライバシーポリシー
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
+                <Link href="https://gakuten.co.jp/terms" className="text-gray-600 transition-colors hover:text-red-600">
                   利用規約
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
+                <Link href="https://www.makeculture.jp/contact" className="text-gray-600 transition-colors hover:text-red-600">
                   お問い合わせ
                 </Link>
               </li>
@@ -90,12 +90,12 @@ export default function Footer() {
           <div>
             <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">フォローする</h3>
             <div className="flex space-x-4">
-              <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
+              <Link href="https://x.com/gakuten_shukatu" className="text-gray-600 transition-colors hover:text-red-600">
                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
                 </svg>
               </Link>
-              <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
+              <Link href="https://www.instagram.com/gakuseitenshoku?igsh=Z2wwMmQyNjR6cmFp&utm_source=qr" className="text-gray-600 transition-colors hover:text-red-600">
                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path
                     fillRule="evenodd"
