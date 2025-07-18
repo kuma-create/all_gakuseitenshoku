@@ -1022,6 +1022,7 @@ export default function AdminDashboard() {
                 <TableHead>電話番号</TableHead>
                 <TableHead>卒業年度</TableHead>
                 <TableHead>最終ログイン日</TableHead>
+                <TableHead>登録日</TableHead>
                 <TableHead>ステータス</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -1032,10 +1033,13 @@ export default function AdminDashboard() {
                   <TableCell>{s.id}</TableCell>
                   <TableCell>{s.full_name}</TableCell>
                   <TableCell>{s.university}</TableCell>
-                  <TableCell>{s.phone}</TableCell>
+                  <TableCell>{s.phone ?? '—'}</TableCell>
                   <TableCell>{s.graduation_year}</TableCell>
                   <TableCell>
                     {s.last_sign_in_at ? format(new Date(s.last_sign_in_at), "yyyy/MM/dd") : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {s.created_at ? format(new Date(s.created_at), "yyyy/MM/dd") : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge>{s.status}</Badge>
@@ -1061,10 +1065,10 @@ export default function AdminDashboard() {
                         >
                           <Eye /> 詳細
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => openModal("edit-student", s.id)}
-                        >
-                          <Edit /> 編集
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/resume?user_id=${s.user_id ?? s.id}`}>
+                            <Edit /> 編集
+                          </Link>
                         </DropdownMenuItem>
                         {s.status === "アクティブ" ? (
                           <DropdownMenuItem
@@ -1108,7 +1112,7 @@ export default function AdminDashboard() {
               ))}
               {students.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-4">
+                  <TableCell colSpan={9} className="text-center py-4">
                     学生が見つかりません
                   </TableCell>
                 </TableRow>
