@@ -78,7 +78,15 @@ export type Database = {
           id?: string
           last_sign_in_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admins_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       applications: {
         Row: {
@@ -595,7 +603,15 @@ export type Database = {
           video_url?: string | null
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_business_areas: {
         Row: {
@@ -709,6 +725,13 @@ export type Database = {
             referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       company_highlights: {
@@ -805,6 +828,13 @@ export type Database = {
             referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_interviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       company_members: {
@@ -845,6 +875,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
             referencedColumns: ["id"]
           },
         ]
@@ -1004,6 +1041,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
             referencedColumns: ["id"]
           },
         ]
@@ -1265,6 +1309,33 @@ export type Database = {
           },
         ]
       }
+      inquiries: {
+        Row: {
+          company: string
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+        }
+        Relationships: []
+      }
       internship_details: {
         Row: {
           allowance: string | null
@@ -1513,6 +1584,13 @@ export type Database = {
             referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "jobs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       media_authors: {
@@ -1537,7 +1615,15 @@ export type Database = {
           id?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "media_authors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       media_categories: {
         Row: {
@@ -1716,6 +1802,13 @@ export type Database = {
             referencedRelation: "chat_rooms"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       notifications: {
@@ -1764,7 +1857,15 @@ export type Database = {
           url?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       qualifications: {
         Row: {
@@ -1862,7 +1963,15 @@ export type Database = {
           id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "referral_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       referral_uses: {
         Row: {
@@ -1892,6 +2001,13 @@ export type Database = {
             columns: ["referral_code_id"]
             isOneToOne: false
             referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_uses_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
             referencedColumns: ["id"]
           },
         ]
@@ -2436,7 +2552,15 @@ export type Database = {
           work_style?: string | null
           work_style_options?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_profiles_backup: {
         Row: {
@@ -2702,7 +2826,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_signups: {
         Row: {
@@ -2723,7 +2855,15 @@ export type Database = {
           referral_source?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_signups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {
@@ -2878,6 +3018,13 @@ export type Database = {
             referencedRelation: "student_with_email"
             referencedColumns: ["student_id"]
           },
+          {
+            foreignKeyName: "student_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       companies_view: {
@@ -2920,6 +3067,29 @@ export type Database = {
           },
           {
             foreignKeyName: "company_favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_member_emails: {
+        Row: {
+          company_id: string | null
+          email: string | null
+          id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_view"
@@ -3116,6 +3286,13 @@ export type Database = {
             referencedRelation: "companies_view"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_messages_with_sender: {
@@ -3137,6 +3314,13 @@ export type Database = {
             columns: ["chat_room_id"]
             isOneToOne: false
             referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
             referencedColumns: ["id"]
           },
         ]

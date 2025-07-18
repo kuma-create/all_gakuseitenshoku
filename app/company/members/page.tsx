@@ -7,60 +7,111 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { format } from 'date-fns'
 
+/**
+ * Extract detailed error string from Supabase FunctionsHttpError
+ */
+async function extractFunctionError(e: any): Promise<string | undefined> {
+  // supabase@v2: error.context.response is a Response
+  if (e?.context?.response) {
+    try {
+      const res: Response = e.context.response
+      const txt = await res.text()
+      if (txt) return txt
+    } catch (_) {}
+  }
+
+  // fallback: error.context.body is a ReadableStream (older types)
+  if (e?.context?.body) {
+    try {
+      const txt = await new Response(e.context.body).text()
+      if (txt) return txt
+    } catch (_) {}
+  }
+
+  return undefined
+}
+
+type User = {
+  id: string
+  email: string
+  name?: string
+}
+
 type Member = {
   id: string
   role: string
   invited_at: string
-  user: {
-    id: string
-    name: string
-    email: string
-  }
-}
-
-// public.profiles テーブルから取得するユーザー型
-type User = {
-  id: string;
-  name: string;
-  email: string;
+  user: User
 }
 
 export default function CompanyMembersPage() {
   const [companyId, setCompanyId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchCompanyId = async () => {
-      // 認証ユーザーを取得
+      // 1) Get current auth user
       const {
         data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) {
-        console.error('Failed to fetch user', userError);
-        return;
+        error,
+      } = await supabase.auth.getUser()
+
+      if (error || !user) {
+        console.error('Failed to fetch user', error)
+        return
       }
 
-      // company_members から自分の所属会社IDを取得
-      const { data: membership, error: membershipError } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
+      setCurrentUserId(user.id)
 
-      if (membershipError || !membership) {
-        console.error('Failed to fetch company membership', membershipError);
-        return;
+      // 2) Try metadata first (keeps backward‑compatibility)
+      let id: string | null = user.user_metadata?.company_id ?? null
+
+      // 3) Fallback: look up company_members table
+      if (!id) {
+        const { data: memberRow, error: memberError } = await supabase
+          .from('company_members')
+          .select('company_id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (memberError) {
+          console.error('Error looking up company_members:', memberError)
+          return
+        }
+
+        id = memberRow?.company_id ?? null
+
+        if (!id) {
+          // 3rd fallback: if user is the owner column in companies table
+          const { data: ownedCompany, error: companyErr } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('owner_id', user.id)
+            .maybeSingle()
+
+          if (companyErr) {
+            console.error('Error looking up companies (owner):', companyErr)
+            return
+          }
+
+          id = ownedCompany?.id ?? null
+          if (!id) {
+            console.error('No company membership or ownership found for user')
+            return
+          }
+        }
       }
 
-      setCompanyId(membership.company_id);
-    };
+      setCompanyId(id)
+    }
 
-    fetchCompanyId();
+    fetchCompanyId()
   }, [])
 
   const [members, setMembers] = useState<Member[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const fetchMembers = async () => {
     if (!companyId) return
@@ -77,81 +128,99 @@ export default function CompanyMembersPage() {
 
     const userIds = membersRaw.map((m) => m.user_id)
 
-    // users_view ビュー経由で id, name, email を取得
-    const { data: usersRaw, error: usersError } = await supabase
-      .from('users_view')
-      .select('id, name, email')
-      .in('id', userIds) as unknown as { data: User[] | null; error: any };
+    // ── fetch matching users via VIEW company_member_emails (id & email only)
+    const {
+      data: usersRaw,
+      error: usersError,
+    } = await supabase
+      .from('company_member_emails')        // ← VIEW that exposes auth.users safely
+      .select('id, email')
+      .in('id', userIds)
 
-    if (usersError || !usersRaw) {
-      console.error('Error fetching users:', usersError)
-      return
-    }
+    // re‑shape into {id, email}  (name is undefined until you add it to users)
+    const usersFormatted: User[] = (usersRaw ?? [])
+      .filter(
+        (u): u is { id: string; email: string } =>
+          typeof u.id === 'string' && typeof u.email === 'string'
+      )
+      .map((u) => ({
+        id: u.id,
+        email: u.email,
+      }))
+    const userMap = new Map(usersFormatted.map((u) => [u.id, u]))
 
-    const userMap = new Map(usersRaw.map((u) => [u.id, u]))
-
-    const merged: Member[] = membersRaw.map((m) => {
-      const u = userMap.get(m.user_id)!
-      return {
-        id: m.id,
-        role: m.role,
-        invited_at: m.invited_at,
-        user: {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-        },
+    // merge members with their user info; skip rows where user lookup fails
+    const merged: Member[] = membersRaw.flatMap((m) => {
+      const u = userMap.get(m.user_id)
+      if (!u) {
+        console.warn(`User info not found for user_id=${m.user_id}`)
+        return [] // or we could return a placeholder
       }
+      return [
+        {
+          id: m.id,
+          role: m.role,
+          invited_at: m.invited_at,
+          user: u,
+        },
+      ]
     })
 
-    setMembers(merged)
+    // filter out current user
+    const filtered = currentUserId ? merged.filter(m => m.user.id !== currentUserId) : merged
+
+    setMembers(filtered)
   }
 
+  /**
+   * 招待処理（招待テーブルを使わない簡易版）
+   * 1. 入力メールが既存ユーザーなら company_members へ直接追加
+   * 2. 未登録ユーザーなら Admin API で inviteUserByEmail を実行し、
+   *    返ってきた user.id を使って company_members に追加しておく
+   */
   const handleInvite = async () => {
-    if (!inviteEmail) return
-    if (!companyId) return
+    if (!inviteEmail || !companyId) return
     setLoading(true)
 
-    // 既存ユーザーの検索
-    const { data: existingUser, error: userError } = await supabase
-      .from('users_view')
-      .select('id')
-      .eq('email', inviteEmail)
-      .maybeSingle()
-
-    if (userError) {
-      alert('ユーザー検索中にエラーが発生しました')
-      setLoading(false)
-      return
-    }
-
-    if (!existingUser) {
-      alert('そのメールアドレスのユーザーは登録されていません')
-      setLoading(false)
-      return
-    }
-
-    const invitedUserId = existingUser.id!
-
-    const { error: insertError } = await supabase
-      .from('company_members')
-      .insert([
-        {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-invite', {
+        body: {
+          email: inviteEmail,
           company_id: companyId,
-          user_id: invitedUserId,
           role: 'recruiter',
-          invited_at: new Date().toISOString(),
         },
-      ])
+      })
 
-    if (insertError) {
-      alert('追加に失敗しました')
-    } else {
-      alert('メンバーを追加しました')
-      setInviteEmail('')
-      fetchMembers()
+      if (error) {
+        console.error('send-invite error:', error)
+        console.error('send-invite data:', data)
+
+        let detailed =
+          (error as any)?.data?.error || // JSON error field from supabase-js
+          (data as any)?.error           // function payload error returned
+
+        if (!detailed) {
+          // Try to pull from context.response/body
+          detailed = await extractFunctionError(error)
+        }
+
+        const msg =
+          detailed ||
+          (error as any)?.message ||
+          JSON.stringify(error, null, 2)
+
+        setErrorMsg(`招待に失敗しました: ${msg}`)
+      } else {
+        setErrorMsg(null) // clear any previous error
+        setInviteEmail('')
+        fetchMembers()
+      }
+    } catch (e) {
+      console.error('invoke threw exception:', e)
+      setErrorMsg(`招待に失敗しました: ${e}`)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleDelete = async (id: string) => {
@@ -176,17 +245,30 @@ export default function CompanyMembersPage() {
           <CardTitle>企業メンバー一覧</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {members.map((m) => (
-            <div key={m.id} className="flex justify-between items-center border p-2 rounded">
-              <div>
-                <p className="font-medium">{m.user.name}</p>
-                <p className="text-sm text-gray-500">{m.user.email}</p>
-                <p className="text-xs text-gray-400">{m.role}（{format(new Date(m.invited_at), 'yyyy/MM/dd')} に招待）</p>
+          {members.length === 0 ? (
+            <p className="text-sm text-gray-500 px-4 pb-4">メンバーがいません</p>
+          ) : members.map((m) => (
+            m.user.id === currentUserId ? null : (
+              <div key={m.id} className="flex justify-between items-center border p-2 rounded">
+                <div>
+                  <p className="font-medium">{m.user.name || m.user.email}</p>
+                  <p className="text-sm text-gray-500">{m.user.email}</p>
+                  <p className="text-xs text-gray-400">{m.role}（{format(new Date(m.invited_at), 'yyyy/MM/dd')} に招待）</p>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  disabled={m.role === 'owner'}
+                  onClick={() => {
+                    if (confirm('本当に削除しますか？')) {
+                      handleDelete(m.id)
+                    }
+                  }}
+                >
+                  削除
+                </Button>
               </div>
-              <Button variant="destructive" size="sm" onClick={() => handleDelete(m.id)}>
-                削除
-              </Button>
-            </div>
+            )
           ))}
         </CardContent>
       </Card>
@@ -196,6 +278,9 @@ export default function CompanyMembersPage() {
           <CardTitle>メンバー招待</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {errorMsg && (
+            <p className="text-sm text-red-500">{errorMsg}</p>
+          )}
           <Input
             type="email"
             placeholder="メールアドレスを入力"
