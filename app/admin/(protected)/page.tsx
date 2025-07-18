@@ -1061,10 +1061,15 @@ export default function AdminDashboard() {
                         >
                           <Eye /> 詳細
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/resume?user_id=${s.id}`}>
-                            <Edit /> 編集
-                          </Link>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            openModal(
+                              "edit-student",
+                              s.id
+                            )
+                          }
+                        >
+                          <Edit /> 編集
                         </DropdownMenuItem>
                         {s.status === "アクティブ" ? (
                           <DropdownMenuItem
