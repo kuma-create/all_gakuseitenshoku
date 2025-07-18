@@ -17,6 +17,7 @@ export default function AuthGuard() {
       "/terms",                  // 利用規約
       "/privacy-policy",         // プライバシーポリシー
       "/grandprix", 
+      "/lp",
       "/lp/students/fee", 
       "/features", 
       "/onboarding/profile",
