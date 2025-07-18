@@ -127,9 +127,9 @@ type Student = {
   graduation_year?: string | null;
   created_at: string;
   last_sign_in_at?: string | null;
-  phone?: string | null;
   status?: string | null;
   resume_id?: string | null;
+  phone?: string | null;
 };
 
 type Company = {
@@ -360,9 +360,9 @@ export default function AdminDashboard() {
           university: string | null;
           graduation_month: string | null;
           created_at: string | null;
+          status: string | null;
           last_sign_in_at: string | null;
           phone: string | null;
-          status: string | null;
         };
 
         // --- 追加: 全resume id取得
@@ -381,14 +381,14 @@ export default function AdminDashboard() {
             id,
             user_id,
             first_name,
-            phone,
             last_name,
             full_name,
             university,
             graduation_month,
             created_at,
+            status,
             last_sign_in_at,
-            status
+            phone
           `
           )
           .order("created_at", { ascending: false })
@@ -413,11 +413,11 @@ export default function AdminDashboard() {
                   "—",
                 university: s.university ?? "—",
                 graduation_year: gradYear,
+                phone: s.phone ?? "—",
                 created_at: s.created_at ?? "",
                 last_sign_in_at: s.last_sign_in_at ?? "",
-                phone: s.phone ?? null,
                 status: s.status ?? "—",
-                resume_id: resumeMap[s.id] ?? null,
+                resume_id: resumeMap[s.id] ?? null,              
               };
             })
           );
@@ -1032,7 +1032,7 @@ export default function AdminDashboard() {
                   <TableCell>{s.id}</TableCell>
                   <TableCell>{s.full_name}</TableCell>
                   <TableCell>{s.university}</TableCell>
-                  <TableCell>{s.phone ?? "—"}</TableCell>
+                  <TableCell>{s.phone}</TableCell>
                   <TableCell>{s.graduation_year}</TableCell>
                   <TableCell>
                     {s.last_sign_in_at ? format(new Date(s.last_sign_in_at), "yyyy/MM/dd") : "—"}
@@ -1062,12 +1062,7 @@ export default function AdminDashboard() {
                           <Eye /> 詳細
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "edit-student",
-                              s.id
-                            )
-                          }
+                          onClick={() => openModal("edit-student", s.id)}
                         >
                           <Edit /> 編集
                         </DropdownMenuItem>
@@ -1693,11 +1688,15 @@ export default function AdminDashboard() {
               <p><b>ID:</b> {selectedStudent.id}</p>
               <p><b>名前:</b> {selectedStudent.full_name}</p>
               <p><b>大学:</b> {selectedStudent.university}</p>
-              <p><b>電話番号:</b> {selectedStudent.phone ?? "—"}</p>
               <p><b>卒業年度:</b> {selectedStudent.graduation_year}</p>
               <p><b>ステータス:</b> {selectedStudent.status}</p>
-              <p><b>登録日:</b> {selectedStudent.created_at ? format(new Date(selectedStudent.created_at), "yyyy/MM/dd") : "—"}</p>
-              <p><b>最終ログイン日:</b> {selectedStudent.last_sign_in_at ? format(new Date(selectedStudent.last_sign_in_at), "yyyy/MM/dd") : "—"}</p>
+              <p>
+                <b>最終ログイン:</b>{" "}
+                {selectedStudent.last_sign_in_at
+                  ? format(new Date(selectedStudent.last_sign_in_at), "yyyy/MM/dd")
+                  : "—"}
+              </p>
+              {/* <p><b>登録日:</b> {format(new Date(selectedStudent.created_at),"yyyy/MM/dd")}</p> */}
             </div>
           ) : (
             <Skeleton className="h-24 w-full" />
@@ -1817,17 +1816,22 @@ export default function AdminDashboard() {
               本当に凍結しますか？
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={closeModal}
-            >
-              キャンセル
-            </Button>
-            <Button onClick={() => { /* 確定処理 */ }}>
-              凍結
-            </Button>
-          </DialogFooter>
+      <DialogFooter>
+        <Button
+          variant="secondary"
+          onClick={closeModal}
+        >
+          キャンセル
+        </Button>
+        <Button
+          onClick={() => {
+            // 確定処理
+            closeModal();
+          }}
+        >
+          凍結
+        </Button>
+      </DialogFooter>
         </DialogContent>
       </Dialog>
 
