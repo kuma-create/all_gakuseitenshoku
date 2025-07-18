@@ -18,10 +18,11 @@ type Member = {
   }
 }
 
+// public.profiles テーブルから取得するユーザー型
 type User = {
-  id: string
-  name: string
-  email: string
+  id: string;
+  name: string;
+  email: string;
 }
 
 export default function CompanyMembersPage() {
@@ -29,26 +30,32 @@ export default function CompanyMembersPage() {
 
   useEffect(() => {
     const fetchCompanyId = async () => {
+      // 認証ユーザーを取得
       const {
         data: { user },
-        error,
-      } = await supabase.auth.getUser()
-
-      if (error || !user) {
-        console.error('Failed to fetch user or company_id', error)
-        return
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('Failed to fetch user', userError);
+        return;
       }
 
-      const id = user.user_metadata?.company_id
-      if (!id) {
-        console.error('No company_id in user metadata')
-        return
+      // company_members から自分の所属会社IDを取得
+      const { data: membership, error: membershipError } = await supabase
+        .from('company_members')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (membershipError || !membership) {
+        console.error('Failed to fetch company membership', membershipError);
+        return;
       }
 
-      setCompanyId(id)
-    }
+      setCompanyId(membership.company_id);
+    };
 
-    fetchCompanyId()
+    fetchCompanyId();
   }, [])
 
   const [members, setMembers] = useState<Member[]>([])
@@ -70,10 +77,11 @@ export default function CompanyMembersPage() {
 
     const userIds = membersRaw.map((m) => m.user_id)
 
+    // users_view ビュー経由で id, name, email を取得
     const { data: usersRaw, error: usersError } = await supabase
-      .from('users')
+      .from('users_view')
       .select('id, name, email')
-      .in('id', userIds) as unknown as { data: User[] | null, error: any }
+      .in('id', userIds) as unknown as { data: User[] | null; error: any };
 
     if (usersError || !usersRaw) {
       console.error('Error fetching users:', usersError)
@@ -82,12 +90,19 @@ export default function CompanyMembersPage() {
 
     const userMap = new Map(usersRaw.map((u) => [u.id, u]))
 
-    const merged: Member[] = membersRaw.map((m) => ({
-      id: m.id,
-      role: m.role,
-      invited_at: m.invited_at,
-      user: userMap.get(m.user_id)!,
-    }))
+    const merged: Member[] = membersRaw.map((m) => {
+      const u = userMap.get(m.user_id)!
+      return {
+        id: m.id,
+        role: m.role,
+        invited_at: m.invited_at,
+        user: {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+        },
+      }
+    })
 
     setMembers(merged)
   }
@@ -97,25 +112,35 @@ export default function CompanyMembersPage() {
     if (!companyId) return
     setLoading(true)
 
-    const { data: user, error: userError } = await supabase
-      .from('users')
+    // 既存ユーザーの検索
+    const { data: existingUser, error: userError } = await supabase
+      .from('users_view')
       .select('id')
       .eq('email', inviteEmail)
-      .single()
+      .maybeSingle()
 
-    if (userError || !user) {
-      alert('ユーザーが見つかりません')
+    if (userError) {
+      alert('ユーザー検索中にエラーが発生しました')
       setLoading(false)
       return
     }
+
+    if (!existingUser) {
+      alert('そのメールアドレスのユーザーは登録されていません')
+      setLoading(false)
+      return
+    }
+
+    const invitedUserId = existingUser.id!
 
     const { error: insertError } = await supabase
       .from('company_members')
       .insert([
         {
           company_id: companyId,
-          user_id: user.id,
+          user_id: invitedUserId,
           role: 'recruiter',
+          invited_at: new Date().toISOString(),
         },
       ])
 
