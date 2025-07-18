@@ -3,7 +3,7 @@
 --------------------------------------------------------------------------- */
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/lib/hooks/use-toast";
@@ -293,6 +293,22 @@ export default function AdminDashboard() {
   const [editStudentGraduationMonth, setEditStudentGraduationMonth] = useState("");
   // 職務経歴書 (work_experiences JSON) 編集用
   const [editWorkExperiencesJson, setEditWorkExperiencesJson] = useState<string>("[]");
+  // 学生一覧絞り込み用の state
+  const [studentSearchQuery, setStudentSearchQuery] = useState<string>("");
+  const [studentUniversityFilter, setStudentUniversityFilter] = useState<string>("all");
+  const [studentYearFilter, setStudentYearFilter] = useState<string>("all");
+  const [studentStatusFilter, setStudentStatusFilter] = useState<string>("all");
+  // 並び替え用 state
+  const [studentSortBy, setStudentSortBy] = useState<"registration" | "lastLogin">("registration");
+  // 卒業年度一覧（動的生成）
+  const graduationYears = useMemo(() => {
+    const years = students
+      .map((s) => s.graduation_year)
+      .filter((y): y is string => Boolean(y) && y !== "—");
+    const unique = Array.from(new Set(years));
+    unique.sort((a, b) => parseInt(b) - parseInt(a));
+    return unique;
+  }, [students]);
 
   /* ---------- 求人詳細 ---------- */
   const [selectedJob, setSelectedJob] = useState<{
@@ -1007,118 +1023,197 @@ export default function AdminDashboard() {
 
         {/* --- 学生 --- */}
         <TabsContent value="students">
+          {/* 学生絞り込みフィルター */}
+          <div className="mb-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <Input
+              placeholder="フリーワード検索"
+              value={studentSearchQuery}
+              onChange={(e) => setStudentSearchQuery(e.target.value)}
+            />
+            <Select
+              value={studentYearFilter}
+              onValueChange={(v) => setStudentYearFilter(v)}
+            >
+              <SelectTrigger className="w-full">
+                {studentYearFilter === "all" ? "卒業年度" : studentYearFilter}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべて</SelectItem>
+                {graduationYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={studentStatusFilter}
+              onValueChange={(v) => setStudentStatusFilter(v)}
+            >
+              <SelectTrigger className="w-full">
+                {studentStatusFilter === "all" ? "ステータス" : studentStatusFilter}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべて</SelectItem>
+                <SelectItem value="アクティブ">アクティブ</SelectItem>
+                <SelectItem value="凍結">凍結</SelectItem>
+                {/* 必要に応じて他のステータス */}
+              </SelectContent>
+            </Select>
+            <Select
+              value={studentSortBy}
+              onValueChange={(v) => setStudentSortBy(v as any)}
+            >
+              <SelectTrigger className="w-full">
+                {studentSortBy === "registration" ? "登録日順" : "最終ログイン順"}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="registration">登録日順</SelectItem>
+                <SelectItem value="lastLogin">最終ログイン順</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex justify-end mb-2">
             <Button>
               <UserPlus className="mr-2 h-4 w-4" />
               学生を追加
             </Button>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>名前</TableHead>
-                <TableHead>大学</TableHead>
-                <TableHead>電話番号</TableHead>
-                <TableHead>卒業年度</TableHead>
-                <TableHead>最終ログイン日</TableHead>
-                <TableHead>登録日</TableHead>
-                <TableHead>ステータス</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {students.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>{s.id}</TableCell>
-                  <TableCell>{s.full_name}</TableCell>
-                  <TableCell>{s.university}</TableCell>
-                  <TableCell>{s.phone ?? '—'}</TableCell>
-                  <TableCell>{s.graduation_year}</TableCell>
-                  <TableCell>
-                    {s.last_sign_in_at ? format(new Date(s.last_sign_in_at), "yyyy/MM/dd") : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {s.created_at ? format(new Date(s.created_at), "yyyy/MM/dd") : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge>{s.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost">
-                          <ChevronDown />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>
-                          操作
-                        </DropdownMenuLabel>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "view-student",
-                              s.id
-                            )
-                          }
-                        >
-                          <Eye /> 詳細
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/resume?user_id=${s.user_id ?? s.id}`}>
-                            <Edit /> 編集
-                          </Link>
-                        </DropdownMenuItem>
-                        {s.status === "アクティブ" ? (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              openModal(
-                                "freeze-student",
-                                s.id
-                              )
-                            }
-                          >
-                            <Ban /> 凍結
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              openModal(
-                                "activate-student",
-                                s.id
-                              )
-                            }
-                          >
-                            <CheckCircle /> アクティブ化
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "delete-student",
-                              s.id
-                            )
-                          }
-                          className="text-red-500"
-                        >
-                          <Trash2 /> 削除
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {students.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-4">
-                    学生が見つかりません
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          {
+            // フィルタリングされた学生リスト
+          }
+          {(() => {
+            const filteredStudents = students.filter((s) => {
+              const q = studentSearchQuery.trim();
+              const matchesQuery =
+                q === "" ||
+                [s.full_name, s.university, s.graduation_year, s.phone]
+                  .some((field) => field?.includes(q));
+              return (
+                matchesQuery &&
+                (studentUniversityFilter === "all" || (s.university ?? "").includes(studentUniversityFilter)) &&
+                (studentYearFilter === "all" || s.graduation_year === studentYearFilter) &&
+                (studentStatusFilter === "all" || s.status === studentStatusFilter)
+              );
+            });
+            const sortedStudents = filteredStudents.slice().sort((a, b) => {
+              if (studentSortBy === "registration") {
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              } else {
+                const aTime = a.last_sign_in_at ? new Date(a.last_sign_in_at).getTime() : 0;
+                const bTime = b.last_sign_in_at ? new Date(b.last_sign_in_at).getTime() : 0;
+                return bTime - aTime;
+              }
+            });
+            return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>名前</TableHead>
+                    <TableHead>大学</TableHead>
+                    <TableHead>電話番号</TableHead>
+                    <TableHead>卒業年度</TableHead>
+                    <TableHead>最終ログイン日</TableHead>
+                    <TableHead>登録日</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedStudents.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell>{s.id}</TableCell>
+                      <TableCell>{s.full_name}</TableCell>
+                      <TableCell>{s.university}</TableCell>
+                      <TableCell>{s.phone ?? '—'}</TableCell>
+                      <TableCell>{s.graduation_year}</TableCell>
+                      <TableCell>
+                        {s.last_sign_in_at ? format(new Date(s.last_sign_in_at), "yyyy/MM/dd") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {s.created_at ? format(new Date(s.created_at), "yyyy/MM/dd") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge>{s.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost">
+                              <ChevronDown />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>
+                              操作
+                            </DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                openModal(
+                                  "view-student",
+                                  s.id
+                                )
+                              }
+                            >
+                              <Eye /> 詳細
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/resume?user_id=${s.user_id ?? s.id}`}>
+                                <Edit /> 編集
+                              </Link>
+                            </DropdownMenuItem>
+                            {s.status === "アクティブ" ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  openModal(
+                                    "freeze-student",
+                                    s.id
+                                  )
+                                }
+                              >
+                                <Ban /> 凍結
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  openModal(
+                                    "activate-student",
+                                    s.id
+                                  )
+                                }
+                              >
+                                <CheckCircle /> アクティブ化
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                openModal(
+                                  "delete-student",
+                                  s.id
+                                )
+                              }
+                              className="text-red-500"
+                            >
+                              <Trash2 /> 削除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {sortedStudents.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-4">
+                        学生が見つかりません
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            );
+          })()}
           <Pagination className="my-2">
             <PaginationPrevious
               onClick={() =>
@@ -1700,7 +1795,12 @@ export default function AdminDashboard() {
                   ? format(new Date(selectedStudent.last_sign_in_at), "yyyy/MM/dd")
                   : "—"}
               </p>
-              {/* <p><b>登録日:</b> {format(new Date(selectedStudent.created_at),"yyyy/MM/dd")}</p> */}
+              <p>
+                <b>登録日:</b>{" "}
+                {selectedStudent.created_at
+                  ? format(new Date(selectedStudent.created_at), "yyyy/MM/dd")
+                  : "—"}
+              </p>
             </div>
           ) : (
             <Skeleton className="h-24 w-full" />
