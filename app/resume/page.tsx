@@ -254,23 +254,33 @@ export default function ResumePage() {
           return;
         }
 
-        const { data, error } = await supabase
+        // --- Supabase fetch for existing resume (replaced logic) ---
+        const {
+          data: resumeRow,
+          error: resumeErr,
+        } = await supabase
           .from("resumes")
-          .select("form_data, work_experiences")
+          .select("id, form_data, work_experiences")
           .eq("user_id", uid)
-          .single();
+          .maybeSingle();
 
-        if (!error && data) {
-          if (data.form_data)
-            setFormData(data.form_data as unknown as FormData);
+        if (resumeRow) {
+          // 既存レジュメあり → フォームへ反映
+          if (resumeRow.form_data)
+            setFormData(resumeRow.form_data as unknown as FormData);
 
-          if (Array.isArray(data.work_experiences))
+          if (Array.isArray(resumeRow.work_experiences))
             setWorkExperiences(
-              data.work_experiences as unknown as WorkExperience[]
+              resumeRow.work_experiences as unknown as WorkExperience[]
             );
+
           console.log("📄 Resume loaded from DB");
+        } else if (resumeErr && resumeErr.code !== "PGRST116") {
+          // それ以外のエラーのみ警告
+          console.warn("⚠️ resume fetch error:", resumeErr.message);
         } else {
-          console.log("ℹ️ No existing resume found / fetch error:", error?.message);
+          // レジュメがまだ無いユーザーの場合は初期値のまま
+          console.log("ℹ️ No existing resume found – initializing blank form");
         }
 
         /* --- 基本情報を student_profiles から取得 ------------------- */
