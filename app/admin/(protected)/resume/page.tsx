@@ -251,7 +251,7 @@ export default function AdminResumePage() {
 
   const [initialLoaded, setInitialLoaded] = useState(false);
 
-  const pdfFilename = `${formData.basic.lastName}${formData.basic.firstName}_職務経歴書.pdf`;
+  const pdfFilename = `${formData?.basic?.lastName ?? ""}${formData?.basic?.firstName ?? ""}_職務経歴書.pdf`;
 
   // ─── データ取得 ─────────────────────────────────────────
   useEffect(() => {
@@ -293,7 +293,32 @@ export default function AdminResumePage() {
         if (resumeRow.user_id) {
           setTargetUserId(resumeRow.user_id);
         }
-        if (resumeRow.form_data) setFormData(resumeRow.form_data);
+        if (resumeRow.form_data) {
+          setFormData((prev) => ({
+            ...prev,
+            ...resumeRow.form_data,
+            basic: {
+              ...prev.basic,
+              ...(resumeRow.form_data as any).basic,
+            },
+            education: {
+              ...prev.education,
+              ...(resumeRow.form_data as any).education,
+            },
+            skills: {
+              ...prev.skills,
+              ...(resumeRow.form_data as any).skills,
+            },
+            pr: {
+              ...prev.pr,
+              ...(resumeRow.form_data as any).pr,
+            },
+            conditions: {
+              ...prev.conditions,
+              ...(resumeRow.form_data as any).conditions,
+            },
+          }));
+        }
         if (Array.isArray(resumeRow.work_experiences)) {
           setWorkExperiences(
             resumeRow.work_experiences.map((exp) => ({
@@ -306,8 +331,11 @@ export default function AdminResumePage() {
         console.warn("resume fetch error:", resumeErr.message);
       }
 
+      // Inserted: profileUserId calculation after resumeRow/resumeErr section
+      const profileUserId = resumeRow?.user_id ?? studentId ?? targetUserId;
+
       /* student_profiles */
-      if (targetUserId) {
+      if (profileUserId) {
         const {
           data: profile,
           error: profileErr,
@@ -316,7 +344,7 @@ export default function AdminResumePage() {
           .select(
             "last_name, first_name, last_name_kana, first_name_kana, birth_date, gender, phone, address, admission_month, graduation_month, university, faculty, research_theme"
           )
-          .eq("user_id", targetUserId!)
+          .eq("user_id", profileUserId)
           .maybeSingle<{
             last_name: string | null;
             first_name: string | null;
@@ -344,26 +372,18 @@ export default function AdminResumePage() {
                 profile.last_name_kana ?? prev.basic.lastNameKana,
               firstNameKana:
                 profile.first_name_kana ?? prev.basic.firstNameKana,
-              birthdate:
-                profile.birth_date ?? prev.basic.birthdate,
+              birthdate: profile.birth_date ?? prev.basic.birthdate,
               gender: (profile.gender as any) ?? prev.basic.gender,
               phone: profile.phone ?? prev.basic.phone,
               address: profile.address ?? prev.basic.address,
             },
             education: {
               ...prev.education,
-              university:
-                profile.university ?? prev.education.university,
+              university: profile.university ?? prev.education.university,
               faculty: profile.faculty ?? prev.education.faculty,
-              admissionDate:
-                profile.admission_month ??
-                prev.education.admissionDate,
-              graduationDate:
-                profile.graduation_month ??
-                prev.education.graduationDate,
-              researchTheme:
-                profile.research_theme ??
-                prev.education.researchTheme,
+              admissionDate: profile.admission_month ?? prev.education.admissionDate,
+              graduationDate: profile.graduation_month ?? prev.education.graduationDate,
+              researchTheme: profile.research_theme ?? prev.education.researchTheme,
             },
           }));
         }
@@ -372,7 +392,7 @@ export default function AdminResumePage() {
       setInitialLoaded(true);
     };
     load();
-  }, [studentId, resumeId]);
+  }, [studentId, resumeId, targetUserId]);
 
   // ─── 完了率計算（ロジックは元コードと同じ） ────────────────
   useEffect(() => {
