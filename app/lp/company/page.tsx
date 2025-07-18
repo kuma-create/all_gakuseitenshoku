@@ -1,17 +1,36 @@
 "use client";
+// NOTE: run `pnpm add chart.js react-chartjs-2` (or npm / yarn equiv.) before build
+import dynamic from "next/dynamic";
+
+// Dynamically import chart component to avoid SSR issues
+const Pie = dynamic(() =>
+  import("react-chartjs-2").then((m) => m.Pie),
+  { ssr: false }
+);
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+// Register needed chart elements once
+ChartJS.register(ArcElement, Tooltip, Legend);
 import { Button } from "@/components/ui/button";
 import Head from "next/head";
 import Image from "next/image";
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
-import { Search, Rocket, CalendarCheck } from "lucide-react";
-import { Play, Badge } from "lucide-react";
+import { motion, type Variants } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
 import {
-  AlertTriangle,
-  TrendingUp,
-  CheckCircle,
-  ArrowRight,
+  Search,
   Users,
+  Rocket,
+  CalendarCheck,
+  Badge,
+  AlertTriangle,
+  ArrowRight,
+  GraduationCap,
+  Briefcase,
 } from "lucide-react";
 
 function Section({
@@ -30,96 +49,6 @@ function Section({
   );
 }
 
-function Nav() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const links = [
-    { href: "#pain", label: "課題" },
-    { href: "#features", label: "特徴" },
-    { href: "#metrics", label: "実績" },
-    { href: "#flow", label: "流れ" },
-    { href: "#testimonials", label: "事例" },
-    { href: "#faq", label: "FAQ" },
-  ];
-
-  return (
-    <>
-      {/* Skip link for keyboard and screen‑reader users */}
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only absolute top-2 left-2 z-[60] bg-white text-indigo-600 px-3 py-2 rounded"
-      >
-        メインコンテンツへスキップ
-      </a>
-
-      <header className="fixed top-0 inset-x-0 bg-white/80 backdrop-blur border-b z-50">
-        <div className="container mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
-          {/* Brand */}
-          <a href="#hero" className="font-bold text-indigo-700">
-            学生転職
-          </a>
-
-          {/* Desktop navigation */}
-          <nav
-            aria-label="Primary"
-            className="hidden lg:flex items-center gap-6 text-sm font-medium"
-          >
-            {links.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="hover:text-indigo-600 transition-colors"
-              >
-                {l.label}
-              </a>
-            ))}
-            <Button size="sm" aria-label="資料をダウンロード">
-              資料DL
-            </Button>
-          </nav>
-
-          {/* Mobile menu button */}
-          <button
-            aria-label="メニューを開閉"
-            onClick={() => setIsMenuOpen((v) => !v)}
-            className="lg:hidden text-indigo-700"
-          >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {/* Mobile navigation panel */}
-        {isMenuOpen && (
-          <div className="lg:hidden border-b shadow-sm bg-white">
-            <nav
-              aria-label="Mobile"
-              className="flex flex-col px-6 py-4 gap-4 text-sm font-medium"
-            >
-              {links.map((l) => (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="hover:text-indigo-600 transition-colors"
-                >
-                  {l.label}
-                </a>
-              ))}
-              <Button
-                size="sm"
-                onClick={() => setIsMenuOpen(false)}
-                aria-label="資料をダウンロード"
-              >
-                資料DL
-              </Button>
-            </nav>
-          </div>
-        )}
-      </header>
-    </>
-  );
-}
-
 // MovieSection – short explainer video
 function MovieSection() {
   return (
@@ -127,55 +56,268 @@ function MovieSection() {
       <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
         <div>
           <Badge
-            className="mb-4 bg-indigo-100 text-indigo-700 border-indigo-200 inline-block px-3 py-1 rounded-full text-xs font-semibold"
+            className="mb-4 bg-red-100 text-red-700 border-red-200 inline-block px-3 py-1 rounded-full text-xs font-semibold"
           >
-            MOVIE
+            ABOUT
           </Badge>
           <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-relaxed">
-            2分で分かる
-            <br className="hidden sm:block" />
-            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
               学生転職
             </span>
+            とは？
           </h2>
           <p className="text-gray-700 mb-8">
-            機能の全体像をサクッと把握したい方向けに、ハイライト動画を用意しました。
+            学生転職は、職務経歴を持つ学生のみが登録できるハイキャリア新卒採用プラットフォームです。年収やポジションに縛られず
+            今自社に本当に必要な人材をダイレクトヘッドハンティングすることが可能です。
           </p>
         </div>
-        <div className="relative">
-          <div className="aspect-video bg-gray-100 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-center h-full bg-gradient-to-br from-indigo-100 to-violet-100">
-              <Button
-                size="lg"
-                className="bg-indigo-600 hover:bg-indigo-700 rounded-full p-6"
-                aria-label="再生する"
-              >
-                <Play className="w-8 h-8 text-white" />
-              </Button>
-            </div>
-          </div>
+        {/* Logo image instead of video placeholder */}
+        <div className="relative w-full h-48 md:h-64 lg:h-72">
+          <Image
+            src="/logo.png"
+            alt="学生転職ロゴ"
+            fill
+            className="object-contain"
+            priority
+          />
         </div>
       </div>
     </Section>
   );
 }
 
+/* ---------- FEATURES DATA & ANIMATION ---------- */
+const features = [
+  {
+    Icon: Search,
+    title: "職務経歴書を書いている学生のみ",
+    text:
+      "学生は履歴書に加え職務経歴書も登録。これまでの職歴やスキルを客観的に確認できます。",
+    accent: "from-blue-600 to-indigo-600",
+    number: "01",
+  },
+  {
+    Icon: Users,
+    title: "母集団形成からサポート",
+    text:
+      "企業様に合わせた最適な学生母集団の形成を専任チームが支援します。",
+    accent: "from-purple-600 to-violet-600",
+    number: "02",
+  },
+  {
+    Icon: Rocket,
+    title: "長期インターンから新卒採用まで一貫したフォロー",
+    text:
+      "インターン紹介『学転インターン』とナレッジサービスで新卒採用まで一気通貫。",
+    accent: "from-orange-600 to-red-600",
+    number: "03",
+  },
+  {
+    Icon: CalendarCheck,
+    title: "長期的な費用削減",
+    text:
+      "実務経験のある学生が多いため教育コストを抑え、採用コストを長期的に削減できます。",
+    accent: "from-emerald-600 to-teal-600",
+    number: "04",
+  },
+];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.2 } },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 60, scale: 0.8 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.8,
+      ease: "easeOut",
+    },
+  },
+};
+/* ---------------------------------------------- */
+
+/* ---------- DEMOGRAPHIC PIE CHART ---------- */
+type PieDatum = { label: string; value: number };
+
+function DemographicPie({
+  title,
+  data,
+}: {
+  title: string;
+  data: PieDatum[];
+}) {
+  const pastelColors = [
+    "#93c5fd", // blue-300
+    "#60a5fa", // blue-400
+    "#818cf8", // indigo-400
+    "#a78bfa", // violet-400
+    "#f0abfc", // fuchsia-300
+    "#f9a8d4", // pink-300
+    "#fca5a5", // red-300
+  ];
+  const chartData = {
+    labels: data.map((d) => d.label),
+    datasets: [
+      {
+        data: data.map((d) => d.value),
+        backgroundColor: pastelColors,
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-xl p-12">
+      <h3 className="text-xl font-bold text-center mb-6">{title}</h3>
+      <div className="relative w-full h-72">
+        <Pie
+          data={chartData}
+          options={{
+            plugins: { legend: { display: false } },
+            maintainAspectRatio: false,
+            responsive: true,
+          }}
+        />
+      </div>
+      {/* Legend with % */}
+      <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        {data.map((d, idx) => {
+          const total = data.reduce((sum, cur) => sum + cur.value, 0);
+          const pct = ((d.value / total) * 100).toFixed(0);
+          return (
+            <li key={d.label} className="flex items-center gap-2">
+              <span
+                className="inline-block w-3 h-3 rounded-sm"
+                style={{ backgroundColor: pastelColors[idx] }}
+              />
+              <span className="text-gray-700">{d.label}</span>
+              <span className="ml-auto font-medium text-gray-900">{pct}%</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// Data sets
+const eduPie: PieDatum[] = [
+  { label: "GMARCH", value: 34 },
+  { label: "早慶上理", value: 22 },
+  { label: "関関同立", value: 10 },
+  { label: "成成明学", value: 8 },
+  { label: "日東駒専", value: 14 },
+  { label: "東京一工", value: 6 },
+  { label: "その他", value: 6 },
+];
+
+const jobPie: PieDatum[] = [
+  { label: "営業", value: 42 },
+  { label: "マーケティング", value: 24 },
+  { label: "エンジニア", value: 13 },
+  { label: "コンサル", value: 8 },
+  { label: "事業開発", value: 6 },
+  { label: "人事", value: 5 },
+  { label: "起業", value: 2 },
+];
+/* ------------------------------------------ */
+
+/* ---------- STUDENT CASES ---------- */
+type StudentCase = {
+  img: string;
+  alt: string;
+  title: string;
+  text: string;
+};
+
+const studentCases: StudentCase[] = [
+  {
+    img: "/case-sales.png",
+    alt: "バルコニーで腕を組むスーツ姿の学生",
+    title: "人材系ベンチャーの立ち上げに従事した学生が営業部長として活躍！",
+    text: "大学2年生から人材会社にて週4日働いた後、人材系ベンチャー企業から新規企画の営業部長として採用。",
+  },
+  {
+    img: "/case-engineer.png",
+    alt: "ノートPCで開発作業をする学生",
+    title: "スタートアップでリードエンジニアとしてサービス開発に奮闘中！",
+    text: "プログラミングスクールで学習のち、IT企業でプログラマーとして長期インターンに従事。現在はリードエンジニアとして活躍中。",
+  },
+];
+/* ----------------------------------- */
+
+/* ---------- SMALL RADIAL CHART ---------- */
+function RadialChart({
+  percentage,
+  size = 80,
+  stroke = 6,
+}: {
+  percentage: number;
+  size?: number;
+  stroke?: number;
+}) {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset =
+    circumference - (percentage / 100) * circumference;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="mb-4"
+    >
+      {/* Background circle */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="#f1f5f9"
+        strokeWidth={stroke}
+        fill="none"
+      />
+      {/* Progress circle */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="#ef4444"
+        strokeWidth={stroke}
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray={`${circumference} ${circumference}`}
+        style={{
+          strokeDashoffset: dashOffset,
+          transition: "stroke-dashoffset 0.6s ease",
+        }}
+      />
+    </svg>
+  );
+}
+/* --------------------------------------- */
+
 export default function CompanyLP() {
   return (
     <>
       <Head>
-        <title>学生転職｜企業向けリバーススカウト採用プラットフォーム</title>
+        <title>学生転職｜本気で新卒を採用したい企業だけの新サービス</title>
         <meta
           name="description"
-          content="25〜28卒学生に特化したリバーススカウトサービス『学生転職』。独自データベースとAI活用で早期ポテンシャル人材に効率的に出会えます。"
+          content="職務経歴をすでに持っている学生を、ポジション・年収を固定せずヘッドハンティングできる新世代の採用サービス"
         />
         <meta
           property="og:title"
-          content="学生転職｜企業向けリバーススカウト採用プラットフォーム"
+          content="学生転職｜本気で新卒を採用したい企業だけの新サービス"
         />
         <meta
           property="og:description"
-          content="25〜28卒学生に特化したリバーススカウトサービス『学生転職』で、質の高い母集団形成と内定承諾率向上を実現。"
+          content="職務経歴をすでに持っている学生を、ポジション・年収を固定せずヘッドハンティングできる新世代の採用サービス"
         />
 
         {/* OGP image */}
@@ -209,38 +351,54 @@ export default function CompanyLP() {
         />
       </Head>
 
-      <Nav />
-
       <main id="main" role="main">
         {/* Hero */}
         <Section
           id="hero"
-          className="bg-gradient-to-br from-indigo-600 to-violet-700 text-white pt-32 relative overflow-hidden"
+          className="bg-gradient-to-br from-red-600 to-red-700 text-white pt-32 relative overflow-hidden"
         >
           {/* Decorative blurred blobs */}
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -top-40 -left-32 w-96 h-96 bg-violet-400 opacity-30 rounded-full blur-3xl"></div>
-            <div className="absolute top-24 -right-32 w-80 h-80 bg-indigo-400 opacity-25 rounded-full blur-3xl"></div>
+            <div className="absolute -top-40 -left-32 w-96 h-96 bg-red-400 opacity-30 rounded-full blur-3xl"></div>
+            <div className="absolute top-24 -right-32 w-80 h-80 bg-red-400 opacity-25 rounded-full blur-3xl"></div>
           </div>
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
-              採用を加速する<br className="md:hidden" />“学生転職” リバーススカウト
-            </h1>
-            <p className="mb-8 text-lg opacity-90">
-              25〜28卒の“いま会いたい”ポテンシャル人材に、たった3ステップでリーチ
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" aria-label="資料をダウンロード">資料を受け取る（無料）</Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="bg-white/10"
-                aria-label="無料相談を申し込む"
-              >
-                担当者に相談する
-              </Button>
-            </div>
+      <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center px-4">
+        {/* Left: copy */}
+        <div className="text-center md:text-left">
+          <h1 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
+            企業の本気の採用に応える<br className="md:hidden" />
+            “学生転職” 
+            ハイキャリア新卒採用
+          </h1>
+          <p className="mb-8 text-lg opacity-90">
+            “いま会いたい”即戦力新卒人材に、たった3ステップでリーチ
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+            <Button size="lg" aria-label="資料をダウンロード">
+              デモを試してみる
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="bg-white/10"
+              aria-label="無料相談を申し込む"
+            >
+              担当者に相談する
+            </Button>
           </div>
+        </div>
+
+        {/* Right: hero image */}
+        <div className="relative w-full h-72 md:h-[420px]">
+          <Image
+            src="/hero-students.png"
+            alt="ノートPCを囲んで協力する学生たち"
+            fill
+            className="object-cover rounded-xl shadow-2xl"
+            priority
+          />
+        </div>
+      </div>
         </Section>
 
         <MovieSection />
@@ -248,77 +406,209 @@ export default function CompanyLP() {
         {/* Pain Points */}
         <Section
           id="pain"
-          className="bg-gradient-to-br from-violet-50 via-indigo-50 to-white"
+          className="bg-gradient-to-br from-red-50 via-red-100 to-white"
         >
           <h2 className="text-2xl md:text-3xl font-bold mb-10 text-center">
             こんなお悩みありませんか？
           </h2>
           <div className="grid gap-6 md:grid-cols-3">
             {[
-              "ターゲット学生に求人情報が届かない",
-              "母集団形成に大きな広告費がかかる",
-              "内定承諾率が伸びず採用計画が遅れる",
-            ].map((text, i) => (
+              {
+                text: "ターゲット学生に求人情報が届かない",
+                img: "/pain-1-target.png",
+                alt: "ターゲットに届かないイメージ"
+              },
+              {
+                text: "母集団形成に大きな広告費がかかる",
+                img: "/pain-2-cost.png",
+                alt: "コストがかかるイメージ"
+              },
+              {
+                text: "内定承諾率が伸びず採用計画が遅れる",
+                img: "/pain-3-offer.png",
+                alt: "内定承諾率が伸びないイメージ"
+              },
+            ].map(({ text, img, alt }, i) => (
               <div
                 key={i}
-                className="p-6 bg-white rounded-xl shadow-md flex items-start gap-4 hover:shadow-lg transition-shadow"
+                className="relative p-8 bg-white rounded-2xl shadow-lg ring-1 ring-gray-200/60 flex flex-col items-center text-center gap-6 transition-all duration-500 group hover:-translate-y-2 hover:ring-red-400/60"
               >
-                <AlertTriangle className="w-8 h-8 text-indigo-600 flex-shrink-0" />
-                <p className="text-gray-800 font-medium">{text}</p>
+                {/* Hover gradient overlay */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-red-50 via-white to-red-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                {/* Thumbnail */}
+                <Image
+                  src={img}
+                  alt={alt}
+                  width={120}
+                  height={120}
+                  className="w-28 h-28 mb-6 rounded-lg object-cover shadow-md"
+                />
+
+                {/* Copy */}
+                <p className="text-gray-800 font-semibold leading-relaxed">{text}</p>
               </div>
             ))}
           </div>
         </Section>
 
         {/* Features */}
-        <Section id="features" className="bg-gray-50">
-          <h2 className="text-2xl font-bold mb-4 text-center">
-            学生転職が選ばれる理由
-          </h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="p-6 bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow">
-              <Search className="w-10 h-10 mb-4 text-indigo-600" />
-              <h3 className="font-semibold mb-2">国内最大級データベース</h3>
-              <p>45,000件超の学生プロフィールを常時アップデート</p>
-            </div>
-            <div className="p-6 bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow">
-              <Rocket className="w-10 h-10 mb-4 text-indigo-600" />
-              <h3 className="font-semibold mb-2">AIマッチング</h3>
-              <p>応募意欲が高い候補者を自動リストアップ</p>
-            </div>
-            <div className="p-6 bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow">
-              <CalendarCheck className="w-10 h-10 mb-4 text-indigo-600" />
-              <h3 className="font-semibold mb-2">日程調整オートメーション</h3>
-              <p>カレンダー連携で面談設定までワンクリック</p>
-            </div>
+        <Section id="features" className="relative py-24 bg-gradient-to-br from-red-900 via-red-800 to-red-700 overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5 pointer-events-none">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 25% 25%, white 2px, transparent 2px), radial-gradient(circle at 75% 75%, white 2px, transparent 2px)",
+                backgroundSize: "60px 60px",
+              }}
+            />
+          </div>
+
+          {/* Gradient Orbs */}
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+
+          <div className="container mx-auto px-4 relative z-10">
+            {/* Heading */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="text-center mb-20"
+            >
+              <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
+                <span className="bg-gradient-to-r from-white via-gray-100 to-white bg-clip-text text-transparent">
+                  学生転職が
+                </span>
+                <br />
+                <span className="bg-gradient-to-r from-red-300 via-red-100 to-red-300 bg-clip-text text-transparent">
+                  選ばれる理由
+                </span>
+              </h2>
+              <div className="flex justify-center">
+                <div className="w-32 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+              </div>
+            </motion.div>
+
+            {/* Cards */}
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="grid gap-8 md:grid-cols-2 lg:grid-cols-4"
+            >
+              {features.map(({ Icon, title, text, accent, number }, i) => (
+                <motion.div key={i} variants={itemVariants}>
+                  <Card className="group relative h-full bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-700 overflow-hidden">
+                    {/* Hover Gradient Overlay */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${accent} opacity-0 group-hover:opacity-5 transition-opacity duration-700`} />
+
+                    {/* Top Accent Line */}
+                    <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+
+                    <CardContent className="relative p-8 h-full">
+                      {/* Large Faded Number */}
+                      <div className="absolute top-6 right-6 text-6xl font-extrabold text-white/5 group-hover:text-white/10 transition-colors duration-500 select-none">
+                        {number}
+                      </div>
+
+                      {/* Icon */}
+                      <div className="mb-8">
+                        <div className="w-16 h-16 flex items-center justify-center rounded-2xl bg-white/10 group-hover:bg-white/20 transition-all duration-500">
+                          <Icon className="w-8 h-8 text-white" strokeWidth={2} />
+                        </div>
+                      </div>
+
+                      {/* Title & Text */}
+                      <h3 className="font-bold text-xl mb-4 text-white group-hover:text-gray-100 transition-colors duration-300 leading-tight">
+                        {title}
+                      </h3>
+                      <p className="text-gray-300 group-hover:text-gray-200 leading-relaxed transition-colors duration-300 text-sm">
+                        {text}
+                      </p>
+
+                      {/* Bottom Accent Line */}
+                      <div className={`absolute bottom-0 left-8 right-8 h-px bg-gradient-to-r ${accent} scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left`} />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Inline CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.5 }}
+              className="text-center mt-20"
+            >
+              <div className="inline-flex items-center gap-4 px-8 py-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl hover:bg-white/10 transition-all duration-300 cursor-pointer group">
+                <span className="text-white font-medium">詳細を確認する</span>
+                <div className="w-6 h-6 rounded-full bg-gradient-to-r from-white/80 to-white/40 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <svg className="w-3 h-3 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </Section>
 
-        {/* Metrics */}
-        <Section id="metrics">
-          <h2 className="text-2xl font-bold mb-4 text-center">実績</h2>
-          <div className="grid gap-8 md:grid-cols-3 text-center">
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                <Users className="w-8 h-8 text-white" />
+        {/* Demographics */}
+        <Section id="demographics">
+          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
+            『学生転職』登録学生層
+          </h2>
+          <div className="grid gap-12 md:grid-cols-2 max-w-5xl mx-auto">
+            <DemographicPie title="学歴層" data={eduPie} />
+            <DemographicPie title="経験職種" data={jobPie} />
+          </div>
+        </Section>
+
+
+
+        {/* Student Cases */}
+        <Section id="cases">
+          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
+            実際の学生例
+          </h2>
+
+          <div className="space-y-16">
+            {studentCases.map((c, i) => (
+              <div
+                key={i}
+                className={`grid md:grid-cols-2 gap-10 items-center ${
+                  i % 2 === 1 ? "md:flex-row-reverse" : ""
+                }`}
+              >
+                {/* Image */}
+                <div
+                  className={`relative w-full h-60 md:h-72 lg:h-80 ${
+                    i % 2 === 1 ? "md:order-2" : ""
+                  }`}
+                >
+                  <Image
+                    src={c.img}
+                    alt={c.alt}
+                    fill
+                    className="object-cover rounded-xl shadow-lg"
+                  />
+                </div>
+
+                {/* Text */}
+                <div className={`${i % 2 === 1 ? "md:order-1" : ""}`}>
+                  <h3 className="text-2xl font-bold mb-4 leading-snug">
+                    {c.title}
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">{c.text}</p>
+                </div>
               </div>
-              <p className="text-4xl font-extrabold text-indigo-600">150+</p>
-              <p className="font-medium text-gray-700">導入社数</p>
-            </div>
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                <TrendingUp className="w-8 h-8 text-white" />
-              </div>
-              <p className="text-4xl font-extrabold text-indigo-600">50,000+</p>
-              <p className="font-medium text-gray-700">登録学生数</p>
-            </div>
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                <CheckCircle className="w-8 h-8 text-white" />
-              </div>
-              <p className="text-4xl font-extrabold text-indigo-600">32%</p>
-              <p className="font-medium text-gray-700">平均内定承諾率UP</p>
-            </div>
+            ))}
           </div>
         </Section>
 
@@ -329,18 +619,18 @@ export default function CompanyLP() {
             {[
               {
                 num: "01",
-                title: "学生検索 & ターゲティング",
-                text: "5万件超のデータから理想の学生を高速絞り込み",
+                title: "利用申込をする",
+                text: "下記より利用申込のフォームもしくは無料相談よりご連絡ください",
               },
               {
                 num: "02",
-                title: "AIマッチング & 日程調整",
-                text: "AIが最適候補をレコメンドし、自動で面談調整",
+                title: "アカウントの設定",
+                text: "企業アカウントを設定させていただきます。専任のカスタマーサポーターがつきますのでご安心ください",
               },
               {
                 num: "03",
-                title: "データ分析 & 改善",
-                text: "施策効果をダッシュボードで可視化し継続的に最適化",
+                title: "学生への募集・ヘッドハンティング",
+                text: "自社の求めている学生に対してアピールをしましょう！",
               },
             ].map(({ num, title, text }, i) => (
               <li
@@ -348,9 +638,9 @@ export default function CompanyLP() {
                 className="relative bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow"
               >
                 {i !== 2 && (
-                  <ArrowRight className="hidden md:block absolute right-[-28px] top-1/2 -translate-y-1/2 w-7 h-7 text-indigo-400" />
+                  <ArrowRight className="hidden md:block absolute right-[-28px] top-1/2 -translate-y-1/2 w-7 h-7 text-red-400" />
                 )}
-                <span className="text-4xl font-extrabold text-indigo-600 mb-2 block">
+                <span className="text-4xl font-extrabold text-red-600 mb-2 block">
                   {num}
                 </span>
                 <h3 className="font-semibold mb-2">{title}</h3>
@@ -363,55 +653,64 @@ export default function CompanyLP() {
         {/* Testimonials */}
         <Section id="testimonials" className="bg-gray-50">
           <h2 className="text-2xl font-bold mb-4 text-center">導入企業の声</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="p-6 bg-white rounded-lg shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
-              <Image
-                src="/logos/abc_corp.png"
-                alt="ABC Corp のロゴ"
-                width={160}
-                height={32}
-                className="h-8 mb-4 mx-auto"
-                loading="lazy"
-              />
-              <p className="text-sm italic">
-                &quot;登録からわずか2週間で3名の内定承諾。母集団形成コストを40%削減できました。&quot;
-              </p>
-              <p className="mt-4 text-xs text-gray-500 text-right">
-                — 株式会社ABC 採用担当
-              </p>
-            </div>
-            <div className="p-6 bg-white rounded-lg shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
-              <Image
-                src="/logos/xyz_inc.png"
-                alt="XYZ Inc のロゴ"
-                width={160}
-                height={32}
-                className="h-8 mb-4 mx-auto"
-                loading="lazy"
-              />
-              <p className="text-sm italic">
-                &quot;AIレコメンドのおかげでスカウト返信率が従来の3倍になりました。&quot;
-              </p>
-              <p className="mt-4 text-xs text-gray-500 text-right">
-                — XYZ Inc. HRBP
-              </p>
-            </div>
-            <div className="p-6 bg-white rounded-lg shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
-              <Image
-                src="/logos/def_llc.png"
-                alt="DEF LLC のロゴ"
-                width={160}
-                height={32}
-                className="h-8 mb-4 mx-auto"
-                loading="lazy"
-              />
-              <p className="text-sm italic">
-                &quot;面談調整を自動化できたことで、採用担当者の工数が月20時間削減。&quot;
-              </p>
-              <p className="mt-4 text-xs text-gray-500 text-right">
-                — DEF LLC Talent Acquisition
-              </p>
-            </div>
+          <div className="grid gap-8 md:grid-cols-3">
+            {[
+              {
+                logo: "/sansanlogo.png",
+                alt: "Sansan株式会社 ロゴ",
+                quote:
+                  "ティア1層の採用にぴったりな採用でした。実際に営業経験をしている学生も多くハイキャリア向けです。",
+                author: "Sansan株式会社 採用担当",
+              },
+              {
+                logo: "/yaplilogo.png",
+                alt: "株式会社ヤプリ ロゴ",
+                quote:
+                  "本来新卒が入るようなポジション以外での採用に成功することができました。",
+                author: "株式会社ヤプリ",
+              },
+              {
+                logo: "/taylorlogo.png",
+                alt: "テイラー株式会社 ロゴ",
+                quote:
+                  "新卒採用を今期から開始するが、外資系の企業でも理想としているような学生と触れ合えました。",
+                author: "テイラー株式会社",
+              },
+            ].map(({ logo, alt, quote, author }, i) => (
+              <div
+                key={i}
+                className="relative p-10 bg-white rounded-2xl shadow-lg ring-1 ring-gray-200/60 flex flex-col gap-6 transition-all duration-500 group hover:-translate-y-2 hover:ring-red-400/60"
+              >
+                {/* Hover gradient overlay */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-red-50 via-white to-red-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                {/* Logo */}
+                <div className="relative w-56 h-16 mx-auto flex items-center justify-center">
+                  {/* Subtle glow behind logo */}
+                  <div
+                    className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-400 via-pink-400 to-red-500 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-sm"
+                    aria-hidden="true"
+                  />
+                  <Image
+                    src={logo}
+                    alt={alt}
+                    fill
+                    className="object-contain relative z-10 drop-shadow-md group-hover:drop-shadow-lg transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                  />
+                </div>
+
+                {/* Quote */}
+                <p className="text-sm italic leading-relaxed text-gray-800 relative">
+                  “{quote}”
+                </p>
+
+                {/* Author */}
+                <p className="mt-auto text-xs text-gray-500 text-right">
+                  — {author}
+                </p>
+              </div>
+            ))}
           </div>
         </Section>
 
@@ -421,10 +720,10 @@ export default function CompanyLP() {
           <div className="max-w-2xl mx-auto">
             <details className="mb-4 p-4 border rounded-lg">
               <summary className="font-semibold cursor-pointer">
-                料金体系を教えてください
+                スカウト型の採用サービスですか？
               </summary>
               <p className="mt-2 text-sm text-gray-700">
-                初期費用0円、成果報酬型（採用1名につき◯◯万円）と月額利用プランをご用意しています。
+                新卒総合ポータルプラットフォームとなります。求人の広告やスカウト機能など幅広い機能の利用が可能となります。
               </p>
             </details>
             <details className="mb-4 p-4 border rounded-lg">
@@ -447,12 +746,12 @@ export default function CompanyLP() {
         </Section>
 
         {/* CTA */}
-        <Section id="cta" className="bg-indigo-600 text-white">
+        <Section id="cta" className="bg-red-600 text-white">
           <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-3xl font-bold mb-6">今すぐ学生転職を体験する</h2>
             <Button
               size="lg"
-              className="animate-pulse bg-white text-indigo-700 font-semibold hover:animate-none"
+              className="animate-pulse bg-white text-red-700 font-semibold hover:animate-none"
             >
               無料で始める
             </Button>
