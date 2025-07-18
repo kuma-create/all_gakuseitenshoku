@@ -126,6 +126,8 @@ type Student = {
   university?: string | null;
   graduation_year?: string | null;
   created_at: string;
+  last_sign_in_at?: string | null;
+  phone?: string | null;
   status?: string | null;
   resume_id?: string | null;
 };
@@ -358,6 +360,8 @@ export default function AdminDashboard() {
           university: string | null;
           graduation_month: string | null;
           created_at: string | null;
+          last_sign_in_at: string | null;
+          phone: string | null;
           status: string | null;
         };
 
@@ -377,11 +381,13 @@ export default function AdminDashboard() {
             id,
             user_id,
             first_name,
+            phone,
             last_name,
             full_name,
             university,
             graduation_month,
             created_at,
+            last_sign_in_at,
             status
           `
           )
@@ -408,6 +414,8 @@ export default function AdminDashboard() {
                 university: s.university ?? "—",
                 graduation_year: gradYear,
                 created_at: s.created_at ?? "",
+                last_sign_in_at: s.last_sign_in_at ?? "",
+                phone: s.phone ?? null,
                 status: s.status ?? "—",
                 resume_id: resumeMap[s.id] ?? null,
               };
@@ -702,7 +710,7 @@ export default function AdminDashboard() {
       const { data } = await supabase
         .from("student_profiles")
         .select(
-          "id,full_name,university,graduation_month,status,created_at"
+          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at"
         )
         .eq("id", id)
         .single();
@@ -716,6 +724,7 @@ export default function AdminDashboard() {
             : "—",
           status: data.status ?? "—",
           created_at: data.created_at ?? "",
+          last_sign_in_at: data.last_sign_in_at ?? "",
         } as any);
       }
     }
@@ -1010,8 +1019,9 @@ export default function AdminDashboard() {
                 <TableHead>ID</TableHead>
                 <TableHead>名前</TableHead>
                 <TableHead>大学</TableHead>
+                <TableHead>電話番号</TableHead>
                 <TableHead>卒業年度</TableHead>
-                <TableHead>登録日</TableHead>
+                <TableHead>最終ログイン日</TableHead>
                 <TableHead>ステータス</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -1022,9 +1032,10 @@ export default function AdminDashboard() {
                   <TableCell>{s.id}</TableCell>
                   <TableCell>{s.full_name}</TableCell>
                   <TableCell>{s.university}</TableCell>
+                  <TableCell>{s.phone ?? "—"}</TableCell>
                   <TableCell>{s.graduation_year}</TableCell>
                   <TableCell>
-                    {s.created_at ? format(new Date(s.created_at), "yyyy/MM/dd") : "—"}
+                    {s.last_sign_in_at ? format(new Date(s.last_sign_in_at), "yyyy/MM/dd") : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge>{s.status}</Badge>
@@ -1097,7 +1108,7 @@ export default function AdminDashboard() {
               ))}
               {students.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-4">
+                  <TableCell colSpan={8} className="text-center py-4">
                     学生が見つかりません
                   </TableCell>
                 </TableRow>
@@ -1677,9 +1688,11 @@ export default function AdminDashboard() {
               <p><b>ID:</b> {selectedStudent.id}</p>
               <p><b>名前:</b> {selectedStudent.full_name}</p>
               <p><b>大学:</b> {selectedStudent.university}</p>
+              <p><b>電話番号:</b> {selectedStudent.phone ?? "—"}</p>
               <p><b>卒業年度:</b> {selectedStudent.graduation_year}</p>
               <p><b>ステータス:</b> {selectedStudent.status}</p>
-              <p><b>登録日:</b> {format(new Date(selectedStudent.created_at),"yyyy/MM/dd")}</p>
+              <p><b>登録日:</b> {selectedStudent.created_at ? format(new Date(selectedStudent.created_at), "yyyy/MM/dd") : "—"}</p>
+              <p><b>最終ログイン日:</b> {selectedStudent.last_sign_in_at ? format(new Date(selectedStudent.last_sign_in_at), "yyyy/MM/dd") : "—"}</p>
             </div>
           ) : (
             <Skeleton className="h-24 w-full" />
