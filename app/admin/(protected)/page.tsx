@@ -4,6 +4,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/lib/hooks/use-toast";
 import AddCompanyDialog from "@/components/admin/AddCompanyDialog";
@@ -56,7 +57,6 @@ import {
   Pagination,
   PaginationPrevious,
   PaginationItem,
-  PaginationLink,
   PaginationNext,
   Popover,
   PopoverTrigger,
@@ -76,7 +76,23 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  PaginationLink
 } from "@/components/ui";
+// --- ページング付き学生取得例 ---
+function usePaginatedStudents(page: number) {
+  // ...省略...
+}
+
+// --- Resume ページ用: 50件ごとに取得 ---
+async function fetchRows(page: number) {
+  const { data, error } = await supabase
+    .from("student_profiles")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .range((page - 1) * 50, page * 50 - 1);
+  return { data, error };
+}
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Calendar } from "@/components/ui/calendar";
@@ -103,6 +119,7 @@ type OverviewRow = {
 
 type Student = {
   id: string;
+  user_id?: string;
   first_name?: string | null;
   last_name?: string | null;
   full_name?: string | null;
@@ -110,6 +127,7 @@ type Student = {
   graduation_year?: string | null;
   created_at: string;
   status?: string | null;
+  resume_id?: string | null;
 };
 
 type Company = {
@@ -268,6 +286,11 @@ export default function AdminDashboard() {
 
   /* ---------- 学生詳細 ---------- */
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [editStudentFullName, setEditStudentFullName] = useState("");
+  const [editStudentUniversity, setEditStudentUniversity] = useState("");
+  const [editStudentGraduationMonth, setEditStudentGraduationMonth] = useState("");
+  // 職務経歴書 (work_experiences JSON) 編集用
+  const [editWorkExperiencesJson, setEditWorkExperiencesJson] = useState<string>("[]");
 
   /* ---------- 求人詳細 ---------- */
   const [selectedJob, setSelectedJob] = useState<{
@@ -328,6 +351,7 @@ export default function AdminDashboard() {
         // 学生一覧
         type RawStudent = {
           id: string;
+          user_id: string;
           first_name: string | null;
           last_name: string | null;
           full_name: string | null;
@@ -337,11 +361,21 @@ export default function AdminDashboard() {
           status: string | null;
         };
 
+        // --- 追加: 全resume id取得
+        const { data: resumeList, error: resumeListErr } = await supabase
+          .from("resumes")
+          .select("user_id,id");
+        if (resumeListErr) console.error("resume list fetch error:", resumeListErr);
+        const resumeMap: Record<string, string> = Object.fromEntries(
+          (resumeList ?? []).map((r: any) => [r.user_id, r.id])
+        );
+
         const { data: stData, error: stErr } = await supabase
           .from("student_profiles")
           .select(
             `
             id,
+            user_id,
             first_name,
             last_name,
             full_name,
@@ -366,6 +400,7 @@ export default function AdminDashboard() {
                 : "—";
               return {
                 id: s.id,
+                user_id: s.user_id,
                 full_name:
                   s.full_name ??
                   [s.last_name, s.first_name].filter(Boolean).join(" ") ??
@@ -374,6 +409,7 @@ export default function AdminDashboard() {
                 graduation_year: gradYear,
                 created_at: s.created_at ?? "",
                 status: s.status ?? "—",
+                resume_id: resumeMap[s.id] ?? null,
               };
             })
           );
@@ -552,6 +588,38 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  // --- Resumeページ用: ページング ---
+  const [page, setPage] = useState(1);
+  const [resumeRows, setResumeRows] = useState<any[]>([]);
+  const [resumeRowsLoading, setResumeRowsLoading] = useState(false);
+  const [resumeRowsError, setResumeRowsError] = useState<string | null>(null);
+
+  const fetchResumeRows = useCallback(async () => {
+    setResumeRowsLoading(true);
+    setResumeRowsError(null);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range((page - 1) * 50, page * 50 - 1);
+      if (error) {
+        setResumeRowsError(error.message);
+        setResumeRows([]);
+      } else {
+        setResumeRows(data ?? []);
+      }
+    } catch (err: any) {
+      setResumeRowsError(err.message ?? "データ取得エラー");
+      setResumeRows([]);
+    } finally {
+      setResumeRowsLoading(false);
+    }
+  }, [page]);
+
+  useEffect(() => {
+    fetchResumeRows();
+  }, [fetchResumeRows, page]);
 
   /* ---------- realtime (companies だけ) ---------- */
   useEffect(() => {
@@ -650,7 +718,52 @@ export default function AdminDashboard() {
           created_at: data.created_at ?? "",
         } as any);
       }
-    } else if (type === "view-job") {
+    }
+    else if (type === "edit-student") {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("full_name, university, graduation_month, user_id")
+        .eq("id", id)
+        .single();
+      if (data) {
+        setEditStudentFullName(data.full_name ?? "");
+        setEditStudentUniversity(data.university ?? "");
+        setEditStudentGraduationMonth(data.graduation_month ?? "");
+        setSelectedStudent(prev =>
+          ({
+            id,
+            user_id: data.user_id ?? "",
+            full_name: data.full_name ?? "",
+            university: data.university ?? "",
+            graduation_year: data.graduation_month ? new Date(data.graduation_month).getFullYear().toString() : undefined,
+            created_at: prev?.created_at ?? "",
+            status: prev?.status ?? "",
+            resume_id: prev?.resume_id ?? null,
+          })
+        );
+      }
+      // 既存の work_experiences を読み込み
+      if (data?.user_id) {
+        const { data: resumeData, error: resumeErr } = await supabase
+          .from("resumes")
+          .select("work_experiences")
+          .eq("user_id", id) // use id instead of data.user_id
+          .single();
+
+        if (resumeErr) {
+          console.error("resume fetch error:", resumeErr);
+          setEditWorkExperiencesJson("[]");
+        } else {
+          setEditWorkExperiencesJson(
+            JSON.stringify(resumeData?.work_experiences ?? [], null, 2)
+          );
+        }
+      } else {
+        console.warn("⚠️ student_profiles.user_id is null; skipping resume fetch");
+        setEditWorkExperiencesJson("[]");
+      }
+    }
+    else if (type === "view-job") {
       const { data } = await supabase
         .from("jobs")
         .select(
@@ -937,15 +1050,10 @@ export default function AdminDashboard() {
                         >
                           <Eye /> 詳細
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "edit-student",
-                              s.id
-                            )
-                          }
-                        >
-                          <Edit /> 編集
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/resume?user_id=${s.id}`}>
+                            <Edit /> 編集
+                          </Link>
                         </DropdownMenuItem>
                         {s.status === "アクティブ" ? (
                           <DropdownMenuItem
@@ -1581,6 +1689,7 @@ export default function AdminDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* ----- 求人詳細 ----- */}
       <Dialog
