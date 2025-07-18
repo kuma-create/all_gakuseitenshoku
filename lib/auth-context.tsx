@@ -72,7 +72,8 @@ const PUBLIC_ROUTES = new Set([
   "/admin/login",
   "/jobs",
   "/onboarding/profile",
-  "/grandprix",  
+  "/grandprix",
+  "/lp",
   "/terms",  
   "/lp/students/fee",
   "/media",
@@ -115,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           PUBLIC_ROUTES.has(pathname) ||
           pathname === "/media" ||
           pathname.startsWith("/media/") ||
+          pathname === "/lp" ||
+          pathname.startsWith("/lp/") ||
           pathname === "/jobs" ||
           pathname.startsWith("/jobs/") ||
           pathname === "/companies" ||
