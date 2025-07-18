@@ -1051,7 +1051,7 @@ export default function AdminDashboard() {
                           <Eye /> 詳細
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/admin/resume?user_id=${s.id}`}>
+                          <Link href={`/admin/resume?user_id=${s.user_id ?? s.id}`}>
                             <Edit /> 編集
                           </Link>
                         </DropdownMenuItem>
