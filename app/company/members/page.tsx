@@ -138,10 +138,15 @@ export default function CompanyMembersPage() {
       .in('id', userIds)
 
     // re‑shape into {id, email}  (name is undefined until you add it to users)
-    const usersFormatted: User[] = (usersRaw ?? []).map((u) => ({
-      id: u.id,
-      email: u.email,
-    }))
+    const usersFormatted: User[] = (usersRaw ?? [])
+      .filter(
+        (u): u is { id: string; email: string } =>
+          typeof u.id === 'string' && typeof u.email === 'string'
+      )
+      .map((u) => ({
+        id: u.id,
+        email: u.email,
+      }))
     const userMap = new Map(usersFormatted.map((u) => [u.id, u]))
 
     // merge members with their user info; skip rows where user lookup fails

@@ -33,6 +33,10 @@ import {
   Briefcase,
 } from "lucide-react";
 
+import { useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+const supabase = createClient();
+
 function Section({
   id,
   children,
@@ -302,7 +306,140 @@ function RadialChart({
 }
 /* --------------------------------------- */
 
+/* ---------- CONTACT SECTION ---------- */
+function ContactSection() {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    company: "",
+    inquiry: "",
+  });
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
+    "idle",
+  );
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus("loading");
+    try {
+      // 1) DB insert
+      const { error: insertError } = await supabase.from("inquiries").insert({
+        name: form.name,
+        email: form.email,
+        company: form.company,
+        message: form.inquiry,
+      });
+      if (insertError) throw insertError;
+
+      // 2) Send notification & thank‑you emails via Edge Function
+      const { error: fnError } = await supabase.functions.invoke(
+        "send-inquiry-email",
+        {
+          body: {
+            name: form.name,
+            email: form.email,
+            company: form.company,
+            inquiry: form.inquiry,
+          },
+        },
+      );
+      if (fnError) throw fnError;
+
+      // 3) Success – reset form & show thank‑you
+      setForm({ name: "", email: "", company: "", inquiry: "" });
+      setStatus("success");
+    } catch (err) {
+      console.error("Inquiry submit failed:", err);
+      setStatus("error");
+    }
+  };
+
+  return (
+    <Section id="contact" className="bg-gray-50">
+      <div className="max-w-2xl mx-auto">
+        <h2 className="text-2xl font-bold mb-8 text-center">お問い合わせ</h2>
+
+        {status === "success" ? (
+          <p className="text-center text-green-600 font-semibold">
+            送信しました。担当者よりご連絡いたします。
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <input
+              type="text"
+              name="name"
+              placeholder="お名前"
+              value={form.name}
+              onChange={handleChange}
+              required
+              className="w-full p-3 border rounded-lg"
+            />
+            <input
+              type="email"
+              name="email"
+              placeholder="メールアドレス"
+              value={form.email}
+              onChange={handleChange}
+              required
+              className="w-full p-3 border rounded-lg"
+            />
+            <input
+              type="text"
+              name="company"
+              placeholder="会社名"
+              value={form.company}
+              onChange={handleChange}
+              required
+              className="w-full p-3 border rounded-lg"
+            />
+            {/* Inquiry radio buttons */}
+            <div className="space-y-2">
+              <p className="font-medium">お問い合わせ内容 <span className="text-red-600">*</span></p>
+              {["学生転職を利用したい", "デモを試してみたい", "その他"].map((label) => (
+                <label key={label} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="inquiry"
+                    value={label}
+                    checked={form.inquiry === label}
+                    onChange={handleChange}
+                    required
+                    className="accent-red-600"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <Button type="submit" size="lg" disabled={status === "loading"}>
+              {status === "loading" ? "送信中…" : "送信する"}
+            </Button>
+            {status === "error" && (
+              <p className="text-center text-red-600">
+                送信に失敗しました。もう一度お試しください。
+              </p>
+            )}
+          </form>
+        )}
+      </div>
+    </Section>
+  );
+}
+/* ------------------------------------- */
+
 export default function CompanyLP() {
+  // Smooth‑scrolls to the inquiry form (#contact section)
+  const scrollToContact = useCallback(() => {
+    const el = document.getElementById("contact");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
   return (
     <>
       <Head>
@@ -374,7 +511,11 @@ export default function CompanyLP() {
             “いま会いたい”即戦力新卒人材に、たった3ステップでリーチ
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-            <Button size="lg" aria-label="資料をダウンロード">
+            <Button
+              size="lg"
+              aria-label="資料をダウンロード"
+              onClick={scrollToContact}
+            >
               デモを試してみる
             </Button>
             <Button
@@ -382,6 +523,7 @@ export default function CompanyLP() {
               size="lg"
               className="bg-white/10"
               aria-label="無料相談を申し込む"
+              onClick={scrollToContact}
             >
               担当者に相談する
             </Button>
@@ -745,16 +887,13 @@ export default function CompanyLP() {
           </div>
         </Section>
 
+        {/* Contact */}
+        <ContactSection />
+
         {/* CTA */}
         <Section id="cta" className="bg-red-600 text-white">
           <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-3xl font-bold mb-6">今すぐ学生転職を体験する</h2>
-            <Button
-              size="lg"
-              className="animate-pulse bg-white text-red-700 font-semibold hover:animate-none"
-            >
-              無料で始める
-            </Button>
           </div>
         </Section>
       </main>
