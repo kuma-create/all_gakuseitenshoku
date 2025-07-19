@@ -393,17 +393,7 @@ export default function AdminDashboard() {
         );
 
         /* ---------- 学生一覧 ---------- */
-        // 1) user_roles から role='student' の user_id を取得
-        const { data: roleData, error: roleErr } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .eq("role", "student");
-        if (roleErr) console.error("user_roles fetch error:", roleErr);
-
-        const studentUserIds: string[] =
-          (roleData ?? []).map((r: any) => r.user_id) ?? [];
-
-        // 2) student_profiles を user_id IN (...) で取得
+        // student_profiles から role='student' のみ取得
         const { data: stData, error: stErr } = await supabase
           .from("student_profiles")
           .select(
@@ -422,13 +412,7 @@ export default function AdminDashboard() {
             role
           `
           )
-          // 空配列だとエラーになるためダミー値を入れておく
-          .in(
-            "user_id",
-            studentUserIds.length > 0
-              ? studentUserIds
-              : ["00000000-0000-0000-0000-000000000000"]
-          )
+          .eq("role", "student") // ここで直接フィルタ
           .order("created_at", { ascending: false })
           .range((studentPage - 1) * 50, studentPage * 50 - 1);
 
