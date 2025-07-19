@@ -37,6 +37,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import React, { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase/client"
 
 /* ---------- 型 ---------- */
 type Company = {
@@ -75,6 +77,7 @@ export default function FulltimeInfo({
 }: Props) {
   /* ----- local state (保存済み) ----- */
   const [isInterested, setIsInterested] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     // クライアントサイドのみ localStorage から取得
@@ -90,6 +93,30 @@ export default function FulltimeInfo({
     else savedJobs.push(job.id)
     localStorage.setItem("savedJobs", JSON.stringify(savedJobs))
     setIsInterested(!isInterested)
+  }
+
+  const handleApplyClick = async () => {
+    // 1) Check login state
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push("/login")
+      return
+    }
+
+    // 2) Check if the user has finished account registration (i.e., has a student profile)
+    const { data: profile, error } = await supabase
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+
+    if (error || !profile) {
+      router.push("/signup")
+      return
+    }
+
+    // 3) All good – show the application confirm dialog
+    setShowForm(true)
   }
 
   /* ----- helpers ----- */
@@ -241,6 +268,7 @@ export default function FulltimeInfo({
             showForm={showForm}
             setShowForm={setShowForm}
             apply={apply}
+            handleApplyClick={handleApplyClick}
           />
         </div>
       </main>
@@ -313,6 +341,7 @@ function RightColumn({
   showForm,
   setShowForm,
   apply,
+  handleApplyClick,
 }: any) {
   /* local imports inside to avoid clutter */
 
@@ -338,7 +367,7 @@ function RightColumn({
               ) : (
                 <Button
                   className="w-full bg-red-600 hover:bg-red-700"
-                  onClick={() => setShowForm(true)}
+                  onClick={handleApplyClick}
                 >
                   <Send size={16} className="mr-2" />
                   この求人に応募する

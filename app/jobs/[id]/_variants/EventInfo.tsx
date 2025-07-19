@@ -26,6 +26,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase/client"
 import {
   Dialog,
   DialogHeader,
@@ -69,6 +71,31 @@ export default function EventInfo({
   setShowForm,
 }: Props) {
   const [isInterested, setIsInterested] = useState(false)
+  const router = useRouter()
+
+  const handleApplyClick = async () => {
+    // 1) Check login state
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push("/login")
+      return
+    }
+
+    // 2) Check if the user has finished account registration (i.e., has a student profile)
+    const { data: profile, error } = await supabase
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+
+    if (error || !profile) {
+      router.push("/signup")
+      return
+    }
+
+    // 3) All good – show the application confirm dialog
+    setShowForm(true)
+  }
 
   useEffect(() => {
     // Get saved list from localStorage (client‑side only)
@@ -227,7 +254,7 @@ export default function EventInfo({
                   ) : (
                     <Button
                       className="w-full bg-red-600 hover:bg-red-700"
-                      onClick={() => setShowForm(true)}
+                      onClick={handleApplyClick}
                     >
                       <Send size={16} className="mr-2" />
                       このイベントに申し込む
