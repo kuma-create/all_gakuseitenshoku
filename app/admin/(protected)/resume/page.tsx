@@ -324,6 +324,7 @@ export default function AdminResumePage() {
             resumeRow.work_experiences.map((exp) => ({
               ...exp,
               isOpen: true,
+              jobTypes: Array.isArray((exp as any).jobTypes) ? (exp as any).jobTypes : [],
             }))
           );
         }
@@ -724,7 +725,7 @@ export default function AdminResumePage() {
                             <Checkbox
                               id={`jobType-${exp.id}-${opt}`}
                               className="h-3.5 w-3.5 sm:h-4 sm:w-4"
-                              checked={exp.jobTypes.includes(opt)}
+                              checked={Array.isArray(exp.jobTypes) ? exp.jobTypes.includes(opt) : false}
                               onCheckedChange={(checked) =>
                                 handleJobTypeToggle(exp.id, opt, checked as boolean)
                               }

@@ -1425,6 +1425,48 @@ export type Database = {
           },
         ]
       }
+      internship_short_details: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          job_id: string
+          period_days: number | null
+          stipend: number | null
+          working_days: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          job_id: string
+          period_days?: number | null
+          stipend?: number | null
+          working_days?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          job_id?: string
+          period_days?: number | null
+          stipend?: number | null
+          working_days?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internship_short_details_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internship_short_details_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_interests: {
         Row: {
           created_at: string | null
