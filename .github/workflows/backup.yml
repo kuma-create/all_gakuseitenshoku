@@ -32,16 +32,7 @@ jobs:
           supabase link --project-ref "${{ secrets.SUPABASE_REF }}" \
                         --password    "${{ secrets.SUPABASE_DB_PASSWORD }}"
           supabase db dump --data-only > backups/data-$(date +'%Y%m%d').sql
-      - name: Download Supabase storage objects
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.BACKUP }}
-        run: |
-          mkdir -p backups/storage
-          supabase link --project-ref "${{ secrets.SUPABASE_REF }}" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
-          supabase --experimental storage cp --recursive public/ backups/storage
       - uses: actions/upload-artifact@v4
         with:
           name: supabase-backup
-          path: |
-            backups/**/*.sql
-            backups/storage
+          path: backups/**/*.sql
