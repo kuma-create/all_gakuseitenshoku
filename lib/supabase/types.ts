@@ -1117,6 +1117,7 @@ export type Database = {
           is_online: boolean | null
           job_id: string | null
           notes: string | null
+          schedule: string | null
           selection_id: string
           sessions: Json | null
           target_grad_years: number[] | null
@@ -1130,6 +1131,7 @@ export type Database = {
           is_online?: boolean | null
           job_id?: string | null
           notes?: string | null
+          schedule?: string | null
           selection_id: string
           sessions?: Json | null
           target_grad_years?: number[] | null
@@ -1143,6 +1145,7 @@ export type Database = {
           is_online?: boolean | null
           job_id?: string | null
           notes?: string | null
+          schedule?: string | null
           selection_id?: string
           sessions?: Json | null
           target_grad_years?: number[] | null
@@ -2423,6 +2426,7 @@ export type Database = {
           qualifications: string[] | null
           referral_source: string | null
           research_theme: string | null
+          role: string | null
           salary_range: string | null
           skill_text: string | null
           skills: string[] | null
@@ -2481,6 +2485,7 @@ export type Database = {
           qualifications?: string[] | null
           referral_source?: string | null
           research_theme?: string | null
+          role?: string | null
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null
@@ -2539,6 +2544,7 @@ export type Database = {
           qualifications?: string[] | null
           referral_source?: string | null
           research_theme?: string | null
+          role?: string | null
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null

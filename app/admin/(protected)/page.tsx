@@ -125,11 +125,12 @@ type Student = {
   full_name?: string | null;
   university?: string | null;
   graduation_year?: string | null;
-  created_at: string;
+  created_at: string | null;
   last_sign_in_at?: string | null;
   status?: string | null;
   resume_id?: string | null;
   phone?: string | null;
+  role?: string | null;
 };
 
 type Company = {
@@ -379,6 +380,7 @@ export default function AdminDashboard() {
           status: string | null;
           last_sign_in_at: string | null;
           phone: string | null;
+          role: string | null;   // Add role to RawStudent
         };
 
         // --- 追加: 全resume id取得
@@ -390,6 +392,8 @@ export default function AdminDashboard() {
           (resumeList ?? []).map((r: any) => [r.user_id, r.id])
         );
 
+        /* ---------- 学生一覧 ---------- */
+        // student_profiles から role='student' のみ取得
         const { data: stData, error: stErr } = await supabase
           .from("student_profiles")
           .select(
@@ -404,9 +408,11 @@ export default function AdminDashboard() {
             created_at,
             status,
             last_sign_in_at,
-            phone
+            phone,
+            role
           `
           )
+          .eq("role", "student") // ここで直接フィルタ
           .order("created_at", { ascending: false })
           .range((studentPage - 1) * 50, studentPage * 50 - 1);
 
@@ -430,10 +436,11 @@ export default function AdminDashboard() {
                 university: s.university ?? "—",
                 graduation_year: gradYear,
                 phone: s.phone ?? "—",
-                created_at: s.created_at ?? "",
+                created_at: s.created_at ?? null,
                 last_sign_in_at: s.last_sign_in_at ?? "",
                 status: s.status ?? "—",
-                resume_id: resumeMap[s.id] ?? null,              
+                role: s.role ?? "-",
+                resume_id: resumeMap[s.user_id] ?? null,
               };
             })
           );
@@ -726,7 +733,7 @@ export default function AdminDashboard() {
       const { data } = await supabase
         .from("student_profiles")
         .select(
-          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at"
+          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at,role"
         )
         .eq("id", id)
         .single();
@@ -739,7 +746,8 @@ export default function AdminDashboard() {
             ? new Date(data.graduation_month).getFullYear().toString()
             : "—",
           status: data.status ?? "—",
-          created_at: data.created_at ?? "",
+          role: data.role ?? "—",
+          created_at: data.created_at ?? null,
           last_sign_in_at: data.last_sign_in_at ?? "",
         } as any);
       }
@@ -1098,7 +1106,9 @@ export default function AdminDashboard() {
             });
             const sortedStudents = filteredStudents.slice().sort((a, b) => {
               if (studentSortBy === "registration") {
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+                const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+                return bTime - aTime;
               } else {
                 const aTime = a.last_sign_in_at ? new Date(a.last_sign_in_at).getTime() : 0;
                 const bTime = b.last_sign_in_at ? new Date(b.last_sign_in_at).getTime() : 0;
