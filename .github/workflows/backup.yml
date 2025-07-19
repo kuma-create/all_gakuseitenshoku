@@ -23,8 +23,8 @@ jobs:
         run: |
           # Delete SQL files older than 30 days
           find backups -type f -name "data-*.sql" -mtime +30 -print -delete
-      - name: Install Supabase CLI
-        run: pnpm add -g @supabase/cli@latest
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
       - name: Dump database
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.BACKUP }}
