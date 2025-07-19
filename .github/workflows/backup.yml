@@ -14,6 +14,7 @@ jobs:
     env:
       TZ: 'Asia/Tokyo'   # ジョブ内コマンドを JST 表示に
       SUPABASE_ACCESS_TOKEN: ${{ secrets.BACKUP }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - name: Ensure backup directory exists
