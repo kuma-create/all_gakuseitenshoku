@@ -35,6 +35,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase/client"
 
 /* ---------- types ---------- */
 type Company = {
@@ -71,6 +73,31 @@ export default function InternInfo({
   setShowForm,
 }: Props) {
   const [isInterested, setIsInterested] = useState(false)
+  const router = useRouter()
+
+  const handleApplyClick = async () => {
+    // 1) Check login state
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push("/login")
+      return
+    }
+
+    // 2) Check if the user has finished account registration (i.e., has a student profile)
+    const { data: profile, error } = await supabase
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+
+    if (error || !profile) {
+      router.push("/signup")
+      return
+    }
+
+    // 3) All good – show the application confirm dialog
+    setShowForm(true)
+  }
 
   useEffect(() => {
     // クライアントサイドのみ localStorage から取得
@@ -242,7 +269,7 @@ export default function InternInfo({
                   ) : (
                     <Button
                       className="w-full bg-red-600 hover:bg-red-700"
-                      onClick={() => setShowForm(true)}
+                      onClick={handleApplyClick}
                     >
                       <Send size={16} className="mr-2" />
                       このインターンに応募する
