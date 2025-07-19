@@ -23,7 +23,7 @@ jobs:
         run: |
           # Delete SQL files older than 30 days
           find backups -type f -name "data-*.sql" -mtime +30 -print -delete
-      - name: Setup Supabase CLI
+      - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
       - name: Dump database
         env:
