@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TZ: 'Asia/Tokyo'   # ジョブ内コマンドを JST 表示に
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE }}
     steps:
       - uses: actions/checkout@v4
       - name: Ensure backup directory exists
