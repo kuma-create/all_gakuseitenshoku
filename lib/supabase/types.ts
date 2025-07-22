@@ -59,35 +59,6 @@ export type Database = {
         }
         Relationships: []
       }
-      admins: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          id: string
-          last_sign_in_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          id: string
-          last_sign_in_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          last_sign_in_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "admins_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "company_member_emails"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       applications: {
         Row: {
           applied_at: string | null
@@ -170,6 +141,67 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_with_email"
             referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      article_bookmarks: {
+        Row: {
+          article_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_bookmarks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      article_comments: {
+        Row: {
+          article_id: string
+          body: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          body: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          body?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1117,7 +1149,6 @@ export type Database = {
           is_online: boolean | null
           job_id: string | null
           notes: string | null
-          schedule: string | null
           selection_id: string
           sessions: Json | null
           target_grad_years: number[] | null
@@ -1131,7 +1162,6 @@ export type Database = {
           is_online?: boolean | null
           job_id?: string | null
           notes?: string | null
-          schedule?: string | null
           selection_id: string
           sessions?: Json | null
           target_grad_years?: number[] | null
@@ -1145,7 +1175,6 @@ export type Database = {
           is_online?: boolean | null
           job_id?: string | null
           notes?: string | null
-          schedule?: string | null
           selection_id?: string
           sessions?: Json | null
           target_grad_years?: number[] | null
@@ -1419,48 +1448,6 @@ export type Database = {
           {
             foreignKeyName: "internship_details_selection_id_fkey"
             columns: ["selection_id"]
-            isOneToOne: true
-            referencedRelation: "selections_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      internship_short_details: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          job_id: string
-          period_days: number | null
-          stipend: number | null
-          working_days: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          job_id: string
-          period_days?: number | null
-          stipend?: number | null
-          working_days?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          job_id?: string
-          period_days?: number | null
-          stipend?: number | null
-          working_days?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "internship_short_details_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: true
-            referencedRelation: "jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "internship_short_details_job_id_fkey"
-            columns: ["job_id"]
             isOneToOne: true
             referencedRelation: "selections_view"
             referencedColumns: ["id"]
@@ -2065,7 +2052,6 @@ export type Database = {
           experiences: Json | null
           form_data: Json
           id: string
-          job_type: string | null
           skills: Json | null
           summary: string | null
           updated_at: string | null
@@ -2079,7 +2065,6 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
-          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
@@ -2093,7 +2078,6 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
-          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
@@ -2471,7 +2455,6 @@ export type Database = {
           qualifications: string[] | null
           referral_source: string | null
           research_theme: string | null
-          role: string | null
           salary_range: string | null
           skill_text: string | null
           skills: string[] | null
@@ -2530,7 +2513,6 @@ export type Database = {
           qualifications?: string[] | null
           referral_source?: string | null
           research_theme?: string | null
-          role?: string | null
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null
@@ -2589,7 +2571,6 @@ export type Database = {
           qualifications?: string[] | null
           referral_source?: string | null
           research_theme?: string | null
-          role?: string | null
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null
