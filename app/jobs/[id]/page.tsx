@@ -2,7 +2,9 @@
    app/jobs/[id]/page.tsx  ― 学生向け選考詳細
    2025‑05‑23  multi‑type (fulltime / internship / event) 対応
 ──────────────────────────────────────────────── */
+
 "use client"
+import React from "react";
 
 import { use as usePromise, useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
@@ -202,24 +204,18 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
       if (profileErr) throw profileErr;
       if (!profile) throw new Error("学生プロフィールが見つかりません。アカウント設定からプロフィールを作成してください。");
 
-      if (job?.selection_type === "event") {
-        const participant: Database["public"]["Tables"]["event_participants"]["Insert"] = {
-          event_id   : id,
-          student_id : profile.id,
-          status     : "reserved",
-        }
-        const { error } = await supabase.from("event_participants").insert(participant)
-        if (error) throw error
-      } else {
-        const appRow: Database["public"]["Tables"]["applications"]["Insert"] = {
-          job_id     : id,
-          student_id : profile.id,
-        }
-        const { error } = await supabase.from("applications").insert(appRow)
-        if (error) throw error
+      // Send application via backend API (handles insert + email)
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: id, student_id: profile.id }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error || '応募に失敗しました');
       }
-      setHasApplied(true)
-      setShowForm(false)
+      setHasApplied(true);
+      setShowForm(false);
     } catch (e:any) {
       alert(e.message ?? "応募に失敗しました")
     }
@@ -270,7 +266,7 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
       : "学生向け求人詳細ページ。";
 
   // --- choose variant component ---
-  let Body: JSX.Element;
+  let Body: React.JSX.Element;
   switch (job.selection_type as "fulltime" | "internship_short" | "event") {
     case "internship_short":
       Body = (
