@@ -309,7 +309,8 @@ export default function InternInfo({
                     onClick={async () => {
                       try {
                         // 1) 既存の apply() を呼び出し、applications テーブルに応募を登録
-                        await apply();
+                        const result = await apply();
+                        console.log('応募APIのレスポンス:', result);
                         toast({ title: "応募が完了しました 🎉" });
 
                         // 2) ログイン中ユーザーの student_profiles.id を取得
