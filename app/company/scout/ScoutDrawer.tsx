@@ -43,6 +43,10 @@ interface Template {
   id: string
   title: string
   content: string
+  /** scout_templates 由来のカラム */
+  position?: string | null
+  offer_range?: string | null
+  job_id?: string | null
 }
 
 interface Props {
@@ -205,9 +209,10 @@ export default function ScoutDrawer({
       .replace("[学生名]", student.full_name ?? "")
       .replace("[スキル]", (student.skills ?? []).join(", "))
     setMessage(msg)
-    // reset previous inputs
-    setOfferPosition("")
-    setOfferAmount("")
+    // テンプレートに既定値があれば反映
+    setOfferPosition(tmp.position ?? "")
+    setOfferAmount(tmp.offer_range ?? "")
+    if (tmp.job_id) setSelectedJobId(tmp.job_id)
   }
 
   const handleSend = async () => {

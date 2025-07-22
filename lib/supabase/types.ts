@@ -1117,6 +1117,7 @@ export type Database = {
           is_online: boolean | null
           job_id: string | null
           notes: string | null
+          schedule: string | null
           selection_id: string
           sessions: Json | null
           target_grad_years: number[] | null
@@ -1130,6 +1131,7 @@ export type Database = {
           is_online?: boolean | null
           job_id?: string | null
           notes?: string | null
+          schedule?: string | null
           selection_id: string
           sessions?: Json | null
           target_grad_years?: number[] | null
@@ -1143,6 +1145,7 @@ export type Database = {
           is_online?: boolean | null
           job_id?: string | null
           notes?: string | null
+          schedule?: string | null
           selection_id?: string
           sessions?: Json | null
           target_grad_years?: number[] | null
@@ -1416,6 +1419,48 @@ export type Database = {
           {
             foreignKeyName: "internship_details_selection_id_fkey"
             columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internship_short_details: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          job_id: string
+          period_days: number | null
+          stipend: number | null
+          working_days: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          job_id: string
+          period_days?: number | null
+          stipend?: number | null
+          working_days?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          job_id?: string
+          period_days?: number | null
+          stipend?: number | null
+          working_days?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internship_short_details_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internship_short_details_job_id_fkey"
+            columns: ["job_id"]
             isOneToOne: true
             referencedRelation: "selections_view"
             referencedColumns: ["id"]
@@ -2020,6 +2065,7 @@ export type Database = {
           experiences: Json | null
           form_data: Json
           id: string
+          job_type: string | null
           skills: Json | null
           summary: string | null
           updated_at: string | null
@@ -2033,6 +2079,7 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
+          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
@@ -2046,6 +2093,7 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
+          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
@@ -2423,6 +2471,7 @@ export type Database = {
           qualifications: string[] | null
           referral_source: string | null
           research_theme: string | null
+          role: string | null
           salary_range: string | null
           skill_text: string | null
           skills: string[] | null
@@ -2481,6 +2530,7 @@ export type Database = {
           qualifications?: string[] | null
           referral_source?: string | null
           research_theme?: string | null
+          role?: string | null
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null
@@ -2539,6 +2589,7 @@ export type Database = {
           qualifications?: string[] | null
           referral_source?: string | null
           research_theme?: string | null
+          role?: string | null
           salary_range?: string | null
           skill_text?: string | null
           skills?: string[] | null
