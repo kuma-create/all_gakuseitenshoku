@@ -93,6 +93,7 @@ export default function NewJobPage() {
     capacity: "",
     venue: "",
     format: "onsite",
+    schedule: "",
   })
 
   useEffect(() => {
@@ -132,15 +133,14 @@ export default function NewJobPage() {
         if (base.selection_type === "fulltime") {
           const { data: child } = await supabase
             .from("fulltime_details")
-            .select(`working_days, working_hours`)
+            .select(`working_days`)
             .eq("job_id", copyId)
             .maybeSingle();
 
           if (child) {
             setFormData(prev => ({
               ...prev,
-              workingDays  : child.working_days  ?? "",
-              workingHours : child.working_hours ?? "",
+              workingDays: child.working_days ?? "",
             }));
           }
         } else if (base.selection_type === "internship_short") {
@@ -432,21 +432,19 @@ export default function NewJobPage() {
       } else if (selectionType === "event") {
         const { error: evErr } = await supabase
           .from("event_details")
-          .upsert(
-            {
-              selection_id      : jobId,  // ← remove if column absent
-              job_id            : jobId,
-              event_date        : formData.eventDate || null,
-              capacity          : formData.capacity ? Number(formData.capacity) : null,
-              venue             : formData.venue || null,
-              format            : formData.format,
-              is_online         : formData.format !== "onsite",
-              target_grad_years : null,
-              sessions          : null,
-              contact_email     : null,
-              notes             : null,
-            } as Database["public"]["Tables"]["event_details"]["Insert"]
-          )
+          .insert({
+            job_id: jobId,               // 紐づく求人ID
+            selection_id: jobId,         // NOT NULL 制約用（jobs.id と同値で OK）
+            event_date: formData.eventDate || null,
+            capacity: formData.capacity ? Number(formData.capacity) : null,
+            venue: formData.venue || null,
+            format: formData.format,
+            is_online: formData.format !== "onsite",
+            target_grad_years: null,
+            sessions: null,
+            contact_email: null,
+            notes: null,
+          } as Database["public"]["Tables"]["event_details"]["Insert"])
         if (evErr) throw evErr;
       }
 
@@ -633,6 +631,7 @@ export default function NewJobPage() {
                         capacity: "",
                         venue: "",
                         format: "onsite",
+                        schedule: "",
                       })
                       setShowSuccessOptions(false)
                     }}

@@ -3,7 +3,8 @@
 --------------------------------------------------------------------------- */
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/lib/hooks/use-toast";
 import AddCompanyDialog from "@/components/admin/AddCompanyDialog";
@@ -56,7 +57,6 @@ import {
   Pagination,
   PaginationPrevious,
   PaginationItem,
-  PaginationLink,
   PaginationNext,
   Popover,
   PopoverTrigger,
@@ -76,7 +76,23 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  PaginationLink
 } from "@/components/ui";
+// --- ページング付き学生取得例 ---
+function usePaginatedStudents(page: number) {
+  // ...省略...
+}
+
+// --- Resume ページ用: 50件ごとに取得 ---
+async function fetchRows(page: number) {
+  const { data, error } = await supabase
+    .from("student_profiles")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .range((page - 1) * 50, page * 50 - 1);
+  return { data, error };
+}
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Calendar } from "@/components/ui/calendar";
@@ -103,13 +119,18 @@ type OverviewRow = {
 
 type Student = {
   id: string;
+  user_id?: string;
   first_name?: string | null;
   last_name?: string | null;
   full_name?: string | null;
   university?: string | null;
   graduation_year?: string | null;
-  created_at: string;
+  created_at: string | null;
+  last_sign_in_at?: string | null;
   status?: string | null;
+  resume_id?: string | null;
+  phone?: string | null;
+  role?: string | null;
 };
 
 type Company = {
@@ -268,6 +289,27 @@ export default function AdminDashboard() {
 
   /* ---------- 学生詳細 ---------- */
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [editStudentFullName, setEditStudentFullName] = useState("");
+  const [editStudentUniversity, setEditStudentUniversity] = useState("");
+  const [editStudentGraduationMonth, setEditStudentGraduationMonth] = useState("");
+  // 職務経歴書 (work_experiences JSON) 編集用
+  const [editWorkExperiencesJson, setEditWorkExperiencesJson] = useState<string>("[]");
+  // 学生一覧絞り込み用の state
+  const [studentSearchQuery, setStudentSearchQuery] = useState<string>("");
+  const [studentUniversityFilter, setStudentUniversityFilter] = useState<string>("all");
+  const [studentYearFilter, setStudentYearFilter] = useState<string>("all");
+  const [studentStatusFilter, setStudentStatusFilter] = useState<string>("all");
+  // 並び替え用 state
+  const [studentSortBy, setStudentSortBy] = useState<"registration" | "lastLogin">("registration");
+  // 卒業年度一覧（動的生成）
+  const graduationYears = useMemo(() => {
+    const years = students
+      .map((s) => s.graduation_year)
+      .filter((y): y is string => Boolean(y) && y !== "—");
+    const unique = Array.from(new Set(years));
+    unique.sort((a, b) => parseInt(b) - parseInt(a));
+    return unique;
+  }, [students]);
 
   /* ---------- 求人詳細 ---------- */
   const [selectedJob, setSelectedJob] = useState<{
@@ -328,6 +370,7 @@ export default function AdminDashboard() {
         // 学生一覧
         type RawStudent = {
           id: string;
+          user_id: string;
           first_name: string | null;
           last_name: string | null;
           full_name: string | null;
@@ -335,20 +378,36 @@ export default function AdminDashboard() {
           graduation_month: string | null;
           created_at: string | null;
           status: string | null;
+          last_sign_in_at: string | null;
+          phone: string | null;
         };
 
+        // --- 追加: 全resume id取得
+        const { data: resumeList, error: resumeListErr } = await supabase
+          .from("resumes")
+          .select("user_id,id");
+        if (resumeListErr) console.error("resume list fetch error:", resumeListErr);
+        const resumeMap: Record<string, string> = Object.fromEntries(
+          (resumeList ?? []).map((r: any) => [r.user_id, r.id])
+        );
+
+        /* ---------- 学生一覧 ---------- */
+        // student_profiles から全件取得
         const { data: stData, error: stErr } = await supabase
           .from("student_profiles")
           .select(
             `
             id,
+            user_id,
             first_name,
             last_name,
             full_name,
             university,
             graduation_month,
             created_at,
-            status
+            status,
+            last_sign_in_at,
+            phone
           `
           )
           .order("created_at", { ascending: false })
@@ -366,14 +425,19 @@ export default function AdminDashboard() {
                 : "—";
               return {
                 id: s.id,
+                user_id: s.user_id,
                 full_name:
                   s.full_name ??
                   [s.last_name, s.first_name].filter(Boolean).join(" ") ??
                   "—",
                 university: s.university ?? "—",
                 graduation_year: gradYear,
-                created_at: s.created_at ?? "",
+                phone: s.phone ?? "—",
+                created_at: s.created_at ?? null,
+                last_sign_in_at: s.last_sign_in_at ?? "",
                 status: s.status ?? "—",
+                role: "-", // role is no longer fetched
+                resume_id: resumeMap[s.user_id] ?? null,
               };
             })
           );
@@ -552,6 +616,38 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  // --- Resumeページ用: ページング ---
+  const [page, setPage] = useState(1);
+  const [resumeRows, setResumeRows] = useState<any[]>([]);
+  const [resumeRowsLoading, setResumeRowsLoading] = useState(false);
+  const [resumeRowsError, setResumeRowsError] = useState<string | null>(null);
+
+  const fetchResumeRows = useCallback(async () => {
+    setResumeRowsLoading(true);
+    setResumeRowsError(null);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range((page - 1) * 50, page * 50 - 1);
+      if (error) {
+        setResumeRowsError(error.message);
+        setResumeRows([]);
+      } else {
+        setResumeRows(data ?? []);
+      }
+    } catch (err: any) {
+      setResumeRowsError(err.message ?? "データ取得エラー");
+      setResumeRows([]);
+    } finally {
+      setResumeRowsLoading(false);
+    }
+  }, [page]);
+
+  useEffect(() => {
+    fetchResumeRows();
+  }, [fetchResumeRows, page]);
 
   /* ---------- realtime (companies だけ) ---------- */
   useEffect(() => {
@@ -634,7 +730,7 @@ export default function AdminDashboard() {
       const { data } = await supabase
         .from("student_profiles")
         .select(
-          "id,full_name,university,graduation_month,status,created_at"
+          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at"
         )
         .eq("id", id)
         .single();
@@ -647,10 +743,57 @@ export default function AdminDashboard() {
             ? new Date(data.graduation_month).getFullYear().toString()
             : "—",
           status: data.status ?? "—",
-          created_at: data.created_at ?? "",
+          role: "-", // role is not fetched anymore
+          created_at: data.created_at ?? null,
+          last_sign_in_at: data.last_sign_in_at ?? "",
         } as any);
       }
-    } else if (type === "view-job") {
+    }
+    else if (type === "edit-student") {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("full_name, university, graduation_month, user_id")
+        .eq("id", id)
+        .single();
+      if (data) {
+        setEditStudentFullName(data.full_name ?? "");
+        setEditStudentUniversity(data.university ?? "");
+        setEditStudentGraduationMonth(data.graduation_month ?? "");
+        setSelectedStudent(prev =>
+          ({
+            id,
+            user_id: data.user_id ?? "",
+            full_name: data.full_name ?? "",
+            university: data.university ?? "",
+            graduation_year: data.graduation_month ? new Date(data.graduation_month).getFullYear().toString() : undefined,
+            created_at: prev?.created_at ?? "",
+            status: prev?.status ?? "",
+            resume_id: prev?.resume_id ?? null,
+          })
+        );
+      }
+      // 既存の work_experiences を読み込み
+      if (data?.user_id) {
+        const { data: resumeData, error: resumeErr } = await supabase
+          .from("resumes")
+          .select("work_experiences")
+          .eq("user_id", id) // use id instead of data.user_id
+          .single();
+
+        if (resumeErr) {
+          console.error("resume fetch error:", resumeErr);
+          setEditWorkExperiencesJson("[]");
+        } else {
+          setEditWorkExperiencesJson(
+            JSON.stringify(resumeData?.work_experiences ?? [], null, 2)
+          );
+        }
+      } else {
+        console.warn("⚠️ student_profiles.user_id is null; skipping resume fetch");
+        setEditWorkExperiencesJson("[]");
+      }
+    }
+    else if (type === "view-job") {
       const { data } = await supabase
         .from("jobs")
         .select(
@@ -885,117 +1028,199 @@ export default function AdminDashboard() {
 
         {/* --- 学生 --- */}
         <TabsContent value="students">
+          {/* 学生絞り込みフィルター */}
+          <div className="mb-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <Input
+              placeholder="フリーワード検索"
+              value={studentSearchQuery}
+              onChange={(e) => setStudentSearchQuery(e.target.value)}
+            />
+            <Select
+              value={studentYearFilter}
+              onValueChange={(v) => setStudentYearFilter(v)}
+            >
+              <SelectTrigger className="w-full">
+                {studentYearFilter === "all" ? "卒業年度" : studentYearFilter}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべて</SelectItem>
+                {graduationYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={studentStatusFilter}
+              onValueChange={(v) => setStudentStatusFilter(v)}
+            >
+              <SelectTrigger className="w-full">
+                {studentStatusFilter === "all" ? "ステータス" : studentStatusFilter}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべて</SelectItem>
+                <SelectItem value="アクティブ">アクティブ</SelectItem>
+                <SelectItem value="凍結">凍結</SelectItem>
+                {/* 必要に応じて他のステータス */}
+              </SelectContent>
+            </Select>
+            <Select
+              value={studentSortBy}
+              onValueChange={(v) => setStudentSortBy(v as any)}
+            >
+              <SelectTrigger className="w-full">
+                {studentSortBy === "registration" ? "登録日順" : "最終ログイン順"}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="registration">登録日順</SelectItem>
+                <SelectItem value="lastLogin">最終ログイン順</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex justify-end mb-2">
             <Button>
               <UserPlus className="mr-2 h-4 w-4" />
               学生を追加
             </Button>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>名前</TableHead>
-                <TableHead>大学</TableHead>
-                <TableHead>卒業年度</TableHead>
-                <TableHead>登録日</TableHead>
-                <TableHead>ステータス</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {students.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>{s.id}</TableCell>
-                  <TableCell>{s.full_name}</TableCell>
-                  <TableCell>{s.university}</TableCell>
-                  <TableCell>{s.graduation_year}</TableCell>
-                  <TableCell>
-                    {s.created_at ? format(new Date(s.created_at), "yyyy/MM/dd") : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge>{s.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost">
-                          <ChevronDown />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>
-                          操作
-                        </DropdownMenuLabel>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "view-student",
-                              s.id
-                            )
-                          }
-                        >
-                          <Eye /> 詳細
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "edit-student",
-                              s.id
-                            )
-                          }
-                        >
-                          <Edit /> 編集
-                        </DropdownMenuItem>
-                        {s.status === "アクティブ" ? (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              openModal(
-                                "freeze-student",
-                                s.id
-                              )
-                            }
-                          >
-                            <Ban /> 凍結
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              openModal(
-                                "activate-student",
-                                s.id
-                              )
-                            }
-                          >
-                            <CheckCircle /> アクティブ化
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() =>
-                            openModal(
-                              "delete-student",
-                              s.id
-                            )
-                          }
-                          className="text-red-500"
-                        >
-                          <Trash2 /> 削除
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {students.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-4">
-                    学生が見つかりません
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          {
+            // フィルタリングされた学生リスト
+          }
+          {(() => {
+            const filteredStudents = students.filter((s) => {
+              const q = studentSearchQuery.trim();
+              const matchesQuery =
+                q === "" ||
+                [s.full_name, s.university, s.graduation_year, s.phone]
+                  .some((field) => field?.includes(q));
+              return (
+                matchesQuery &&
+                (studentUniversityFilter === "all" || (s.university ?? "").includes(studentUniversityFilter)) &&
+                (studentYearFilter === "all" || s.graduation_year === studentYearFilter) &&
+                (studentStatusFilter === "all" || s.status === studentStatusFilter)
+              );
+            });
+            const sortedStudents = filteredStudents.slice().sort((a, b) => {
+              if (studentSortBy === "registration") {
+                const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+                const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+                return bTime - aTime;
+              } else {
+                const aTime = a.last_sign_in_at ? new Date(a.last_sign_in_at).getTime() : 0;
+                const bTime = b.last_sign_in_at ? new Date(b.last_sign_in_at).getTime() : 0;
+                return bTime - aTime;
+              }
+            });
+            return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>名前</TableHead>
+                    <TableHead>大学</TableHead>
+                    <TableHead>電話番号</TableHead>
+                    <TableHead>卒業年度</TableHead>
+                    <TableHead>最終ログイン日</TableHead>
+                    <TableHead>登録日</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedStudents.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell>{s.id}</TableCell>
+                      <TableCell>{s.full_name}</TableCell>
+                      <TableCell>{s.university}</TableCell>
+                      <TableCell>{s.phone ?? '—'}</TableCell>
+                      <TableCell>{s.graduation_year}</TableCell>
+                      <TableCell>
+                        {s.last_sign_in_at ? format(new Date(s.last_sign_in_at), "yyyy/MM/dd") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {s.created_at ? format(new Date(s.created_at), "yyyy/MM/dd") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge>{s.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost">
+                              <ChevronDown />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>
+                              操作
+                            </DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                openModal(
+                                  "view-student",
+                                  s.id
+                                )
+                              }
+                            >
+                              <Eye /> 詳細
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/resume?user_id=${s.user_id ?? s.id}`}>
+                                <Edit /> 編集
+                              </Link>
+                            </DropdownMenuItem>
+                            {s.status === "アクティブ" ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  openModal(
+                                    "freeze-student",
+                                    s.id
+                                  )
+                                }
+                              >
+                                <Ban /> 凍結
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  openModal(
+                                    "activate-student",
+                                    s.id
+                                  )
+                                }
+                              >
+                                <CheckCircle /> アクティブ化
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                openModal(
+                                  "delete-student",
+                                  s.id
+                                )
+                              }
+                              className="text-red-500"
+                            >
+                              <Trash2 /> 削除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {sortedStudents.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-4">
+                        学生が見つかりません
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            );
+          })()}
           <Pagination className="my-2">
             <PaginationPrevious
               onClick={() =>
@@ -1571,7 +1796,18 @@ export default function AdminDashboard() {
               <p><b>大学:</b> {selectedStudent.university}</p>
               <p><b>卒業年度:</b> {selectedStudent.graduation_year}</p>
               <p><b>ステータス:</b> {selectedStudent.status}</p>
-              <p><b>登録日:</b> {format(new Date(selectedStudent.created_at),"yyyy/MM/dd")}</p>
+              <p>
+                <b>最終ログイン:</b>{" "}
+                {selectedStudent.last_sign_in_at
+                  ? format(new Date(selectedStudent.last_sign_in_at), "yyyy/MM/dd")
+                  : "—"}
+              </p>
+              <p>
+                <b>登録日:</b>{" "}
+                {selectedStudent.created_at
+                  ? format(new Date(selectedStudent.created_at), "yyyy/MM/dd")
+                  : "—"}
+              </p>
             </div>
           ) : (
             <Skeleton className="h-24 w-full" />
@@ -1581,6 +1817,7 @@ export default function AdminDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* ----- 求人詳細 ----- */}
       <Dialog
@@ -1690,17 +1927,22 @@ export default function AdminDashboard() {
               本当に凍結しますか？
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={closeModal}
-            >
-              キャンセル
-            </Button>
-            <Button onClick={() => { /* 確定処理 */ }}>
-              凍結
-            </Button>
-          </DialogFooter>
+      <DialogFooter>
+        <Button
+          variant="secondary"
+          onClick={closeModal}
+        >
+          キャンセル
+        </Button>
+        <Button
+          onClick={() => {
+            // 確定処理
+            closeModal();
+          }}
+        >
+          凍結
+        </Button>
+      </DialogFooter>
         </DialogContent>
       </Dialog>
 
