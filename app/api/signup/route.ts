@@ -158,3 +158,4 @@ export async function POST(req: Request) {
   /* 7) 成功レスポンス -------------------------------------------------- */
   return NextResponse.json({ ok: true });
 }
+
