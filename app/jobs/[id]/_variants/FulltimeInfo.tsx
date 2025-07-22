@@ -343,6 +343,7 @@ function RightColumn({
   apply,
   handleApplyClick,
 }: any) {
+  const router = useRouter();
   /* local imports inside to avoid clutter */
 
   return (
@@ -396,9 +397,42 @@ function RightColumn({
             <DialogFooter className="flex flex-col gap-2">
               <Button
                 className="w-full bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  apply();
-                  setShowForm(false);
+                onClick={async () => {
+                  try {
+                    // 1) 応募処理
+                    await apply();
+                    // 2) ログイン中ユーザーの student_profiles.id を取得
+                    const {
+                      data: { session },
+                    } = await supabase.auth.getSession();
+                    const { data: profileData, error: profileErr } = await supabase
+                      .from("student_profiles")
+                      .select("id")
+                      .eq("user_id", session!.user.id)
+                      .maybeSingle();
+                    if (profileErr || !profileData) {
+                      throw profileErr || new Error("プロフィール取得エラー");
+                    }
+                    // 3) chat_rooms テーブルに upsert して単一レコードを取得
+                    const { data: room, error: roomErr } = await supabase
+                      .from("chat_rooms")
+                      .upsert(
+                        {
+                          company_id: company.id,
+                          student_id: profileData.id,
+                          job_id: job.id,
+                        },
+                        { onConflict: "company_id,student_id,job_id" }
+                      )
+                      .select()
+                      .single();
+                    if (roomErr) throw roomErr;
+                    // 4) チャット画面へ遷移
+                    router.push(`/chat/${room.id}`);
+                    setShowForm(false);
+                  } catch (err) {
+                    console.error("apply & chat room error", err);
+                  }
                 }}
               >
                 <Check size={16} className="mr-2" />
