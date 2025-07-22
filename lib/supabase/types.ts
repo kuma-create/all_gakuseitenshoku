@@ -2065,6 +2065,7 @@ export type Database = {
           experiences: Json | null
           form_data: Json
           id: string
+          job_type: string | null
           skills: Json | null
           summary: string | null
           updated_at: string | null
@@ -2078,6 +2079,7 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
+          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
@@ -2091,6 +2093,7 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
+          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
