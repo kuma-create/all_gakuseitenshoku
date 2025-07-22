@@ -406,7 +406,7 @@ export default function JobEditPage() {
         case "internship_short":
           detailTable = "internship_details"
           detailPayload = {
-            ...detailPayload,
+            selection_id      : id,
             start_date        : formData.startDate || null,
             end_date          : formData.endDate   || null,
             duration_weeks    : formData.durationWeeks || null,
@@ -417,11 +417,11 @@ export default function JobEditPage() {
         case "event":
           detailTable = "event_details"
           detailPayload = {
-            ...detailPayload,
-            event_date : formData.eventDate || null,
-            capacity   : formData.capacity ? Number(formData.capacity) : null,
-            venue      : formData.venue || null,
-            format     : formData.format,
+            selection_id: id,
+            event_date  : formData.eventDate   || null,
+            capacity    : formData.capacity    ? Number(formData.capacity) : null,
+            venue       : formData.venue       || null,
+            format      : formData.format,
           }
           break
         default:
@@ -436,9 +436,14 @@ export default function JobEditPage() {
 
       if (jobErr) throw jobErr
 
+      const conflictColumn =
+        detailTable === "event_details" || detailTable === "internship_details"
+          ? "selection_id"
+          : "job_id"
+
       const { error: detailErr } = await supabase
         .from(detailTable as any)                           // dynamic table name
-        .upsert(detailPayload as any, { onConflict: "job_id" } as any)
+        .upsert(detailPayload as any, { onConflict: conflictColumn } as any)
 
       if (detailErr) throw detailErr
 
