@@ -46,6 +46,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogClose,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -737,9 +738,7 @@ export default function AdminDashboard() {
     else if (type === "view-student") {
       const { data } = await supabase
         .from("student_profiles")
-        .select(
-          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at,role"
-        )
+        .select("id,full_name,university,graduation_month,created_at")
         .eq("id", id)
         .single();
       if (data) {
@@ -750,11 +749,8 @@ export default function AdminDashboard() {
           graduation_year: data.graduation_month
             ? new Date(data.graduation_month).getFullYear().toString()
             : "—",
-          status: data.status ?? "—",
-          role: data.role ?? "—",
-          created_at: data.created_at ?? null,
-          last_sign_in_at: data.last_sign_in_at ?? "",
-        } as any);
+          created_at: data.created_at ?? null
+        });
       }
     }
     else if (type === "edit-student") {
@@ -820,8 +816,31 @@ export default function AdminDashboard() {
     }
   };
 
-  const closeModal = () =>
+  const closeModal = () => {
+    // Close any open dialog
     setModalState({ type: "", id: null });
+    // Ensure any scroll-lock or overlay styles are removed
+    if (typeof window !== "undefined") {
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("overflow-x");
+      document.body.style.removeProperty("overflow-y");
+      document.body.style.removeProperty("pointer-events");
+      document.body.removeAttribute("data-scroll-locked");
+    }
+  };
+
+  // Ensure any residual scroll-lock or inert styles are cleared when all dialogs are closed
+  useEffect(() => {
+    if (modalState.type === "") {
+      if (typeof window !== "undefined") {
+        document.body.style.removeProperty("overflow");
+        document.body.style.removeProperty("overflow-x");
+        document.body.style.removeProperty("overflow-y");
+        document.body.style.removeProperty("pointer-events");
+        document.body.removeAttribute("data-scroll-locked");
+      }
+    }
+  }, [modalState.type]);
 
   if (loading)
     return (
@@ -1789,13 +1808,15 @@ export default function AdminDashboard() {
       </Tabs>
 
       {/* ----- 学生詳細 ----- */}
-      <Dialog
-        open={modalState.type === "view-student"}
-        onOpenChange={closeModal}
-      >
+      <Dialog open={modalState.type === "view-student"} onOpenChange={closeModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>学生詳細</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" className="absolute top-2 right-2 p-1">
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </DialogHeader>
           {selectedStudent ? (
             <div className="space-y-1">
@@ -1803,13 +1824,6 @@ export default function AdminDashboard() {
               <p><b>名前:</b> {selectedStudent.full_name}</p>
               <p><b>大学:</b> {selectedStudent.university}</p>
               <p><b>卒業年度:</b> {selectedStudent.graduation_year}</p>
-              <p><b>ステータス:</b> {selectedStudent.status}</p>
-              <p>
-                <b>最終ログイン:</b>{" "}
-                {selectedStudent.last_sign_in_at
-                  ? format(new Date(selectedStudent.last_sign_in_at), "yyyy/MM/dd")
-                  : "—"}
-              </p>
               <p>
                 <b>登録日:</b>{" "}
                 {selectedStudent.created_at
@@ -1828,13 +1842,15 @@ export default function AdminDashboard() {
 
 
       {/* ----- 求人詳細 ----- */}
-      <Dialog
-        open={modalState.type === "view-job"}
-        onOpenChange={closeModal}
-      >
+      <Dialog open={modalState.type === "view-job"} onOpenChange={closeModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>求人詳細</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" className="absolute top-2 right-2 p-1">
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </DialogHeader>
           {selectedJob ? (
             <div className="space-y-1">
@@ -1853,32 +1869,42 @@ export default function AdminDashboard() {
       </Dialog>
 
       {/* ----- 会社詳細 ----- */}
-<Dialog open={modalState.type === "view-company"} onOpenChange={closeModal}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>会社詳細</DialogTitle>
-    </DialogHeader>
-    {selectedCompany ? (
-      <div className="space-y-1">
-        <p><b>ID:</b> {selectedCompany.id}</p>
-        <p><b>企業名:</b> {selectedCompany.name}</p>
-        <p><b>登録日:</b> {format(new Date(selectedCompany.created_at),"yyyy/MM/dd")}</p>
-        <p><b>ステータス:</b> {selectedCompany.status}</p>
-      </div>
-    ) : (
-      <Skeleton className="h-24 w-full" />
-    )}
-    <DialogFooter>
-      <Button onClick={closeModal}>閉じる</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+      <Dialog open={modalState.type === "view-company"} onOpenChange={closeModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>会社詳細</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" className="absolute top-2 right-2 p-1">
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </DialogHeader>
+          {selectedCompany ? (
+            <div className="space-y-1">
+              <p><b>ID:</b> {selectedCompany.id}</p>
+              <p><b>企業名:</b> {selectedCompany.name}</p>
+              <p><b>登録日:</b> {format(new Date(selectedCompany.created_at),"yyyy/MM/dd")}</p>
+              <p><b>ステータス:</b> {selectedCompany.status}</p>
+            </div>
+          ) : (
+            <Skeleton className="h-24 w-full" />
+          )}
+          <DialogFooter>
+            <Button onClick={closeModal}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ----- 会社編集 ----- */}
       <Dialog open={modalState.type === "edit-company"} onOpenChange={closeModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>会社編集</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" className="absolute top-2 right-2 p-1">
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1924,33 +1950,35 @@ export default function AdminDashboard() {
       </Dialog>
 
       {/* モーダル例 */}
-      <Dialog
-        open={modalState.type === "freeze-student"}
-        onOpenChange={closeModal}
-      >
+      <Dialog open={modalState.type === "freeze-student"} onOpenChange={closeModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>学生凍結</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" className="absolute top-2 right-2 p-1">
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </DialogClose>
             <DialogDescription>
               本当に凍結しますか？
             </DialogDescription>
           </DialogHeader>
-      <DialogFooter>
-        <Button
-          variant="secondary"
-          onClick={closeModal}
-        >
-          キャンセル
-        </Button>
-        <Button
-          onClick={() => {
-            // 確定処理
-            closeModal();
-          }}
-        >
-          凍結
-        </Button>
-      </DialogFooter>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={closeModal}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={() => {
+                // 確定処理
+                closeModal();
+              }}
+            >
+              凍結
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1959,6 +1987,11 @@ export default function AdminDashboard() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>特集記事を追加</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" className="absolute top-2 right-2 p-1">
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </DialogHeader>
 
           <div className="space-y-4">

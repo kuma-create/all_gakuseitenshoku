@@ -121,7 +121,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* End Google Tag Manager */}
       </head>
       <body
-        className={`${inter.className} overflow-x-hidden bg-background text-foreground`}
+        className={`${inter.className} bg-background text-foreground`}
         suppressHydrationWarning
       >
         {/* Google Tag Manager (noscript) */}
