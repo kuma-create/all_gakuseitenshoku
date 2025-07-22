@@ -380,7 +380,6 @@ export default function AdminDashboard() {
           status: string | null;
           last_sign_in_at: string | null;
           phone: string | null;
-          role: string | null;   // Add role to RawStudent
         };
 
         // --- 追加: 全resume id取得
@@ -393,7 +392,7 @@ export default function AdminDashboard() {
         );
 
         /* ---------- 学生一覧 ---------- */
-        // student_profiles から role='student' のみ取得
+        // student_profiles から全件取得
         const { data: stData, error: stErr } = await supabase
           .from("student_profiles")
           .select(
@@ -408,11 +407,9 @@ export default function AdminDashboard() {
             created_at,
             status,
             last_sign_in_at,
-            phone,
-            role
+            phone
           `
           )
-          .eq("role", "student") // ここで直接フィルタ
           .order("created_at", { ascending: false })
           .range((studentPage - 1) * 50, studentPage * 50 - 1);
 
@@ -439,7 +436,7 @@ export default function AdminDashboard() {
                 created_at: s.created_at ?? null,
                 last_sign_in_at: s.last_sign_in_at ?? "",
                 status: s.status ?? "—",
-                role: s.role ?? "-",
+                role: "-", // role is no longer fetched
                 resume_id: resumeMap[s.user_id] ?? null,
               };
             })
@@ -733,7 +730,7 @@ export default function AdminDashboard() {
       const { data } = await supabase
         .from("student_profiles")
         .select(
-          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at,role"
+          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at"
         )
         .eq("id", id)
         .single();
@@ -746,7 +743,7 @@ export default function AdminDashboard() {
             ? new Date(data.graduation_month).getFullYear().toString()
             : "—",
           status: data.status ?? "—",
-          role: data.role ?? "—",
+          role: "-", // role is not fetched anymore
           created_at: data.created_at ?? null,
           last_sign_in_at: data.last_sign_in_at ?? "",
         } as any);
