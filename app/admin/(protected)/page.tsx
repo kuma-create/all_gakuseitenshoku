@@ -368,6 +368,7 @@ export default function AdminDashboard() {
         );
 
         // 学生一覧
+        // ---------- 学生一覧 ----------
         type RawStudent = {
           id: string;
           user_id: string;
@@ -392,55 +393,62 @@ export default function AdminDashboard() {
         );
 
         /* ---------- 学生一覧 ---------- */
-        // student_profiles から全件取得
-        const { data: stData, error: stErr } = await supabase
-          .from("student_profiles")
-          .select(
-            `
-            id,
-            user_id,
-            first_name,
-            last_name,
-            full_name,
-            university,
-            graduation_month,
-            created_at,
-            status,
-            last_sign_in_at,
-            phone
-          `
-          )
-          .order("created_at", { ascending: false })
-          .range((studentPage - 1) * 50, studentPage * 50 - 1);
-
-        if (stErr) {
-          console.error("students fetch error:", stErr);
+        // 1) student ロールを持つ user_id 一覧を取得
+        const { data: roleRows, error: roleErr } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "student");
+        if (roleErr) {
+          console.error("user_roles fetch error:", roleErr);
           setStudents([]);
         } else {
-          const rawSt = (stData ?? []) as RawStudent[];
-          setStudents(
-            rawSt.map((s) => {
-              const gradYear = s.graduation_month
-                ? new Date(s.graduation_month).getFullYear().toString()
-                : "—";
-              return {
-                id: s.id,
-                user_id: s.user_id,
-                full_name:
-                  s.full_name ??
-                  [s.last_name, s.first_name].filter(Boolean).join(" ") ??
-                  "—",
-                university: s.university ?? "—",
-                graduation_year: gradYear,
-                phone: s.phone ?? "—",
-                created_at: s.created_at ?? null,
-                last_sign_in_at: s.last_sign_in_at ?? "",
-                status: s.status ?? "—",
-                role: "-", // role is no longer fetched
-                resume_id: resumeMap[s.user_id] ?? null,
-              };
-            })
-          );
+          const studentIds: string[] = (roleRows ?? []).map((r) => r.user_id);
+          if (studentIds.length === 0) {
+            setStudents([]); // 該当なし
+          } else {
+            // 2) student_profiles を取得（この段階ではフィルタせず、JS 側でロールに合わせて絞り込む）
+            const { data: stData, error: stErr } = await supabase
+              .from("student_profiles")
+              .select(`
+                *,
+                id
+              `)
+              .order("created_at", { ascending: false })
+              .range((studentPage - 1) * 50, studentPage * 50 - 1);
+
+            if (stErr) {
+              console.error("students fetch error:", stErr);
+              setStudents([]);
+            } else {
+              const rawSt = (stData ?? []) as RawStudent[];
+              const validStudents = rawSt.filter(
+                (s) => studentIds.includes(s.user_id) || studentIds.includes(s.id)
+              );
+              setStudents(
+                validStudents.map((s) => {
+                  const gradYear = s.graduation_month
+                    ? new Date(s.graduation_month).getFullYear().toString()
+                    : "—";
+                  return {
+                    id: s.id,
+                    user_id: s.user_id ?? s.id, // fallback for profiles where user_id is null
+                    full_name:
+                      s.full_name ??
+                      [s.last_name, s.first_name].filter(Boolean).join(" ") ??
+                      "—",
+                    university: s.university ?? "—",
+                    graduation_year: gradYear,
+                    phone: s.phone ?? "—",
+                    created_at: s.created_at ?? null,
+                    last_sign_in_at: s.last_sign_in_at ?? "",
+                    status: s.status ?? "—",
+                    role: "student", // 常に student
+                    resume_id: resumeMap[s.user_id ?? s.id] ?? null,
+                  };
+                })
+              );
+            }
+          }
         }
 
         // 企業一覧
@@ -730,7 +738,7 @@ export default function AdminDashboard() {
       const { data } = await supabase
         .from("student_profiles")
         .select(
-          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at"
+          "id,full_name,university,graduation_month,status,created_at,last_sign_in_at,role"
         )
         .eq("id", id)
         .single();
@@ -743,7 +751,7 @@ export default function AdminDashboard() {
             ? new Date(data.graduation_month).getFullYear().toString()
             : "—",
           status: data.status ?? "—",
-          role: "-", // role is not fetched anymore
+          role: data.role ?? "—",
           created_at: data.created_at ?? null,
           last_sign_in_at: data.last_sign_in_at ?? "",
         } as any);
@@ -2006,7 +2014,7 @@ export default function AdminDashboard() {
                 }
               }}
             >
-              追加
+              追加です
             </Button>
           </DialogFooter>
         </DialogContent>
