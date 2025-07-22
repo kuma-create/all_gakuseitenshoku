@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase/client"
 import {
   Dialog,
@@ -72,6 +73,7 @@ export default function EventInfo({
 }: Props) {
   const [isInterested, setIsInterested] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleApplyClick = async () => {
     // 1) Check login state
@@ -118,6 +120,7 @@ export default function EventInfo({
     job?.created_at &&
     new Date(job.created_at).getTime() >
       Date.now() - 7 * 24 * 60 * 60 * 1000
+
 
   return (
     <main className="container mx-auto px-4 py-8 pb-24">
@@ -290,13 +293,58 @@ export default function EventInfo({
                 <DialogFooter className="flex flex-col gap-2">
                   <Button
                     className="w-full bg-green-600 hover:bg-green-700"
-                    onClick={() => {
-                      apply();
-                      setShowForm(false);
+                    onClick={async () => {
+                      try {
+                        // 1) 応募登録
+                        await apply()
+                        toast({ title: "応募が完了しました 🎉" })
+
+                        // 2) 学生プロフィールIDを取得
+                        const {
+                          data: { session },
+                        } = await supabase.auth.getSession()
+                        const { data: profileData, error: profileErr } = await supabase
+                          .from("student_profiles")
+                          .select("id")
+                          .eq("user_id", session!.user.id)
+                          .maybeSingle()
+                        if (profileErr || !profileData) {
+                          throw profileErr || new Error("プロフィール取得エラー")
+                        }
+
+                        // 3) チャットルームを upsert して取得
+                        const { data: room, error: roomErr } = await supabase
+                          .from("chat_rooms")
+                          .upsert(
+                            {
+                              company_id: company.id,
+                              student_id: profileData.id,
+                              job_id: job.id,
+                            },
+                            { onConflict: "company_id,student_id,job_id" }
+                          )
+                          .select()
+                          .single()
+                        if (roomErr) throw roomErr
+
+                        // 4) チャットルームへ遷移
+                        router.push(`/chat/${room.id}`)
+                        setShowForm(false)
+                      } catch (err: any) {
+                        console.error("apply error", err)
+                        toast({
+                          title: "応募またはチャットルーム作成に失敗しました",
+                          description:
+                            typeof err?.message === "string"
+                              ? err.message
+                              : "ネットワークまたはサーバーエラーが発生しました",
+                          variant: "destructive",
+                        })
+                      }
                     }}
                   >
                     <Check size={16} className="mr-2" />
-                    申し込みを確定する
+                    応募を確定する
                   </Button>
                   <Button
                     variant="outline"
