@@ -486,7 +486,7 @@ async function handleEmbedImage(files: FileList | null) {
 
   /* ------------------ JSX ------------------ */
   return (
-    <section className="container mx-auto px-6 py-12 max-w-6xl">
+    <section className="px-6 py-12 max-w-screen-lg ml-0 mr-auto">
       <h1 className="text-3xl font-bold mb-8">投稿を編集</h1>
 
       <form
