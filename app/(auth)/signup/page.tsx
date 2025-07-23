@@ -350,44 +350,71 @@ export default function SignupPage() {
                     メール内のリンクをクリックして登録を完了してください。
                   </p>
                   <Button onClick={() => router.push("/")}>トップへ戻る</Button>
-                  <Script
-                    id="acs-track"
-                    strategy="afterInteractive"
-                    dangerouslySetInnerHTML={{
-                      __html: `
-                        (function acsTrack(){
-                          var PV = "pi39vfxuqq6j";
-                          var _ARGSV = "${newUserId}";
-                          var KEYS = {cid : ["CL_", "ACT_", "cid_auth_get_type"], plid : ["PL_", "APT_", "plid_auth_get_type"]};
-                          var turl = "https://c.nox-asp.jp/track.php?p=" + PV + "&args=" + _ARGSV;
-                          var cks = document.cookie.split("; ").reduce(function(ret, s){
-                            var kv = s.split("=");
-                            if(kv[0] && kv[1]) ret[kv[0]] = kv[1];
-                            return ret;
-                          }, {});
-                          turl = Object.keys(KEYS).reduce(function(url, k){
-                            var vk = KEYS[k][0] + PV;
-                            var tk = KEYS[k][1] + PV;
-                            var v = "", t = "";
-                            if(cks[vk]){
-                              v = cks[vk];
-                              if(cks[tk]) t = cks[tk];
-                            } else if(localStorage.getItem(vk)){
-                              v = localStorage.getItem(vk);
-                              t = "ls";
-                            }
-                            if(v) url += "&" + k + "=" + v;
-                            if(t) url += "&" + KEYS[k][2] + "=" + t;
-                            return url;
-                          }, turl);
-                          var xhr = new XMLHttpRequest();
-                          xhr.open("GET", turl);
-                          xhr.send();
-                        })();
-                      `
-                    }}
-                  />
                 </CardContent>
+              )}
+
+              {/* ---- ACS TRACK: always fire, guarantee _ARGSV ---- */}
+              {step === 2 && (
+                <Script
+                  id="acs-track"
+                  strategy="afterInteractive"
+                  dangerouslySetInnerHTML={{
+                    __html: `
+      (function acsTrack(){
+        var PV     = "pi39vfxuqq6j";
+        var _ARGSV = "${newUserId}";   /* Supabase user.id */
+
+        /* ↓↓↓ フォールバック: newUserId が空なら一意 ID を発番 ↓↓↓ */
+        if (!_ARGSV) {
+          try {
+            _ARGSV = localStorage.getItem("signup_tmp_id") ||
+                     (crypto.randomUUID ? crypto.randomUUID()
+                       : Math.random().toString(36).slice(2) + Date.now());
+            localStorage.setItem("signup_tmp_id", _ARGSV);
+          } catch(e){
+            _ARGSV = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+          }
+        }
+
+        /* ---- トラッキングリクエスト ---- */
+        var KEYS = {
+          cid  : ["CL_", "ACT_", "cid_auth_get_type"],
+          plid : ["PL_", "APT_", "plid_auth_get_type"]
+        };
+
+        var turl = "https://c.nox-asp.jp/track.php?p=" + PV + "&args=" + _ARGSV;
+
+        try {
+          var cks = document.cookie.split("; ").reduce(function(ret, s){
+            var kv = s.split("=");
+            if (kv[0] && kv[1]) ret[kv[0]] = kv[1];
+            return ret;
+          }, {});
+
+          turl = Object.keys(KEYS).reduce(function(url, k){
+            var vk = KEYS[k][0] + PV;
+            var tk = KEYS[k][1] + PV;
+            var v  = "", t = "";
+            if (cks[vk]){
+              v = cks[vk];
+              if (cks[tk]) t = cks[tk];
+            } else if (localStorage.getItem(vk)){
+              v = localStorage.getItem(vk);
+              t = "ls";
+            }
+            if (v) url += "&" + k + "=" + v;
+            if (t) url += "&" + KEYS[k][2] + "=" + t;
+            return url;
+          }, turl);
+        } catch(e){}
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", turl);
+        xhr.send();
+      })();
+    `
+                  }}
+                />
               )}
 
               {/* footer */}
