@@ -70,13 +70,25 @@ export async function POST(req: Request) {
         } else {
           const url = `${process.env.NEXT_PUBLIC_SITE_URL}/company/applications/${newApp.id}`;
           try {
-            await sgMail.send({
+            // 企業担当者へ通知
+            const [resCorp] = await sgMail.send({
               to: email,
               from: process.env.FROM_EMAIL!,
               subject: '【Make Culture】新規応募が届きました',
               text: `新しい応募が届きました。詳細はこちら: ${url}`,
               html: `<p>新しい応募が届きました。</p><p><a href="${url}">応募内容を確認する</a></p>`,
             });
+            console.log('SendGrid corp status:', resCorp.statusCode);
+
+            // システム監視用アドレスへ通知
+            const [resSys] = await sgMail.send({
+              to: 'system@gakuten.co.jp',
+              from: process.env.FROM_EMAIL!,
+              subject: '【Make Culture】新規応募が届きました（システムコピー）',
+              text: `新しい応募が届きました。詳細はこちら: ${url}`,
+              html: `<p>新しい応募が届きました。</p><p><a href="${url}">応募内容を確認する</a></p>`,
+            });
+            console.log('SendGrid system status:', resSys.statusCode);
           } catch (err: any) {
             console.error('SendGrid send error:', err);
           }
