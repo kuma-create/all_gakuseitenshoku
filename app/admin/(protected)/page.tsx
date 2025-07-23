@@ -352,6 +352,45 @@ export default function AdminDashboard() {
       // 変更後は realtime で UI に反映される
     }
   }
+
+  /* ---------- CSV 出力 (求人) ---------- */
+  const exportJobsCsv = () => {
+    if (jobs.length === 0) {
+      toast({ description: "求人データがありません", variant: "destructive" });
+      return;
+    }
+
+    const headers = ["ID", "企業名", "求人タイトル", "公開期限"];
+    const rows = jobs.map((j) => [
+      j.id,
+      j.companies?.name ?? "",
+      j.title,
+      j.published_until ? format(new Date(j.published_until), "yyyy/MM/dd") : "",
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((field) =>
+            `"${String(field ?? "")
+              .replace(/"/g, '""')
+              .replace(/\n/g, " ")}"`
+          )
+          .join(",")
+      )
+      .join("\r\n"); // Use CRLF for Excel
+
+    const bom = "\uFEFF"; // prepend BOM so Excel detects UTF‑8
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "jobs.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
   /* ---------- fetchData ---------- */
   const fetchData = useCallback(
     async () => {
@@ -816,9 +855,22 @@ export default function AdminDashboard() {
     }
   };
 
+  /** Dialog open/close handler so that Radix can properly clear inert/scroll‑lock */
+  const handleDialogOpenChange = (isOpen: boolean) => {
+    if (!isOpen) closeModal();
+  };
+
   const closeModal = () => {
     // Close any open dialog
     setModalState({ type: "", id: null });
+    // Helper: clears scroll‑locks that might be re‑applied asynchronously
+    const clearScrollLocks = () => {
+      document.body.style.pointerEvents = "";
+      document.body.style.removeProperty("overflow");
+      const htmlEl = document.documentElement;
+      htmlEl.style.pointerEvents = "";
+      htmlEl.style.removeProperty("overflow");
+    };
     // Ensure any scroll-lock or overlay styles are removed
     if (typeof window !== "undefined") {
       document.body.style.removeProperty("overflow");
@@ -826,6 +878,28 @@ export default function AdminDashboard() {
       document.body.style.removeProperty("overflow-y");
       document.body.style.removeProperty("pointer-events");
       document.body.removeAttribute("data-scroll-locked");
+      // Remove any lingering `inert` attributes Radix adds to sibling nodes
+      document.querySelectorAll("body > [inert]").forEach((el) =>
+        el.removeAttribute("inert")
+      );
+      // Remove Radix Dialog overlay and react‑remove‑scroll guard elements
+      document
+        .querySelectorAll("[data-radix-dialog-overlay],[data-rs-scroll-guard]")
+        .forEach((el) => el.parentNode?.removeChild(el));
+
+      // Also clear any scroll‑lock styles that might be left on <html>
+      const htmlEl = document.documentElement;
+      htmlEl.style.removeProperty("overflow");
+      htmlEl.style.removeProperty("position");
+      htmlEl.style.removeProperty("pointer-events");
+      htmlEl.removeAttribute("data-scroll-locked");
+
+      // Ensure pointer events and overflow are re‑enabled, even if react‑remove‑scroll
+      // re‑applies them in a micro‑task. Clear repeatedly over 500 ms.
+      clearScrollLocks();
+      [50, 120, 250, 400, 500].forEach((ms) =>
+        setTimeout(clearScrollLocks, ms)
+      );
     }
   };
 
@@ -1380,7 +1454,11 @@ export default function AdminDashboard() {
 
         {/* --- 求人 --- */}
         <TabsContent value="jobs">
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end items-center gap-2 mb-2">
+            <Button onClick={exportJobsCsv}>
+              <FileText className="mr-2 h-4 w-4" />
+              CSV出力
+            </Button>
             <Button>
               <Briefcase className="mr-2 h-4 w-4" />
               求人を追加
@@ -1808,15 +1886,10 @@ export default function AdminDashboard() {
       </Tabs>
 
       {/* ----- 学生詳細 ----- */}
-      <Dialog open={modalState.type === "view-student"} onOpenChange={closeModal}>
+      <Dialog open={modalState.type === "view-student"} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>学生詳細</DialogTitle>
-            <DialogClose asChild>
-              <Button variant="ghost" className="absolute top-2 right-2 p-1">
-                <XCircle className="h-4 w-4" />
-              </Button>
-            </DialogClose>
           </DialogHeader>
           {selectedStudent ? (
             <div className="space-y-1">
@@ -1835,14 +1908,16 @@ export default function AdminDashboard() {
             <Skeleton className="h-24 w-full" />
           )}
           <DialogFooter>
-            <Button onClick={closeModal}>閉じる</Button>
+            <DialogClose asChild>
+              <Button>閉じる</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
 
       {/* ----- 求人詳細 ----- */}
-      <Dialog open={modalState.type === "view-job"} onOpenChange={closeModal}>
+      <Dialog open={modalState.type === "view-job"} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>求人詳細</DialogTitle>
@@ -1863,13 +1938,15 @@ export default function AdminDashboard() {
             <Skeleton className="h-24 w-full" />
           )}
           <DialogFooter>
-            <Button onClick={closeModal}>閉じる</Button>
+            <DialogClose asChild>
+              <Button>閉じる</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ----- 会社詳細 ----- */}
-      <Dialog open={modalState.type === "view-company"} onOpenChange={closeModal}>
+      <Dialog open={modalState.type === "view-company"} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>会社詳細</DialogTitle>
@@ -1890,13 +1967,15 @@ export default function AdminDashboard() {
             <Skeleton className="h-24 w-full" />
           )}
           <DialogFooter>
-            <Button onClick={closeModal}>閉じる</Button>
+            <DialogClose asChild>
+              <Button>閉じる</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ----- 会社編集 ----- */}
-      <Dialog open={modalState.type === "edit-company"} onOpenChange={closeModal}>
+      <Dialog open={modalState.type === "edit-company"} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>会社編集</DialogTitle>
@@ -1924,7 +2003,9 @@ export default function AdminDashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={closeModal}>キャンセル</Button>
+            <DialogClose asChild>
+              <Button variant="secondary">キャンセル</Button>
+            </DialogClose>
             <Button
               onClick={async ()=>{
                 if(!selectedCompany) return;
@@ -1950,7 +2031,7 @@ export default function AdminDashboard() {
       </Dialog>
 
       {/* モーダル例 */}
-      <Dialog open={modalState.type === "freeze-student"} onOpenChange={closeModal}>
+      <Dialog open={modalState.type === "freeze-student"} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>学生凍結</DialogTitle>
@@ -1964,12 +2045,9 @@ export default function AdminDashboard() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={closeModal}
-            >
-              キャンセル
-            </Button>
+            <DialogClose asChild>
+              <Button variant="secondary">キャンセル</Button>
+            </DialogClose>
             <Button
               onClick={() => {
                 // 確定処理
@@ -1983,7 +2061,7 @@ export default function AdminDashboard() {
       </Dialog>
 
       {/* ----- 特集追加 ----- */}
-      <Dialog open={modalState.type === "add-feature"} onOpenChange={closeModal}>
+      <Dialog open={modalState.type === "add-feature"} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>特集記事を追加</DialogTitle>
@@ -2019,9 +2097,9 @@ export default function AdminDashboard() {
           </div>
 
           <DialogFooter>
-            <Button variant="secondary" onClick={closeModal}>
-              キャンセル
-            </Button>
+            <DialogClose asChild>
+              <Button variant="secondary">キャンセル</Button>
+            </DialogClose>
             <Button
               onClick={async () => {
                 if (!newFeatureTitle.trim()) {
