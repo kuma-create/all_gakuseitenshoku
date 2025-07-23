@@ -5,23 +5,10 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import sgMail from "@sendgrid/mail";
 
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+
 export async function POST(req: Request) {
   try {
-    // ----- Validate environment variables -----
-    const FROM_EMAIL = (process.env.FROM_EMAIL ?? '').trim();
-    const SG_API_KEY = (process.env.SENDGRID_API_KEY ?? '').trim();
-
-    if (!FROM_EMAIL || !SG_API_KEY) {
-      console.error('Missing FROM_EMAIL or SENDGRID_API_KEY. Check environment variables.');
-      return NextResponse.json(
-        { error: 'Server mis‑configuration: email env vars missing' },
-        { status: 500 }
-      );
-    }
-
-    // Initialise SendGrid with the validated key
-    sgMail.setApiKey(SG_API_KEY);
-
     // Debug: log parsed JSON body
     const body = await req.json();
     console.log('Applications POST body:', body);
@@ -77,7 +64,7 @@ export async function POST(req: Request) {
       } else {
         // 2) Auth Admin API でユーザー情報を取得
         const { data: userRec, error: userErr } = await supabase.auth.admin.getUserById(compRec.user_id);
-        const email = userRec?.user?.email?.trim().toLowerCase();
+        const email = userRec?.user?.email;
         if (userErr || !email) {
           console.error('Auth user fetch error or missing email:', userErr);
         } else {
@@ -86,7 +73,7 @@ export async function POST(req: Request) {
             // 企業担当者へ通知
             const [resCorp] = await sgMail.send({
               to: email,
-              from: FROM_EMAIL,
+              from: process.env.FROM_EMAIL!,
               subject: '【Make Culture】新規応募が届きました',
               text: `新しい応募が届きました。詳細はこちら: ${url}`,
               html: `<p>新しい応募が届きました。</p><p><a href="${url}">応募内容を確認する</a></p>`,
@@ -96,18 +83,14 @@ export async function POST(req: Request) {
             // システム監視用アドレスへ通知
             const [resSys] = await sgMail.send({
               to: 'system@gakuten.co.jp',
-              from: FROM_EMAIL,
+              from: process.env.FROM_EMAIL!,
               subject: '【Make Culture】新規応募が届きました（システムコピー）',
               text: `新しい応募が届きました。詳細はこちら: ${url}`,
               html: `<p>新しい応募が届きました。</p><p><a href="${url}">応募内容を確認する</a></p>`,
             });
             console.log('SendGrid system status:', resSys.statusCode);
           } catch (err: any) {
-            console.error('SendGrid send error:', err?.response?.body ?? err);
-            return NextResponse.json(
-              { error: 'SendGrid failed', details: err?.response?.body ?? err.message },
-              { status: 500 }
-            );
+            console.error('SendGrid send error:', err);
           }
         }
       }
