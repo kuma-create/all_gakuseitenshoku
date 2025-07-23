@@ -513,55 +513,47 @@ export default function AdminResumePage() {
 
   // ─── 保存（手動のみ） ───────────────────────────────────
   const handleSave = async () => {
-    setSaving(true);
-    // Check existing resume by id or user_id
-    const selection = supabase
-      .from("resumes")
-      .select("id");
-    // conditionally filter by resumeId or targetUserId
-    const selector = resumeId
-      ? selection.eq("id", resumeId)
-      : selection.eq("user_id", targetUserId!);
+    if (saving) return;
 
-    const { data: existing, error: selErr } = await selector.maybeSingle();
-
-    if (selErr && selErr.code !== "PGRST116") {
-      alert(`読込エラー: ${selErr.message}`);
-      setSaving(false);
+    if (!targetUserId) {
+      alert("ユーザーIDが取得できていません");
       return;
     }
 
-    let upErr = null;
-    if (existing?.id) {
-      // Update the existing resume record
-      const { error } = await supabase
-        .from("resumes")
-        .update({
-          form_data: formData as unknown as Json,
-          work_experiences: workExperiences as unknown as Json,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-      upErr = error;
-    } else {
-      // Insert new resume record with user_id
-      const { error } = await supabase
-        .from("resumes")
-        .insert({
-          user_id: targetUserId!,
-          form_data: formData as unknown as Json,
-          work_experiences: workExperiences as unknown as Json,
-          updated_at: new Date().toISOString(),
-        });
-      upErr = error;
-    }
+    setSaving(true);
 
-    setSaving(false);
-    if (upErr) {
-      alert(`保存失敗: ${upErr.message}`);
-    } else {
+    try {
+      const res = await fetch("/api/admin/resume/upsert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeId,
+          userId: targetUserId,
+          formData,
+          workExperiences,
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "保存に失敗しました");
+
+      // 新規作成の場合、URL に id を反映
+      if (!resumeId && result.id) {
+        const params = new URLSearchParams(window.location.search);
+        params.set("id", result.id);
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}?${params.toString()}`
+        );
+      }
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e: any) {
+      alert(`保存失敗: ${e.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
