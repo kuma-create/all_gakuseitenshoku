@@ -116,16 +116,51 @@ const STATUS_OPTIONS = [
  * — No server‑side embeds are used to avoid PGRST201 ambiguity errors.
  */
 async function fetchApplicants(): Promise<JoinedApplicant[]> {
-  /* ---------- ① applications ---------- */
-  const { data: appRows, error: appErr } = await supabase
-    .from("applications")
-    .select(
-      "id,status,applied_at,interest_level,self_pr,last_activity,student_id,job_id",
-    )
-    .order("applied_at", { ascending: false })
+  /* ---------- 0) 会社コンテキストを取得 ---------- */
+  const { data: { user } } = await supabase.auth.getUser()
+  console.log("👤 auth.user.id =", user?.id);
+  if (!user) return [] // 未ログイン
 
-  if (appErr) throw appErr
-  const appsRaw = appRows ?? []
+  /* 会社テーブルから company_id を取得（auth ユーザー ≠ company.id のケースに対応） */
+  const { data: companyRow, error: companyErr } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("user_id", user.id)    // ← companies.user_id が auth.user.id を参照している想定
+    .single()
+
+  if (companyErr || !companyRow) {
+    console.warn("[fetchApplicants] company lookup failed:", companyErr)
+    return []
+  }
+
+  const companyId = companyRow.id as string;
+  console.log("🏢 companyId =", companyId);
+
+  /* ---------- A) 会社の求人一覧を取得 ---------- */
+  const { data: jobs, error: jobsErr } = await supabase
+    .from("jobs")
+    .select("id,title,company_id")
+    .eq("company_id", companyId)
+
+  if (jobsErr) throw jobsErr;
+  console.log("📥 jobs length =", jobs?.length ?? 0);
+  const jobIdArray = (jobs ?? []).map((j: any) => j.id)
+
+  /* ---------- ① applications ---------- */
+  let appsRaw: any[] = []
+  if (jobIdArray.length) {
+    const { data: appRows, error: appErr } = await supabase
+      .from("applications")
+      .select(
+        "id,status,applied_at,interest_level,self_pr,last_activity,student_id,job_id",
+      )
+      .in("job_id", jobIdArray)           // ★ 会社の求人に紐づく応募
+      .order("applied_at", { ascending: false })
+
+    if (appErr) throw appErr;
+    appsRaw = appRows ?? [];
+  }
+  console.log("📥 appsRaw length =", appsRaw.length);
 
   /* ---------- ② scouts (承諾のみ) ---------- */
   const { data: scoutRows, error: scoutErr } = await supabase
@@ -142,21 +177,17 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
       scoutErr,
     )
   }
-  const scoutsRaw = scoutRows ?? []
+  const scoutsRaw = scoutRows ?? [];
+  console.log("📥 scoutsRaw length =", scoutsRaw.length);
 
   /* ---------- ③ 集計: ID リスト ---------- */
   const studentIds = new Set<string>()
-  const jobIds = new Set<string>()
-
   ;[...appsRaw, ...scoutsRaw].forEach((r: any) => {
     if (r.student_id) studentIds.add(r.student_id)
-    if (r.job_id) jobIds.add(r.job_id)
   })
 
-  /* ---------- ④ プロフィール / 求人を一括取得 ---------- */
+  /* ---------- ④ プロフィールを一括取得 ---------- */
   const studentIdArray = Array.from(studentIds)
-  const jobIdArray = Array.from(jobIds)
-
   const studentQuery = studentIdArray.length
     ? supabase
         .from("student_profiles")
@@ -164,23 +195,19 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
         .in("id", studentIdArray)
     : Promise.resolve({ data: [] as any[], error: null })
 
-  const jobQuery = jobIdArray.length
-    ? supabase
-        .from("jobs")
-        .select("id,title")
-        .in("id", jobIdArray)
-    : Promise.resolve({ data: [] as any[], error: null })
-
-  const [{ data: students, error: stuErr }, { data: jobs, error: jobsErr }] =
-    await Promise.all([studentQuery, jobQuery])
-
+  const { data: students, error: stuErr } = await studentQuery
   if (stuErr) throw stuErr
-  if (jobsErr) throw jobsErr
 
   const studentMap = new Map(
     (students ?? []).map((s: any) => [s.id, s]),
   )
   const jobMap = new Map((jobs ?? []).map((j: any) => [j.id, j]))
+
+  /* ---------- scouts を自社求人のみに限定 ---------- */
+  const scoutsRawFiltered = scoutsRaw.filter((r: any) => {
+    const j = jobMap.get(r.job_id)
+    return j && j.company_id === companyId
+  })
 
   /* ---------- ⑤ applications → Joined ---------- */
   const apps: JoinedApplicant[] = appsRaw.flatMap((row: any) => {
@@ -210,7 +237,7 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   })
 
   /* ---------- ⑥ scouts → Joined ---------- */
-  const scouts: JoinedApplicant[] = scoutsRaw.flatMap((row: any) => {
+  const scouts: JoinedApplicant[] = scoutsRawFiltered.flatMap((row: any) => {
     const student = studentMap.get(row.student_id)
     if (!student) return []
 
