@@ -102,8 +102,9 @@ const fetchJob = async (id: string) => {
       category,
       start_date,
       application_deadline,
-
-      fulltime_details:fulltime_details!job_id (working_days, salary_min, salary_max, is_ongoing),
+      department,
+      work_type,
+      fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
       event_details:event_details!job_id (event_date, capacity, venue, format)
     `)
@@ -121,8 +122,8 @@ const fetchJob = async (id: string) => {
     title     : data.title,
     description: data.description ?? "",
     requirements: data.requirements ?? "",
-    department : full.department ?? "",
-    employmentType: full.employment_type ?? "",
+    department : data.department ?? "",
+    employmentType: data.work_type ?? "",
     workingHours   : full.working_hours   ?? "",
     benefits       : full.benefits        ?? "",
     applicationDeadline: data.application_deadline ?? "",
@@ -374,6 +375,8 @@ export default function JobEditPage() {
         location         : formData.location.trim(),
         salary_range     : formData.salary ? formData.salary.trim() : null,
         cover_image_url  : formData.coverImageUrl.trim(),
+        department       : formData.department || null,
+        work_type        : formData.employmentType,
         published        : formData.status === "公開",
         application_deadline: formData.applicationDeadline || null,
         /* 追加: カテゴリと開始日 */
@@ -395,12 +398,14 @@ export default function JobEditPage() {
           detailTable = "fulltime_details"
           detailPayload = {
             ...detailPayload,
-            working_days : formData.workingDays,
-            salary_min   : formData.salary ? Number(formData.salary.split("〜")[0]) : null,
-            salary_max   : formData.salary && formData.salary.includes("〜")
+            working_days  : formData.workingDays,
+            working_hours : formData.workingHours || null,
+            benefits      : formData.benefits      || null,
+            salary_min    : formData.salary ? Number(formData.salary.split("〜")[0]) : null,
+            salary_max    : formData.salary && formData.salary.includes("〜")
                             ? Number(formData.salary.split("〜")[1])
                             : null,
-            is_ongoing   : true,
+            is_ongoing    : true,
           }
           break
         case "internship_short":

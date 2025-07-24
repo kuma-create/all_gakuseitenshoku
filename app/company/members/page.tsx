@@ -120,6 +120,8 @@ export default function CompanyMembersPage() {
       .from('company_members')
       .select('id, role, invited_at, user_id')
       .eq('company_id', companyId)
+    console.log('[members] membersRaw:', membersRaw);
+    console.log('[members] error:', error);
 
     if (error || !membersRaw) {
       console.error('Error fetching company_members:', error)
@@ -183,6 +185,7 @@ export default function CompanyMembersPage() {
     setLoading(true)
 
     try {
+      console.log('[invite] email:', inviteEmail, 'company_id:', companyId);
       const { data, error } = await supabase.functions.invoke('send-invite', {
         body: {
           email: inviteEmail,
@@ -190,6 +193,8 @@ export default function CompanyMembersPage() {
           role: 'recruiter',
         },
       })
+      console.log('[invite] response data:', data);
+      console.log('[invite] response error:', error);
 
       if (error) {
         console.error('send-invite error:', error)
@@ -224,6 +229,7 @@ export default function CompanyMembersPage() {
   }
 
   const handleDelete = async (id: string) => {
+    console.log('[delete] deleting member id:', id);
     const { error } = await supabase.from('company_members').delete().eq('id', id)
     if (error) {
       alert('削除に失敗しました')
