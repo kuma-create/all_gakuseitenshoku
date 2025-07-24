@@ -181,14 +181,15 @@ export default function CompanyMembersPage() {
    *    返ってきた user.id を使って company_members に追加しておく
    */
   const handleInvite = async () => {
-    if (!inviteEmail || !companyId) return
+    const emailToInvite = inviteEmail.trim().toLowerCase();
+    if (!emailToInvite || !companyId) return;
     setLoading(true)
 
     try {
-      console.log('[invite] email:', inviteEmail, 'company_id:', companyId);
+      console.log('[invite] email:', emailToInvite, 'company_id:', companyId);
       const { data, error } = await supabase.functions.invoke('send-invite', {
         body: {
-          email: inviteEmail,
+          email: emailToInvite,
           company_id: companyId,
           role: 'recruiter',
         },
@@ -228,15 +229,39 @@ export default function CompanyMembersPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    console.log('[delete] deleting member id:', id);
-    const { error } = await supabase.from('company_members').delete().eq('id', id)
+  /**
+   * メンバー削除処理
+   * - company_id も同時に絞り込み、RLS で弾かれるのを防止
+   * - 削除成功時はローカル state を即更新して UX を滑らかに
+   * - Supabase の delete では count が返らないケースがあるため data.length で判定
+   */
+  const handleDelete = async (rowId: string) => {
+    if (!companyId) return;
+
+    console.log('[delete] attempt rowId:', rowId, 'company_id:', companyId);
+    const { data: deletedRows, error } = await supabase
+      .from('company_members')
+      .delete()
+      .eq('id', rowId)
+      .eq('company_id', companyId)
+      .select('id'); // returning the deleted row(s)
+
     if (error) {
-      alert('削除に失敗しました')
-    } else {
-      fetchMembers()
+      console.error('delete error:', error);
+      alert(`削除に失敗しました: ${error.message}`);
+      return;
     }
-  }
+
+    // deletedRows が空なら削除できていない
+    if (!deletedRows || deletedRows.length === 0) {
+      alert('削除対象が見つかりませんでした。すでに削除済みの可能性があります。');
+      return;
+    }
+
+    // 楽観的 UI 更新
+    setMembers((prev) => prev.filter((m) => m.id !== rowId));
+    console.log('[delete] success, removed:', rowId);
+  };
 
   useEffect(() => {
     if (companyId) {

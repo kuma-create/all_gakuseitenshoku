@@ -64,6 +64,8 @@ serve(async (req) => {
   }
   try {
     const { email, company_id, role } = await req.json()
+    // Normalise input email once at the top
+    const normalizedEmail = (email ?? "").trim().toLowerCase();
 
     // --- Supabase Admin client
     const supabaseUrl = mustEnv("SUPABASE_URL")
@@ -78,33 +80,41 @@ serve(async (req) => {
     const {
       data: listData,
       error: listErr,
-    } = await supabase.auth.admin.listUsers({ email });
+    } = await supabase.auth.admin.listUsers({ email: normalizedEmail });
     if (listErr) throw listErr;
 
-    const existingUser = listData?.users?.[0] ?? null;
+    const candidatesAll = listData?.users ?? [];
+    // Keep only users whose stored email exactly matches the normalised input
+    const candidates = candidatesAll.filter(
+      (u) => (u.email ?? "").toLowerCase() === normalizedEmail
+    );
+
+    // Prefer a confirmed user; else the first exact match, else null
+    const existingUser =
+      candidates.find((u) => u.email_confirmed_at) ??
+      candidates[0] ??
+      null;
     let userId: string | null = existingUser ? existingUser.id : null;
 
-    console.log("invite‑target userId =", userId, "email =", email);
-  
-    // 2) 未登録なら createUser（メールは送らない）
-    if (!userId) {
-      const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
-        email,
-        email_confirm: false,
-      });
-      if (createErr || !newUser?.user) throw createErr ?? new Error("failed to create user");
-      userId = newUser.user.id;
+    // Warn if there are multiple users with similar or exact match
+    if (candidatesAll.length > 1 || candidates.length > 1) {
+      console.warn(
+        `[send-invite] Multiple user candidates for email='${email}': all=${candidatesAll.length}, exact=${candidates.length}`
+      );
     }
 
-    // 3) Magic Link を発行
+    console.log("invite‑target userId =", userId, "email =", normalizedEmail);
+  
+    // 2) Magic Link を発行
     const { data: linkData, error: linkErr } =
       await supabase.auth.admin.generateLink({
         type: "invite",
-        email,
+        email: normalizedEmail,
         options: { redirectTo: `${appUrl}/login` },
       })
     if (linkErr || !linkData?.properties?.action_link) throw linkErr
     const actionLink = linkData.properties.action_link
+    userId = linkData.user.id;
 
     // 4) company_members へ UPSERT
     await supabase.from("company_members")
