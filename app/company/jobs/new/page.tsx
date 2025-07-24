@@ -369,6 +369,7 @@ export default function NewJobPage() {
             : "本選考",
         title                : formData.title,
         description          : formData.description,
+        department           : formData.department || null,
         requirements         : formData.requirements || null,
         location             : formData.location || null,
         work_type            : formData.employmentType,
@@ -397,6 +398,8 @@ export default function NewJobPage() {
               selection_id : jobId,      // ← remove this line if the column doesn't exist
               job_id       : jobId,
               working_days : formData.workingDays || null,
+              working_hours : formData.workingHours || null,
+              benefits      : formData.benefits      || null,
               salary_min   : null,
               salary_max   : null,
               is_ongoing   : false,
