@@ -1301,28 +1301,34 @@ export type Database = {
       }
       fulltime_details: {
         Row: {
+          benefits: string | null
           is_ongoing: boolean | null
           job_id: string
           salary_max: number | null
           salary_min: number | null
           selection_id: string | null
           working_days: string | null
+          working_hours: string | null
         }
         Insert: {
+          benefits?: string | null
           is_ongoing?: boolean | null
           job_id: string
           salary_max?: number | null
           salary_min?: number | null
           selection_id?: string | null
           working_days?: string | null
+          working_hours?: string | null
         }
         Update: {
+          benefits?: string | null
           is_ongoing?: boolean | null
           job_id?: string
           salary_max?: number | null
           salary_min?: number | null
           selection_id?: string | null
           working_days?: string | null
+          working_hours?: string | null
         }
         Relationships: [
           {
@@ -1544,6 +1550,7 @@ export type Database = {
           company_id: string | null
           cover_image_url: string | null
           created_at: string
+          department: string | null
           description: string | null
           id: string
           is_recommended: boolean
@@ -1565,6 +1572,7 @@ export type Database = {
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
+          department?: string | null
           description?: string | null
           id?: string
           is_recommended?: boolean
@@ -1586,6 +1594,7 @@ export type Database = {
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
+          department?: string | null
           description?: string | null
           id?: string
           is_recommended?: boolean
