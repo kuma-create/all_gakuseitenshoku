@@ -422,12 +422,23 @@ function RightColumn({
                           student_id: profileData.id,
                           job_id: job.id,
                         },
-                        { onConflict: "company_id,student_id,job_id" }
+                        { onConflict: "company_id,student_id" } // company_id × student_id で一意
                       )
                       .select()
                       .single();
                     if (roomErr) throw roomErr;
-                    // 4) チャット画面へ遷移
+
+                    // 4) 応募メッセージを自動送信
+                    const { error: msgErr } = await supabase
+                      .from("messages")
+                      .insert({
+                        chat_room_id: room.id,
+                        sender_id:    profileData.id,      // 学生を送信者として記録
+                        content:      "選考に応募しました！！",
+                      });
+                    if (msgErr) console.error("auto-message error", msgErr);
+
+                    // 5) チャット画面へ遷移
                     router.push(`/chat/${room.id}`);
                     setShowForm(false);
                   } catch (err) {
