@@ -212,10 +212,11 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   const { data: scoutRows, error: scoutErr } = await supabase
     .from("scouts")
     .select(
-      "id,status:status,accepted_at,student_id,job_id", // alias for uniform field names
+      "id,status,accepted_at,created_at,student_id,job_id",
     )
-    .eq("status", "承諾")
-    .order("accepted_at", { ascending: false })
+    .eq("company_id", companyId)   // 自社スカウトに限定
+    .eq("status", "accepted")      // 承諾済のみ
+    .order("accepted_at", { ascending: false });
 
   if (scoutErr) {
     console.warn(
@@ -223,12 +224,11 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
       scoutErr,
     )
   }
-  const scoutsRaw = scoutRows ?? [];
-  console.log("📥 scoutsRaw length =", scoutsRaw.length);
+  console.log("📥 scoutsRaw length =", (scoutRows ?? []).length);
 
   /* ---------- ③ 集計: ID リスト ---------- */
   const studentIds = new Set<string>();
-  [...appsRaw, ...scoutsRaw].forEach((r: any) => {
+  [...appsRaw, ...(scoutRows ?? [])].forEach((r: any) => {
     if (r.student_id) studentIds.add(r.student_id);
   });
 
@@ -237,11 +237,6 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   const studentMap = new Map(students.map((s: any) => [s.id, s]));
   const jobMap = new Map((jobs ?? []).map((j: any) => [j.id, j]));
 
-  /* ---------- scouts を自社求人のみに限定 ---------- */
-  const scoutsRawFiltered = scoutsRaw.filter((r: any) => {
-    const j = jobMap.get(r.job_id)
-    return j && j.company_id === companyId
-  })
 
   /* ---------- ⑤ applications → Joined ---------- */
   const apps: JoinedApplicant[] = appsRaw.flatMap((row: any) => {
@@ -254,7 +249,7 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
       {
         id: row.id,
         status: row.status,
-        appliedDate: row.applied_at,
+        appliedDate: row.applied_at ? row.applied_at.split("T")[0] : "",
         interestLevel: row.interest_level ?? 0,
         selfPR: row.self_pr ?? "",
         lastActivity: row.last_activity ?? row.applied_at,
@@ -276,7 +271,7 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   })
 
   /* ---------- ⑥ scouts → Joined ---------- */
-  const scouts: JoinedApplicant[] = scoutsRawFiltered.flatMap((row: any) => {
+  const scouts: JoinedApplicant[] = (scoutRows ?? []).flatMap((row: any) => {
     const student = studentMap.get(row.student_id)
     if (!student) return []
 
@@ -285,11 +280,11 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
     return [
       {
         id: row.id,
-        status: "スカウト承諾",
-        appliedDate: row.accepted_at,
+        status: row.status === "accepted" ? "スカウト承諾" : row.status,
+        appliedDate: (row.accepted_at ?? row.created_at)?.split("T")[0] ?? "",
         interestLevel: 0,
         selfPR: "",
-        lastActivity: row.accepted_at,
+        lastActivity: (row.accepted_at ?? row.created_at)?.split("T")[0] ?? "",
         studentId: student.id,
         name: student.full_name ?? "(名前未設定)",
         university: student.university,
