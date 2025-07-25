@@ -316,6 +316,7 @@ export default function ApplicantsPage() {
   const [selectedApplicantIds, setSelectedApplicantIds] = useState<string[]>([])
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [jobFilter, setJobFilter] = useState<string | null>(null)
+  const [scoutOnly, setScoutOnly] = useState(false)
 
   /* --- Data Fetching --- */
   const { data: applicants = [], isLoading, error } = useSWR(
@@ -365,8 +366,9 @@ export default function ApplicantsPage() {
         (statusFilter === "rejected" && ["不採用", "内定辞退"].includes(a.status))
 
       const matchesJob = !jobFilter || a.jobId === jobFilter
+      const matchesScout = !scoutOnly || a.status === "スカウト承諾"
 
-      return matchesSearch && matchesStatus && matchesJob
+      return matchesSearch && matchesStatus && matchesJob && matchesScout
     }
 
     const sortApplicants = (x: JoinedApplicant, y: JoinedApplicant) => {
@@ -394,7 +396,7 @@ export default function ApplicantsPage() {
     }
 
     return applicants.filter(matches).sort(sortApplicants)
-  }, [applicants, searchTerm, statusFilter, jobFilter, sortField, sortDirection])
+  }, [applicants, searchTerm, statusFilter, jobFilter, sortField, sortDirection, scoutOnly])
 
   /* --- UI ユーティリティ --- */
   const getStatusBadgeVariant = (status: string) => {
@@ -596,7 +598,7 @@ export default function ApplicantsPage() {
         {showAdvancedFilters && (
           <div className="mb-6 p-4 border rounded-md bg-gray-50">
             <h3 className="font-medium mb-3">詳細フィルター</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm text-gray-500 mb-1 block">求人</label>
                 <Select value={jobFilter || "all"} onValueChange={setJobFilter}>
@@ -612,6 +614,18 @@ export default function ApplicantsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {/* スカウト承諾のみチェック */}
+                <div className="flex items-end">
+                  <Checkbox
+                    id="scout-only"
+                    checked={scoutOnly}
+                    onCheckedChange={(checked) => setScoutOnly(checked === true)}
+                    className="mr-2"
+                  />
+                  <label htmlFor="scout-only" className="text-sm text-gray-500">
+                    スカウト承諾のみ
+                  </label>
+                </div>
               </div>
               {/* 志望度フィルター（ダミー） */}
               <div>
@@ -639,6 +653,7 @@ export default function ApplicantsPage() {
                   setJobFilter(null)
                   setSortField("appliedDate")
                   setSortDirection("desc")
+                  setScoutOnly(false)
                 }}
               >
                 フィルターをリセット
@@ -820,6 +835,7 @@ export default function ApplicantsPage() {
                       setSearchTerm("")
                       setStatusFilter("all")
                       setJobFilter(null)
+                      setScoutOnly(false)
                     }}
                   >
                     フィルターをリセット
