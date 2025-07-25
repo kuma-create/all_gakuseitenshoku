@@ -343,7 +343,17 @@ export default function InternInfo({
                           .single();
                         if (roomErr) throw roomErr;
 
-                        // 4) チャットルームへ遷移
+                        // 4) 応募メッセージを自動送信
+                        const { error: msgErr } = await supabase
+                          .from("messages")
+                          .insert({
+                            chat_room_id: room.id,
+                            sender_id:    profileData.id,        // 学生を送信者として記録
+                            content:      "インターンに応募しました！！",
+                          });
+                        if (msgErr) console.error("auto-message error", msgErr);
+
+                        // 5) チャットルームへ遷移
                         router.push(`/chat/${room.id}`);
                         setShowForm(false);
                       } catch (err: any) {

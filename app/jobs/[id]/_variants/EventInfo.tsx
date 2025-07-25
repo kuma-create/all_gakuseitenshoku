@@ -312,7 +312,7 @@ export default function EventInfo({
                           throw profileErr || new Error("プロフィール取得エラー")
                         }
 
-                        // 3) チャットルームを upsert して取得
+                        // 3) chat_rooms テーブルに upsert して単一レコードを取得
                         const { data: room, error: roomErr } = await supabase
                           .from("chat_rooms")
                           .upsert(
@@ -321,13 +321,23 @@ export default function EventInfo({
                               student_id: profileData.id,
                               job_id: job.id,
                             },
-                            { onConflict: "company_id,student_id,job_id" }
+                            { onConflict: "company_id,student_id" } // company_id × student_id で一意
                           )
                           .select()
                           .single()
                         if (roomErr) throw roomErr
 
-                        // 4) チャットルームへ遷移
+                        // 4) 応募メッセージを自動送信
+                        const { error: msgErr } = await supabase
+                          .from("messages")
+                          .insert({
+                            chat_room_id: room.id,
+                            sender_id:    profileData.id,      // 学生を送信者として記録
+                            content:      "イベント/説明会に応募しました！！",
+                          })
+                        if (msgErr) console.error("auto-message error", msgErr)
+
+                        // 5) チャットルームへ遷移
                         router.push(`/chat/${room.id}`)
                         setShowForm(false)
                       } catch (err: any) {
