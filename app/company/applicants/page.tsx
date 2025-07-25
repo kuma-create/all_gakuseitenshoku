@@ -121,19 +121,36 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   console.log("👤 auth.user.id =", user?.id);
   if (!user) return [] // 未ログイン
 
-  /* 会社テーブルから company_id を取得（auth ユーザー ≠ company.id のケースに対応） */
+  /* 会社 / company_members から company_id を取得
+     1) companies.user_id = auth.user.id （オーナーアカウント）
+     2) company_members.user_id = auth.user.id （招待アカウント）
+     どちらも該当しなければ一覧は空配列を返す
+  */
   const { data: companyRow, error: companyErr } = await supabase
     .from("companies")
     .select("id")
-    .eq("user_id", user.id)    // ← companies.user_id が auth.user.id を参照している想定
-    .single()
+    .eq("user_id", user.id)
+    .maybeSingle()
 
-  if (companyErr || !companyRow) {
-    console.warn("[fetchApplicants] company lookup failed:", companyErr)
-    return []
+  let companyId: string | undefined = companyRow?.id as string | undefined
+
+  if (!companyId) {
+    const { data: memberRow, error: memberErr } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (memberErr) {
+      console.warn("[fetchApplicants] company_members lookup failed:", memberErr)
+    }
+    companyId = memberRow?.company_id as string | undefined
   }
 
-  const companyId = companyRow.id as string;
+  if (!companyId) {
+    console.warn("[fetchApplicants] companyId not found for auth.user.id =", user.id)
+    return []
+  }
   console.log("🏢 companyId =", companyId);
 
   /* ---------- A) 会社の求人一覧を取得 ---------- */
@@ -147,20 +164,25 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   const jobIdArray = (jobs ?? []).map((j: any) => j.id)
 
   /* ---------- ① applications ---------- */
-  let appsRaw: any[] = []
-  if (jobIdArray.length) {
-    const { data: appRows, error: appErr } = await supabase
-      .from("applications")
-      .select(
-        "id,status,applied_at,interest_level,self_pr,last_activity,student_id,job_id",
-      )
-      .in("job_id", jobIdArray)           // ★ 会社の求人に紐づく応募
-      .order("applied_at", { ascending: false })
+  const { data: appRows, error: appErr } = await supabase
+    .from("applications")
+    .select(
+      "id,status,applied_at,interest_level,self_pr,last_activity,student_id,job_id",
+    )
+    // 自社のレコードに限定
+    .eq("company_id", companyId)
+    // 念のため求人 ID でも絞る（RLS 保険）
+    .in(
+      "job_id",
+      jobIdArray.length
+        ? jobIdArray
+        : ["00000000-0000-0000-0000-000000000000"],
+    )
+    .order("applied_at", { ascending: false })
 
-    if (appErr) throw appErr;
-    appsRaw = appRows ?? [];
-  }
-  console.log("📥 appsRaw length =", appsRaw.length);
+  if (appErr) throw appErr
+  const appsRaw: any[] = appRows ?? []
+  console.log("📥 appsRaw length =", appsRaw.length)
 
   /* ---------- ② scouts (承諾のみ) ---------- */
   const { data: scoutRows, error: scoutErr } = await supabase
@@ -191,7 +213,7 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   const studentQuery = studentIdArray.length
     ? supabase
         .from("student_profiles")
-        .select("id,name,university,faculty,avatar_url,industry")
+        .select("id,name,university,faculty,grade,graduation_year,avatar_url,industry")
         .in("id", studentIdArray)
     : Promise.resolve({ data: [] as any[], error: null })
 

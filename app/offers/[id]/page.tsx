@@ -590,11 +590,12 @@ function InterestButtons({
 
       if (updateErr) throw updateErr;
 
-      // 2) 既存チャットルームを検索
+      // 2) 既存チャットルームを検索（company_id × student_id で一意）
       const { data: existingRoom, error: existErr } = await supabase
         .from("chat_rooms")
         .select("id")
-        .match({ company_id, student_id, job_id })
+        .eq("company_id", company_id)
+        .eq("student_id", student_id)
         .maybeSingle();
 
       if (existErr) throw existErr;
@@ -608,11 +609,37 @@ function InterestButtons({
           .insert({ company_id, student_id, job_id })
           .select("id")
           .single();
-        if (insertErr) throw insertErr;
-        roomId = newRoom.id;
+
+        // 既に存在していた場合（レースコンディションなど）をリカバー
+        if (insertErr && (insertErr as any).code === "23505") {
+          const { data: retryRoom, error: retryErr } = await supabase
+            .from("chat_rooms")
+            .select("id")
+            .eq("company_id", company_id)
+            .eq("student_id", student_id)
+            .single();
+          if (retryErr) throw retryErr;
+          roomId = retryRoom.id;
+        } else if (insertErr) {
+          throw insertErr;
+        } else {
+          roomId = newRoom.id;
+        }
       }
 
-      // 4) チャット画面へ遷移
+      // 4) 承諾メッセージを自動送信
+      if (roomId) {
+        const { error: msgErr } = await supabase
+          .from("messages")
+          .insert({
+            chat_room_id: roomId,
+            sender_id:    student_id,      // 学生本人を送信者として記録
+            content:      "スカウトを承諾しました！！",
+          });
+
+        if (msgErr) console.error("auto‑message error", msgErr);
+      }
+      // 5) チャット画面へ遷移
       router.push(`/chat/${roomId}`);
     } catch (err) {
       console.error("handleAccept error", err);
