@@ -57,7 +57,7 @@ async function sendInviteEmail(to: string, actionLink: string) {
   }
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // ── CORS pre‑flight
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: CORS_HEADERS })
@@ -76,45 +76,84 @@ serve(async (req) => {
       auth: { persistSession: false },
     })
 
-    // 1) 既存ユーザーの有無チェック（Edge Runtime では getUserByEmail が未実装）
+    // 1) 既存ユーザーの有無チェック（listUsers で email をフィルタ）
     const {
-      data: listData,
+      data: usersData,
       error: listErr,
-    } = await supabase.auth.admin.listUsers({ email: normalizedEmail });
+    } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1,
+      email: normalizedEmail,
+    });
+
     if (listErr) throw listErr;
 
-    const candidatesAll = listData?.users ?? [];
-    // Keep only users whose stored email exactly matches the normalised input
-    const candidates = candidatesAll.filter(
-      (u) => (u.email ?? "").toLowerCase() === normalizedEmail
-    );
-
-    // Prefer a confirmed user; else the first exact match, else null
-    const existingUser =
-      candidates.find((u) => u.email_confirmed_at) ??
-      candidates[0] ??
-      null;
-    let userId: string | null = existingUser ? existingUser.id : null;
-
-    // Warn if there are multiple users with similar or exact match
-    if (candidatesAll.length > 1 || candidates.length > 1) {
-      console.warn(
-        `[send-invite] Multiple user candidates for email='${email}': all=${candidatesAll.length}, exact=${candidates.length}`
-      );
-    }
+    // users は空配列 or 1 要素のみになる想定
+    let userId: string | null =
+      usersData?.users?.length ? usersData.users[0].id : null;
 
     console.log("invite‑target userId =", userId, "email =", normalizedEmail);
   
-    // 2) Magic Link を発行
-    const { data: linkData, error: linkErr } =
-      await supabase.auth.admin.generateLink({
-        type: "invite",
-        email: normalizedEmail,
-        options: { redirectTo: `${appUrl}/login` },
-      })
-    if (linkErr || !linkData?.properties?.action_link) throw linkErr
-    const actionLink = linkData.properties.action_link
-    userId = linkData.user.id;
+    // 2) 招待リンクを発行（既存ユーザーがいれば user_id を指定）
+    let linkData, linkErr;
+
+    if (userId) {
+      // 既存ユーザー → つねに MAGIC LINK を発行する
+      ({ data: linkData, error: linkErr } =
+        await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: normalizedEmail,
+          options: { redirectTo: `${appUrl}/login` },
+        }));
+    } else {
+      // 完全に新規ユーザー → INVITE (email 指定)
+      ({ data: linkData, error: linkErr } =
+        await supabase.auth.admin.generateLink({
+          type: "invite",
+          email: normalizedEmail,
+          options: { redirectTo: `${appUrl}/login` },
+        }));
+    }
+
+    // --- fallback ①: 「既に登録済み」の 400 エラーが返ってきた場合は MAGIC LINK を再生成
+    if (
+      linkErr &&
+      String((linkErr as { message?: string }).message || linkErr).includes(
+        "email address has already been registered"
+      )
+    ) {
+      ({ data: linkData, error: linkErr } =
+        await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: normalizedEmail,
+          options: { redirectTo: `${appUrl}/login` },
+        }));
+    }
+
+    // --- まだ失敗している場合のハンドリング
+    let actionLink: string | null = linkData?.properties?.action_link ?? null;
+
+    if (!actionLink) {
+      // 招待 / MagicLink が発行できなくてもアカウントは既に存在するケース
+      // (confirmed & already registered)。その場合は通常のログイン URL を採用。
+      if (
+        linkErr &&
+        String((linkErr as { message?: string }).message || linkErr).includes(
+          "email address has already been registered"
+        )
+      ) {
+        actionLink = `${appUrl}/login`;
+        linkErr = null;
+      }
+    }
+
+    // 依然として問題があればエラーを返す
+    if (linkErr || !actionLink) throw linkErr;
+
+    // userId がまだ確定していない場合はここで設定
+    if (!userId) {
+      userId = linkData.user.id;
+    }
 
     // 4) company_members へ UPSERT
     await supabase.from("company_members")
