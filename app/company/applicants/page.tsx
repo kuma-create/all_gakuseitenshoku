@@ -105,6 +105,30 @@ const STATUS_OPTIONS = [
   { value: "スカウト承諾", color: "bg-teal-100 text-teal-800 hover:bg-teal-100" },
 ]
 
+
+/* ---------- helper: bulk fetch students in chunks ---------- */
+async function bulkFetchStudents(ids: string[]): Promise<any[]> {
+  const CHUNK = 50; // avoid URL‑length limits
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    // Skip if slice contains non‑uuid or empty strings
+    const valid = slice.filter((x) => typeof x === "string" && x.length === 36);
+    if (!valid.length) continue;
+    chunks.push(
+      supabase
+        .from("student_profiles")
+        .select(
+          "id,full_name,university,faculty,avatar_url,preferred_industries,desired_industries",
+        )
+        .in("id", valid),
+    );
+  }
+
+  const results = await Promise.all(chunks);
+  return results.flatMap((r) => (r.data ?? []));
+}
+
 /* ---------- Supabase からデータ取得 ---------- */
 /**
  * Fetch applicants visible to the current company user.
@@ -203,27 +227,15 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   console.log("📥 scoutsRaw length =", scoutsRaw.length);
 
   /* ---------- ③ 集計: ID リスト ---------- */
-  const studentIds = new Set<string>()
-  ;[...appsRaw, ...scoutsRaw].forEach((r: any) => {
-    if (r.student_id) studentIds.add(r.student_id)
-  })
+  const studentIds = new Set<string>();
+  [...appsRaw, ...scoutsRaw].forEach((r: any) => {
+    if (r.student_id) studentIds.add(r.student_id);
+  });
 
-  /* ---------- ④ プロフィールを一括取得 ---------- */
-  const studentIdArray = Array.from(studentIds)
-  const studentQuery = studentIdArray.length
-    ? supabase
-        .from("student_profiles")
-        .select("id,name,university,faculty,grade,graduation_year,avatar_url,industry")
-        .in("id", studentIdArray)
-    : Promise.resolve({ data: [] as any[], error: null })
-
-  const { data: students, error: stuErr } = await studentQuery
-  if (stuErr) throw stuErr
-
-  const studentMap = new Map(
-    (students ?? []).map((s: any) => [s.id, s]),
-  )
-  const jobMap = new Map((jobs ?? []).map((j: any) => [j.id, j]))
+  /* ---------- ④ プロフィールを一括取得 (chunked) ---------- */
+  const students = await bulkFetchStudents(Array.from(studentIds));
+  const studentMap = new Map(students.map((s: any) => [s.id, s]));
+  const jobMap = new Map((jobs ?? []).map((j: any) => [j.id, j]));
 
   /* ---------- scouts を自社求人のみに限定 ---------- */
   const scoutsRawFiltered = scoutsRaw.filter((r: any) => {
@@ -247,11 +259,16 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
         selfPR: row.self_pr ?? "",
         lastActivity: row.last_activity ?? row.applied_at,
         studentId: student.id,
-        name: student.name,
+        name: student.full_name ?? "(名前未設定)",
         university: student.university,
         faculty: student.faculty,
         avatar: student.avatar_url,
-        industry: student.industry,
+        industry:
+          (Array.isArray(student.preferred_industries) && student.preferred_industries.length > 0
+            ? student.preferred_industries[0]
+            : Array.isArray(student.desired_industries) && student.desired_industries.length > 0
+              ? student.desired_industries[0]
+              : null),
         jobId: row.job_id ?? null,
         jobTitle: job ? job.title : "(削除された求人)",
       },
@@ -274,11 +291,16 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
         selfPR: "",
         lastActivity: row.accepted_at,
         studentId: student.id,
-        name: student.name,
+        name: student.full_name ?? "(名前未設定)",
         university: student.university,
         faculty: student.faculty,
         avatar: student.avatar_url,
-        industry: student.industry,
+        industry:
+          (Array.isArray(student.preferred_industries) && student.preferred_industries.length > 0
+            ? student.preferred_industries[0]
+            : Array.isArray(student.desired_industries) && student.desired_industries.length > 0
+              ? student.desired_industries[0]
+              : null),
         jobId: row.job_id ?? null,
         jobTitle: job ? job.title : "(削除された求人)",
       },
