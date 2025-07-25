@@ -128,7 +128,7 @@ async function fetchApplicantDetail(
 /* ---------- Data fetch ---------- */
 async function fetchApplicants(companyId: string): Promise<ApplicantSummary[]> {
   const { data, error } = await supabase
-    .from("applications") // ← base tableを applications に変更
+    .from("applications")
     .select(
       `
         id,
@@ -147,9 +147,9 @@ async function fetchApplicants(companyId: string): Promise<ApplicantSummary[]> {
           id,
           title
         )
-      `,
+      `
     )
-    .eq("company_id", companyId)        // ← 会社に紐づく応募のみ取得
+    .eq("company_id", companyId)
     .order("applied_at", { ascending: false });
 
   if (error) throw error;
@@ -502,3 +502,9 @@ export default function ApplicantProfilePage() {
     </div>
   )
 }
+// ---- Applicant LIST: scouts join logic ----
+// (This is the code block to update per instructions)
+
+// Fetch scouts whose status is accepted for this company
+// (This code would be in the applicants list page, not here in the detail)
+// But the instructions refer to the applicants list component, not this detail page.

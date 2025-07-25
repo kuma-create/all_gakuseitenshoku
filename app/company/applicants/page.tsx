@@ -142,7 +142,6 @@ async function bulkFetchStudents(ids: string[]): Promise<any[]> {
 async function fetchApplicants(): Promise<JoinedApplicant[]> {
   /* ---------- 0) 会社コンテキストを取得 ---------- */
   const { data: { user } } = await supabase.auth.getUser()
-  console.log("👤 auth.user.id =", user?.id);
   if (!user) return [] // 未ログイン
 
   /* 会社 / company_members から company_id を取得
@@ -175,7 +174,6 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
     console.warn("[fetchApplicants] companyId not found for auth.user.id =", user.id)
     return []
   }
-  console.log("🏢 companyId =", companyId);
 
   /* ---------- A) 会社の求人一覧を取得 ---------- */
   const { data: jobs, error: jobsErr } = await supabase
@@ -184,7 +182,6 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
     .eq("company_id", companyId)
 
   if (jobsErr) throw jobsErr;
-  console.log("📥 jobs length =", jobs?.length ?? 0);
   const jobIdArray = (jobs ?? []).map((j: any) => j.id)
 
   /* ---------- ① applications ---------- */
@@ -206,7 +203,6 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
 
   if (appErr) throw appErr
   const appsRaw: any[] = appRows ?? []
-  console.log("📥 appsRaw length =", appsRaw.length)
 
   /* ---------- ② scouts (承諾のみ) ---------- */
   const { data: scoutRows, error: scoutErr } = await supabase
@@ -224,7 +220,6 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
       scoutErr,
     )
   }
-  console.log("📥 scoutsRaw length =", (scoutRows ?? []).length);
 
   /* ---------- ③ 集計: ID リスト ---------- */
   const studentIds = new Set<string>();
@@ -327,7 +322,6 @@ export default function ApplicantsPage() {
     "company-applicants",
     fetchApplicants,
   )
-  console.log("[ApplicantsPage] SWR applicants fetched:", applicants);
 
   /* --- Job 一覧は応募データから動的生成 --- */
   const jobs = useMemo(() => {
