@@ -76,84 +76,32 @@ serve(async (req: Request) => {
       auth: { persistSession: false },
     })
 
-    // 1) 既存ユーザーの有無チェック（listUsers で email をフィルタ）
-    const {
-      data: usersData,
-      error: listErr,
-    } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 1,
-      email: normalizedEmail,
-    });
+    // --- ユーザー確認とリンク発行 ---------------------------------------------
+    // 1) getUserByEmail で確実に対象ユーザーを特定
+    const { data: userData, error: getErr } =
+      await supabase.auth.admin.getUserByEmail(normalizedEmail);
 
-    if (listErr) throw listErr;
+    if (getErr && getErr.message !== "User not found") throw getErr;
 
-    // users は空配列 or 1 要素のみになる想定
-    let userId: string | null =
-      usersData?.users?.length ? usersData.users[0].id : null;
+    // userData?.user が null の場合は存在しない
+    const existingUser = userData?.user ?? null;
 
+    // 2) 既存ユーザーなら MAGIC LINK、新規なら INVITE
+    const linkType: "magiclink" | "invite" = existingUser ? "magiclink" : "invite";
+
+    const { data: linkData, error: linkErr } =
+      await supabase.auth.admin.generateLink({
+        type: linkType as "magiclink" | "invite",
+        email: normalizedEmail,
+        options: { redirectTo: `${appUrl}/login` },
+      });
+
+    if (linkErr) throw linkErr;
+
+    const actionLink: string =
+      linkData?.properties?.action_link ?? `${appUrl}/login`;
+    const userId: string = linkData.user.id;
     console.log("invite‑target userId =", userId, "email =", normalizedEmail);
-  
-    // 2) 招待リンクを発行（既存ユーザーがいれば user_id を指定）
-    let linkData, linkErr;
-
-    if (userId) {
-      // 既存ユーザー → つねに MAGIC LINK を発行する
-      ({ data: linkData, error: linkErr } =
-        await supabase.auth.admin.generateLink({
-          type: "magiclink",
-          email: normalizedEmail,
-          options: { redirectTo: `${appUrl}/login` },
-        }));
-    } else {
-      // 完全に新規ユーザー → INVITE (email 指定)
-      ({ data: linkData, error: linkErr } =
-        await supabase.auth.admin.generateLink({
-          type: "invite",
-          email: normalizedEmail,
-          options: { redirectTo: `${appUrl}/login` },
-        }));
-    }
-
-    // --- fallback ①: 「既に登録済み」の 400 エラーが返ってきた場合は MAGIC LINK を再生成
-    if (
-      linkErr &&
-      String((linkErr as { message?: string }).message || linkErr).includes(
-        "email address has already been registered"
-      )
-    ) {
-      ({ data: linkData, error: linkErr } =
-        await supabase.auth.admin.generateLink({
-          type: "magiclink",
-          email: normalizedEmail,
-          options: { redirectTo: `${appUrl}/login` },
-        }));
-    }
-
-    // --- まだ失敗している場合のハンドリング
-    let actionLink: string | null = linkData?.properties?.action_link ?? null;
-
-    if (!actionLink) {
-      // 招待 / MagicLink が発行できなくてもアカウントは既に存在するケース
-      // (confirmed & already registered)。その場合は通常のログイン URL を採用。
-      if (
-        linkErr &&
-        String((linkErr as { message?: string }).message || linkErr).includes(
-          "email address has already been registered"
-        )
-      ) {
-        actionLink = `${appUrl}/login`;
-        linkErr = null;
-      }
-    }
-
-    // 依然として問題があればエラーを返す
-    if (linkErr || !actionLink) throw linkErr;
-
-    // userId がまだ確定していない場合はここで設定
-    if (!userId) {
-      userId = linkData.user.id;
-    }
 
     // 4) company_members へ UPSERT
     await supabase.from("company_members")
@@ -164,7 +112,7 @@ serve(async (req: Request) => {
       }, { onConflict: "company_id,user_id" })
 
     // 5) SendGrid でメール送信
-    await sendInviteEmail(email, actionLink);
+    await sendInviteEmail(normalizedEmail, actionLink);
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
