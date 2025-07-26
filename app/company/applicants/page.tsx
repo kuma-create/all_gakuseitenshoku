@@ -32,9 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   ArrowLeft,
   Calendar,
-  ChevronDown,
   Download,
-  Filter,
   MessageSquare,
   Search,
   Star,
@@ -314,9 +312,18 @@ export default function ApplicantsPage() {
   const [sortField, setSortField] = useState("appliedDate")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [selectedApplicantIds, setSelectedApplicantIds] = useState<string[]>([])
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
-  const [jobFilter, setJobFilter] = useState<string | null>(null)
+  const [jobFilters, setJobFilters] = useState<string[]>([])
   const [scoutOnly, setScoutOnly] = useState(false)
+
+  /** すべてのフィルターを初期状態に戻す */
+  const resetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setJobFilters([]);
+    setSortField("appliedDate");
+    setSortDirection("desc");
+    setScoutOnly(false);
+  };
 
   /* --- Data Fetching --- */
   const { data: applicants = [], isLoading, error } = useSWR(
@@ -365,7 +372,8 @@ export default function ApplicantsPage() {
         (statusFilter === "passed" && a.status === "内定") ||
         (statusFilter === "rejected" && ["不採用", "内定辞退"].includes(a.status))
 
-      const matchesJob = !jobFilter || a.jobId === jobFilter
+      const matchesJob =
+        jobFilters.length === 0 || (a.jobId && jobFilters.includes(a.jobId))
       const matchesScout = !scoutOnly || a.status === "スカウト承諾"
 
       return matchesSearch && matchesStatus && matchesJob && matchesScout
@@ -396,7 +404,7 @@ export default function ApplicantsPage() {
     }
 
     return applicants.filter(matches).sort(sortApplicants)
-  }, [applicants, searchTerm, statusFilter, jobFilter, sortField, sortDirection, scoutOnly])
+  }, [applicants, searchTerm, statusFilter, jobFilters, sortField, sortDirection, scoutOnly])
 
   /* --- UI ユーティリティ --- */
   const getStatusBadgeVariant = (status: string) => {
@@ -538,15 +546,6 @@ export default function ApplicantsPage() {
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex flex-col md:flex-row gap-2">
-          <Button variant="outline" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}>
-            <Filter className="mr-2 h-4 w-4" />
-            詳細フィルター
-            <ChevronDown
-              className={`ml-2 h-4 w-4 transition-transform ${
-                showAdvancedFilters ? "rotate-180" : ""
-              }`}
-            />
-          </Button>
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
             エクスポート
@@ -565,6 +564,48 @@ export default function ApplicantsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          {/* Job filter (multi‑select) */}
+          <div className="w-full md:w-64">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  {jobFilters.length === 0
+                    ? "すべての求人"
+                    : `選択済み ${jobFilters.length} 件`}
+                  <span className="ml-2">▼</span>
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent className="w-64 max-h-72 overflow-y-auto">
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();       // keep menu open
+                    resetFilters();
+                  }}
+                >
+                  <Checkbox checked={jobFilters.length === 0} className="mr-2" />
+                  すべての求人
+                </DropdownMenuItem>
+
+                {jobs.map((job) => (
+                  <DropdownMenuItem
+                    key={job.id}
+                    onSelect={(e) => {
+                      e.preventDefault();       // keep menu open
+                      setJobFilters((prev) =>
+                        prev.includes(job.id)
+                          ? prev.filter((id) => id !== job.id)
+                          : [...prev, job.id],
+                      );
+                    }}
+                  >
+                    <Checkbox checked={jobFilters.includes(job.id)} className="mr-2" />
+                    {job.title}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="w-full md:w-64">
             <Select
@@ -585,8 +626,6 @@ export default function ApplicantsPage() {
                 <SelectItem value="name-desc">名前（降順）</SelectItem>
                 <SelectItem value="university-asc">大学（昇順）</SelectItem>
                 <SelectItem value="university-desc">大学（降順）</SelectItem>
-                <SelectItem value="interestLevel-desc">志望度（高い順）</SelectItem>
-                <SelectItem value="interestLevel-asc">志望度（低い順）</SelectItem>
                 <SelectItem value="status-asc">ステータス（昇順）</SelectItem>
                 <SelectItem value="status-desc">ステータス（降順）</SelectItem>
               </SelectContent>
@@ -595,72 +634,24 @@ export default function ApplicantsPage() {
         </div>
 
         {/* 詳細フィルター */}
-        {showAdvancedFilters && (
-          <div className="mb-6 p-4 border rounded-md bg-gray-50">
-            <h3 className="font-medium mb-3">詳細フィルター</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">求人</label>
-                <Select value={jobFilter || "all"} onValueChange={setJobFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="求人を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべての求人</SelectItem>
-                    {jobs.map((job) => (
-                      <SelectItem key={job.id} value={job.id}>
-                        {job.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {/* スカウト承諾のみチェック */}
-                <div className="flex items-end">
-                  <Checkbox
-                    id="scout-only"
-                    checked={scoutOnly}
-                    onCheckedChange={(checked) => setScoutOnly(checked === true)}
-                    className="mr-2"
-                  />
-                  <label htmlFor="scout-only" className="text-sm text-gray-500">
-                    スカウト承諾のみ
-                  </label>
-                </div>
+        <div className="mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+            <div>
+              {/* スカウト承諾のみチェック */}
+              <div className="flex items-end">
+                <Checkbox
+                  id="scout-only"
+                  checked={scoutOnly}
+                  onCheckedChange={(checked) => setScoutOnly(checked === true)}
+                  className="mr-2"
+                />
+                <label htmlFor="scout-only" className="text-sm text-gray-500">
+                  スカウト承諾のみ
+                </label>
               </div>
-              {/* 志望度フィルター（ダミー） */}
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">志望度</label>
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue placeholder="志望度を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべて</SelectItem>
-                    <SelectItem value="high">高い（★★★★〜）</SelectItem>
-                    <SelectItem value="medium">中程度（★★★〜）</SelectItem>
-                    <SelectItem value="low">低い（★★以下）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("")
-                  setStatusFilter("all")
-                  setJobFilter(null)
-                  setSortField("appliedDate")
-                  setSortDirection("desc")
-                  setScoutOnly(false)
-                }}
-              >
-                フィルターをリセット
-              </Button>
             </div>
           </div>
-        )}
+        </div>
 
         {/* ステータスごとのタブ */}
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
@@ -734,10 +725,6 @@ export default function ApplicantsPage() {
                               <div>
                                 <p className="text-sm text-gray-500">志望業界</p>
                                 <p className="font-medium">{applicant.industry ?? "—"}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">志望度</p>
-                                {renderInterestLevel(applicant.interestLevel)}
                               </div>
                               <div>
                                 <p className="text-sm text-gray-500">応募日</p>
@@ -831,12 +818,7 @@ export default function ApplicantsPage() {
                   </p>
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setStatusFilter("all")
-                      setJobFilter(null)
-                      setScoutOnly(false)
-                    }}
+                    onClick={resetFilters}
                   >
                     フィルターをリセット
                   </Button>
