@@ -18,11 +18,17 @@ function mustEnv(name: string): string {
 }
 
 const SENDGRID_API_KEY = mustEnv("SENDGRID_API_KEY");
+// SendGrid Dynamic Template ID
+const SENDGRID_TEMPLATE_ID = "d-604ad50e903d44c0b31b7dc498e95c72";
 
 const FROM_EMAIL = "info@gakuten.co.jp";
 const FROM_NAME = "学生転職";
 
-async function sendInviteEmail(to: string, actionLink: string) {
+async function sendInviteEmail(
+  to: string,
+  actionLink: string,
+  linkType: "magiclink" | "invite",
+) {
   const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
     method: "POST",
     headers: {
@@ -30,25 +36,17 @@ async function sendInviteEmail(to: string, actionLink: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      from: { email: FROM_EMAIL, name: FROM_NAME },
       personalizations: [
         {
           to: [{ email: to }],
-          subject: "【Make Culture】メンバー招待のお知らせ",
+          dynamic_template_data: {
+            action_link: actionLink,
+            link_type: linkType, // "magiclink" or "invite"
+          },
         },
       ],
-      from: { email: FROM_EMAIL, name: FROM_NAME },
-      content: [
-        {
-          type: "text/html",
-          value: `
-            <p>こんにちは！Make Culture へのご招待です。</p>
-            <p>以下のリンクから24時間以内にログインしてください。</p>
-            <p><a href="${actionLink}">ログインして参加する</a></p>
-            <hr />
-            <p>※本メールに心当たりがない場合は破棄してください。</p>
-          `,
-        },
-      ],
+      template_id: SENDGRID_TEMPLATE_ID,
     }),
   });
   if (!res.ok) {
@@ -76,43 +74,95 @@ serve(async (req: Request) => {
       auth: { persistSession: false },
     })
 
-    // --- ユーザー確認とリンク発行 ---------------------------------------------
-    // 1) getUserByEmail で確実に対象ユーザーを特定
-    const { data: userData, error: getErr } =
-      await supabase.auth.admin.getUserByEmail(normalizedEmail);
+    // 1) 既存ユーザーの有無チェック（listUsers で email をフィルタ）
+    const {
+      data: usersData,
+      error: listErr,
+    } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1,
+      email: normalizedEmail,
+    });
 
-    if (getErr && getErr.message !== "User not found") throw getErr;
+    if (listErr) throw listErr;
 
-    // userData?.user が null の場合は存在しない
-    const existingUser = userData?.user ?? null;
+    // users は空配列 or 1 要素のみになる想定
+    let userId: string | null =
+      usersData?.users?.length ? usersData.users[0].id : null;
 
-    // 2) 既存ユーザーなら MAGIC LINK、新規なら INVITE
-    const linkType: "magiclink" | "invite" = existingUser ? "magiclink" : "invite";
-
-    const { data: linkData, error: linkErr } =
-      await supabase.auth.admin.generateLink({
-        type: linkType as "magiclink" | "invite",
-        email: normalizedEmail,
-        options: { redirectTo: `${appUrl}/login` },
-      });
-
-    if (linkErr) throw linkErr;
-
-    const actionLink: string =
-      linkData?.properties?.action_link ?? `${appUrl}/login`;
-    const userId: string = linkData.user.id;
     console.log("invite‑target userId =", userId, "email =", normalizedEmail);
+  
+    // 2) 招待リンクを発行（既存ユーザーがいれば user_id を指定）
+    let linkData, linkErr;
+
+    if (userId) {
+      // 既存ユーザー → つねに MAGIC LINK を発行する
+      ({ data: linkData, error: linkErr } =
+        await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: normalizedEmail,
+          options: { redirectTo: `${appUrl}/login` },
+        }));
+    } else {
+      // 完全に新規ユーザー → INVITE (email 指定)
+      ({ data: linkData, error: linkErr } =
+        await supabase.auth.admin.generateLink({
+          type: "invite",
+          email: normalizedEmail,
+          options: { redirectTo: `${appUrl}/login` },
+        }));
+    }
+
+    // --- fallback ①: 「既に登録済み」の 400 エラーが返ってきた場合は MAGIC LINK を再生成
+    if (
+      linkErr &&
+      String((linkErr as { message?: string }).message || linkErr).includes(
+        "email address has already been registered"
+      )
+    ) {
+      ({ data: linkData, error: linkErr } =
+        await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: normalizedEmail,
+          options: { redirectTo: `${appUrl}/login` },
+        }));
+    }
+
+    // --- まだ失敗している場合のハンドリング
+    let actionLink: string | null = linkData?.properties?.action_link ?? null;
+
+    if (!actionLink) {
+      // 招待 / MagicLink が発行できなくてもアカウントは既に存在するケース
+      // (confirmed & already registered)。その場合は通常のログイン URL を採用。
+      if (
+        linkErr &&
+        String((linkErr as { message?: string }).message || linkErr).includes(
+          "email address has already been registered"
+        )
+      ) {
+        actionLink = `${appUrl}/login`;
+        linkErr = null;
+      }
+    }
+
+    // 依然として問題があればエラーを返す
+    if (linkErr || !actionLink) throw linkErr;
+
+    // userId がまだ確定していない場合はここで設定
+    if (!userId) {
+      userId = linkData.user.id;
+    }
 
     // 4) company_members へ UPSERT
     await supabase.from("company_members")
       .upsert({
         company_id,
-        user_id: userId,
+        user_id: safeUserId,
         role: role ?? "recruiter",
       }, { onConflict: "company_id,user_id" })
 
     // 5) SendGrid でメール送信
-    await sendInviteEmail(normalizedEmail, actionLink);
+    await sendInviteEmail(email, actionLink);
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
