@@ -360,6 +360,45 @@ export default function ApplicantDetailPage() {
         error = fallback2.error
       }
 
+      // 4) If still nothing found, treat the URL param as a scout_id and
+      //    resolve it to the corresponding student_id, then fetch again.
+      if (!data && !error) {
+        const scoutLookup = await supabase
+          .from("scouts")
+          .select("student_id")
+          .eq("id", applicantId)
+          .maybeSingle();
+
+        console.log("Supabase response (scout_id → student_id)", {
+          status: scoutLookup.status,
+          data: scoutLookup.data,
+          error: scoutLookup.error,
+        });
+
+        if (scoutLookup.data?.student_id) {
+          const {
+            data: scoutApplicant,
+            error: scoutErr,
+            status: scoutStatus,
+          } = await supabase
+            .from("applicants_view")
+            .select("*")
+            .eq("student_id", scoutLookup.data.student_id)
+            .order("application_date", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          console.log("Supabase response (scout→applicant)", {
+            status: scoutStatus,
+            data: scoutApplicant,
+            error: scoutErr,
+          });
+
+          data = scoutApplicant;
+          error = scoutErr;
+        }
+      }
+
       if (error) {
         // Supabase error オブジェクトを詳細に表示
         console.error("Applicant fetch error:", {
