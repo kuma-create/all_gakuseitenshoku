@@ -27,13 +27,21 @@ export async function POST(req: Request) {
     // 0) job の company_id を取得
     const { data: jobRec, error: jobErr } = await supabase
       .from("jobs")
-      .select("company_id")
+      .select("company_id, title")
       .eq("id", job_id)
       .single();
     if (jobErr || !jobRec?.company_id) {
       console.error("Job fetch error or missing company_id:", jobErr);
     }
     const companyIdFromJob = jobRec?.company_id;
+    const jobTitle = jobRec?.title ?? "";
+
+    // 学生ユーザー情報を取得して氏名を取得
+    const { data: studentUserRec, error: studentUserErr } = await supabase.auth.admin.getUserById(student_id);
+    const studentName = (studentUserRec?.user?.user_metadata as any)?.full_name ?? "";
+    if (studentUserErr) {
+      console.error("Student user fetch error:", studentUserErr);
+    }
 
     // 1) applications テーブルに挿入
     const { data: newApp, error } = await supabase
@@ -68,15 +76,20 @@ export async function POST(req: Request) {
         if (userErr || !email) {
           console.error('Auth user fetch error or missing email:', userErr);
         } else {
-          const url = `${process.env.NEXT_PUBLIC_SITE_URL}/company/applications/${newApp.id}`;
+          const url = `${process.env.NEXT_PUBLIC_SITE_URL}/company/applicants`;
           try {
             // 企業担当者へ通知
             const [resCorp] = await sgMail.send({
               to: email,
               from: process.env.FROM_EMAIL!,
-              subject: '【Make Culture】新規応募が届きました',
-              text: `新しい応募が届きました。詳細はこちら: ${url}`,
-              html: `<p>新しい応募が届きました。</p><p><a href="${url}">応募内容を確認する</a></p>`,
+              subject: "【学生転職】 新規応募が届きました！！",
+              text: `新規応募が届きました。\n求人名：${jobTitle}\n学生名：${studentName}\nリンク：${url}`,
+              html: `
+                <p>新規応募が届きました。</p>
+                <p>求人名：${jobTitle}</p>
+                <p>学生名：${studentName}</p>
+                <p><a href="${url}">応募者を確認する</a></p>
+              `,
             });
             console.log('SendGrid corp status:', resCorp.statusCode);
 
@@ -84,9 +97,14 @@ export async function POST(req: Request) {
             const [resSys] = await sgMail.send({
               to: 'system@gakuten.co.jp',
               from: process.env.FROM_EMAIL!,
-              subject: '【Make Culture】新規応募が届きました（システムコピー）',
-              text: `新しい応募が届きました。詳細はこちら: ${url}`,
-              html: `<p>新しい応募が届きました。</p><p><a href="${url}">応募内容を確認する</a></p>`,
+              subject: "【学生転職】 新規応募が届きました！！",
+              text: `新規応募が届きました。\n求人名：${jobTitle}\n学生名：${studentName}\nリンク：${url}`,
+              html: `
+                <p>新規応募が届きました。</p>
+                <p>求人名：${jobTitle}</p>
+                <p>学生名：${studentName}</p>
+                <p><a href="${url}">応募者を確認する</a></p>
+              `,
             });
             console.log('SendGrid system status:', resSys.statusCode);
           } catch (err: any) {
