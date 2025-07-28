@@ -94,15 +94,17 @@ export default function CompanyDashboard() {
     if (!isLoggedIn || !isCompanySide || !user?.id) return
 
     ;(async () => {
-      /* ① 企業レコード取得 */
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id")
+      /* ① 企業レコード取得 (owner / recruiter 共通) */
+      const { data: member, error: memErr } = await supabase
+        .from("company_members")
+        .select("company_id")
         .eq("user_id", user.id)
         .maybeSingle()
 
-      if (!company) { setLoading(false); return }
-      const companyId = company.id
+      if (memErr) { console.error(memErr); setLoading(false); return }
+
+      const companyId = member?.company_id
+      if (!companyId) { setLoading(false); return }
 
       /* ② 並列で必要データ取得 */
       const [
