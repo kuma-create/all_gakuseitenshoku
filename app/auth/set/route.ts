@@ -14,8 +14,13 @@ export const dynamic = "force-dynamic";
  * - session が有効    → setSession() して auth クッキーを発行
  */
 export async function POST(req: Request) {
-  // Next 15 では cookies 関数そのものを渡すだけで OK
-  const supabase = createRouteHandlerClient<Database>({ cookies: nextCookies });
+  /* Next 15 以降は cookies() が Promise を返すので
+     一度 await して CookieStore を取得してから、
+     createRouteHandlerClient へ「クロージャ」で渡す */
+  const cookieStore = await nextCookies();
+  const supabase = createRouteHandlerClient<Database>({
+    cookies: () => cookieStore, // 必ず同じ store を返す
+  });
 
   const session = (await req.json()) as
     | { access_token: string; refresh_token: string; expires_at: number }
