@@ -76,6 +76,40 @@ serve(async (req: Request) => {
       auth: { persistSession: false },
     })
 
+    // -----------------------------------------------------------------
+    // Polyfill: Edge runtime build of supabase-js (jsr) currently lacks
+    // admin.getUserByEmail(). Re‑implement it through the GoTrue Admin
+    // REST API so that downstream logic continues to work unchanged.
+    // -----------------------------------------------------------------
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const adminAny: any = supabase.auth.admin;
+      if (typeof adminAny.getUserByEmail !== "function") {
+        adminAny.getUserByEmail = async (email: string) => {
+          const res = await fetch(
+            `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(
+              email,
+            )}`,
+            {
+              headers: {
+                apikey: serviceRoleKey,
+                Authorization: `Bearer ${serviceRoleKey}`,
+              },
+            },
+          );
+
+          if (!res.ok) {
+            return { user: null, error: new Error(`Admin API error: ${res.status}`) };
+          }
+
+          // GoTrue returns `{ users: [...] }`.
+          const { users } = await res.json();
+          const user = Array.isArray(users) && users.length > 0 ? users[0] : null;
+          return { user, error: null };
+        };
+      }
+    }
+
     // --- UID は generateLink から取得する。getUserByEmail は使わない（誤 UID 混入防止）
     let userId: string | null = null;
     console.log("invite‑target email =", normalizedEmail);
@@ -140,15 +174,39 @@ serve(async (req: Request) => {
       }
     }
     // --- generateLink の結果は信用せず、必ず email で再取得して UID を確定させる
-    {
+    // Retry getUserByEmail up to 3 times (500‑ms backoff) to tolerate eventual consistency
+    let exactUser: { id: string } | null = null
+    for (let attempt = 0; attempt < 3 && !exactUser; attempt++) {
       const { data: exact, error: exactErr } =
-        await supabase.auth.admin.getUserByEmail(normalizedEmail);
-      if (exactErr) throw exactErr;
-      if (!exact?.user) {
-        throw new Error("Failed to locate user by email after generateLink.");
+        await supabase.auth.admin.getUserByEmail(normalizedEmail)
+      if (exactErr && exactErr.message !== "User not found") throw exactErr
+      if (exact?.user) {
+        exactUser = exact.user as { id: string }
+        break
       }
-      userId = exact.user.id;
+      // Edge case: replication lag – wait 500 ms before retrying
+      await new Promise((resolve) => setTimeout(resolve, 500))
     }
+
+    if (!exactUser) {
+      // 最後の手段: generateLink が返した user を再利用 (email が一致する場合のみ)
+      if (
+        linkData?.user?.email &&
+        linkData.user.email.toLowerCase() === normalizedEmail &&
+        linkData.user.id
+      ) {
+        console.warn(
+          "⚠️ getUserByEmail could not find the user after 3 attempts – falling back to linkData.user.id",
+        )
+        exactUser = { id: linkData.user.id }
+      } else {
+        throw new Error(
+          "Failed to locate user by email after generateLink (after 3 attempts).",
+        )
+      }
+    }
+
+    userId = exactUser.id
 
     // --- まだ失敗している場合のハンドリング
     let actionLink: string | null = linkData?.properties?.action_link ?? null;
