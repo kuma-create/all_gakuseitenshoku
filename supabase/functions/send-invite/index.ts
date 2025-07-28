@@ -27,7 +27,7 @@ const FROM_NAME = "学生転職";
 async function sendInviteEmail(
   to: string,
   actionLink: string,
-  linkType: "magiclink" | "invite",
+  tempPassword: string,
 ) {
   const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
     method: "POST",
@@ -42,7 +42,7 @@ async function sendInviteEmail(
           to: [{ email: to }],
           dynamic_template_data: {
             action_link: actionLink,
-            link_type: linkType, // "magiclink" or "invite"
+            temp_password: tempPassword,
           },
         },
       ],
@@ -207,6 +207,25 @@ serve(async (req: Request) => {
     }
 
     userId = exactUser.id
+    // --- Set explicit user_role for company users & create temp password ---
+    const targetUserRole = "company";
+    const tempPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+    const { error: metaErr } = await supabase.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { user_role: targetUserRole },
+      app_metadata:  { role: targetUserRole },
+    });
+    if (metaErr) throw metaErr;
+
+    // --- Also persist role in user_roles table ---
+    const { error: roleErr } = await supabase
+      .from("user_roles")
+      .upsert(
+        { user_id: userId, role: targetUserRole },
+        { onConflict: "user_id" },
+      );
+    if (roleErr) throw roleErr;
 
     // --- まだ失敗している場合のハンドリング
     let actionLink: string | null = linkData?.properties?.action_link ?? null;
@@ -251,7 +270,7 @@ serve(async (req: Request) => {
       }, { onConflict: "company_id,user_id" });
 
     // 5) SendGrid でメール送信
-    await sendInviteEmail(normalizedEmail, actionLink, linkType);
+    await sendInviteEmail(normalizedEmail, actionLink, tempPassword);
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
