@@ -4,6 +4,7 @@
 "use client"
 
 import { useState, useEffect, useRef, HTMLInputTypeAttribute } from "react"
+import { flushSync } from "react-dom";
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
   GraduationCap, Code, ChevronUp, Info, Loader2,
@@ -125,17 +126,18 @@ function CheckboxGroup({
               className="h-3.5 w-3.5 sm:h-4 sm:w-4"
               checked={checked}
               onChange={(e) => {
-                const nv = e.target.checked
-                  ? [...values, opt]
-                  : values.filter((v) => v !== opt);
-                onChange(nv);
-
-                /* 保存は 1 フレーム遅らせて、setState → re‑render が完了してから */
-                if (onSave) {
-                  window.requestAnimationFrame(() => {
-                    onSave();
-                  });
+                let nv: string[];
+                if (e.target.checked) {
+                  // ➕ 追加: 重複を避けるため一度 Set に通す
+                  nv = Array.from(new Set([...values, opt]));
+                } else {
+                  nv = values.filter((v) => v !== opt);
                 }
+
+                /* 1️⃣ まずローカル state を同期的に反映させる */
+                flushSync(() => {
+                  onChange(nv);
+                });
               }}
             />
             <Label
@@ -230,6 +232,37 @@ export default function StudentProfilePage() {
   const profile = rawProfile as StudentProfileRow
   // dirtyRef, updateMark, handleBlur
   const dirtyRef = useRef(false)
+
+  // ---- auto‑save after state commit (Pattern A) ----
+  const firstRender = useRef(true);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    if (!dirtyRef.current) return;
+
+    // debounce 300 ms to coalesce rapid clicks
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      dirtyRef.current = false;
+      try {
+        await save();
+      } catch (e: any) {
+        toast({
+          title: "保存に失敗しました",
+          description: e?.message ?? "ネットワークまたはサーバーエラー",
+          variant: "destructive",
+        });
+      }
+    }, 300);
+
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [profile]);
 
   // 値を変更 → ローカルだけ更新し dirty フラグ
   const updateMark = (partial: Partial<StudentProfileRow>) => {
