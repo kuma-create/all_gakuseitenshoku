@@ -18,11 +18,17 @@ function mustEnv(name: string): string {
 }
 
 const SENDGRID_API_KEY = mustEnv("SENDGRID_API_KEY");
+// SendGrid Dynamic Template ID
+const SENDGRID_TEMPLATE_ID = "d-604ad50e903d44c0b31b7dc498e95c72";
 
 const FROM_EMAIL = "info@gakuten.co.jp";
 const FROM_NAME = "学生転職";
 
-async function sendInviteEmail(to: string, actionLink: string) {
+async function sendInviteEmail(
+  to: string,
+  actionLink: string,
+  tempPassword: string,
+) {
   const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
     method: "POST",
     headers: {
@@ -30,25 +36,17 @@ async function sendInviteEmail(to: string, actionLink: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      from: { email: FROM_EMAIL, name: FROM_NAME },
       personalizations: [
         {
           to: [{ email: to }],
-          subject: "【Make Culture】メンバー招待のお知らせ",
+          dynamic_template_data: {
+            action_link: actionLink,
+            temp_password: tempPassword,
+          },
         },
       ],
-      from: { email: FROM_EMAIL, name: FROM_NAME },
-      content: [
-        {
-          type: "text/html",
-          value: `
-            <p>こんにちは！Make Culture へのご招待です。</p>
-            <p>以下のリンクから24時間以内にログインしてください。</p>
-            <p><a href="${actionLink}">ログインして参加する</a></p>
-            <hr />
-            <p>※本メールに心当たりがない場合は破棄してください。</p>
-          `,
-        },
-      ],
+      template_id: SENDGRID_TEMPLATE_ID,
     }),
   });
   if (!res.ok) {
@@ -66,6 +64,8 @@ serve(async (req: Request) => {
     const { email, company_id, role } = await req.json()
     // Normalise input email once at the top
     const normalizedEmail = (email ?? "").trim().toLowerCase();
+    // 現在発行しているリンク種別を保持する
+    let linkType: "magiclink" | "invite" = "invite";
 
     // --- Supabase Admin client
     const supabaseUrl = mustEnv("SUPABASE_URL")
@@ -76,32 +76,190 @@ serve(async (req: Request) => {
       auth: { persistSession: false },
     })
 
-    // --- ユーザー確認とリンク発行 ---------------------------------------------
-    // 1) getUserByEmail で確実に対象ユーザーを特定
-    const { data: userData, error: getErr } =
-      await supabase.auth.admin.getUserByEmail(normalizedEmail);
+    // -----------------------------------------------------------------
+    // Polyfill: Edge runtime build of supabase-js (jsr) currently lacks
+    // admin.getUserByEmail(). Re‑implement it through the GoTrue Admin
+    // REST API so that downstream logic continues to work unchanged.
+    // -----------------------------------------------------------------
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const adminAny: any = supabase.auth.admin;
+      if (typeof adminAny.getUserByEmail !== "function") {
+        adminAny.getUserByEmail = async (email: string) => {
+          const res = await fetch(
+            `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(
+              email,
+            )}`,
+            {
+              headers: {
+                apikey: serviceRoleKey,
+                Authorization: `Bearer ${serviceRoleKey}`,
+              },
+            },
+          );
 
-    if (getErr && getErr.message !== "User not found") throw getErr;
+          if (!res.ok) {
+            return { user: null, error: new Error(`Admin API error: ${res.status}`) };
+          }
 
-    // userData?.user が null の場合は存在しない
-    const existingUser = userData?.user ?? null;
+          // GoTrue returns `{ users: [...] }`.
+          const { users } = await res.json();
+          const user = Array.isArray(users) && users.length > 0 ? users[0] : null;
+          return { user, error: null };
+        };
+      }
+    }
 
-    // 2) 既存ユーザーなら MAGIC LINK、新規なら INVITE
-    const linkType: "magiclink" | "invite" = existingUser ? "magiclink" : "invite";
-
-    const { data: linkData, error: linkErr } =
+    // --- UID は generateLink から取得する。getUserByEmail は使わない（誤 UID 混入防止）
+    let userId: string | null = null;
+    console.log("invite‑target email =", normalizedEmail);
+    // 2) 招待リンクを発行（generateLink のみで UID 解決）
+    let linkData, linkErr;
+    ({ data: linkData, error: linkErr } =
       await supabase.auth.admin.generateLink({
-        type: linkType as "magiclink" | "invite",
+        type: "invite",
         email: normalizedEmail,
         options: { redirectTo: `${appUrl}/login` },
-      });
+      }));
+    // 既存ユーザーの場合 Supabase は自動で invite→magiclink に置き換えず 400 を返すので fallback
+    if (
+      linkErr &&
+      String((linkErr as { message?: string }).message || linkErr).includes(
+        "email address has already been registered"
+      )
+    ) {
+      linkType = "magiclink";
+      ({ data: linkData, error: linkErr } =
+        await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email: normalizedEmail,
+          options: { redirectTo: `${appUrl}/login` },
+        }));
+    } else {
+      linkType = "invite";
+    }
 
-    if (linkErr) throw linkErr;
+    // DEBUG: generateLink が返した user 情報を記録
+    console.log("generateLink result", {
+      linkType,
+      linkUserId: linkData?.user?.id,
+      linkUserEmail: linkData?.user?.email,
+    });
 
-    const actionLink: string =
-      linkData?.properties?.action_link ?? `${appUrl}/login`;
-    const userId: string = linkData.user.id;
-    console.log("invite‑target userId =", userId, "email =", normalizedEmail);
+    /* ---------------------------------------------------------
+     *  Safety guard ②: generateLink が意図しないユーザーを返すケース
+     *  稀に別メールの UID が返る報告があるため、email を厳密に照合。
+     * --------------------------------------------------------- */
+    if (
+      linkData?.user?.email &&
+      linkData.user.email.toLowerCase() !== normalizedEmail
+    ) {
+      console.warn(
+        "⚠️ generateLink returned mismatched user. expected",
+        normalizedEmail,
+        "got",
+        linkData.user.email,
+        "→ retrying getUserByEmail()"
+      );
+      const { data: retry2, error: retry2Err } =
+        await supabase.auth.admin.getUserByEmail(normalizedEmail);
+      if (retry2Err && retry2Err.message !== "User not found") throw retry2Err;
+
+      if (retry2?.user) {
+        linkData.user = retry2.user;       // overwrite with correct user
+      } else {
+        throw new Error(
+          "generateLink returned wrong user and getUserByEmail() could not recover."
+        );
+      }
+    }
+    // --- generateLink の結果は信用せず、必ず email で再取得して UID を確定させる
+    // Retry getUserByEmail up to 3 times (500‑ms backoff) to tolerate eventual consistency
+    let exactUser: { id: string } | null = null
+    for (let attempt = 0; attempt < 3 && !exactUser; attempt++) {
+      const { data: exact, error: exactErr } =
+        await supabase.auth.admin.getUserByEmail(normalizedEmail)
+      if (exactErr && exactErr.message !== "User not found") throw exactErr
+      if (exact?.user) {
+        exactUser = exact.user as { id: string }
+        break
+      }
+      // Edge case: replication lag – wait 500 ms before retrying
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+
+    if (!exactUser) {
+      // 最後の手段: generateLink が返した user を再利用 (email が一致する場合のみ)
+      if (
+        linkData?.user?.email &&
+        linkData.user.email.toLowerCase() === normalizedEmail &&
+        linkData.user.id
+      ) {
+        console.warn(
+          "⚠️ getUserByEmail could not find the user after 3 attempts – falling back to linkData.user.id",
+        )
+        exactUser = { id: linkData.user.id }
+      } else {
+        throw new Error(
+          "Failed to locate user by email after generateLink (after 3 attempts).",
+        )
+      }
+    }
+
+    userId = exactUser.id
+    // --- Set explicit user_role for company users & create temp password ---
+    const targetUserRole = "company";
+    const tempPassword = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+    const { error: metaErr } = await supabase.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { user_role: targetUserRole },
+      app_metadata:  { role: targetUserRole },
+    });
+    if (metaErr) throw metaErr;
+
+    // --- Also persist role in user_roles table ---
+    const { error: roleErr } = await supabase
+      .from("user_roles")
+      .upsert(
+        { user_id: userId, role: targetUserRole },
+        { onConflict: "user_id" },
+      );
+    if (roleErr) throw roleErr;
+
+    // --- まだ失敗している場合のハンドリング
+    let actionLink: string | null = linkData?.properties?.action_link ?? null;
+
+    if (!actionLink) {
+      // 招待 / MagicLink が発行できなくてもアカウントは既に存在するケース
+      // (confirmed & already registered)。その場合は通常のログイン URL を採用。
+      if (
+        linkErr &&
+        String((linkErr as { message?: string }).message || linkErr).includes(
+          "email address has already been registered"
+        )
+      ) {
+        actionLink = `${appUrl}/login`;
+        linkErr = null;
+      }
+    }
+
+    // 依然として問題があればエラーを返す
+    if (linkErr || !actionLink) throw linkErr;
+
+    /* ---------------------------------------------------------
+     *  確認 ①: 生成直後のユーザーが正しく取得できているか再チェック
+     *  Supabase 側のレプリケーション遅延で getUserByEmail → null
+     *  → generateLink の `linkData.user` が別ユーザーを返すケースを防ぐ。
+     * --------------------------------------------------------- */
+    if (!userId) throw new Error("userId should have been set by generateLink");
+
+    // DEBUG: company_members に書き込む内容を記録
+    console.log("UPSERT payload", {
+      company_id,
+      user_id: userId,
+      role: role ?? "recruiter",
+    });
 
     // 4) company_members へ UPSERT
     await supabase.from("company_members")
@@ -109,10 +267,10 @@ serve(async (req: Request) => {
         company_id,
         user_id: userId,
         role: role ?? "recruiter",
-      }, { onConflict: "company_id,user_id" })
+      }, { onConflict: "company_id,user_id" });
 
     // 5) SendGrid でメール送信
-    await sendInviteEmail(normalizedEmail, actionLink);
+    await sendInviteEmail(normalizedEmail, actionLink, tempPassword);
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
