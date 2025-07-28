@@ -150,18 +150,19 @@ export default function ScoutPage() {
         return
       }
 
-      /* 会社 ID */
-      const { data: comp, error: compErr } = await sb
-        .from("companies")
-        .select("id")
+      /* 会社 ID (owner / recruiter 共通) */
+      const { data: member, error: memErr } = await sb
+        .from("company_members")
+        .select("company_id")
         .eq("user_id", session.user.id)
-        .single()
+        .maybeSingle()
 
-      if (compErr || !comp) {
+      if (memErr || !member) {
         toast({ title: "会社プロフィールが見つかりません", variant: "destructive" })
         return
       }
-      setCompanyId(comp.id)
+      const cid = member.company_id
+      setCompanyId(cid)
 
       /* 学生一覧 */
       // 🔽 page.tsx の学生取得クエリをこれに置き換え
@@ -317,7 +318,7 @@ export default function ScoutPage() {
       const { data: scoutRows } = await sb
         .from("scouts")
         .select("*")
-        .eq("company_id", comp.id)
+        .eq("company_id", cid)
         .order("created_at", { ascending: false })
       setSentScouts(scoutRows ?? [])
 
@@ -325,7 +326,7 @@ export default function ScoutPage() {
       const { data: tplRows } = await sb
         .from("scout_templates")
         .select("*")
-        .eq("company_id", comp.id)
+        .eq("company_id", cid)
         .order("created_at")
       setTemplates(tplRows ?? [])
 
