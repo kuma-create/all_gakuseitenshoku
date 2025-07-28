@@ -64,6 +64,8 @@ serve(async (req: Request) => {
     const { email, company_id, role } = await req.json()
     // Normalise input email once at the top
     const normalizedEmail = (email ?? "").trim().toLowerCase();
+    // 現在発行しているリンク種別を保持する
+    let linkType: "magiclink" | "invite" = "invite";
 
     // --- Supabase Admin client
     const supabaseUrl = mustEnv("SUPABASE_URL")
@@ -74,29 +76,25 @@ serve(async (req: Request) => {
       auth: { persistSession: false },
     })
 
-    // 1) 既存ユーザーの有無チェック（listUsers で email をフィルタ）
-    const {
-      data: usersData,
-      error: listErr,
-    } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 1,
-      email: normalizedEmail,
-    });
-
-    if (listErr) throw listErr;
-
-    // users は空配列 or 1 要素のみになる想定
-    let userId: string | null =
-      usersData?.users?.length ? usersData.users[0].id : null;
-
-    console.log("invite‑target userId =", userId, "email =", normalizedEmail);
-  
-    // 2) 招待リンクを発行（既存ユーザーがいれば user_id を指定）
+    // --- UID は generateLink から取得する。getUserByEmail は使わない（誤 UID 混入防止）
+    let userId: string | null = null;
+    console.log("invite‑target email =", normalizedEmail);
+    // 2) 招待リンクを発行（generateLink のみで UID 解決）
     let linkData, linkErr;
-
-    if (userId) {
-      // 既存ユーザー → つねに MAGIC LINK を発行する
+    ({ data: linkData, error: linkErr } =
+      await supabase.auth.admin.generateLink({
+        type: "invite",
+        email: normalizedEmail,
+        options: { redirectTo: `${appUrl}/login` },
+      }));
+    // 既存ユーザーの場合 Supabase は自動で invite→magiclink に置き換えず 400 を返すので fallback
+    if (
+      linkErr &&
+      String((linkErr as { message?: string }).message || linkErr).includes(
+        "email address has already been registered"
+      )
+    ) {
+      linkType = "magiclink";
       ({ data: linkData, error: linkErr } =
         await supabase.auth.admin.generateLink({
           type: "magiclink",
@@ -104,28 +102,52 @@ serve(async (req: Request) => {
           options: { redirectTo: `${appUrl}/login` },
         }));
     } else {
-      // 完全に新規ユーザー → INVITE (email 指定)
-      ({ data: linkData, error: linkErr } =
-        await supabase.auth.admin.generateLink({
-          type: "invite",
-          email: normalizedEmail,
-          options: { redirectTo: `${appUrl}/login` },
-        }));
+      linkType = "invite";
     }
 
-    // --- fallback ①: 「既に登録済み」の 400 エラーが返ってきた場合は MAGIC LINK を再生成
+    // DEBUG: generateLink が返した user 情報を記録
+    console.log("generateLink result", {
+      linkType,
+      linkUserId: linkData?.user?.id,
+      linkUserEmail: linkData?.user?.email,
+    });
+
+    /* ---------------------------------------------------------
+     *  Safety guard ②: generateLink が意図しないユーザーを返すケース
+     *  稀に別メールの UID が返る報告があるため、email を厳密に照合。
+     * --------------------------------------------------------- */
     if (
-      linkErr &&
-      String((linkErr as { message?: string }).message || linkErr).includes(
-        "email address has already been registered"
-      )
+      linkData?.user?.email &&
+      linkData.user.email.toLowerCase() !== normalizedEmail
     ) {
-      ({ data: linkData, error: linkErr } =
-        await supabase.auth.admin.generateLink({
-          type: "magiclink",
-          email: normalizedEmail,
-          options: { redirectTo: `${appUrl}/login` },
-        }));
+      console.warn(
+        "⚠️ generateLink returned mismatched user. expected",
+        normalizedEmail,
+        "got",
+        linkData.user.email,
+        "→ retrying getUserByEmail()"
+      );
+      const { data: retry2, error: retry2Err } =
+        await supabase.auth.admin.getUserByEmail(normalizedEmail);
+      if (retry2Err && retry2Err.message !== "User not found") throw retry2Err;
+
+      if (retry2?.user) {
+        linkData.user = retry2.user;       // overwrite with correct user
+      } else {
+        throw new Error(
+          "generateLink returned wrong user and getUserByEmail() could not recover."
+        );
+      }
+    }
+    // --- generateLink の結果は信用せず、必ず email で再取得して UID を確定させる
+    {
+      const { data: exact, error: exactErr } =
+        await supabase.auth.admin.getUserByEmail(normalizedEmail);
+      if (exactErr) throw exactErr;
+      if (!exact?.user) {
+        throw new Error("Failed to locate user by email after generateLink.");
+      }
+      userId = exact.user.id;
     }
 
     // --- まだ失敗している場合のハンドリング
@@ -148,21 +170,30 @@ serve(async (req: Request) => {
     // 依然として問題があればエラーを返す
     if (linkErr || !actionLink) throw linkErr;
 
-    // userId がまだ確定していない場合はここで設定
-    if (!userId) {
-      userId = linkData.user.id;
-    }
+    /* ---------------------------------------------------------
+     *  確認 ①: 生成直後のユーザーが正しく取得できているか再チェック
+     *  Supabase 側のレプリケーション遅延で getUserByEmail → null
+     *  → generateLink の `linkData.user` が別ユーザーを返すケースを防ぐ。
+     * --------------------------------------------------------- */
+    if (!userId) throw new Error("userId should have been set by generateLink");
+
+    // DEBUG: company_members に書き込む内容を記録
+    console.log("UPSERT payload", {
+      company_id,
+      user_id: userId,
+      role: role ?? "recruiter",
+    });
 
     // 4) company_members へ UPSERT
     await supabase.from("company_members")
       .upsert({
         company_id,
-        user_id: safeUserId,
+        user_id: userId,
         role: role ?? "recruiter",
-      }, { onConflict: "company_id,user_id" })
+      }, { onConflict: "company_id,user_id" });
 
     // 5) SendGrid でメール送信
-    await sendInviteEmail(email, actionLink);
+    await sendInviteEmail(normalizedEmail, actionLink, linkType);
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
