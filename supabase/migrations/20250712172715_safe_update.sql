@@ -1,14 +1,35 @@
-revoke references on table "public"."student_profiles" from "authenticated";
 
-revoke trigger on table "public"."student_profiles" from "authenticated";
+-- Guarded privilege revokes for student_profiles
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'student_profiles'
+      AND n.nspname = 'public'
+  ) THEN
+    EXECUTE 'revoke references on table public.student_profiles from authenticated';
+    EXECUTE 'revoke trigger on table public.student_profiles from authenticated';
+    EXECUTE 'revoke truncate on table public.student_profiles from authenticated';
+  END IF;
+END$$;
 
-revoke truncate on table "public"."student_profiles" from "authenticated";
-
-revoke references on table "public"."user_roles" from "authenticated";
-
-revoke trigger on table "public"."user_roles" from "authenticated";
-
-revoke truncate on table "public"."user_roles" from "authenticated";
+-- Guarded privilege revokes for user_roles
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'user_roles'
+      AND n.nspname = 'public'
+  ) THEN
+    EXECUTE 'revoke references on table public.user_roles from authenticated';
+    EXECUTE 'revoke trigger on table public.user_roles from authenticated';
+    EXECUTE 'revoke truncate on table public.user_roles from authenticated';
+  END IF;
+END$$;
 
 --alter table "public"."resumes" drop constraint "resumes_user_id_fkey";
 
