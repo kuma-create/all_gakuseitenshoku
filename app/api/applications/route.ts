@@ -61,12 +61,15 @@ export async function POST(req: Request) {
     // 2) 企業メール取得 + 送信
     const companyId = newApp.company_id;
     if (companyId) {
-      // 1) companies テーブルから user_id を取得
+      // 1) companies テーブルから user_id, name を取得
       const { data: compRec, error: compErr } = await supabase
         .from('companies')
-        .select('user_id')
+        .select('user_id, name')
         .eq('id', companyId)
         .single();
+
+      // Company name for system‑monitoring email
+      const companyName = compRec?.name ?? "";
       if (!compRec?.user_id || compErr) {
         console.error('Company record error or missing user_id:', compErr);
       } else {
@@ -98,12 +101,12 @@ export async function POST(req: Request) {
               to: 'system@gakuten.co.jp',
               from: process.env.FROM_EMAIL!,
               subject: "【学生転職】 新規応募が届きました！！",
-              text: `新規応募が届きました。\n求人名：${jobTitle}\n学生名：${studentName}\nリンク：${url}`,
+              text: `新規応募が届きました。\n会社名：${companyName}\n求人名：${jobTitle}\n学生名：${studentName}`,
               html: `
                 <p>新規応募が届きました。</p>
+                <p>会社名：${companyName}</p>
                 <p>求人名：${jobTitle}</p>
                 <p>学生名：${studentName}</p>
-                <p><a href="${url}">応募者を確認する</a></p>
               `,
             });
             console.log('SendGrid system status:', resSys.statusCode);
