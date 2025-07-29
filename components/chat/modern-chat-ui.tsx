@@ -400,7 +400,7 @@ export function ModernChatUI({
     <div className={cn("flex flex-col h-full bg-gray-50 dark:bg-gray-900", className)}>
       {/* Student title bar (for accepted scout / self‑applied) */}
       {showStudentTitle && currentUser === "company" && (
-        <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-2">
+        <div className="sticky top-12 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-2">
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 border dark:border-gray-600">
               <AvatarImage src={recipient.avatar || "/placeholder.svg"} alt={recipient.name} />
@@ -413,7 +413,7 @@ export function ModernChatUI({
         </div>
       )}
       {/* Chat header - always visible */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
+      <div className="sticky top-12 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border dark:border-gray-600">
@@ -434,7 +434,7 @@ export function ModernChatUI({
 
           <div className="flex items-center gap-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
-              <TabsList className="h-8 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex gap-0.5">
+              <TabsList className="h-8 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex gap-0.5 sticky top-0 z-20">
                 <TabsTrigger
                   value="chat"
                   className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
