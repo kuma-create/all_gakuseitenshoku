@@ -3060,13 +3060,13 @@ create or replace view "public"."student_resume_jobtypes" as  SELECT r.user_id A
 
 CREATE INDEX gp_rank_month_category_idx ON public.gp_rank USING btree (month, category);
 
-grant delete on table "public"."activity_logs" to "admin";
+--grant delete on table "public"."activity_logs" to "admin";
 
-grant insert on table "public"."activity_logs" to "admin";
+--grant insert on table "public"."activity_logs" to "admin";
 
-grant select on table "public"."activity_logs" to "admin";
+--grant select on table "public"."activity_logs" to "admin";
 
-grant update on table "public"."activity_logs" to "admin";
+--grant update on table "public"."activity_logs" to "admin";
 
 grant delete on table "public"."activity_logs" to "anon";
 
