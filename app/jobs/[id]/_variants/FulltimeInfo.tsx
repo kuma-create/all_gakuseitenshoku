@@ -344,7 +344,8 @@ function RightColumn({
   handleApplyClick,
 }: any) {
   const router = useRouter();
-  /* local imports inside to avoid clutter */
+  // フィルタ：公開中（status === "open"）の求人のみ
+  const openRelated = related.filter((rel: any) => rel.status === "open");
 
   return (
     <div className="space-y-6">
@@ -521,9 +522,9 @@ function RightColumn({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          {related.length ? (
+          {openRelated.length ? (
             <div className="space-y-4">
-              {related.map((rel: any) => (
+              {openRelated.map((rel: any) => (
                 <div
                   key={rel.id}
                   className="flex gap-3 border-b border-gray-100 pb-4 last:border-0 last:pb-0"
