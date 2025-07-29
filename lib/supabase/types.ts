@@ -1376,36 +1376,42 @@ export type Database = {
       }
       intern_long_details: {
         Row: {
+          commission_rate: string | null
           created_at: string | null
           hourly_wage: number | null
           id: string
           is_paid: boolean
           job_id: string | null
           min_duration_months: number | null
+          remuneration_type: string
           selection_id: string
           start_date: string | null
           updated_at: string | null
           work_days_per_week: number | null
         }
         Insert: {
+          commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
           min_duration_months?: number | null
+          remuneration_type?: string
           selection_id: string
           start_date?: string | null
           updated_at?: string | null
           work_days_per_week?: number | null
         }
         Update: {
+          commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
           min_duration_months?: number | null
+          remuneration_type?: string
           selection_id?: string
           start_date?: string | null
           updated_at?: string | null
