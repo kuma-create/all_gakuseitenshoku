@@ -98,6 +98,7 @@ export default function CompanyJobsPage() {
     { value: "all",              label: "すべての選考" },
     { value: "fulltime",         label: "本選考" },
     { value: "internship_short", label: "インターン（短期）" },
+    { value: "intern_long",      label: "インターン（長期）" },   // ★ 追加
     { value: "event",            label: "説明会／イベント" },
   ] as const;
 
@@ -398,6 +399,7 @@ function JobGrid({
                 {{
                   fulltime: "本選考",
                   internship_short: "インターン（短期）",
+                  intern_long: "インターン（長期）",   // ★ 追加
                   event: "説明会／イベント",
                 }[job.selection_type as string] ?? "その他"}
               </Badge>
