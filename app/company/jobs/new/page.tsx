@@ -101,6 +101,8 @@ export default function NewJobPage() {
     /* intern long only */
     minDurationMonths: "",
     hourlyWage      : "",
+    remunerationType: "hourly", // "hourly" | "commission"
+    commissionRate  : "",
 
     /* event only */
     eventDate: "",
@@ -298,13 +300,18 @@ export default function NewJobPage() {
     // intern_long 必須
     if (selectionType === "intern_long") {
       if (!formData.startDate.trim()) newErrors.startDate = "開始日を入力してください";
-      if (!formData.hourlyWage.trim()) {
-        newErrors.hourlyWage = "時給を入力してください";
-      } else if (parseNumber(formData.hourlyWage) === null) {
-        newErrors.hourlyWage = "数字で入力してください（例: 1200）";
-      }
-      if (!formData.workDaysPerWeek.trim()) {
+      if (!formData.workDaysPerWeek.trim())
         newErrors.workDaysPerWeek = "週あたり勤務日数を入力してください";
+
+      if (formData.remunerationType === "hourly") {
+        if (!formData.hourlyWage.trim()) {
+          newErrors.hourlyWage = "時給を入力してください";
+        } else if (parseNumber(formData.hourlyWage) === null) {
+          newErrors.hourlyWage = "数字で入力してください（例: 1500）";
+        }
+      } else {
+        if (!formData.commissionRate.trim())
+          newErrors.commissionRate = "歩合を入力してください";
       }
     }
 
@@ -468,8 +475,14 @@ export default function NewJobPage() {
               job_id              : jobId,
               min_duration_months : parseNumber(formData.minDurationMonths),
               work_days_per_week  : parseNumber(formData.workDaysPerWeek),
-              hourly_wage         : parseNumber(formData.hourlyWage),
-              is_paid             : !!formData.hourlyWage,
+              hourly_wage         : formData.remunerationType === "hourly"
+                                      ? parseNumber(formData.hourlyWage)
+                                      : null,
+              is_paid             : formData.remunerationType === "hourly"
+                                      ? !!parseNumber(formData.hourlyWage)
+                                      : false,
+              remuneration_type   : formData.remunerationType,
+              commission_rate     : formData.commissionRate || null,
               start_date          : formData.startDate || null,
             } as Database["public"]["Tables"]["intern_long_details"]["Insert"]
           );
@@ -590,7 +603,7 @@ export default function NewJobPage() {
     }
 
   return (
-    <div className="container mx-auto py-8 px-4 pb-24">
+    <div className="container mx-auto max-w-4xl py-8 px-4 pb-24">
       <div className="flex flex-col space-y-6">
         {/* Header with back & preview buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -674,6 +687,8 @@ export default function NewJobPage() {
                         /* intern long only */
                         minDurationMonths: "",
                         hourlyWage      : "",
+                        remunerationType: "hourly",
+                        commissionRate  : "",
                         /* event only */
                         eventDate: "",
                         capacity: "",
@@ -1081,29 +1096,68 @@ export default function NewJobPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* 報酬形態 */}
                     <div>
-                      <Label htmlFor="hourlyWage" className="flex items-center gap-1">
-                        時給<span className="text-red-500">*</span>
+                      <Label htmlFor="remunerationType" className="flex items-center gap-1">
+                        報酬形態<span className="text-red-500">*</span>
                       </Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-                        <Input
-                          id="hourlyWage"
-                          name="hourlyWage"
-                          value={formData.hourlyWage}
-                          onChange={handleInputChange}
-                          className={`pl-10 mt-1 ${
-                            errors.hourlyWage ? "border-red-500" : ""
-                          }`}
-                          placeholder="例: 1500円"
-                        />
-                      </div>
-                      {errors.hourlyWage && (
-                        <p className="text-sm text-red-500 mt-1">
-                          {errors.hourlyWage}
-                        </p>
-                      )}
+                      <Select
+                        value={formData.remunerationType}
+                        onValueChange={(v) => handleSelectChange("remunerationType", v)}
+                      >
+                        <SelectTrigger id="remunerationType" className="mt-1">
+                          <SelectValue placeholder="選択してください" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hourly">時給</SelectItem>
+                          <SelectItem value="commission">歩合</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    {/* 時給 or 歩合 */}
+                    {formData.remunerationType === "hourly" ? (
+                      <div>
+                        <Label htmlFor="hourlyWage" className="flex items-center gap-1">
+                          時給<span className="text-red-500">*</span>
+                        </Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                          <Input
+                            id="hourlyWage"
+                            name="hourlyWage"
+                            value={formData.hourlyWage}
+                            onChange={handleInputChange}
+                            className={`pl-10 mt-1 ${
+                              errors.hourlyWage ? "border-red-500" : ""
+                            }`}
+                            placeholder="例: 1500円"
+                          />
+                        </div>
+                        {errors.hourlyWage && (
+                          <p className="text-sm text-red-500 mt-1">{errors.hourlyWage}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <Label htmlFor="commissionRate" className="flex items-center gap-1">
+                          歩合<span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="commissionRate"
+                          name="commissionRate"
+                          value={formData.commissionRate}
+                          onChange={handleInputChange}
+                          className={`mt-1 ${
+                            errors.commissionRate ? "border-red-500" : ""
+                          }`}
+                          placeholder="例: アポイント1件あたり10000円"
+                        />
+                        {errors.commissionRate && (
+                          <p className="text-sm text-red-500 mt-1">{errors.commissionRate}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
