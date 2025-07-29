@@ -36,10 +36,19 @@ import { supabase } from "@/lib/supabase/client"
 import { useAuth }  from "@/lib/auth-context"
 import type { Database } from "@/lib/supabase/types"
 
+/** 数値入力を "1,200円" → 1200 のように変換 */
+function parseNumber(input: string | null | undefined): number | null {
+  if (!input) return null;
+  // 半角／全角数字・小数点のみ残す
+  const cleaned = input.replace(/[^\d.]/g, "");
+  return cleaned ? Number(cleaned) : null;
+}
+
 export default function NewJobPage() {
   const searchParams   = useSearchParams()
   const selectionType  = (searchParams.get("type") ?? "fulltime") as
     | "fulltime"
+    | "intern_long"
     | "internship_short"
     | "event"
 
@@ -51,6 +60,7 @@ export default function NewJobPage() {
   // --- helper flags ----------------------------
   const isFulltime   = selectionType === "fulltime";
   const isInternship = selectionType === "internship_short";
+  const isInternLong = selectionType === "intern_long";
   const isEvent      = selectionType === "event";
   // ---------------------------------------------
   const [isSaving, setIsSaving] = useState(false)
@@ -65,7 +75,7 @@ export default function NewJobPage() {
     title: "",
     department: "",
     employmentType:
-      selectionType === "internship_short"
+      selectionType === "internship_short" || selectionType === "intern_long"
         ? "インターン"
         : selectionType === "event"
         ? "説明会"
@@ -87,6 +97,10 @@ export default function NewJobPage() {
     durationWeeks: "",
     workDaysPerWeek: "",
     allowance: "",
+
+    /* intern long only */
+    minDurationMonths: "",
+    hourlyWage      : "",
 
     /* event only */
     eventDate: "",
@@ -281,6 +295,19 @@ export default function NewJobPage() {
       if (!formData.endDate.trim())   newErrors.endDate   = "終了日を入力してください"
     }
 
+    // intern_long 必須
+    if (selectionType === "intern_long") {
+      if (!formData.startDate.trim()) newErrors.startDate = "開始日を入力してください";
+      if (!formData.hourlyWage.trim()) {
+        newErrors.hourlyWage = "時給を入力してください";
+      } else if (parseNumber(formData.hourlyWage) === null) {
+        newErrors.hourlyWage = "数字で入力してください（例: 1200）";
+      }
+      if (!formData.workDaysPerWeek.trim()) {
+        newErrors.workDaysPerWeek = "週あたり勤務日数を入力してください";
+      }
+    }
+
     // event 必須
     if (selectionType === "event") {
       if (!formData.eventDate.trim()) newErrors.eventDate = "開催日を入力してください"
@@ -362,7 +389,7 @@ export default function NewJobPage() {
         selection_type       : selectionType,
         // 一覧表示用カテゴリ
         category             :
-          selectionType === "internship_short"
+          selectionType === "internship_short" || selectionType === "intern_long"
             ? "インターン"
             : selectionType === "event"
             ? "イベント"
@@ -432,6 +459,21 @@ export default function NewJobPage() {
             } as Database["public"]["Tables"]["internship_details"]["Insert"]
           )
         if (isErr) throw isErr;
+      } else if (selectionType === "intern_long") {
+        const { error: ilErr } = await supabase
+          .from("intern_long_details")
+          .upsert(
+            {
+              selection_id        : jobId,   // FK (同値)
+              job_id              : jobId,
+              min_duration_months : parseNumber(formData.minDurationMonths),
+              work_days_per_week  : parseNumber(formData.workDaysPerWeek),
+              hourly_wage         : parseNumber(formData.hourlyWage),
+              is_paid             : !!formData.hourlyWage,
+              start_date          : formData.startDate || null,
+            } as Database["public"]["Tables"]["intern_long_details"]["Insert"]
+          );
+        if (ilErr) throw ilErr;
       } else if (selectionType === "event") {
         const { error: evErr } = await supabase
           .from("event_details")
@@ -629,6 +671,9 @@ export default function NewJobPage() {
                         durationWeeks: "",
                         workDaysPerWeek: "",
                         allowance: "",
+                        /* intern long only */
+                        minDurationMonths: "",
+                        hourlyWage      : "",
                         /* event only */
                         eventDate: "",
                         capacity: "",
@@ -694,11 +739,13 @@ export default function NewJobPage() {
                     )}
                   </div>
                   {formData.coverImageUrl && (
-                    <img
-                      src={formData.coverImageUrl}
-                      alt="cover preview"
-                      className="mt-2 h-24 w-full object-cover rounded"
-                    />
+                    <div className="mt-2 w-full max-w-[600px] aspect-[16/9]">
+                      <img
+                        src={formData.coverImageUrl}
+                        alt="cover preview"
+                        className="w-full h-full object-cover rounded"
+                      />
+                    </div>
                   )}
                   {errors.coverImageUrl && (
                     <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>
@@ -958,6 +1005,105 @@ export default function NewJobPage() {
                     <Input id="allowance" name="allowance"
                       value={formData.allowance} onChange={handleInputChange} className="mt-1"
                       placeholder="例: 日当1万円＋交通費支給"/>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* --- Long‑term Internship specific fields --------------------------- */}
+            {isInternLong && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <CardTitle>長期インターン詳細</CardTitle>
+                  </div>
+                  <CardDescription>
+                    長期インターンに必要な詳細情報を入力してください
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 開始日 */}
+                    <div>
+                      <Label htmlFor="startDate" className="flex items-center gap-1">
+                        開始日<span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="startDate"
+                        name="startDate"
+                        type="date"
+                        value={formData.startDate}
+                        onChange={handleInputChange}
+                        className={`mt-1 ${errors.startDate ? "border-red-500" : ""}`}
+                      />
+                      {errors.startDate && (
+                        <p className="text-sm text-red-500 mt-1">{errors.startDate}</p>
+                      )}
+                    </div>
+
+                    {/* 最低参加期間（月） */}
+                    <div>
+                      <Label htmlFor="minDurationMonths">最低参加期間（月）</Label>
+                      <Input
+                        id="minDurationMonths"
+                        name="minDurationMonths"
+                        type="number"
+                        min="1"
+                        value={formData.minDurationMonths}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        placeholder="例: 3"
+                      />
+                    </div>
+
+                    {/* 週あたり勤務日数 */}
+                    <div>
+                      <Label htmlFor="workDaysPerWeek" className="flex items-center gap-1">
+                        週あたり勤務日数<span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="workDaysPerWeek"
+                        name="workDaysPerWeek"
+                        type="number"
+                        min="1"
+                        value={formData.workDaysPerWeek}
+                        onChange={handleInputChange}
+                        className={`mt-1 ${errors.workDaysPerWeek ? "border-red-500" : ""}`}
+                        placeholder="例: 3"
+                      />
+                      {errors.workDaysPerWeek && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {errors.workDaysPerWeek}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="hourlyWage" className="flex items-center gap-1">
+                        時給<span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                        <Input
+                          id="hourlyWage"
+                          name="hourlyWage"
+                          value={formData.hourlyWage}
+                          onChange={handleInputChange}
+                          className={`pl-10 mt-1 ${
+                            errors.hourlyWage ? "border-red-500" : ""
+                          }`}
+                          placeholder="例: 1500円"
+                        />
+                      </div>
+                      {errors.hourlyWage && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {errors.hourlyWage}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

@@ -6,6 +6,13 @@ const JOB_COVER_BUCKET = "job-covers"; // ← Dashboard で作成したバケッ
 
 import { supabase } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types"
+
+/** 数値入力を "1,200円" → 1200 のように変換 */
+function parseNumber(input: string | null | undefined): number | null {
+  if (!input) return null;
+  const cleaned = input.replace(/[^\d.]/g, "");
+  return cleaned ? Number(cleaned) : null;
+}
 import type React from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -25,12 +32,17 @@ type FormData = {
   benefits: string              // 追加
   applicationDeadline: string   // 追加
   status: string
+  /* 共通プレビュー */
+  schedule: string
   /* Internship */
   startDate: string
   endDate: string
   durationWeeks: string
   workDaysPerWeek: string
   allowance: string
+  /* Intern‑Long */
+  minDurationMonths: string
+  hourlyWage: string
   /* Event */
   eventDate: string
   capacity: string
@@ -106,7 +118,8 @@ const fetchJob = async (id: string) => {
       work_type,
       fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
-      event_details:event_details!job_id (event_date, capacity, venue, format)
+      event_details:event_details!job_id (event_date, capacity, venue, format),
+      intern_long_details:intern_long_details!job_id (min_duration_months, work_days_per_week, hourly_wage)
     `)
     .eq("id", id)
     .single()
@@ -116,6 +129,7 @@ const fetchJob = async (id: string) => {
   const full   = (data.fulltime_details ?? {}) as any
   const intern = (data.internship_details ?? {}) as any
   const event  = (data.event_details ?? {}) as any
+  const internLong = (data.intern_long_details ?? {}) as any
 
   return {
     id        : data.id,
@@ -139,12 +153,30 @@ const fetchJob = async (id: string) => {
     workDaysPerWeek : intern.work_days_per_week ?? "",
     allowance       : intern.allowance ?? "",
 
+    /* Intern‑Long */
+    workDaysPerWeek:
+      internLong.work_days_per_week !== undefined && internLong.work_days_per_week !== null
+        ? String(internLong.work_days_per_week)
+        : "",
+    minDurationMonths:
+      internLong.min_duration_months !== undefined && internLong.min_duration_months !== null
+        ? String(internLong.min_duration_months)
+        : "",
+    hourlyWage:
+      internLong.hourly_wage !== undefined && internLong.hourly_wage !== null
+        ? String(internLong.hourly_wage)
+        : "",
+
     /* Event */
     eventDate : event.event_date ?? "",
     capacity  : event.capacity ? String(event.capacity) : "",
     venue     : event.venue ?? "",
     format    : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
 
+    /* 共通プレビュー */
+    schedule : data.selection_type === "event"
+                ? (event.event_date ?? "")
+                : data.start_date ?? "",
     selectionType : data.selection_type ?? "fulltime",
     status        : data.published ? "公開" : "非公開",
     applicants    : 0,
@@ -168,6 +200,7 @@ export default function JobEditPage() {
   const isFulltime   = job?.selectionType === "fulltime";
   const isInternship = job?.selectionType === "internship_short";
   const isEvent      = job?.selectionType === "event";
+  const isInternLong = job?.selectionType === "intern_long";
   // ---------------------------------------------
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -235,6 +268,8 @@ export default function JobEditPage() {
     benefits: "",                 // 追加
     applicationDeadline: "",      // 追加
     status: "",
+    /* 共通プレビュー */
+    schedule: "",
 
     /* インターン専用 */
     startDate: "",
@@ -242,6 +277,9 @@ export default function JobEditPage() {
     durationWeeks: "",
     workDaysPerWeek: "",
     allowance: "",
+    /* Intern‑Long */
+    minDurationMonths: "",
+    hourlyWage      : "",
 
     /* イベント専用 */
     eventDate: "",
@@ -269,12 +307,17 @@ export default function JobEditPage() {
           workingHours        : jobData.workingHours,
           benefits            : jobData.benefits,
           applicationDeadline : jobData.applicationDeadline,
+          /* 共通プレビュー */
+          schedule          : jobData.schedule ?? "",
           /* Internship */
           startDate       : jobData.startDate,
           endDate         : jobData.endDate,
           durationWeeks   : jobData.durationWeeks,
           workDaysPerWeek : jobData.workDaysPerWeek,
           allowance       : jobData.allowance,
+          /* Intern‑Long */
+          minDurationMonths : jobData.minDurationMonths ?? "",
+          hourlyWage        : jobData.hourlyWage        ?? "",
           /* Event */
           eventDate : jobData.eventDate,
           capacity  : jobData.capacity,
@@ -346,6 +389,29 @@ export default function JobEditPage() {
       if (!formData.startDate.trim()) newErrors.startDate = "開始日は必須です"
       if (!formData.endDate.trim())   newErrors.endDate   = "終了日は必須です"
     }
+    if (job.selectionType === "intern_long") {
+      if (!formData.startDate.trim()) {
+        newErrors.startDate = "開始日は必須です";
+      }
+
+      if (!formData.minDurationMonths.trim()) {
+        newErrors.minDurationMonths = "最低参加期間（月）は必須です";
+      } else if (parseNumber(formData.minDurationMonths) === null) {
+        newErrors.minDurationMonths = "数字で入力してください（例: 3）";
+      }
+
+      if (!formData.workDaysPerWeek.trim()) {
+        newErrors.workDaysPerWeek = "勤務日数は必須です";
+      } else if (parseNumber(formData.workDaysPerWeek) === null) {
+        newErrors.workDaysPerWeek = "数字で入力してください（例: 3）";
+      }
+
+      if (!formData.hourlyWage.trim()) {
+        newErrors.hourlyWage = "時給は必須です";
+      } else if (parseNumber(formData.hourlyWage) === null) {
+        newErrors.hourlyWage = "数字で入力してください（例: 1200）";
+      }
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -381,7 +447,7 @@ export default function JobEditPage() {
         application_deadline: formData.applicationDeadline || null,
         /* 追加: カテゴリと開始日 */
         category           :
-          job.selectionType === "internship_short"
+          (job.selectionType === "internship_short" || job.selectionType === "intern_long")
             ? "インターン"
             : job.selectionType === "event"
             ? "イベント"
@@ -390,7 +456,7 @@ export default function JobEditPage() {
       }
 
       /* ---------- 各詳細テーブル用ペイロード -------------------- */
-      let detailTable: "fulltime_details" | "internship_details" | "event_details"
+      let detailTable: "fulltime_details" | "internship_details" | "event_details" | "intern_long_details"
       let detailPayload: Record<string, any> = { job_id: id }
 
       switch (job.selectionType) {
@@ -419,6 +485,19 @@ export default function JobEditPage() {
             allowance         : formData.allowance || null,
           }
           break
+        case "intern_long":
+          detailTable = "intern_long_details";
+          detailPayload = {
+            job_id              : id,
+            selection_id        : id,
+            start_date          : formData.startDate || null,
+            // 0 が入り得ないため Non‑Null Assertion（バリデーション済）
+            min_duration_months : parseNumber(formData.minDurationMonths)!,
+            work_days_per_week  : parseNumber(formData.workDaysPerWeek),
+            hourly_wage         : parseNumber(formData.hourlyWage),
+            is_paid             : !!formData.hourlyWage,
+          };
+          break;
         case "event":
           detailTable = "event_details"
           detailPayload = {
@@ -704,11 +783,13 @@ export default function JobEditPage() {
                 )}
               </div>
               {formData.coverImageUrl && (
-                <img
-                  src={formData.coverImageUrl}
-                  alt="cover preview"
-                  className="mt-2 h-24 w-full object-cover rounded"
-                />
+                <div className="mt-2 w-full max-w-[600px] aspect-[16/9]">
+                  <img
+                    src={formData.coverImageUrl}
+                    alt="cover preview"
+                    className="w-full h-full object-cover rounded"
+                  />
+                </div>
               )}
               {errors.coverImageUrl && (
                 <p className="text-sm text-red-500 mt-1">{errors.coverImageUrl}</p>
@@ -971,6 +1052,86 @@ export default function JobEditPage() {
                 <Label htmlFor="allowance">報酬・交通費</Label>
                 <Input id="allowance" name="allowance"
                   value={formData.allowance} onChange={handleInputChange} className="mt-1"/>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* --- Long-term Internship specific fields --------------------------- */}
+        {isInternLong && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <CardTitle>長期インターン詳細</CardTitle>
+              </div>
+              <CardDescription>
+                長期インターンに必要な詳細情報を入力してください
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 最低参加期間（月） */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="minDurationMonths">最低参加期間（月）</Label>
+                  <Input
+                    id="minDurationMonths"
+                    name="minDurationMonths"
+                    type="number"
+                    min="1"
+                    value={formData.minDurationMonths}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 3"
+                  />
+                </div>
+
+                {/* 週あたり勤務日数 */}
+                <div>
+                  <Label htmlFor="workDaysPerWeek" className="flex items-center gap-1">
+                    週あたり勤務日数<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="workDaysPerWeek"
+                    name="workDaysPerWeek"
+                    type="number"
+                    min="1"
+                    value={formData.workDaysPerWeek}
+                    onChange={handleInputChange}
+                    className={`mt-1 ${errors.workDaysPerWeek ? "border-red-500" : ""}`}
+                    placeholder="例: 3"
+                  />
+                  {errors.workDaysPerWeek && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {errors.workDaysPerWeek}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 時給 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="hourlyWage" className="flex items-center gap-1">
+                    時給<span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                    <Input
+                      id="hourlyWage"
+                      name="hourlyWage"
+                      value={formData.hourlyWage}
+                      onChange={handleInputChange}
+                      className={`pl-10 mt-1 ${errors.hourlyWage ? "border-red-500" : ""}`}
+                      placeholder="例: 1500円"
+                    />
+                  </div>
+                  {errors.hourlyWage && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {errors.hourlyWage}
+                    </p>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1409,13 +1570,6 @@ export default function JobEditPage() {
                         icon={<Check size={16} />}
                         list={formData.requirements}
                       />
-                      {formData.preferredSkills && (
-                        <RequirementBlock
-                          title="歓迎スキル"
-                          icon={<Plus size={16} />}
-                          list={formData.preferredSkills}
-                        />
-                      )}
                     </SectionCard>
                   )}
 
