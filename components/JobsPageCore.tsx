@@ -291,7 +291,7 @@ job_tags!job_tags_job_id_fkey (
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const q = search.trim()
-    router.push(`/jobs/list?tab=${category}&q=${encodeURIComponent(q)}`)
+    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(q)}`)
   }
 
   if (loading) {
@@ -527,7 +527,7 @@ job_tags!job_tags_job_id_fkey (
                   className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
                   onClick={() => {
                     setSearch(kw)
-                    router.push(`/jobs/list?tab=${category}&q=${encodeURIComponent(kw)}`)
+                    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(kw)}`)
                   }}
                 >
                   {kw}
