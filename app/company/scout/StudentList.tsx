@@ -203,7 +203,7 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">{stu.university}</p>
                   <p className="text-xs text-gray-500 truncate">
-                    {company ?? "インターン情報なし"}
+                    {company ?? ""}
                   </p>
                   {(stu.major || stu.location) && (
                     <p className="text-[11px] text-gray-500 truncate">

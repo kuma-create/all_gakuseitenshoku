@@ -120,6 +120,7 @@ export default function CompanyMembersPage() {
       .from('company_members')
       .select('id, role, invited_at, user_id')
       .eq('company_id', companyId)
+      .order('invited_at', { ascending: false })
 
     if (error || !membersRaw) {
       console.error('Error fetching company_members:', error)
@@ -128,16 +129,14 @@ export default function CompanyMembersPage() {
 
     const userIds = membersRaw.map((m) => m.user_id)
 
-    // ── fetch matching users via VIEW company_member_emails (id & email only)
     const {
       data: usersRaw,
       error: usersError,
     } = await supabase
-      .from('company_member_emails')        // ← VIEW that exposes auth.users safely
+      .from('company_member_emails')
       .select('id, email')
       .in('id', userIds)
 
-    // re‑shape into {id, email}  (name is undefined until you add it to users)
     const usersFormatted: User[] = (usersRaw ?? [])
       .filter(
         (u): u is { id: string; email: string } =>
@@ -149,12 +148,11 @@ export default function CompanyMembersPage() {
       }))
     const userMap = new Map(usersFormatted.map((u) => [u.id, u]))
 
-    // merge members with their user info; skip rows where user lookup fails
     const merged: Member[] = membersRaw.flatMap((m) => {
       const u = userMap.get(m.user_id)
       if (!u) {
         console.warn(`User info not found for user_id=${m.user_id}`)
-        return [] // or we could return a placeholder
+        return []
       }
       return [
         {
@@ -166,70 +164,84 @@ export default function CompanyMembersPage() {
       ]
     })
 
-    // filter out current user
-    const filtered = currentUserId ? merged.filter(m => m.user.id !== currentUserId) : merged
+    const filtered = currentUserId
+      ? merged.filter((m) => m.user.id !== currentUserId)
+      : merged
 
     setMembers(filtered)
   }
 
-  /**
-   * 招待処理（招待テーブルを使わない簡易版）
-   * 1. 入力メールが既存ユーザーなら company_members へ直接追加
-   * 2. 未登録ユーザーなら Admin API で inviteUserByEmail を実行し、
-   *    返ってきた user.id を使って company_members に追加しておく
-   */
   const handleInvite = async () => {
-    if (!inviteEmail || !companyId) return
+    const emailToInvite = inviteEmail.trim().toLowerCase()
+    if (members.some((m) => m.user.email.toLowerCase() === emailToInvite)) {
+      setErrorMsg('このメールアドレスは既に招待済みです')
+      return
+    }
+    if (!emailToInvite || !companyId) return
     setLoading(true)
 
     try {
       const { data, error } = await supabase.functions.invoke('send-invite', {
         body: {
-          email: inviteEmail,
+          email: emailToInvite,
           company_id: companyId,
           role: 'recruiter',
         },
       })
 
+      let detailed =
+        (error as any)?.data?.error || // JSON error field from supabase-js
+        (data as any)?.error
+
+      if (!detailed && error) {
+        detailed = await extractFunctionError(error)
+      }
+
+      const msg =
+        detailed ||
+        (error as any)?.message ||
+        JSON.stringify(error, null, 2)
+
       if (error) {
-        console.error('send-invite error:', error)
-        console.error('send-invite data:', data)
-
-        let detailed =
-          (error as any)?.data?.error || // JSON error field from supabase-js
-          (data as any)?.error           // function payload error returned
-
-        if (!detailed) {
-          // Try to pull from context.response/body
-          detailed = await extractFunctionError(error)
+        if (/already been registered/i.test(msg)) {
+          setErrorMsg(null)
+          setInviteEmail('')
+          fetchMembers()
+        } else {
+          setErrorMsg(`招待に失敗しました: ${msg}`)
         }
-
-        const msg =
-          detailed ||
-          (error as any)?.message ||
-          JSON.stringify(error, null, 2)
-
-        setErrorMsg(`招待に失敗しました: ${msg}`)
       } else {
-        setErrorMsg(null) // clear any previous error
+        setErrorMsg(null)
         setInviteEmail('')
         fetchMembers()
       }
     } catch (e) {
-      console.error('invoke threw exception:', e)
-      setErrorMsg(`招待に失敗しました: ${e}`)
+      setErrorMsg(`招待に失敗しました: ${(e as Error).message}`)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('company_members').delete().eq('id', id)
+  const handleDelete = async (rowId: string) => {
+    if (!companyId) return
+
+    const { data: deletedRows, error } = await supabase
+      .from('company_members')
+      .delete()
+      .eq('id', rowId)
+      .eq('company_id', companyId)
+      .select('id')
+
     if (error) {
-      alert('削除に失敗しました')
-    } else {
-      fetchMembers()
+      alert(`削除に失敗しました: ${error.message}`)
+      return
     }
+    if (!deletedRows || deletedRows.length === 0) {
+      alert('削除対象が見つかりませんでした。')
+      return
+    }
+
+    setMembers((prev) => prev.filter((m) => m.id !== rowId))
   }
 
   useEffect(() => {
@@ -247,47 +259,57 @@ export default function CompanyMembersPage() {
         <CardContent className="space-y-4">
           {members.length === 0 ? (
             <p className="text-sm text-gray-500 px-4 pb-4">メンバーがいません</p>
-          ) : members.map((m) => (
-            m.user.id === currentUserId ? null : (
-              <div key={m.id} className="flex justify-between items-center border p-2 rounded">
-                <div>
-                  <p className="font-medium">{m.user.name || m.user.email}</p>
-                  <p className="text-sm text-gray-500">{m.user.email}</p>
-                  <p className="text-xs text-gray-400">{m.role}（{format(new Date(m.invited_at), 'yyyy/MM/dd')} に招待）</p>
-                </div>
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  disabled={m.role === 'owner'}
-                  onClick={() => {
-                    if (confirm('本当に削除しますか？')) {
-                      handleDelete(m.id)
-                    }
-                  }}
+          ) : (
+            members.map((m) =>
+              m.user.id === currentUserId ? null : (
+                <div
+                  key={m.id}
+                  className="flex justify-between items-center border p-2 rounded"
                 >
-                  削除
-                </Button>
-              </div>
+                  <div>
+                    <p className="font-medium">{m.user.name || m.user.email}</p>
+                    <p className="text-sm text-gray-500">{m.user.email}</p>
+                    <p className="text-xs text-gray-400">
+                      {m.role}（
+                      {format(new Date(m.invited_at), 'yyyy/MM/dd')} に招待）
+                    </p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={m.role === 'owner'}
+                    onClick={() => {
+                      if (
+                        confirm('本当に削除しますか？')
+                      ) {
+                        handleDelete(m.id)
+                      }
+                    }}
+                  >
+                    削除
+                  </Button>
+                </div>
+              )
             )
-          ))}
+          )}
         </CardContent>
       </Card>
-
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>メンバー招待</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {errorMsg && (
-            <p className="text-sm text-red-500">{errorMsg}</p>
-          )}
+          {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
           <Input
             type="email"
             placeholder="メールアドレスを入力"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
           />
-          <Button onClick={handleInvite} disabled={loading || !inviteEmail}>
+          <Button
+            onClick={handleInvite}
+            disabled={loading || !inviteEmail}
+          >
             招待する
           </Button>
         </CardContent>

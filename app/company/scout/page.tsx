@@ -47,6 +47,9 @@ const PREFECTURES = [
   "海外","リモート"
 ] as const
 
+/** 性別の選択肢 */
+const GENDER_OPTIONS = ["男性", "女性"] as const
+
 
 /** 固定の希望職種リスト */
 const JOB_POSITIONS = [
@@ -116,6 +119,7 @@ export default function ScoutPage() {
   const [search, setSearch] = useState("")
 
   /* ── フィルタ state ───────────────────── */
+  const [genders, setGenders] = useState<string[]>([])
   const [gradYears, setGradYears]         = useState<number[]>([])
   const [statuses, setStatuses]           = useState<string[]>([])
   const [selectedMajor, setSelectedMajor] = useState<string>("all")
@@ -146,18 +150,19 @@ export default function ScoutPage() {
         return
       }
 
-      /* 会社 ID */
-      const { data: comp, error: compErr } = await sb
-        .from("companies")
-        .select("id")
+      /* 会社 ID (owner / recruiter 共通) */
+      const { data: member, error: memErr } = await sb
+        .from("company_members")
+        .select("company_id")
         .eq("user_id", session.user.id)
-        .single()
+        .maybeSingle()
 
-      if (compErr || !comp) {
+      if (memErr || !member) {
         toast({ title: "会社プロフィールが見つかりません", variant: "destructive" })
         return
       }
-      setCompanyId(comp.id)
+      const cid = member.company_id
+      setCompanyId(cid)
 
       /* 学生一覧 */
       // 🔽 page.tsx の学生取得クエリをこれに置き換え
@@ -313,7 +318,7 @@ export default function ScoutPage() {
       const { data: scoutRows } = await sb
         .from("scouts")
         .select("*")
-        .eq("company_id", comp.id)
+        .eq("company_id", cid)
         .order("created_at", { ascending: false })
       setSentScouts(scoutRows ?? [])
 
@@ -321,7 +326,7 @@ export default function ScoutPage() {
       const { data: tplRows } = await sb
         .from("scout_templates")
         .select("*")
-        .eq("company_id", comp.id)
+        .eq("company_id", cid)
         .order("created_at")
       setTemplates(tplRows ?? [])
 
@@ -465,6 +470,13 @@ export default function ScoutPage() {
       )
     }
 
+    /* -0) 性別フィルタ */
+    if (genders.length) {
+      list = list.filter((s) =>
+        s.gender != null && genders.includes(s.gender)
+      )
+    }
+
     /* 9) 希望勤務地 */
     if (desiredWorkLocation !== "all") {
       list = list.filter((s) =>
@@ -501,6 +513,7 @@ export default function ScoutPage() {
     qualificationsFilter,
     desiredPosition,
     desiredWorkLocation,
+    genders, // 性別フィルタも依存に追加
     sortBy,
     offeredIds,
   ])
@@ -602,6 +615,25 @@ export default function ScoutPage() {
                   <label htmlFor={`yr-${yr}`} className="text-sm">
                     {yr}卒
                   </label>
+                </div>
+              ))}
+            </div>
+
+            {/* 性別 */}
+            <div>
+              <h4 className="font-semibold mb-2">性別</h4>
+              {GENDER_OPTIONS.map((g) => (
+                <div key={g} className="flex items-center mb-1">
+                  <Checkbox
+                    id={`gender-${g}`}
+                    checked={genders.includes(g)}
+                    onCheckedChange={(v) =>
+                      setGenders((prev) =>
+                        v ? Array.from(new Set([...prev, g])) : prev.filter(x => x !== g)
+                      )
+                    }
+                  />
+                  <label htmlFor={`gender-${g}`} className="ml-2 text-sm">{g}</label>
                 </div>
               ))}
             </div>
@@ -752,6 +784,7 @@ export default function ScoutPage() {
                   setQualificationsFilter([])
                   setDesiredPosition("all")
                   setDesiredWorkLocation("all")
+                  setGenders([])  // 性別フィルタクリア
                 }}
               >
                 リセット

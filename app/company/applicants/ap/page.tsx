@@ -51,19 +51,110 @@ import { notFound } from "next/navigation";
 
 import type { ReactElement } from "react";
 
-/* ---------- 型 ---------- */
+/* ---------- Types ---------- */
 type ApplicationRow =
   Database["public"]["Tables"]["applications"]["Row"];
 type StudentRow =
   Database["public"]["Tables"]["student_profiles"]["Row"];
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 
-/** 取得オブジェクト */
-export type ApplicantDetail = {
-  application: ApplicationRow;            // applications の行そのまま
-  student: StudentRow;                    // student_profiles の行そのまま
-  job: Pick<JobRow, "id" | "title">;      // jobs の必要最小限
+
+export type ApplicantSummary = {
+  application: Pick<
+    ApplicationRow,
+    "id" | "status" | "applied_at" | "interest_level"
+  >;
+  student: Pick<
+    StudentRow,
+    "id" | "full_name" | "university" | "faculty" | "admission_month" | "graduation_month"
+  >;
+  job: Pick<JobRow, "id" | "title">;
 };
+
+/* ---------- Applicant Detail ---------- */
+export type ApplicantDetail = {
+  application: Pick<
+    ApplicationRow,
+    | "id"
+    | "status"
+    | "applied_at"
+    | "interest_level"
+    | "self_pr"
+    | "resume_url"
+  >;
+  student: StudentRow; // 全カラムを使うのでそのまま
+  job: Pick<JobRow, "id" | "title">;
+};
+
+async function fetchApplicantDetail(
+  applicationId: string,
+): Promise<ApplicantDetail | null> {
+  const { data, error } = await supabase
+    .from("applications")
+    .select(
+      `
+        id,
+        status,
+        applied_at,
+        interest_level,
+        self_pr,
+        resume_url,
+        student:student_profiles (
+          id,
+          full_name,
+          university,
+          faculty,
+          admission_month,
+          graduation_month,
+          hometown,
+          phone,
+          skills,
+          interests,
+          preferred_industries
+        ),
+        job:jobs (
+          id,
+          title
+        )
+      `,
+    )
+    .eq("id", applicationId)
+    .single();
+
+  if (error) throw error;
+  return data as unknown as ApplicantDetail;
+}
+
+/* ---------- Data fetch ---------- */
+async function fetchApplicants(companyId: string): Promise<ApplicantSummary[]> {
+  const { data, error } = await supabase
+    .from("applications")
+    .select(
+      `
+        id,
+        status,
+        applied_at,
+        interest_level,
+        student:student_profiles (
+          id,
+          full_name,
+          university,
+          faculty,
+          admission_month,
+          graduation_month
+        ),
+        job:jobs (
+          id,
+          title
+        )
+      `
+    )
+    .eq("company_id", companyId)
+    .order("applied_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as unknown as ApplicantSummary[];
+}
 
 /* ---------- Status 表示定義 ---------- */
 export const STATUS_OPTIONS = [
@@ -99,43 +190,6 @@ const statusColorMap: Record<string, string> = {
   不採用: "bg-red-500",
 }
 
-/* ---------- データ取得 ---------- */
-async function fetchApplicantDetail(appId: string): Promise<ApplicantDetail | null> {
-  const { data, error } = await supabase
-    .from("applications")
-    .select(
-      `
-        id,
-        status,
-        applied_at,
-        interest_level,
-        self_pr,
-        resume_url,
-        student:student_profiles (
-          id,
-          full_name,
-          university,
-          faculty,
-          admission_month,
-          graduation_month,
-          hometown,
-          phone,
-          skills,
-          interests,
-          preferred_industries
-        ),
-        job:jobs (
-          id,
-          title
-        )
-      `,
-    )
-    .eq("id", appId)
-    .single()
-
-  if (error) throw error
-  return data as unknown as ApplicantDetail
-}
 
 export default function ApplicantProfilePage() {
   const params = useParams()
@@ -448,3 +502,9 @@ export default function ApplicantProfilePage() {
     </div>
   )
 }
+// ---- Applicant LIST: scouts join logic ----
+// (This is the code block to update per instructions)
+
+// Fetch scouts whose status is accepted for this company
+// (This code would be in the applicants list page, not here in the detail)
+// But the instructions refer to the applicants list component, not this detail page.

@@ -110,16 +110,24 @@ export default function MyCompanyPage() {
         router.push('/login')
         return
       }
-      const { data, error } = await supabase
-        .from('companies')
+      // recruiter / owner 共通取得: company_members 経由で JOIN
+      const { data: member, error: memberErr } = await supabase
+        .from('company_members')
         .select(
-          'id, tagline, representative, founded_year, capital_jpy, revenue_jpy, location, industry, employee_count, video_url, logo, cover_image',
+          'company_id, companies(id, tagline, representative, founded_year, capital_jpy, revenue_jpy, location, industry, employee_count, video_url, logo, cover_image)'
         )
         .eq('user_id', user.id)
-        .single()
-      const company = data as CompaniesRow | null
-      if (error || !company) {
-        setError(error?.message ?? '会社データが見つかりません')
+        .maybeSingle()
+
+      if (memberErr) {
+        setError(memberErr.message)
+        setLoading(false)
+        return
+      }
+
+      const company = member?.companies as CompaniesRow | undefined
+      if (!company) {
+        setError('会社データが見つかりません')
         setLoading(false)
         return
       }

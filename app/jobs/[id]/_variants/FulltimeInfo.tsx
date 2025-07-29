@@ -343,7 +343,9 @@ function RightColumn({
   apply,
   handleApplyClick,
 }: any) {
-  /* local imports inside to avoid clutter */
+  const router = useRouter();
+  // フィルタ：公開中（status === "open"）の求人のみ
+  const openRelated = related.filter((rel: any) => rel.status === "open");
 
   return (
     <div className="space-y-6">
@@ -396,9 +398,53 @@ function RightColumn({
             <DialogFooter className="flex flex-col gap-2">
               <Button
                 className="w-full bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  apply();
-                  setShowForm(false);
+                onClick={async () => {
+                  try {
+                    // 1) 応募処理
+                    await apply();
+                    // 2) ログイン中ユーザーの student_profiles.id を取得
+                    const {
+                      data: { session },
+                    } = await supabase.auth.getSession();
+                    const { data: profileData, error: profileErr } = await supabase
+                      .from("student_profiles")
+                      .select("id")
+                      .eq("user_id", session!.user.id)
+                      .maybeSingle();
+                    if (profileErr || !profileData) {
+                      throw profileErr || new Error("プロフィール取得エラー");
+                    }
+                    // 3) chat_rooms テーブルに upsert して単一レコードを取得
+                    const { data: room, error: roomErr } = await supabase
+                      .from("chat_rooms")
+                      .upsert(
+                        {
+                          company_id: company.id,
+                          student_id: profileData.id,
+                          job_id: job.id,
+                        },
+                        { onConflict: "company_id,student_id" } // company_id × student_id で一意
+                      )
+                      .select()
+                      .single();
+                    if (roomErr) throw roomErr;
+
+                    // 4) 応募メッセージを自動送信
+                    const { error: msgErr } = await supabase
+                      .from("messages")
+                      .insert({
+                        chat_room_id: room.id,
+                        sender_id:    profileData.id,      // 学生を送信者として記録
+                        content:      "選考に応募しました！！",
+                      });
+                    if (msgErr) console.error("auto-message error", msgErr);
+
+                    // 5) チャット画面へ遷移
+                    router.push(`/chat/${room.id}`);
+                    setShowForm(false);
+                  } catch (err) {
+                    console.error("apply & chat room error", err);
+                  }
                 }}
               >
                 <Check size={16} className="mr-2" />
@@ -476,9 +522,9 @@ function RightColumn({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          {related.length ? (
+          {openRelated.length ? (
             <div className="space-y-4">
-              {related.map((rel: any) => (
+              {openRelated.map((rel: any) => (
                 <div
                   key={rel.id}
                   className="flex gap-3 border-b border-gray-100 pb-4 last:border-0 last:pb-0"

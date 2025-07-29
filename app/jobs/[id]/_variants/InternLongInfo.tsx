@@ -1,7 +1,6 @@
-/* eslint-disable */
 "use client"
 
-import React, { Dispatch, SetStateAction, useState, useEffect } from "react"
+import React, { useState, useEffect, Dispatch, SetStateAction } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -13,9 +12,11 @@ import {
   Send,
   Star,
   Check,
-  ListFilter,
+  Plus,
   Users,
+  Briefcase,
   ExternalLink,
+  ListFilter,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -26,16 +27,16 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabase/client"
 import {
   Dialog,
-  DialogHeader,
   DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { toast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase/client"
 
 /* ---------- types ---------- */
 type Company = {
@@ -51,7 +52,7 @@ type Company = {
 }
 
 type Props = {
-  job: any
+  job: any // SelectionRow
   company: Company
   tags: string[]
   related: any[]
@@ -61,7 +62,7 @@ type Props = {
   setShowForm: Dispatch<SetStateAction<boolean>>
 }
 
-export default function EventInfo({
+export default function InternInfo({
   job,
   company,
   tags,
@@ -73,7 +74,6 @@ export default function EventInfo({
 }: Props) {
   const [isInterested, setIsInterested] = useState(false)
   const router = useRouter()
-  const { toast } = useToast()
 
   const handleApplyClick = async () => {
     // 1) Check login state
@@ -100,41 +100,52 @@ export default function EventInfo({
   }
 
   useEffect(() => {
-    // Get saved list from localStorage (client‑side only)
-    const raw = typeof window !== "undefined" ? localStorage.getItem("savedEvents") : null
+    // クライアントサイドのみ localStorage から取得
+    const raw = typeof window !== "undefined" ? localStorage.getItem("savedInterns") : null
     const arr: string[] = raw ? JSON.parse(raw) : []
     setIsInterested(arr.includes(job.id))
   }, [job.id])
 
-  /* save toggle */
-  const toggleSave = () => {
-    const raw = localStorage.getItem("savedEvents")
-    let arr: string[] = raw ? JSON.parse(raw) : []
-    if (isInterested) arr = arr.filter((id) => id !== job.id)
-    else arr.push(job.id)
-    localStorage.setItem("savedEvents", JSON.stringify(arr))
-    setIsInterested(!isInterested)
-  }
+  /* computed */
+  const period =
+    job?.internship?.period ??
+    `${job?.internship?.start_date ?? "—"} 〜 ${
+      job?.internship?.end_date ?? "—"
+    }`
+  const workingDays = job?.internship?.working_days ?? "応相談"
+  const hourlyWage =
+    job?.salary_min && job?.salary_max
+      ? `${job.salary_min.toLocaleString()}〜${job.salary_max.toLocaleString()}円／時`
+      : "要相談"
 
   const isNew =
     job?.created_at &&
     new Date(job.created_at).getTime() >
       Date.now() - 7 * 24 * 60 * 60 * 1000
 
+  /* save toggle */
+  const toggleSave = () => {
+    const raw = localStorage.getItem("savedInterns")
+    let arr: string[] = raw ? JSON.parse(raw) : []
+    if (isInterested) arr = arr.filter((id) => id !== job.id)
+    else arr.push(job.id)
+    localStorage.setItem("savedInterns", JSON.stringify(arr))
+    setIsInterested(!isInterested)
+  }
 
   return (
     <main className="container mx-auto px-4 py-8 pb-24">
       {/* back */}
       <Link
-        href="/jobs"
+        href="/internships" 
         className="mb-6 inline-flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-red-600 sm:text-sm"
       >
         <ArrowLeft size={16} />
-        イベント一覧に戻る
+        インターン一覧に戻る
       </Link>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* ------------- 左カラム ------------- */}
+        {/* ---------- 左カラム ---------- */}
         <div className="md:col-span-2">
           {/* header */}
           <Card className="mb-6 overflow-hidden border-0 shadow-md">
@@ -187,28 +198,24 @@ export default function EventInfo({
               {/* summary */}
               <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                 <SummaryItem
-                  icon={<MapPin size={16} />}
-                  label="開催地"
-                  value={job.location ?? "オンライン"}
-                />
-                <SummaryItem
                   icon={<Calendar size={16} />}
-                  label="開催日"
-                  value={
-                    job.event_date
-                      ? new Date(job.event_date).toLocaleDateString("ja-JP")
-                      : "調整中"
-                  }
+                  label="期間"
+                  value={period}
                 />
                 <SummaryItem
                   icon={<Clock size={16} />}
-                  label="時間"
-                  value={job.event_time ?? "-"}
+                  label="勤務日数"
+                  value={workingDays}
                 />
                 <SummaryItem
-                  icon={<Building size={16} />}
-                  label="形式"
-                  value={job.format ?? "未定"}
+                  icon={<Briefcase size={16} />}
+                  label="報酬"
+                  value={hourlyWage}
+                />
+                <SummaryItem
+                  icon={<MapPin size={16} />}
+                  label="勤務地"
+                  value={job.location ?? "オンライン可"}
                 />
               </div>
             </CardContent>
@@ -216,35 +223,40 @@ export default function EventInfo({
 
           {/* description */}
           {job.description && (
-            <SectionCard title="イベント概要">
+            <SectionCard title="インターン内容">
               <p className="whitespace-pre-wrap text-gray-700">
                 {job.description}
               </p>
             </SectionCard>
           )}
 
-          {/* schedule / details */}
-          {job.schedule && (
-            <SectionCard title="スケジュール">
-              <p className="whitespace-pre-wrap text-gray-700">
-                {job.schedule}
-              </p>
+          {/* requirements */}
+          {job.requirements && (
+            <SectionCard title="応募条件">
+              <ul className="space-y-2 text-sm text-gray-700">
+                {job.requirements.split("\n").filter(Boolean).map((r: string, i: number) => (
+                  <li key={i} className="flex gap-2">
+                    <Plus size={16} className="text-red-600 mt-0.5" />
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
             </SectionCard>
           )}
         </div>
 
-        {/* ------------- 右カラム ------------- */}
+        {/* ---------- 右カラム ---------- */}
         <div className="space-y-6">
-          {/* apply */}
+          {/* apply & save */}
           <Card className="sticky top-4 z-30 bg-white border-0 shadow-md">
             <CardContent className="p-6">
               <div className="space-y-4">
                 <div className="rounded-lg bg-red-50 p-4 text-center">
                   <h3 className="text-lg font-bold text-red-700">
-                    このイベントに参加しますか？
+                    このインターンに応募しますか？
                   </h3>
                   <p className="mt-1 text-sm text-gray-700">
-                    申し込みは 1 分で完了します
+                    応募は 1 分で完了します
                   </p>
                 </div>
 
@@ -252,7 +264,7 @@ export default function EventInfo({
                   {hasApplied ? (
                     <Button disabled className="w-full bg-green-600 hover:bg-green-700">
                       <Check size={16} className="mr-1" />
-                      申し込み済み
+                      応募済み
                     </Button>
                   ) : (
                     <Button
@@ -260,7 +272,7 @@ export default function EventInfo({
                       onClick={handleApplyClick}
                     >
                       <Send size={16} className="mr-2" />
-                      このイベントに申し込む
+                      このインターンに応募する
                     </Button>
                   )}
 
@@ -282,11 +294,12 @@ export default function EventInfo({
                 </div>
               </div>
             </CardContent>
+
             <Dialog open={showForm} onOpenChange={setShowForm}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="text-center text-gray-800">
-                    下記の内容で申し込みを確定しますか？
+                    下記の内容で応募を確定しますか？
                   </DialogTitle>
                 </DialogHeader>
 
@@ -295,24 +308,25 @@ export default function EventInfo({
                     className="w-full bg-green-600 hover:bg-green-700"
                     onClick={async () => {
                       try {
-                        // 1) 応募登録
-                        await apply()
-                        toast({ title: "応募が完了しました 🎉" })
+                        // 1) 既存の apply() を呼び出し、applications テーブルに応募を登録
+                        const result = await apply();
+                        console.log('応募APIのレスポンス:', result);
+                        toast({ title: "応募が完了しました 🎉" });
 
-                        // 2) 学生プロフィールIDを取得
+                        // 2) ログイン中ユーザーの student_profiles.id を取得
                         const {
                           data: { session },
-                        } = await supabase.auth.getSession()
+                        } = await supabase.auth.getSession();
                         const { data: profileData, error: profileErr } = await supabase
                           .from("student_profiles")
                           .select("id")
                           .eq("user_id", session!.user.id)
-                          .maybeSingle()
+                          .maybeSingle();
                         if (profileErr || !profileData) {
-                          throw profileErr || new Error("プロフィール取得エラー")
+                          throw profileErr || new Error("プロフィール取得エラー");
                         }
 
-                        // 3) chat_rooms テーブルに upsert して単一レコードを取得
+                        // 3) chat_rooms テーブルに upsert (存在しなければ新規作成)し、select().single()で取得
                         const { data: room, error: roomErr } = await supabase
                           .from("chat_rooms")
                           .upsert(
@@ -321,27 +335,29 @@ export default function EventInfo({
                               student_id: profileData.id,
                               job_id: job.id,
                             },
-                            { onConflict: "company_id,student_id" } // company_id × student_id で一意
+                            {
+                              onConflict: "company_id,student_id,job_id",
+                            }
                           )
                           .select()
-                          .single()
-                        if (roomErr) throw roomErr
+                          .single();
+                        if (roomErr) throw roomErr;
 
                         // 4) 応募メッセージを自動送信
                         const { error: msgErr } = await supabase
                           .from("messages")
                           .insert({
                             chat_room_id: room.id,
-                            sender_id:    profileData.id,      // 学生を送信者として記録
-                            content:      "イベント/説明会に応募しました！！",
-                          })
-                        if (msgErr) console.error("auto-message error", msgErr)
+                            sender_id:    profileData.id,        // 学生を送信者として記録
+                            content:      "インターンに応募しました！！",
+                          });
+                        if (msgErr) console.error("auto-message error", msgErr);
 
                         // 5) チャットルームへ遷移
-                        router.push(`/chat/${room.id}`)
-                        setShowForm(false)
+                        router.push(`/chat/${room.id}`);
+                        setShowForm(false);
                       } catch (err: any) {
-                        console.error("apply error", err)
+                        console.error("apply error", err);
                         toast({
                           title: "応募またはチャットルーム作成に失敗しました",
                           description:
@@ -349,7 +365,7 @@ export default function EventInfo({
                               ? err.message
                               : "ネットワークまたはサーバーエラーが発生しました",
                           variant: "destructive",
-                        })
+                        });
                       }
                     }}
                   >
@@ -378,7 +394,7 @@ export default function EventInfo({
             <CardHeader className="border-b border-gray-100 bg-gray-50 pb-4">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <ListFilter className="h-5 w-5 text-red-600" />
-                関連イベント
+                関連インターン
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -386,7 +402,6 @@ export default function EventInfo({
                 <ul className="space-y-2 text-sm">
                   {related.map((r: any) => (
                     <li key={r.id} className="flex items-center gap-2">
-                      <Calendar size={14} className="text-gray-500" />
                       <Link
                         href={`/jobs/${r.id}`}
                         className="hover:text-red-600 hover:underline"
@@ -398,7 +413,7 @@ export default function EventInfo({
                 </ul>
               ) : (
                 <p className="text-center text-sm text-gray-500">
-                  関連するイベントはありません
+                  関連するインターンはありません
                 </p>
               )}
             </CardContent>
@@ -409,7 +424,7 @@ export default function EventInfo({
   )
 }
 
-/* ---------- sub components ---------- */
+/* ---------- small components ---------- */
 function SummaryItem({
   icon,
   label,

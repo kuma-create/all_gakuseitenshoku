@@ -32,9 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   ArrowLeft,
   Calendar,
-  ChevronDown,
   Download,
-  Filter,
   MessageSquare,
   Search,
   Star,
@@ -105,6 +103,30 @@ const STATUS_OPTIONS = [
   { value: "スカウト承諾", color: "bg-teal-100 text-teal-800 hover:bg-teal-100" },
 ]
 
+
+/* ---------- helper: bulk fetch students in chunks ---------- */
+async function bulkFetchStudents(ids: string[]): Promise<any[]> {
+  const CHUNK = 50; // avoid URL‑length limits
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    // Skip if slice contains non‑uuid or empty strings
+    const valid = slice.filter((x) => typeof x === "string" && x.length === 36);
+    if (!valid.length) continue;
+    chunks.push(
+      supabase
+        .from("student_profiles")
+        .select(
+          "id,full_name,university,faculty,avatar_url,preferred_industries,desired_industries",
+        )
+        .in("id", valid),
+    );
+  }
+
+  const results = await Promise.all(chunks);
+  return results.flatMap((r) => (r.data ?? []));
+}
+
 /* ---------- Supabase からデータ取得 ---------- */
 /**
  * Fetch applicants visible to the current company user.
@@ -116,25 +138,79 @@ const STATUS_OPTIONS = [
  * — No server‑side embeds are used to avoid PGRST201 ambiguity errors.
  */
 async function fetchApplicants(): Promise<JoinedApplicant[]> {
+  /* ---------- 0) 会社コンテキストを取得 ---------- */
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return [] // 未ログイン
+
+  /* 会社 / company_members から company_id を取得
+     1) companies.user_id = auth.user.id （オーナーアカウント）
+     2) company_members.user_id = auth.user.id （招待アカウント）
+     どちらも該当しなければ一覧は空配列を返す
+  */
+  const { data: companyRow, error: companyErr } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  let companyId: string | undefined = companyRow?.id as string | undefined
+
+  if (!companyId) {
+    const { data: memberRow, error: memberErr } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (memberErr) {
+      console.warn("[fetchApplicants] company_members lookup failed:", memberErr)
+    }
+    companyId = memberRow?.company_id as string | undefined
+  }
+
+  if (!companyId) {
+    console.warn("[fetchApplicants] companyId not found for auth.user.id =", user.id)
+    return []
+  }
+
+  /* ---------- A) 会社の求人一覧を取得 ---------- */
+  const { data: jobs, error: jobsErr } = await supabase
+    .from("jobs")
+    .select("id,title,company_id")
+    .eq("company_id", companyId)
+
+  if (jobsErr) throw jobsErr;
+  const jobIdArray = (jobs ?? []).map((j: any) => j.id)
+
   /* ---------- ① applications ---------- */
   const { data: appRows, error: appErr } = await supabase
     .from("applications")
     .select(
       "id,status,applied_at,interest_level,self_pr,last_activity,student_id,job_id",
     )
+    // 自社のレコードに限定
+    .eq("company_id", companyId)
+    // 念のため求人 ID でも絞る（RLS 保険）
+    .in(
+      "job_id",
+      jobIdArray.length
+        ? jobIdArray
+        : ["00000000-0000-0000-0000-000000000000"],
+    )
     .order("applied_at", { ascending: false })
 
   if (appErr) throw appErr
-  const appsRaw = appRows ?? []
+  const appsRaw: any[] = appRows ?? []
 
   /* ---------- ② scouts (承諾のみ) ---------- */
   const { data: scoutRows, error: scoutErr } = await supabase
     .from("scouts")
     .select(
-      "id,status:status,accepted_at,student_id,job_id", // alias for uniform field names
+      "id,status,accepted_at,created_at,student_id,job_id",
     )
-    .eq("status", "承諾")
-    .order("accepted_at", { ascending: false })
+    .eq("company_id", companyId)   // 自社スカウトに限定
+    .eq("status", "accepted")      // 承諾済のみ
+    .order("accepted_at", { ascending: false });
 
   if (scoutErr) {
     console.warn(
@@ -142,45 +218,18 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
       scoutErr,
     )
   }
-  const scoutsRaw = scoutRows ?? []
 
   /* ---------- ③ 集計: ID リスト ---------- */
-  const studentIds = new Set<string>()
-  const jobIds = new Set<string>()
+  const studentIds = new Set<string>();
+  [...appsRaw, ...(scoutRows ?? [])].forEach((r: any) => {
+    if (r.student_id) studentIds.add(r.student_id);
+  });
 
-  ;[...appsRaw, ...scoutsRaw].forEach((r: any) => {
-    if (r.student_id) studentIds.add(r.student_id)
-    if (r.job_id) jobIds.add(r.job_id)
-  })
+  /* ---------- ④ プロフィールを一括取得 (chunked) ---------- */
+  const students = await bulkFetchStudents(Array.from(studentIds));
+  const studentMap = new Map(students.map((s: any) => [s.id, s]));
+  const jobMap = new Map((jobs ?? []).map((j: any) => [j.id, j]));
 
-  /* ---------- ④ プロフィール / 求人を一括取得 ---------- */
-  const studentIdArray = Array.from(studentIds)
-  const jobIdArray = Array.from(jobIds)
-
-  const studentQuery = studentIdArray.length
-    ? supabase
-        .from("student_profiles")
-        .select("id,name,university,faculty,avatar_url,industry")
-        .in("id", studentIdArray)
-    : Promise.resolve({ data: [] as any[], error: null })
-
-  const jobQuery = jobIdArray.length
-    ? supabase
-        .from("jobs")
-        .select("id,title")
-        .in("id", jobIdArray)
-    : Promise.resolve({ data: [] as any[], error: null })
-
-  const [{ data: students, error: stuErr }, { data: jobs, error: jobsErr }] =
-    await Promise.all([studentQuery, jobQuery])
-
-  if (stuErr) throw stuErr
-  if (jobsErr) throw jobsErr
-
-  const studentMap = new Map(
-    (students ?? []).map((s: any) => [s.id, s]),
-  )
-  const jobMap = new Map((jobs ?? []).map((j: any) => [j.id, j]))
 
   /* ---------- ⑤ applications → Joined ---------- */
   const apps: JoinedApplicant[] = appsRaw.flatMap((row: any) => {
@@ -193,16 +242,21 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
       {
         id: row.id,
         status: row.status,
-        appliedDate: row.applied_at,
+        appliedDate: row.applied_at ? row.applied_at.split("T")[0] : "",
         interestLevel: row.interest_level ?? 0,
         selfPR: row.self_pr ?? "",
         lastActivity: row.last_activity ?? row.applied_at,
         studentId: student.id,
-        name: student.name,
+        name: student.full_name ?? "(名前未設定)",
         university: student.university,
         faculty: student.faculty,
         avatar: student.avatar_url,
-        industry: student.industry,
+        industry:
+          (Array.isArray(student.preferred_industries) && student.preferred_industries.length > 0
+            ? student.preferred_industries[0]
+            : Array.isArray(student.desired_industries) && student.desired_industries.length > 0
+              ? student.desired_industries[0]
+              : null),
         jobId: row.job_id ?? null,
         jobTitle: job ? job.title : "(削除された求人)",
       },
@@ -210,7 +264,7 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
   })
 
   /* ---------- ⑥ scouts → Joined ---------- */
-  const scouts: JoinedApplicant[] = scoutsRaw.flatMap((row: any) => {
+  const scouts: JoinedApplicant[] = (scoutRows ?? []).flatMap((row: any) => {
     const student = studentMap.get(row.student_id)
     if (!student) return []
 
@@ -219,17 +273,22 @@ async function fetchApplicants(): Promise<JoinedApplicant[]> {
     return [
       {
         id: row.id,
-        status: "スカウト承諾",
-        appliedDate: row.accepted_at,
+        status: row.status === "accepted" ? "スカウト承諾" : row.status,
+        appliedDate: (row.accepted_at ?? row.created_at)?.split("T")[0] ?? "",
         interestLevel: 0,
         selfPR: "",
-        lastActivity: row.accepted_at,
+        lastActivity: (row.accepted_at ?? row.created_at)?.split("T")[0] ?? "",
         studentId: student.id,
-        name: student.name,
+        name: student.full_name ?? "(名前未設定)",
         university: student.university,
         faculty: student.faculty,
         avatar: student.avatar_url,
-        industry: student.industry,
+        industry:
+          (Array.isArray(student.preferred_industries) && student.preferred_industries.length > 0
+            ? student.preferred_industries[0]
+            : Array.isArray(student.desired_industries) && student.desired_industries.length > 0
+              ? student.desired_industries[0]
+              : null),
         jobId: row.job_id ?? null,
         jobTitle: job ? job.title : "(削除された求人)",
       },
@@ -253,15 +312,24 @@ export default function ApplicantsPage() {
   const [sortField, setSortField] = useState("appliedDate")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [selectedApplicantIds, setSelectedApplicantIds] = useState<string[]>([])
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
-  const [jobFilter, setJobFilter] = useState<string | null>(null)
+  const [jobFilters, setJobFilters] = useState<string[]>([])
+  const [scoutOnly, setScoutOnly] = useState(false)
+
+  /** すべてのフィルターを初期状態に戻す */
+  const resetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setJobFilters([]);
+    setSortField("appliedDate");
+    setSortDirection("desc");
+    setScoutOnly(false);
+  };
 
   /* --- Data Fetching --- */
   const { data: applicants = [], isLoading, error } = useSWR(
     "company-applicants",
     fetchApplicants,
   )
-  console.log("[ApplicantsPage] SWR applicants fetched:", applicants);
 
   /* --- Job 一覧は応募データから動的生成 --- */
   const jobs = useMemo(() => {
@@ -304,9 +372,11 @@ export default function ApplicantsPage() {
         (statusFilter === "passed" && a.status === "内定") ||
         (statusFilter === "rejected" && ["不採用", "内定辞退"].includes(a.status))
 
-      const matchesJob = !jobFilter || a.jobId === jobFilter
+      const matchesJob =
+        jobFilters.length === 0 || (a.jobId && jobFilters.includes(a.jobId))
+      const matchesScout = !scoutOnly || a.status === "スカウト承諾"
 
-      return matchesSearch && matchesStatus && matchesJob
+      return matchesSearch && matchesStatus && matchesJob && matchesScout
     }
 
     const sortApplicants = (x: JoinedApplicant, y: JoinedApplicant) => {
@@ -334,7 +404,7 @@ export default function ApplicantsPage() {
     }
 
     return applicants.filter(matches).sort(sortApplicants)
-  }, [applicants, searchTerm, statusFilter, jobFilter, sortField, sortDirection])
+  }, [applicants, searchTerm, statusFilter, jobFilters, sortField, sortDirection, scoutOnly])
 
   /* --- UI ユーティリティ --- */
   const getStatusBadgeVariant = (status: string) => {
@@ -476,15 +546,6 @@ export default function ApplicantsPage() {
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex flex-col md:flex-row gap-2">
-          <Button variant="outline" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}>
-            <Filter className="mr-2 h-4 w-4" />
-            詳細フィルター
-            <ChevronDown
-              className={`ml-2 h-4 w-4 transition-transform ${
-                showAdvancedFilters ? "rotate-180" : ""
-              }`}
-            />
-          </Button>
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
             エクスポート
@@ -503,6 +564,48 @@ export default function ApplicantsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          {/* Job filter (multi‑select) */}
+          <div className="w-full md:w-64">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  {jobFilters.length === 0
+                    ? "すべての求人"
+                    : `選択済み ${jobFilters.length} 件`}
+                  <span className="ml-2">▼</span>
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent className="w-64 max-h-72 overflow-y-auto">
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();       // keep menu open
+                    resetFilters();
+                  }}
+                >
+                  <Checkbox checked={jobFilters.length === 0} className="mr-2" />
+                  すべての求人
+                </DropdownMenuItem>
+
+                {jobs.map((job) => (
+                  <DropdownMenuItem
+                    key={job.id}
+                    onSelect={(e) => {
+                      e.preventDefault();       // keep menu open
+                      setJobFilters((prev) =>
+                        prev.includes(job.id)
+                          ? prev.filter((id) => id !== job.id)
+                          : [...prev, job.id],
+                      );
+                    }}
+                  >
+                    <Checkbox checked={jobFilters.includes(job.id)} className="mr-2" />
+                    {job.title}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="w-full md:w-64">
             <Select
@@ -523,8 +626,6 @@ export default function ApplicantsPage() {
                 <SelectItem value="name-desc">名前（降順）</SelectItem>
                 <SelectItem value="university-asc">大学（昇順）</SelectItem>
                 <SelectItem value="university-desc">大学（降順）</SelectItem>
-                <SelectItem value="interestLevel-desc">志望度（高い順）</SelectItem>
-                <SelectItem value="interestLevel-asc">志望度（低い順）</SelectItem>
                 <SelectItem value="status-asc">ステータス（昇順）</SelectItem>
                 <SelectItem value="status-desc">ステータス（降順）</SelectItem>
               </SelectContent>
@@ -533,59 +634,24 @@ export default function ApplicantsPage() {
         </div>
 
         {/* 詳細フィルター */}
-        {showAdvancedFilters && (
-          <div className="mb-6 p-4 border rounded-md bg-gray-50">
-            <h3 className="font-medium mb-3">詳細フィルター</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">求人</label>
-                <Select value={jobFilter || "all"} onValueChange={setJobFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="求人を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべての求人</SelectItem>
-                    {jobs.map((job) => (
-                      <SelectItem key={job.id} value={job.id}>
-                        {job.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <div className="mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+            <div>
+              {/* スカウト承諾のみチェック */}
+              <div className="flex items-end">
+                <Checkbox
+                  id="scout-only"
+                  checked={scoutOnly}
+                  onCheckedChange={(checked) => setScoutOnly(checked === true)}
+                  className="mr-2"
+                />
+                <label htmlFor="scout-only" className="text-sm text-gray-500">
+                  スカウト承諾のみ
+                </label>
               </div>
-              {/* 志望度フィルター（ダミー） */}
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">志望度</label>
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue placeholder="志望度を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべて</SelectItem>
-                    <SelectItem value="high">高い（★★★★〜）</SelectItem>
-                    <SelectItem value="medium">中程度（★★★〜）</SelectItem>
-                    <SelectItem value="low">低い（★★以下）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("")
-                  setStatusFilter("all")
-                  setJobFilter(null)
-                  setSortField("appliedDate")
-                  setSortDirection("desc")
-                }}
-              >
-                フィルターをリセット
-              </Button>
             </div>
           </div>
-        )}
+        </div>
 
         {/* ステータスごとのタブ */}
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
@@ -659,10 +725,6 @@ export default function ApplicantsPage() {
                               <div>
                                 <p className="text-sm text-gray-500">志望業界</p>
                                 <p className="font-medium">{applicant.industry ?? "—"}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">志望度</p>
-                                {renderInterestLevel(applicant.interestLevel)}
                               </div>
                               <div>
                                 <p className="text-sm text-gray-500">応募日</p>
@@ -756,11 +818,7 @@ export default function ApplicantsPage() {
                   </p>
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setStatusFilter("all")
-                      setJobFilter(null)
-                    }}
+                    onClick={resetFilters}
                   >
                     フィルターをリセット
                   </Button>
