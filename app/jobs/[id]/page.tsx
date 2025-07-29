@@ -267,8 +267,10 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
 
   // --- choose variant component ---
   let Body: React.JSX.Element;
-  switch (job.selection_type as "fulltime" | "internship_short" | "event") {
+  switch (job.selection_type as "fulltime" | "internship_short" | "internship_long" | "intern_long" | "event") {
     case "internship_short":
+    case "internship_long":
+    case "intern_long":
       Body = (
         <InternInfo
           job={job}

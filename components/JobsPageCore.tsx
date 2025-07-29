@@ -20,6 +20,20 @@ import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 import Head from "next/head"
 
+/* ---------- Selection type → JP label ---------- */
+const SELECTION_LABELS = {
+  fulltime:         "本選考",
+  internship_short: "インターン（短期）",
+  internship_long:  "インターン(長期)",
+  intern_long:      "インターン(長期)", // legacy key
+  event:            "説明会／イベント",
+} as const;
+
+const getSelectionLabel = (type?: string | null) => {
+  const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
+  return SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime;
+};
+
 /** Supabase 型を拡張 */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   companies: { name: string; logo: string | null; industry?: string | null } | null
@@ -150,6 +164,7 @@ title,
 description,
 created_at,
 work_type,
+selection_type,
 is_recommended,
 salary_range,
 application_deadline,
@@ -173,17 +188,9 @@ job_tags!job_tags_job_id_fkey (
         console.error("jobs fetch error", error)
         setError("選考情報取得に失敗しました")
       } else {
-        const normalized = (data ?? []).map((row) => {
-          // derive selection_type from work_type
-          let sel: JobRow["selection_type"] = "fulltime"
-          if (row.work_type?.includes("インターン")) {
-            sel = row.work_type.includes("長期") ? "intern_long" : "internship_short"
-          } else if (
-            row.work_type?.includes("イベント") ||
-            row.work_type?.includes("説明会")
-          ) {
-            sel = "event"
-          }
+        const normalized = (data ?? []).map((row): JobRow => {
+          // selection_type は DB カラムをそのまま使用。未設定の場合は "fulltime" を既定値にする
+          const sel: JobRow["selection_type"] = row.selection_type ?? "fulltime";
 
           return {
             ...row,
@@ -826,14 +833,7 @@ function JobGrid({
               )}
               <div className="flex flex-1 flex-col gap-2 p-4">
                 <Badge variant="outline" className="mb-0.5 text-[10px] rounded-full w-fit">
-                  {
-                    {
-                      fulltime: "本選考",
-                      intern_long: "インターン（長期）",
-                      internship_short: "インターン（短期）",
-                      event: "説明会／イベント",
-                    }[j.selection_type ?? "fulltime"]
-                  }
+                  {getSelectionLabel(j.selection_type)}
                 </Badge>
                 <h3 className="text-lg font-bold">{j.title}</h3>
                 <p className="text-sm text-gray-600">
@@ -915,14 +915,7 @@ function JobGrid({
             )}
             <div className="p-4">
               <Badge variant="outline" className="mb-0.5 text-[10px] rounded-full">
-                {
-                  {
-                    fulltime: "本選考",
-                    intern_long: "インターン（長期）",
-                    internship_short: "インターン（短期）",
-                    event: "説明会／イベント",
-                  }[j.selection_type ?? "fulltime"]
-                }
+                {getSelectionLabel(j.selection_type)}
               </Badge>
               <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
               <p className="line-clamp-1 text-sm text-gray-600">
