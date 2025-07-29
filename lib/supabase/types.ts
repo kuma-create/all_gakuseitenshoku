@@ -3412,6 +3412,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           graduation_month: string | null
+          last_sign_in_at: string | null
           student_id: string | null
           university: string | null
         }
