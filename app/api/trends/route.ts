@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 
 /** 1 時間 (3600 秒) エッジキャッシュ */
-export const revalidate = 60 * 60
+export const revalidate = 3600
 
 export async function GET() {
   try {
