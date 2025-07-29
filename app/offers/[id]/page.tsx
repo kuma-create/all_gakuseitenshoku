@@ -667,9 +667,9 @@ function InterestButtons({
               from_role:         "student",             // 送信者ロール
               notification_type: "scout_accepted",      // テンプレート切り替え用
               related_id:        offerId,
-              link:              `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp"}/chat/${roomId}`,
+              link:              `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp"}/company/chat/${roomId}`,
               title:             `【学生転職】${studentName}さんがスカウトを承諾しました！！`,
-              message:           `${studentName}さんがスカウトを承諾しました。チャットでご連絡ください！`,
+              message:           `${studentName}さんがスカウトを承諾しました。<a href="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp"}/company/chat/${roomId}">チャットルームに移動する</a>`,
             },
           });
         }
@@ -677,13 +677,12 @@ function InterestButtons({
         try {
           await supabase.functions.invoke("send-email", {
             body: {
-              // 直接メールアドレスを指定して送信
-              to_email:         "system@gakuten.co.jp",
-              from_role:        "student",            // 送信者ロール
-              notification_type:"scout_accepted",
-              related_id:       offerId,
-              title:            `【${companyName}】${studentName}さんがスカウトを承諾しました`,
-              message:          `${companyName}のスカウトを${studentName}さんが承諾しました。`,
+              user_id:           "e567ebe5-55d3-408a-b591-d567cdd3470a", // システム監視用ユーザー ID
+              from_role:         "system",
+              notification_type: "scout_accepted_system",
+              related_id:        offerId,
+              title:             `【学生転職】 スカウトが承諾されました！！`,
+              message:           `会社名：${companyName}\n学生名：${studentName}`,
             },
           });
         } catch (sysEmailErr) {
