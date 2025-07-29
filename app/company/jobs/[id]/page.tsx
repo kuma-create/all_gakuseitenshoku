@@ -36,6 +36,7 @@ type FormData = {
   capacity: string
   venue: string
   format: "onsite" | "online" | "hybrid"
+  schedule: string 
 }
 
 import { useState, useEffect, useRef } from "react"
@@ -78,7 +79,15 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+
 import { useToast } from "@/lib/hooks/use-toast"
+
+/**
+ * Convert `YYYY-MM-DD` (date‑input value) to ISO string for
+ * timestamp/date columns. Returns `null` for empty strings.
+ */
+const toIsoOrNull = (d: string | undefined | null) =>
+  d && d.trim() !== "" ? new Date(d).toISOString() : null;
 
 /**
  * Supabase から求人 1 件を取得し、フロントで使いやすい shape に整形して返す
@@ -105,7 +114,7 @@ const fetchJob = async (id: string) => {
 
       fulltime_details:fulltime_details!job_id (working_days, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
-      event_details:event_details!job_id (event_date, capacity, venue, format)
+      event_details:event_details!job_id (event_date, capacity, venue, format, schedule)
     `)
     .eq("id", id)
     .single()
@@ -143,6 +152,7 @@ const fetchJob = async (id: string) => {
     capacity  : event.capacity ? String(event.capacity) : "",
     venue     : event.venue ?? "",
     format    : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
+    schedule  : event.schedule ?? "",
 
     selectionType : data.selection_type ?? "fulltime",
     status        : data.published ? "公開" : "非公開",
@@ -247,6 +257,7 @@ export default function JobEditPage() {
     capacity: "",
     venue: "",
     format: "onsite",
+    schedule: "",
   })
 
   useEffect(() => {
@@ -279,6 +290,7 @@ export default function JobEditPage() {
           capacity  : jobData.capacity,
           venue     : jobData.venue,
           format    : jobData.format,
+          schedule  : jobData.schedule,
         } as FormData)
       } catch (error: any) {
         // --- 詳細ログを出力 ---
@@ -375,7 +387,7 @@ export default function JobEditPage() {
         salary_range     : formData.salary ? formData.salary.trim() : null,
         cover_image_url  : formData.coverImageUrl.trim(),
         published        : formData.status === "公開",
-        application_deadline: formData.applicationDeadline || null,
+        application_deadline: toIsoOrNull(formData.applicationDeadline),
         /* 追加: カテゴリと開始日 */
         category           :
           job.selectionType === "internship_short"
@@ -383,7 +395,7 @@ export default function JobEditPage() {
             : job.selectionType === "event"
             ? "イベント"
             : "本選考",
-        start_date         : formData.startDate || null,
+        start_date         : toIsoOrNull(formData.startDate),
       }
 
       /* ---------- 各詳細テーブル用ペイロード -------------------- */
@@ -395,20 +407,24 @@ export default function JobEditPage() {
           detailTable = "fulltime_details"
           detailPayload = {
             ...detailPayload,
-            working_days : formData.workingDays,
-            salary_min   : formData.salary ? Number(formData.salary.split("〜")[0]) : null,
-            salary_max   : formData.salary && formData.salary.includes("〜")
-                            ? Number(formData.salary.split("〜")[1])
-                            : null,
-            is_ongoing   : true,
+            department        : formData.department || null,
+            employment_type   : formData.employmentType || null,
+            working_days      : formData.workingDays,
+            working_hours     : formData.workingHours || null,
+            benefits          : formData.benefits || null,
+            salary_min        : formData.salary ? Number(formData.salary.split("〜")[0]) : null,
+            salary_max        : formData.salary && formData.salary.includes("〜")
+                                 ? Number(formData.salary.split("〜")[1])
+                                 : null,
+            is_ongoing        : true,
           }
           break
         case "internship_short":
           detailTable = "internship_details"
           detailPayload = {
             ...detailPayload,
-            start_date        : formData.startDate || null,
-            end_date          : formData.endDate   || null,
+            start_date        : toIsoOrNull(formData.startDate),
+            end_date          : toIsoOrNull(formData.endDate),
             duration_weeks    : formData.durationWeeks || null,
             work_days_per_week: formData.workDaysPerWeek || null,
             allowance         : formData.allowance || null,
@@ -418,10 +434,11 @@ export default function JobEditPage() {
           detailTable = "event_details"
           detailPayload = {
             ...detailPayload,
-            event_date : formData.eventDate || null,
+            event_date : toIsoOrNull(formData.eventDate),
             capacity   : formData.capacity ? Number(formData.capacity) : null,
             venue      : formData.venue || null,
             format     : formData.format,
+            schedule   : formData.schedule || null,
           }
           break
         default:
@@ -1026,6 +1043,19 @@ export default function JobEditPage() {
                   value={formData.venue} onChange={handleInputChange} className="mt-1"/>
               </div>
 
+              {/* スケジュール */}
+              <div>
+                <Label htmlFor="schedule">スケジュール詳細</Label>
+                <Textarea
+                  id="schedule"
+                  name="schedule"
+                  value={formData.schedule}
+                  onChange={handleInputChange}
+                  className="mt-1 min-h-[100px]"
+                  placeholder="当日のタイムラインやアジェンダなどを記入してください。"
+                />
+              </div>
+
               {/* 開催形態 */}
               <div>
                 <Label htmlFor="format">開催形態</Label>
@@ -1399,13 +1429,6 @@ export default function JobEditPage() {
                         icon={<Check size={16} />}
                         list={formData.requirements}
                       />
-                      {formData.preferredSkills && (
-                        <RequirementBlock
-                          title="歓迎スキル"
-                          icon={<Plus size={16} />}
-                          list={formData.preferredSkills}
-                        />
-                      )}
                     </SectionCard>
                   )}
 
