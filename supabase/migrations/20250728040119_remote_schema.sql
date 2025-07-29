@@ -7640,5 +7640,3 @@ for insert
 to authenticated
 with check (((bucket_id = 'job-covers'::text) AND (auth.uid() IS NOT NULL)));
 
-
-

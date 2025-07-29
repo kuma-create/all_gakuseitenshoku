@@ -1379,6 +1379,7 @@ export type Database = {
           created_at: string | null
           hourly_wage: number | null
           id: string
+
           min_duration_months: number | null
           selection_id: string
           start_date: string | null
@@ -1389,6 +1390,7 @@ export type Database = {
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
+
           min_duration_months?: number | null
           selection_id: string
           start_date?: string | null
@@ -1399,6 +1401,7 @@ export type Database = {
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
+
           min_duration_months?: number | null
           selection_id?: string
           start_date?: string | null
@@ -1407,6 +1410,7 @@ export type Database = {
         }
         Relationships: [
           {
+
             foreignKeyName: "intern_long_details_selection_id_fkey"
             columns: ["selection_id"]
             isOneToOne: true
