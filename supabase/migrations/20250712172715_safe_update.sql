@@ -58,6 +58,3 @@ create or replace view "public"."student_resume_jobtypes" as  SELECT r.user_id A
    FROM resumes r,
     LATERAL jsonb_array_elements(r.work_experiences) w(value)
   GROUP BY r.user_id;
-
-
-
