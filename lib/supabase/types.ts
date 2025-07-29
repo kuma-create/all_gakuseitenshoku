@@ -1301,28 +1301,34 @@ export type Database = {
       }
       fulltime_details: {
         Row: {
+          benefits: string | null
           is_ongoing: boolean | null
           job_id: string
           salary_max: number | null
           salary_min: number | null
           selection_id: string | null
           working_days: string | null
+          working_hours: string | null
         }
         Insert: {
+          benefits?: string | null
           is_ongoing?: boolean | null
           job_id: string
           salary_max?: number | null
           salary_min?: number | null
           selection_id?: string | null
           working_days?: string | null
+          working_hours?: string | null
         }
         Update: {
+          benefits?: string | null
           is_ongoing?: boolean | null
           job_id?: string
           salary_max?: number | null
           salary_min?: number | null
           selection_id?: string | null
           working_days?: string | null
+          working_hours?: string | null
         }
         Relationships: [
           {
@@ -1367,6 +1373,80 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      intern_long_details: {
+        Row: {
+          commission_rate: string | null
+          created_at: string | null
+          hourly_wage: number | null
+          id: string
+          is_paid: boolean
+          job_id: string | null
+          min_duration_months: number | null
+          remuneration_type: string
+          selection_id: string
+          start_date: string | null
+          updated_at: string | null
+          work_days_per_week: number | null
+        }
+        Insert: {
+          commission_rate?: string | null
+          created_at?: string | null
+          hourly_wage?: number | null
+          id?: string
+          is_paid?: boolean
+          job_id?: string | null
+          min_duration_months?: number | null
+          remuneration_type?: string
+          selection_id: string
+          start_date?: string | null
+          updated_at?: string | null
+          work_days_per_week?: number | null
+        }
+        Update: {
+          commission_rate?: string | null
+          created_at?: string | null
+          hourly_wage?: number | null
+          id?: string
+          is_paid?: boolean
+          job_id?: string | null
+          min_duration_months?: number | null
+          remuneration_type?: string
+          selection_id?: string
+          start_date?: string | null
+          updated_at?: string | null
+          work_days_per_week?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intern_long_details_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intern_long_details_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intern_long_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intern_long_details_selection_id_fkey"
+            columns: ["selection_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       internship_details: {
         Row: {
@@ -1454,6 +1534,41 @@ export type Database = {
           },
         ]
       }
+
+      job_embeddings: {
+        Row: {
+          content: string
+          embedding: string | null
+          job_id: string
+        }
+        Insert: {
+          content: string
+          embedding?: string | null
+          job_id: string
+        }
+        Update: {
+          content?: string
+          embedding?: string | null
+          job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_embeddings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_embeddings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "selections_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+
       job_interests: {
         Row: {
           created_at: string | null
@@ -1544,6 +1659,7 @@ export type Database = {
           company_id: string | null
           cover_image_url: string | null
           created_at: string
+          department: string | null
           description: string | null
           id: string
           is_recommended: boolean
@@ -1565,6 +1681,7 @@ export type Database = {
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
+          department?: string | null
           description?: string | null
           id?: string
           is_recommended?: boolean
@@ -1586,6 +1703,7 @@ export type Database = {
           company_id?: string | null
           cover_image_url?: string | null
           created_at?: string
+          department?: string | null
           description?: string | null
           id?: string
           is_recommended?: boolean
@@ -3381,6 +3499,10 @@ export type Database = {
           avg_response_sec: number
         }[]
       }
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
       calculate_profile_completion: {
         Args: { p_user_id: string }
         Returns: number
@@ -3468,6 +3590,38 @@ export type Database = {
         Args: { p_submission_id: string }
         Returns: undefined
       }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       increment_job_view: {
         Args: { _job_id: string }
         Returns: undefined
@@ -3492,17 +3646,65 @@ export type Database = {
         Args: { c_id: string }
         Returns: boolean
       }
+      is_company_owner: {
+        Args: { c_uuid: string }
+        Returns: boolean
+      }
       is_student: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
       }
       jwt_custom_claims_hook: {
         Args: { event: Json } | { uid: string; email: string; claims: Json }
         Returns: Json
       }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: string
+      }
+      match_job_embeddings: {
+        Args: {
+          query_embedding: string
+          match_count: number
+          similarity_threshold: number
+        }
+        Returns: {
+          job_id: string
+          content: string
+          score: number
+        }[]
+      }
       prepare_session_answers: {
         Args: { p_session_uuid: string }
         Returns: undefined
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
       start_webtest_session: {
         Args: { p_challenge_id: string; p_student_id: string }
@@ -3511,6 +3713,30 @@ export type Database = {
       start_webtest_session_balanced: {
         Args: { p_challenge_id: string; p_student_id: string }
         Returns: string
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
     }
     Enums: {
@@ -3538,7 +3764,7 @@ export type Database = {
         | "spi_language"
       role_enum: "student" | "company" | "company_admin" | "admin"
       section_type: "quant" | "verbal" | "english" | "logical"
-      selection_type: "fulltime" | "internship_short" | "event"
+      selection_type: "fulltime" | "internship_short" | "event" | "intern_long"
       session_status: "in_progress" | "submitted" | "graded"
       test_code: "spi" | "tamatebako" | "case" | "bizscore"
     }
@@ -3694,7 +3920,7 @@ export const Constants = {
       ],
       role_enum: ["student", "company", "company_admin", "admin"],
       section_type: ["quant", "verbal", "english", "logical"],
-      selection_type: ["fulltime", "internship_short", "event"],
+      selection_type: ["fulltime", "internship_short", "event", "intern_long"],
       session_status: ["in_progress", "submitted", "graded"],
       test_code: ["spi", "tamatebako", "case", "bizscore"],
     },

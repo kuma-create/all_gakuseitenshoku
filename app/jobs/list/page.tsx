@@ -37,13 +37,31 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   job_tags?: { tag: string }[] | null
 }
 
+
 /* 選考種類フィルター */
 const SELECTION_TYPES = [
-  { value: "all", label: "すべての選考" },
-  { value: "fulltime", label: "本選考" },
+  { value: "all",             label: "すべての選考" },
+  { value: "fulltime",        label: "本選考" },
   { value: "internship_short", label: "インターン（短期）" },
-  { value: "event", label: "説明会／イベント" },
+  { value: "internship_long", label: "インターン(長期)" },
+  { value: "intern_long",     label: "インターン(長期)" }, // 旧キー（互換用）
+  { value: "event",           label: "説明会／イベント" },
 ] as const
+
+/* 選考種類 → 表示ラベル */
+const SELECTION_LABELS = {
+  fulltime:        "本選考",
+  internship_short: "インターン（短期）",
+  internship_long: "インターン(長期)",
+  intern_long:     "インターン(長期)", // 旧キー（互換用）
+  event:           "説明会／イベント",
+} as const
+
+/* 選考種類コード → 表示ラベルを安全に取得 */
+const getSelectionLabel = (type?: string | null) => {
+  const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS
+  return SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime
+}
 
 /* 年収フィルターの選択肢 */
 const SALARY_OPTIONS = [
@@ -108,6 +126,7 @@ created_at,
 work_type,
 is_recommended,
 salary_range,
+selection_type,
 location,
 cover_image_url,
 companies!jobs_company_id_fkey (
@@ -129,11 +148,8 @@ job_tags!job_tags_job_id_fkey (
         setError("選考情報取得に失敗しました")
       } else {
         const normalized = (data ?? []).map((row) => {
-          // derive selection_type from work_type
-          let sel: JobRow["selection_type"] = "fulltime"
-          if (row.work_type?.includes("インターン")) sel = "internship_short"
-          else if (row.work_type?.includes("イベント") || row.work_type?.includes("説明会")) sel = "event"
-
+          // use selection_type column (fallback to fulltime)
+          const sel = row.selection_type ?? "fulltime"
           return {
             ...row,
             selection_type: sel,
@@ -645,13 +661,7 @@ function JobGrid({
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <Badge variant="outline" className="mb-2 text-xs rounded-full">
-                        {
-                          {
-                            fulltime: "本選考",
-                            internship_short: "インターン（短期）",
-                            event: "説明会／イベント",
-                          }[j.selection_type ?? "fulltime"]
-                        }
+                        {getSelectionLabel(j.selection_type)}
                       </Badge>
                       <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{j.title}</h3>
                       <p className="text-sm text-gray-600 mb-3">{j.companies?.name ?? "-"}</p>
@@ -728,13 +738,7 @@ function JobGrid({
             )}
             <div className="p-5">
               <Badge variant="outline" className="mb-3 text-xs rounded-full">
-                {
-                  {
-                    fulltime: "本選考",
-                    internship_short: "インターン（短期）",
-                    event: "説明会／イベント",
-                  }[j.selection_type ?? "fulltime"]
-                }
+                {getSelectionLabel(j.selection_type)}
               </Badge>
               <h3 className="mb-2 line-clamp-2 font-bold text-gray-900 leading-tight">{j.title}</h3>
               <p className="line-clamp-1 text-sm text-gray-600 mb-3">{j.companies?.name ?? "-"}</p>

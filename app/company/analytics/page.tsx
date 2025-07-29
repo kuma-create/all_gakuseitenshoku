@@ -24,10 +24,43 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // ① 認証ユーザーを取得
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setError("ログイン情報を取得できません")
+        setLoading(false)
+        return
+      }
+
+      // ② company_members から所属企業 ID を取得（owner / recruiter 共通）
+      const { data: member, error: memErr } = await supabase
+        .from("company_members")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (memErr) {
+        console.error(memErr)
+        setError("企業情報の取得に失敗しました")
+        setLoading(false)
+        return
+      }
+
+      const companyId = member?.company_id
+      if (!companyId) {
+        setError("企業が紐付いていません")
+        setLoading(false)
+        return
+      }
+
+      // ③ 企業別の応募数データを取得
       const { data, error } = await supabase
-        // `from<JobAppEntry>()` は型不一致になるため外す
         .from("job_app_count")
         .select("job_title, cnt")
+        .eq("company_id", companyId)
         .order("cnt", { ascending: false })
 
       if (error) {

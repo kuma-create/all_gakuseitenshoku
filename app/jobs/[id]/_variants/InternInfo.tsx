@@ -308,19 +308,64 @@ export default function InternInfo({
                     className="w-full bg-green-600 hover:bg-green-700"
                     onClick={async () => {
                       try {
-                        await apply()
-                        toast({ title: "応募が完了しました 🎉" })
-                        setShowForm(false)
+                        // 1) 既存の apply() を呼び出し、applications テーブルに応募を登録
+                        const result = await apply();
+                        console.log('応募APIのレスポンス:', result);
+                        toast({ title: "応募が完了しました 🎉" });
+
+                        // 2) ログイン中ユーザーの student_profiles.id を取得
+                        const {
+                          data: { session },
+                        } = await supabase.auth.getSession();
+                        const { data: profileData, error: profileErr } = await supabase
+                          .from("student_profiles")
+                          .select("id")
+                          .eq("user_id", session!.user.id)
+                          .maybeSingle();
+                        if (profileErr || !profileData) {
+                          throw profileErr || new Error("プロフィール取得エラー");
+                        }
+
+                        // 3) chat_rooms テーブルに upsert (存在しなければ新規作成)し、select().single()で取得
+                        const { data: room, error: roomErr } = await supabase
+                          .from("chat_rooms")
+                          .upsert(
+                            {
+                              company_id: company.id,
+                              student_id: profileData.id,
+                              job_id: job.id,
+                            },
+                            {
+                              onConflict: "company_id,student_id,job_id",
+                            }
+                          )
+                          .select()
+                          .single();
+                        if (roomErr) throw roomErr;
+
+                        // 4) 応募メッセージを自動送信
+                        const { error: msgErr } = await supabase
+                          .from("messages")
+                          .insert({
+                            chat_room_id: room.id,
+                            sender_id:    profileData.id,        // 学生を送信者として記録
+                            content:      "インターンに応募しました！！",
+                          });
+                        if (msgErr) console.error("auto-message error", msgErr);
+
+                        // 5) チャットルームへ遷移
+                        router.push(`/chat/${room.id}`);
+                        setShowForm(false);
                       } catch (err: any) {
-                        console.error("apply error", err)
+                        console.error("apply error", err);
                         toast({
-                          title: "応募に失敗しました",
+                          title: "応募またはチャットルーム作成に失敗しました",
                           description:
                             typeof err?.message === "string"
                               ? err.message
                               : "ネットワークまたはサーバーエラーが発生しました",
                           variant: "destructive",
-                        })
+                        });
                       }
                     }}
                   >
