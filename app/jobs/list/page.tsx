@@ -2,7 +2,18 @@
 
 import type React from "react"
 
-import { ArrowLeft, Briefcase, Heart, MapPin, Search, Star, SlidersHorizontal } from "lucide-react"
+import {
+  ArrowLeft,
+  Briefcase,
+  Heart,
+  MapPin,
+  Search,
+  Star,
+  SlidersHorizontal,
+  ClipboardList,
+  Clock,
+  Mic,
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import Head from "next/head"
@@ -56,6 +67,37 @@ const SELECTION_LABELS = {
   intern_long:     "インターン(長期)", // 旧キー（互換用）
   event:           "説明会／イベント",
 } as const
+
+/* アイコンマッピング */
+const SELECTION_ICONS: Record<string, JSX.Element> = {
+  fulltime: <Briefcase size={12} />,
+  internship_short: <ClipboardList size={12} />,
+  internship_long: <Clock size={12} />,
+  intern_long: <Clock size={12} />,
+  event: <Mic size={12} />,
+};
+
+/* バッジの色マッピング */
+const badgeColorMap: Record<string, string> = {
+  fulltime: "bg-blue-100 text-blue-800",
+  internship_short: "bg-green-100 text-green-800",
+  internship_long: "bg-yellow-100 text-yellow-800",
+  intern_long: "bg-yellow-100 text-yellow-800",
+  event: "bg-purple-100 text-purple-800",
+};
+
+const renderSelectionBadge = (type?: string | null) => {
+  const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
+  return (
+    <Badge
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold w-fit ${badgeColorMap[key]}`}
+      variant="outline"
+    >
+      {SELECTION_ICONS[key]}
+      {SELECTION_LABELS[key]}
+    </Badge>
+  );
+};
 
 /* 選考種類コード → 表示ラベルを安全に取得 */
 const getSelectionLabel = (type?: string | null) => {
@@ -660,9 +702,7 @@ function JobGrid({
                 <div className="flex-1 p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <Badge variant="outline" className="mb-2 text-xs rounded-full">
-                        {getSelectionLabel(j.selection_type)}
-                      </Badge>
+                      {renderSelectionBadge(j.selection_type)}
                       <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{j.title}</h3>
                       <p className="text-sm text-gray-600 mb-3">{j.companies?.name ?? "-"}</p>
                     </div>
@@ -737,9 +777,7 @@ function JobGrid({
               </div>
             )}
             <div className="p-5">
-              <Badge variant="outline" className="mb-3 text-xs rounded-full">
-                {getSelectionLabel(j.selection_type)}
-              </Badge>
+              {renderSelectionBadge(j.selection_type)}
               <h3 className="mb-2 line-clamp-2 font-bold text-gray-900 leading-tight">{j.title}</h3>
               <p className="line-clamp-1 text-sm text-gray-600 mb-3">{j.companies?.name ?? "-"}</p>
 

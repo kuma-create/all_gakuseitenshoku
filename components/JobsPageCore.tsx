@@ -52,7 +52,7 @@ const getSelectionLabel = (type?: string | null) => {
   const colorClass = badgeColorMap[key] ?? "bg-gray-100 text-gray-800";
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${colorClass} w-fit`}
     >
       {SELECTION_ICONS[key]}
       {SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime}
@@ -63,7 +63,7 @@ const getSelectionLabel = (type?: string | null) => {
 // Helper function to get just the badge classes for selection type
 const getSelectionLabelClass = (type?: string | null) => {
   const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
-  return `inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${badgeColorMap[key]}`;
+  return `inline-flex w-fit items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${badgeColorMap[key]}`;
 };
 
 /** Supabase 型を拡張 */
@@ -161,7 +161,10 @@ export default function JobsPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
 
   /* UI filter states */
-  const [search, setSearch] = useState(qParam)
+  // `search` is the committed keyword that triggers filtering.
+  // `query` is the text the user is currently typing.
+  const [search, setSearch] = useState(qParam);
+  const [query, setQuery] = useState(qParam);
   const [industry, setIndustry] = useState("all")
   const [jobType, setJobType] = useState("all")
   const [selectionType, setSelectionType] = useState("all")
@@ -203,7 +206,9 @@ export default function JobsPage() {
       firstRender.current = false;
       return;
     }
-    router.replace(`/jobs?${buildParams()}`, { scroll: false });
+    // stay on the current pathname; just update query parameters
+    const path = typeof window !== "undefined" ? window.location.pathname : "/jobs";
+    router.replace(`${path}?${buildParams()}`, { scroll: false });
   }, [industry, jobType, selectionType, salaryMin, category]);
 
   /* ---------------- fetch ----------------- */
@@ -344,7 +349,9 @@ job_tags!job_tags_job_id_fkey (
   const router = useRouter()
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.replace(`/jobs?${buildParams(search.trim())}`);
+    const committed = query.trim();
+    setSearch(committed);                 // update filter keyword
+    router.push(`/jobs/list?${buildParams(committed)}`);
   };
 
   if (loading) {
@@ -446,8 +453,8 @@ job_tags!job_tags_job_id_fkey (
                 <Input
                   placeholder="職種、キーワード、会社名"
                   className="pr-10 rounded-full border-gray-300"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
                 />
                 <Button
                   type="submit"
@@ -579,8 +586,9 @@ job_tags!job_tags_job_id_fkey (
                   key={kw}
                   className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
                   onClick={() => {
-                    setSearch(kw)
-                    router.replace(`/jobs?${buildParams(kw)}`)
+                    setQuery(kw);
+                    setSearch(kw);
+                    router.push(`/jobs/list?${buildParams(kw)}`);
                   }}
                 >
                   {kw}
