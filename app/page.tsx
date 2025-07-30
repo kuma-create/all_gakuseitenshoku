@@ -317,10 +317,10 @@ return (
               className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-6"
             >
               <span className="block">学生のキャリアは</span>
-              <span className="block mt-2 text-5xl sm:text-6xl lg:text-7xl text-white drop-shadow-md">
+              <span className="block mt-[2mm] text-6xl sm:text-7xl lg:text-8xl text-white drop-shadow-md">
                 可能性
               </span>
-              <span className="block mt-2">に満ち溢れている</span>
+              <span className="block mt-[2mm]">に満ち溢れている</span>
             </motion.h1>
 
             <motion.p
