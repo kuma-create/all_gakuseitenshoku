@@ -284,20 +284,7 @@ export default function Home() {
   });
 return (
     <div className="min-h-screen bg-white">
-      {/* Promo Video -------------------------------------------------------- */}
-      <section className="w-full bg-black">
-        <div className="max-w-6xl mx-auto">
-          <div className="relative pt-[56.25%]">
-            <iframe
-              src="https://www.youtube.com/embed/VIDEO_ID?rel=0&controls=1&modestbranding=1"
-              title="Make Culture Promo Video"
-              className="absolute inset-0 w-full h-full rounded-lg"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </div>
-      </section>
+
       {/* Desktop and Mobile Headers removed */}
 
       {/* Hero Section -------------------------------------------------- */}
@@ -347,6 +334,21 @@ return (
               height={260}
               className="w-full h-auto max-w-xs md:max-w-md"
               priority
+            />
+          </div>
+        </div>
+      </section>
+
+            {/* Promo Video -------------------------------------------------------- */}
+      <section className="w-full bg-black">
+        <div className="max-w-6xl mx-auto">
+          <div className="relative pt-[56.25%]">
+            <iframe
+              src="https://www.youtube.com/embed/VIDEO_ID?rel=0&controls=1&modestbranding=1"
+              title="Make Culture Promo Video"
+              className="absolute inset-0 w-full h-full rounded-lg"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
             />
           </div>
         </div>
