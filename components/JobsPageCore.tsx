@@ -5,7 +5,7 @@ import type React from "react"
 import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star, ClipboardList, Clock, Mic } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 
@@ -184,6 +184,28 @@ export default function JobsPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
 
+  // --- build a query‑string that reflects current filter states ---
+  const buildParams = (qValue: string = search.trim()) => {
+    const params = new URLSearchParams();
+    if (qValue) params.set("q", qValue);
+    params.set("tab", category);
+    if (industry !== "all") params.set("industry", industry);
+    if (jobType !== "all") params.set("jobType", jobType);
+    if (selectionType !== "all") params.set("selectionType", selectionType);
+    if (salaryMin !== "all") params.set("salaryMin", salaryMin);
+    return params.toString();
+  };
+
+  // --- keep the URL in sync when any filter changes (skip first render) ---
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    router.replace(`/jobs?${buildParams()}`, { scroll: false });
+  }, [industry, jobType, selectionType, salaryMin, category]);
+
   /* ---------------- fetch ----------------- */
   useEffect(() => {
     ;(async () => {
@@ -321,10 +343,9 @@ job_tags!job_tags_job_id_fkey (
   /* ------------- UI ----------------------- */
   const router = useRouter()
   const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const q = search.trim()
-    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(q)}`)
-  }
+    e.preventDefault();
+    router.replace(`/jobs?${buildParams(search.trim())}`);
+  };
 
   if (loading) {
     return (
@@ -559,7 +580,7 @@ job_tags!job_tags_job_id_fkey (
                   className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
                   onClick={() => {
                     setSearch(kw)
-                    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(kw)}`)
+                    router.replace(`/jobs?${buildParams(kw)}`)
                   }}
                 >
                   {kw}
