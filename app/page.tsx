@@ -99,8 +99,8 @@ export default function Home() {
           supabase
             .from("companies")
             .select(
-              `id, name, logo_url, industry, short_description, tags,
-               rating, employee_size, founded_year,
+              `id, name, logo, industry, description,
+               rating, employee_count, founded_year,
                jobs(id)`
             )
             .order("rating", { ascending: false })
@@ -110,11 +110,12 @@ export default function Home() {
           supabase
             .from("jobs")
             .select(
-              `id, title, description, location, salary_range, work_type,
-               tags, is_recommended, created_at, application_deadline,
-               companies ( name, logo_url )`
+              `id, title, description, location, salary_range, work_type, selection_type,
+               is_recommended, created_at, application_deadline,
+               companies ( name, logo )`
             )
             .eq("published", true)
+            .eq("selection_type", "fulltime")
             .order("created_at", { ascending: false })
             .limit(8),
 
@@ -124,11 +125,11 @@ export default function Home() {
             .select(
               `id, title, description, location, salary_range, work_type,
                selection_type,
-               tags, created_at,
-               companies ( name, logo_url )`
+               created_at,
+               companies ( name, logo )`
             )
-            .or("category.eq.インターン,selection_type.eq.intern_long")
             .eq("published", true)
+            .in("selection_type", ["intern_long", "internship_short"])
             .order("created_at", { ascending: false })
             .limit(6),
         ]);
@@ -147,18 +148,18 @@ export default function Home() {
           setCompanyArticles(comps);
         }
 
-        /* ---------- 注目企業 ---------- */
-        if (!companiesErr && companiesData) {
+        /* ---------- 注目企業/一旦なし ---------- *
+        /*if (!companiesErr && companiesData) {
           setFeaturedCompanies(
             companiesData.map((c: any) => ({
               id: c.id,
               name: c.name,
-              logo: c.logo_url ?? "",
+              logo: c.logo ?? "",
               industry: c.industry ?? "",
-              description: c.short_description ?? "",
+              description: c.description ?? "",
               tags: c.tags ?? [],
               rating: c.rating ?? 0,
-              employees: c.employee_size ?? "",
+              employees: c.employee_count ?? "",
               founded: c.founded_year ?? "",
               jobCount: (c.jobs ?? []).length,
             }))
@@ -172,11 +173,11 @@ export default function Home() {
               id: j.id,
               title: j.title,
               company: j.companies?.name ?? "",
-              companyLogo: j.companies?.logo_url ?? "",
+              companyLogo: j.companies?.logo ?? "",
               location: j.location ?? "",
               salary: j.salary_range ?? "",
               type: j.work_type ?? "",
-              tags: j.tags ?? [],
+              tags: [],
               description: j.description ?? "",
               postedAt: j.created_at,
               deadline: j.application_deadline,
@@ -195,12 +196,12 @@ export default function Home() {
               id: i.id,
               title: i.title,
               company: i.companies?.name ?? "",
-              companyLogo: i.companies?.logo_url ?? "",
+              companyLogo: i.companies?.logo ?? "",
               description: i.description ?? "",
               duration: "-", // 期間情報は別テーブルを後で紐づける想定
               salary: i.salary_range ?? "",
               isRemote: i.work_type === "リモート",
-              tags: i.tags ?? [],
+              tags: [],
             }))
           );
         }
@@ -382,7 +383,7 @@ return (
         </div>
       </section>
 
-      {/* Featured Companies Section */}
+      {/* 
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">
@@ -443,6 +444,7 @@ return (
           ))}
         </div>
       </section>
+      */}
 
       {/* Job Listings Section */}
       <section className="bg-gray-50 py-16">
@@ -513,8 +515,12 @@ return (
 
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">応募締切: {job.deadline}</span>
-                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-                      応募する
+                    <Button
+                      size="sm"
+                      className="bg-indigo-600 hover:bg-indigo-700"
+                      asChild
+                    >
+                      <Link href={`/jobs/${job.id}`}>詳細を見る</Link>
                     </Button>
                   </div>
                 </CardContent>
@@ -589,7 +595,12 @@ return (
                     ))}
                   </div>
 
-                  <Button className="w-full bg-pink-600 hover:bg-pink-700">詳細を見る</Button>
+                  <Button
+                    className="w-full bg-pink-600 hover:bg-pink-700"
+                    asChild
+                  >
+                    <Link href={`/jobs/${internship.id}`}>詳細を見る</Link>
+                  </Button>
                 </CardContent>
               </Card>
             ))
