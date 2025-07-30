@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star } from "lucide-react"
+import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star, ClipboardList, Clock, Mic } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 
@@ -29,9 +29,41 @@ const SELECTION_LABELS = {
   event:            "説明会／イベント",
 } as const;
 
+
+const SELECTION_ICONS: Record<string, JSX.Element> = {
+  fulltime: <Briefcase size={12} />,
+  internship_short: <ClipboardList size={12} />,
+  internship_long: <Clock size={12} />,
+  intern_long: <Clock size={12} />,
+  event: <Mic size={12} />,
+};
+
+// Badge color map for selection types
+const badgeColorMap: Record<string, string> = {
+  fulltime: "bg-blue-100 text-blue-800",
+  internship_short: "bg-green-100 text-green-800",
+  internship_long: "bg-yellow-100 text-yellow-800",
+  intern_long: "bg-yellow-100 text-yellow-800",
+  event: "bg-purple-100 text-purple-800",
+};
+
 const getSelectionLabel = (type?: string | null) => {
   const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
-  return SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime;
+  const colorClass = badgeColorMap[key] ?? "bg-gray-100 text-gray-800";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}
+    >
+      {SELECTION_ICONS[key]}
+      {SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime}
+    </span>
+  );
+};
+
+// Helper function to get just the badge classes for selection type
+const getSelectionLabelClass = (type?: string | null) => {
+  const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
+  return `inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${badgeColorMap[key]}`;
 };
 
 /** Supabase 型を拡張 */
@@ -151,6 +183,28 @@ export default function JobsPage() {
   const [view, setView] = useState<"grid" | "list">("grid")
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
+
+  // --- build a query‑string that reflects current filter states ---
+  const buildParams = (qValue: string = search.trim()) => {
+    const params = new URLSearchParams();
+    if (qValue) params.set("q", qValue);
+    params.set("tab", category);
+    if (industry !== "all") params.set("industry", industry);
+    if (jobType !== "all") params.set("jobType", jobType);
+    if (selectionType !== "all") params.set("selectionType", selectionType);
+    if (salaryMin !== "all") params.set("salaryMin", salaryMin);
+    return params.toString();
+  };
+
+  // --- keep the URL in sync when any filter changes (skip first render) ---
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    router.replace(`/jobs?${buildParams()}`, { scroll: false });
+  }, [industry, jobType, selectionType, salaryMin, category]);
 
   /* ---------------- fetch ----------------- */
   useEffect(() => {
@@ -289,10 +343,9 @@ job_tags!job_tags_job_id_fkey (
   /* ------------- UI ----------------------- */
   const router = useRouter()
   const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const q = search.trim()
-    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(q)}`)
-  }
+    e.preventDefault();
+    router.replace(`/jobs?${buildParams(search.trim())}`);
+  };
 
   if (loading) {
     return (
@@ -527,7 +580,7 @@ job_tags!job_tags_job_id_fkey (
                   className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
                   onClick={() => {
                     setSearch(kw)
-                    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(kw)}`)
+                    router.replace(`/jobs?${buildParams(kw)}`)
                   }}
                 >
                   {kw}
@@ -832,9 +885,10 @@ function JobGrid({
                 </div>
               )}
               <div className="flex flex-1 flex-col gap-2 p-4">
-                <Badge variant="outline" className="mb-0.5 text-[10px] rounded-full w-fit">
-                  {getSelectionLabel(j.selection_type)}
-                </Badge>
+                <span className={getSelectionLabelClass(j.selection_type)}>
+                  {SELECTION_ICONS[j.selection_type ?? "fulltime"]}
+                  {SELECTION_LABELS[j.selection_type ?? "fulltime"]}
+                </span>
                 <h3 className="text-lg font-bold">{j.title}</h3>
                 <p className="text-sm text-gray-600">
                   {j.companies?.name ?? "-"} / {j.location}
@@ -914,9 +968,10 @@ function JobGrid({
               </div>
             )}
             <div className="p-4">
-              <Badge variant="outline" className="mb-0.5 text-[10px] rounded-full">
-                {getSelectionLabel(j.selection_type)}
-              </Badge>
+              <span className={getSelectionLabelClass(j.selection_type)}>
+                {SELECTION_ICONS[j.selection_type ?? "fulltime"]}
+                {SELECTION_LABELS[j.selection_type ?? "fulltime"]}
+              </span>
               <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
               <p className="line-clamp-1 text-sm text-gray-600">
                 {j.companies?.name ?? "-"}
