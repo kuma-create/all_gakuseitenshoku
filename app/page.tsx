@@ -341,8 +341,11 @@ return (
               <Button
                 size="lg"
                 className="bg-white text-red-600 hover:bg-red-50 font-semibold rounded-full px-8 shadow-md"
+                asChild
               >
-                無料で始める
+                <Link href="/signup" className="flex items-center space-x-2">
+                  無料で始める
+                </Link>
               </Button>
               <Button
                 size="lg"
