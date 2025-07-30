@@ -1,7 +1,7 @@
 
 
 /* app/ipo/page.tsx */
-'use client'
+
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
