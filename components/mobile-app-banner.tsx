@@ -1,10 +1,20 @@
 import Image from "next/image"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Download, X } from "lucide-react"
 
 export default function MobileAppBanner() {
+  const [visible, setVisible] = useState(true)
+  if (!visible) return null
   return (
-    <div className="bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl overflow-hidden">
+    <div className="relative bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setVisible(false)}
+        aria-label="閉じる"
+        className="absolute top-2 right-2 text-white hover:text-gray-300"
+      >
+        <X className="w-4 h-4" />
+      </button>
       <div className="flex flex-col md:flex-row items-center">
         <div className="p-2 md:p-4 md:w-2/3">
           <h3 className="text-base md:text-lg font-bold text-white mb-1">
