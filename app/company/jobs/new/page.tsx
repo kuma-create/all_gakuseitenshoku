@@ -732,7 +732,6 @@ export default function NewJobPage() {
                     value={formData.title}
                     onChange={handleInputChange}
                     className={`mt-1 ${errors.title ? "border-red-500" : ""}`}
-                    placeholder="例: フロントエンドエンジニア"
                   />
                   {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title}</p>}
                   <p className="text-sm text-muted-foreground mt-1">求職者が検索しやすいタイトルを設定してください</p>
@@ -1247,7 +1246,7 @@ export default function NewJobPage() {
 
                     {/* summary */}
                     {isInternship ? (
-                      /* ---------- Internship preview ---------- */
+                      /* ---------- Short‑term Internship preview ---------- */
                       <>
                         {/* internship summary grid */}
                         <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
@@ -1273,6 +1272,72 @@ export default function NewJobPage() {
                             icon={<Briefcase size={16} />}
                             label="報酬"
                             value={formData.allowance || "応相談"}
+                          />
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="勤務地"
+                            value={formData.location || "オンライン可"}
+                          />
+                        </div>
+
+                        {/* description */}
+                        <SectionCard icon={FileText} title="インターン内容">
+                          <p className="whitespace-pre-wrap text-gray-700">
+                            {formData.description || "職務内容がここに表示されます。"}
+                          </p>
+                        </SectionCard>
+
+                        {/* requirements */}
+                        {formData.requirements && (
+                          <SectionCard icon={CheckCircle} title="応募条件">
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              {formData.requirements
+                                .split("\n")
+                                .filter(Boolean)
+                                .map((r: string, i: number) => (
+                                  <li key={i} className="flex gap-2">
+                                    <Plus size={16} className="text-red-600 mt-0.5" />
+                                    <span>{r}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </SectionCard>
+                        )}
+                      </>
+                    ) : isInternLong ? (
+                      /* ---------- Long‑term Internship preview ---------- */
+                      <>
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<Calendar size={16} />}
+                            label="最低参加期間"
+                            value={
+                              formData.minDurationMonths
+                                ? `${formData.minDurationMonths}ヶ月〜`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="週あたりの勤務日数"
+                            value={
+                              formData.workDaysPerWeek
+                                ? `週${formData.workDaysPerWeek}日`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="報酬"
+                            value={
+                              formData.remunerationType === "hourly"
+                                ? formData.hourlyWage
+                                  ? `${formData.hourlyWage}円／時`
+                                  : "要相談"
+                                : formData.commissionRate
+                                ? `歩合 ${formData.commissionRate}`
+                                : "歩合"
+                            }
                           />
                           <SummaryItem
                             icon={<MapPin size={16} />}
