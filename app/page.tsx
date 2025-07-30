@@ -10,16 +10,16 @@ import {
   TrendingUp,
   Bell,
   Menu,
-  Clock,
   Eye,
   Heart,
   Share2,
   Bookmark,
   ArrowRight,
-  Briefcase,
   Users,
   GraduationCap,
   Zap,
+  Calendar,
+  Star,
 } from "lucide-react"
 import ArticleCard from "@/components/article-card"
 import TrendingTopics from "@/components/trending-topics"
@@ -41,6 +41,7 @@ import {
   CardDescription,
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+
 
 
 
@@ -111,7 +112,7 @@ export default function Home() {
           supabase
             .from("jobs")
             .select(
-              `id, title, description, location, salary_range, work_type, selection_type,
+              `id, title, description, location, salary_range, work_type, selection_type, cover_image_url,
                is_recommended, created_at, application_deadline,
                companies ( name, logo )`
             )
@@ -125,8 +126,7 @@ export default function Home() {
             .from("jobs")
             .select(
               `id, title, description, location, salary_range, work_type,
-               selection_type,
-               created_at,
+               selection_type, cover_image_url, created_at, is_recommended,
                companies ( name, logo )`
             )
             .eq("published", true)
@@ -186,6 +186,8 @@ export default function Home() {
                 Date.now() - new Date(j.created_at).getTime() <
                 1000 * 60 * 60 * 24 * 7, // 7 days
               isRecommended: j.is_recommended,
+              coverImageUrl: j.cover_image_url ?? "",
+              selectionType: j.selection_type ?? "fulltime",
             }))
           );
         }
@@ -199,10 +201,14 @@ export default function Home() {
               company: i.companies?.name ?? "",
               companyLogo: i.companies?.logo ?? "",
               description: i.description ?? "",
+              coverImageUrl: i.cover_image_url ?? "",
+              isNew:
+                Date.now() - new Date(i.created_at).getTime() <
+                1000 * 60 * 60 * 24 * 7,
               duration: "-", // 期間情報は別テーブルを後で紐づける想定
               salary: i.salary_range ?? "",
               isRemote: i.work_type === "リモート",
-              tags: [],
+              isRecommended: i.is_recommended,
             }))
           );
         }
@@ -470,7 +476,7 @@ return (
             すべて見る <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {articlesWithImages.slice(0, 3).map((a) => (
             <ArticleCard
               key={a.id}
@@ -567,65 +573,59 @@ return (
             {jobListings.map((job) => (
               <Card
                 key={job.id}
-                className="overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow rounded-xl"
               >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start space-x-3">
+                <Link href={`/jobs/${job.id}`} className="block">
+                  {job.coverImageUrl && (
+                    <div className="relative h-32 w-full overflow-hidden">
                       <Image
-                        src={job.companyLogo}
-                        alt={job.company}
-                        width={40}
-                        height={40}
-                        className="h-10 w-10 object-contain rounded"
+                        src={job.coverImageUrl || "/placeholder.svg"}
+                        alt="cover"
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
-                      <div>
-                        <h3 className="font-bold text-gray-900 line-clamp-1">{job.title}</h3>
-                        <p className="text-xs text-gray-600">{job.company}</p>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      {job.companyLogo && (
+                        <Image
+                          src={job.companyLogo || "/placeholder.svg"}
+                          alt={job.company}
+                          width={64}
+                          height={64}
+                          className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                        />
+                      )}
+                      {job.isRecommended && (
+                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
+                          <Star size={12} />
+                          おすすめ
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="p-4">
+                    <h3 className="mb-1 line-clamp-1 font-bold">{job.title}</h3>
+                    <p className="line-clamp-1 text-sm text-gray-600">{job.company}</p>
+
+                    {(job.salary || job.deadline) && (
+                      <div className="mt-3 text-xs text-gray-500 flex gap-1 items-center">
+                        {job.salary && <span>{job.salary}</span>}
+                        {job.deadline && (
+                          <>
+                            <Calendar size={12} />
+                            <span>締切 {job.deadline}</span>
+                          </>
+                        )}
                       </div>
-                    </div>
-                    <div className="flex space-x-1">
-                      {job.isNew && <Badge className="bg-green-100 text-green-700 text-xs">NEW</Badge>}
-                      {job.isRecommended && <Badge className="bg-blue-100 text-blue-700 text-xs">おすすめ</Badge>}
-                    </div>
+                    )}
                   </div>
+                </Link>
 
-                  <p className="text-xs text-gray-600 mb-4 line-clamp-2">{job.description}</p>
-
-                  <div className="space-y-2 mb-4 text-xs">
-                    <div className="flex items-center text-gray-600">
-                      <span className="w-16 text-gray-500">勤務地:</span>
-                      <span>{job.location}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <span className="w-16 text-gray-500">給与:</span>
-                      <span className="font-medium text-green-600">{job.salary}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <span className="w-16 text-gray-500">雇用:</span>
-                      <span>{job.type}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {(job.tags as string[]).slice(0, 3).map((tag: string) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">応募締切: {job.deadline}</span>
-                    <Button
-                      size="sm"
-                      className="bg-indigo-600 hover:bg-indigo-700"
-                      asChild
-                    >
-                      <Link href={`/jobs/${job.id}`}>詳細を見る</Link>
-                    </Button>
-                  </div>
-                </CardContent>
+                <div className="absolute right-2 top-2 flex space-x-1">
+                  {job.isNew && (
+                    <Badge className="bg-green-100 text-green-700 text-xs">NEW</Badge>
+                  )}
+                </div>
               </Card>
             ))}
           </div>
@@ -653,57 +653,54 @@ return (
             internships.map((internship) => (
               <Card
                 key={internship.id}
-                className="overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow rounded-xl"
               >
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Image
-                      src={internship.companyLogo}
-                      alt={internship.company}
-                      width={40}
-                      height={40}
-                      className="h-10 w-10 object-contain rounded"
-                    />
-                    <div>
-                      <h3 className="font-bold text-gray-900 line-clamp-1">{internship.title}</h3>
-                      <p className="text-xs text-gray-600">{internship.company}</p>
+                <Link href={`/jobs/${internship.id}`} className="block">
+                  {internship.coverImageUrl && (
+                    <div className="relative h-32 w-full overflow-hidden">
+                      <Image
+                        src={internship.coverImageUrl || "/placeholder.svg"}
+                        alt="cover"
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      {internship.companyLogo && (
+                        <Image
+                          src={internship.companyLogo || "/placeholder.svg"}
+                          alt={internship.company}
+                          width={64}
+                          height={64}
+                          className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                        />
+                      )}
+                      {internship.isRecommended && (
+                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
+                          <Star size={12} />
+                          おすすめ
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  <div className="p-4">
+                    <h3 className="mb-1 line-clamp-1 font-bold">{internship.title}</h3>
+                    <p className="line-clamp-1 text-sm text-gray-600">{internship.company}</p>
+
+                    {(internship.salary || internship.duration) && (
+                      <div className="mt-3 text-xs text-gray-500 flex gap-1 items-center">
+                        {internship.salary && <span>{internship.salary}</span>}
+                        {internship.duration && <span>{internship.duration}</span>}
+                      </div>
+                    )}
                   </div>
+                </Link>
 
-                  <p className="text-xs text-gray-600 mb-4 line-clamp-2">{internship.description}</p>
-
-                  <div className="space-y-2 mb-4 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500">期間</span>
-                      <span className="font-medium">{internship.duration}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500">時給</span>
-                      <span className="font-medium text-green-600">{internship.salary}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500">勤務</span>
-                      <Badge variant={internship.isRemote ? 'default' : 'secondary'} className="text-xs">
-                        {internship.isRemote ? 'リモート可' : 'オフィス勤務'}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {(internship.tags as string[]).slice(0, 3).map((tag: string) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <Button
-                    className="w-full bg-pink-600 hover:bg-pink-700"
-                    asChild
-                  >
-                    <Link href={`/jobs/${internship.id}`}>詳細を見る</Link>
-                  </Button>
-                </CardContent>
+                <div className="absolute right-2 top-2 flex space-x-1">
+                  {internship.isNew && (
+                    <Badge className="bg-green-100 text-green-700 text-xs">NEW</Badge>
+                  )}
+                </div>
               </Card>
             ))
           )}
