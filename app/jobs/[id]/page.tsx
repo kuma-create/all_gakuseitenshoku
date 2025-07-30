@@ -38,7 +38,7 @@ const JobDescription = dynamic(() => import("./JobDescription"), {
 })
 
 /* Variant UIs */
-import { FulltimeInfo, InternInfo, EventInfo } from "./_variants"
+import { FulltimeInfo, InternInfo, InternLongInfo, EventInfo } from "./_variants"
 
 import Head from "next/head";
 
@@ -105,6 +105,13 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
               description
             ),
             internship:internship_details!job_id(*),
+            intern_long_details!job_id(
+              min_duration_months,
+              work_days_per_week,
+              remuneration_type,
+              hourly_wage,
+              commission_rate
+            ),
             fulltime:fulltime_details!job_id(*),
             event:event_details!job_id(*)
           `)
@@ -269,10 +276,23 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
   let Body: React.JSX.Element;
   switch (job.selection_type as "fulltime" | "internship_short" | "internship_long" | "intern_long" | "event") {
     case "internship_short":
+      Body = (
+        <InternInfo
+          job={job}
+          company={company!}
+          tags={tags}
+          related={related}
+          apply={handleApply}
+          hasApplied={hasApplied}
+          showForm={showForm}
+          setShowForm={setShowForm}
+        />
+      );
+      break;
     case "internship_long":
     case "intern_long":
       Body = (
-        <InternInfo
+        <InternLongInfo
           job={job}
           company={company!}
           tags={tags}

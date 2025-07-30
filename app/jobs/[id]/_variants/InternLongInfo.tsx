@@ -75,6 +75,12 @@ export default function InternInfo({
   const [isInterested, setIsInterested] = useState(false)
   const router = useRouter()
 
+  // ----- Derived values -----
+  // Show only published related jobs
+  const publishedRelated = related.filter(
+    (r: any) => r?.published === true || r?.jobs?.published === true
+  )
+
   const handleApplyClick = async () => {
     // 1) Check login state
     const { data: { session } } = await supabase.auth.getSession()
@@ -106,17 +112,34 @@ export default function InternInfo({
     setIsInterested(arr.includes(job.id))
   }, [job.id])
 
-  /* computed */
-  const period =
-    job?.internship?.period ??
-    `${job?.internship?.start_date ?? "—"} 〜 ${
-      job?.internship?.end_date ?? "—"
-    }`
-  const workingDays = job?.internship?.working_days ?? "応相談"
-  const hourlyWage =
-    job?.salary_min && job?.salary_max
-      ? `${job.salary_min.toLocaleString()}〜${job.salary_max.toLocaleString()}円／時`
-      : "要相談"
+  // ----- Summary values -----
+  // Prefer `job.intern_long_details` (joined directly from Supabase) but
+  // fall back to `job.internship` for compatibility.
+  const internship = job?.intern_long_details ?? job?.internship ?? {}
+
+  const minDurationMonths = internship.min_duration_months ?? null
+  const minDurationDisplay = minDurationMonths ? `${minDurationMonths}ヶ月〜` : "応相談"
+
+  const remunerationDisplay = (() => {
+    const type = internship.remuneration_type ?? "hourly"
+    if (type === "commission") {
+      return internship.commission_rate ? `歩合 ${internship.commission_rate}` : "歩合"
+    }
+    if (internship.hourly_wage) {
+      return `${internship.hourly_wage.toLocaleString()}円／時`
+    }
+    return "要相談"
+  })()
+
+  const workingDaysRaw =
+    internship.work_days_per_week ??
+    internship.working_days ?? // fallback for old schema
+    null
+
+  const workingDaysDisplay =
+    typeof workingDaysRaw === "number"
+      ? `週${workingDaysRaw}日`
+      : workingDaysRaw ?? "応相談"
 
   const isNew =
     job?.created_at &&
@@ -199,18 +222,18 @@ export default function InternInfo({
               <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                 <SummaryItem
                   icon={<Calendar size={16} />}
-                  label="期間"
-                  value={period}
+                  label="最低参加期間"
+                  value={minDurationDisplay}
                 />
                 <SummaryItem
                   icon={<Clock size={16} />}
-                  label="勤務日数"
-                  value={workingDays}
+                  label="週あたりの勤務日数"
+                  value={workingDaysDisplay}
                 />
                 <SummaryItem
                   icon={<Briefcase size={16} />}
                   label="報酬"
-                  value={hourlyWage}
+                  value={remunerationDisplay}
                 />
                 <SummaryItem
                   icon={<MapPin size={16} />}
@@ -390,7 +413,7 @@ export default function InternInfo({
           </SectionCard>
 
           {/* related */}
-          <Card className="border-0 shadow-md">
+         <Card className="border-0 shadow-md">
             <CardHeader className="border-b border-gray-100 bg-gray-50 pb-4">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <ListFilter className="h-5 w-5 text-red-600" />
@@ -398,9 +421,9 @@ export default function InternInfo({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              {related.length ? (
+              {publishedRelated.length ? (
                 <ul className="space-y-2 text-sm">
-                  {related.map((r: any) => (
+                  {publishedRelated.map((r: any) => (
                     <li key={r.id} className="flex items-center gap-2">
                       <Link
                         href={`/jobs/${r.id}`}
@@ -413,7 +436,7 @@ export default function InternInfo({
                 </ul>
               ) : (
                 <p className="text-center text-sm text-gray-500">
-                  関連するインターンはありません
+                  公開中の関連インターンはありません
                 </p>
               )}
             </CardContent>
