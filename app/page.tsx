@@ -26,6 +26,7 @@ import TrendingTopics from "@/components/trending-topics"
 import GptCareerAdvisorCard from "@/components/GptCareerAdvisorCard"
 import MobileAppBanner from "@/components/mobile-app-banner"
 import { ProfileCompletionCard } from "@/components/ProfileCompletionCard"
+import { motion } from "framer-motion"
 import JobsAdvisorInline from "@/components/JobsAdvisorInline"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation";
@@ -289,68 +290,166 @@ return (
       {/* Desktop and Mobile Headers removed */}
 
       {/* Hero Section -------------------------------------------------- */}
-      <section className="relative bg-gradient-to-br from-red-50 via-white to-blue-50 py-4 md:py-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center px-4 md:px-8">
-          {/* Copy ---------------------------------------------------------------- */}
-          <div>
-            <h1 className="text-3xl md:text-5xl font-extrabold leading-none text-gray-900 mb-4">
-              学生の未来を
-              <br />
-              <span className="bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
-                PIVOT
+      <section className="relative isolate flex items-center bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white overflow-hidden h-[80vh] md:h-[85vh] animate-hero-bg">
+        {/* Decorative gradient blobs */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-32 -left-40 w-[580px] h-[580px] rounded-full bg-white/10 blur-3xl animate-[blob_35s_ease-in-out_infinite]"></div>
+          <div className="absolute bottom-0 right-0 w-[460px] h-[460px] rounded-full bg-white/10 blur-3xl animate-[blob_40s_ease-in-out_infinite]"></div>
+        </div>
+
+        <div className="max-w-7xl mx-auto flex flex-col-reverse md:flex-row items-center justify-between gap-8 px-6 md:px-10">
+          {/* --- Copy ---------------------------------------------------------------- */}
+          <div className="max-w-xl text-center md:text-left">
+
+            <motion.h2
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+              className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight mb-4"
+            >
+              学生転職
+            </motion.h2>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-6"
+            >
+              <span className="block">学生のキャリアは</span>
+              <span className="block mt-2 text-5xl sm:text-6xl lg:text-7xl text-white drop-shadow-md">
+                可能性
               </span>
-              する
-            </h1>
+              <span className="block mt-2">に満ち溢れている</span>
+            </motion.h1>
 
-            <p className="text-lg md:text-xl text-gray-600 mb-10 leading-relaxed">
-              AI時代のキャリア形成を支援する
-              <wbr />
-              次世代メディアプラットフォーム
-            </p>
+            <motion.p
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+              className="text-lg sm:text-xl lg:text-2xl font-medium mb-10 opacity-90 leading-relaxed"
+            >
+              知ってる人は使ってる。キャリアプラットフォーム
+            </motion.p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut", delay: 0.4 }}
+              className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center md:justify-start"
+            >
               <Button
                 size="lg"
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full px-8"
+                className="bg-white text-red-600 hover:bg-red-50 font-semibold rounded-full px-8 shadow-md"
               >
                 無料で始める
               </Button>
               <Button
                 size="lg"
-                variant="outline"
-                className="rounded-full px-8 border-gray-300 text-gray-700 hover:bg-gray-100"
+                variant="ghost"
+                className="rounded-full px-8 backdrop-blur-sm bg-white/15 border border-white/60 text-white font-semibold hover:bg-white hover:text-red-600 transition-colors flex items-center justify-center"
                 asChild
               >
-                <Link href="/jobs">キャリアを探す</Link>
+                <Link href="/jobs" className="flex items-center space-x-2">
+                  <span>キャリアを探す</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
               </Button>
-            </div>
+            </motion.div>
           </div>
 
-          {/* Illustration ------------------------------------------------------- */}
-          <div className="flex justify-center md:justify-end">
+          {/* --- Illustration ------------------------------------------------------- */}
+          <div className="relative flex justify-center md:justify-end">
+            {/* subtle glow backdrop */}
+            <div className="absolute -z-10 w-[500px] h-[500px] rounded-full bg-white/10 blur-3xl" />
             <Image
               src="/logo2.png"
               alt="就活生がキャリアを考えるイメージ"
-              width={360}
-              height={260}
-              className="w-full h-auto max-w-xs md:max-w-md"
+              width={460}
+              height={350}
+              className="w-72 sm:w-96 lg:w-[460px] h-auto drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)] animate-[float_6s_ease-in-out_infinite]"
               priority
             />
           </div>
         </div>
       </section>
 
-            {/* Promo Video -------------------------------------------------------- */}
-      <section className="w-full bg-black">
-        <div className="max-w-6xl mx-auto">
-          <div className="relative pt-[56.25%]">
-            <iframe
-              src="https://www.youtube.com/embed/VIDEO_ID?rel=0&controls=1&modestbranding=1"
-              title="Make Culture Promo Video"
-              className="absolute inset-0 w-full h-full rounded-lg"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+      {/* ---- Animations -------------------------------------------------- */}
+      <style jsx global>{`
+        @keyframes blob {
+          0%,100% { transform: translate(0px,0px) scale(1); }
+          33%     { transform: translate(30px,-50px) scale(1.05); }
+          66%     { transform: translate(-20px,40px) scale(0.95); }
+        }
+        @keyframes float {
+          0%,100% { transform: translateY(0); }
+          50%     { transform: translateY(-25px); }
+        }
+        @keyframes gradientShift {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        /* ---------- Animated hero gradient background ---------- */
+        @keyframes heroBg {
+          0%,100% { background-position: 0% 50%; }
+          50%     { background-position: 100% 50%; }
+        }
+        .animate-hero-bg {
+          background-size: 300% 300%;
+          animation: heroBg 12s ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* Featured Video & Side Articles ------------------------------------ */}
+      <section className="max-w-6xl mx-auto px-4 py-16">
+        <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">
+          注目のコンテンツ
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* --- Main Video --- */}
+          <div className="md:col-span-2">
+            <div className="relative pt-[56.25%] rounded-lg overflow-hidden shadow">
+              <iframe
+                src="https://www.youtube.com/embed/VIDEO_ID?rel=0&controls=1&modestbranding=1"
+                title="Make Culture Promo Video"
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </div>
+
+          {/* --- Side Article List --- */}
+          <div className="space-y-6">
+            {articlesWithImages.slice(0, 2).map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setActive(a)}
+                className="flex items-center space-x-4 text-left hover:opacity-80 transition"
+              >
+                <Image
+                  src={a.imageUrl}
+                  alt={a.title}
+                  width={96}
+                  height={64}
+                  className="w-24 h-16 object-cover rounded"
+                />
+                <div className="flex-1">
+                  <Badge variant="secondary" className="mb-1 text-xs">
+                    {a.category ?? "その他"}
+                  </Badge>
+                  <h3 className="text-sm font-medium leading-snug line-clamp-2">
+                    {a.title}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {a.publishedAt.slice(0, 10)}
+                  </p>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -901,9 +1000,9 @@ return (
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between">
             <div className="mb-6 md:mb-0">
-              <Image src="/images/logo.png" alt="学生転職 GPT" width={120} height={40} className="h-8 w-auto mb-4" />
+              <Image src="/images/logo.png" alt="学生転職" width={120} height={40} className="h-8 w-auto mb-4" />
               <p className="text-sm text-gray-600 max-w-md">
-                学生転職GPTは、最新のAI技術を活用した就活支援メディアプラットフォームです。
+                学生転職は、最新のAI技術を活用した就活支援メディアプラットフォームです。
                 キャリア形成から企業研究、面接対策まで、あなたの就活をサポートします。
               </p>
             </div>
