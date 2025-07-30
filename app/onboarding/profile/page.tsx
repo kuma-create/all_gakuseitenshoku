@@ -310,6 +310,27 @@ const handleWorkExperienceChange = (
             : {}),
         };
         await savePartial(partial);
+        /* --- システム監視用メール送信 -------------------- */
+        if (form.join_ipo) {
+          const studentName = `${form.last_name}${form.first_name}`;
+          try {
+            // 現在の認証ユーザー ID を related_id として付与
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            const res = await supabase.functions.invoke("send-email", {
+              body: {
+                user_id:           "e567ebe5-55d3-408a-b591-d567cdd3470a", // システム監視用ユーザー ID
+                from_role:         "system",
+                notification_type: "join_ipo",
+                related_id:        authUser?.id ?? null,
+                title:             `【学生転職】 学生がIPOに参加希望です`,
+                message:           `学生名：${studentName}`,
+              },
+            });
+            console.log("send-email response:", res);
+          } catch (sysEmailErr) {
+            console.error("send-email (system) error", sysEmailErr);
+          }
+        }
       }
       setStep((s) => (s + 1) as typeof step);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -630,7 +651,7 @@ function Step3Inputs({ form, onChange }: { form: FormState; onChange: (e: InputC
           id="join_ipo"
           type="checkbox"
           checked={form.join_ipo}
-          onChange={(e) => onChange({ ...e, target: { ...e.target, id: "join_ipo" } })}
+          onChange={onChange}
         />
         <Label htmlFor="join_ipo">選抜コミュニティ IPO への参加を希望する</Label>
       </div>
