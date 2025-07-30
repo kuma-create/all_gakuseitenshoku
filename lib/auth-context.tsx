@@ -74,6 +74,7 @@ const PUBLIC_ROUTES = new Set([
   "/onboarding/profile",
   "/grandprix",
   "/lp",
+  "/ipo",
   "/search",
   "/terms",  
   "/lp/students/fee",
