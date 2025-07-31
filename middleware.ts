@@ -33,6 +33,7 @@ const PUBLIC_PREFIXES = [
   "/admin/login", 
   "/media",
   "/search",
+  "/internships",
   "/features",
   "/onboarding/profile",
   "/forgot-password",            // 管理者ログイン
@@ -208,6 +209,6 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|ipo|admin|company|lp|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|search|media|whitepapers).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|internships|ipo|admin|company|lp|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|search|media|whitepapers).*)",
   ],
 };
