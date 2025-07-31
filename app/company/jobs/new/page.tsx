@@ -15,12 +15,12 @@ import {
   EyeOff,
   Briefcase,
   Clock,
-  Building2,
   FileText,
   CheckCircle,
   Check,
   Plus,
   Users,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -31,6 +31,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/lib/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Command, CommandItem } from "@/components/ui/command"
+// --- selectable job categories (single‑select) ---
+const JOB_CATEGORIES = [
+  "エンジニア",
+  "研究・開発",
+  "品質管理",
+  "デザイナー",
+  "営業",
+  "総務・人事",
+  "物流",
+  "生産管理",
+  "コンサルタント",
+  "経理・財務",
+  "企画・マーケティング",
+  "販売・サービス",
+] as const;
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { supabase } from "@/lib/supabase/client"
 import { useAuth }  from "@/lib/auth-context"
@@ -73,7 +91,7 @@ export default function NewJobPage() {
   const [formData, setFormData] = useState({
     /* 共通 */
     title: "",
-    department: "",
+    departments: [] as string[],
     employmentType:
       selectionType === "internship_short" || selectionType === "intern_long"
         ? "インターン"
@@ -110,7 +128,30 @@ export default function NewJobPage() {
     venue: "",
     format: "onsite",
     schedule: "",
-  })
+  });
+
+  /** add / remove a job category (multi-select) */
+  const toggleDepartment = (value: string) => {
+    setFormData(prev => {
+      const exists = prev.departments.includes(value);
+      return {
+        ...prev,
+        departments: exists
+          ? prev.departments.filter(v => v !== value)
+          : [...prev.departments, value],
+      };
+    });
+    // エラーがあればクリア
+    if (errors.departments) {
+      setErrors(prev => {
+        const ne = { ...prev };
+        delete ne.departments;
+        return ne;
+      });
+    }
+  };
+
+  // (toggleDepartment helper removed)
 
   useEffect(() => {
     if (!copyId) return;
@@ -286,6 +327,10 @@ export default function NewJobPage() {
     if (!formData.coverImageUrl.trim())
       newErrors.coverImageUrl = "背景写真URLを入力してください"
     if (!formData.location.trim()) newErrors.location = "勤務地を入力してください"
+    // departments (職種) 必須
+    if (selectionType !== "event" && formData.departments.length === 0) {
+      newErrors.departments = "職種を選択してください";
+    }
     if (selectionType === "fulltime" && !formData.workingDays.trim())
       newErrors.workingDays = "勤務日を入力してください"
     if (selectionType === "fulltime" && !formData.salary.trim())
@@ -403,7 +448,9 @@ export default function NewJobPage() {
             : "本選考",
         title                : formData.title,
         description          : formData.description,
-        department           : formData.department || null,
+        department           : formData.departments.length
+                                 ? formData.departments.join(",")
+                                 : null,
         requirements         : formData.requirements || null,
         location             : formData.location || null,
         work_type            : formData.employmentType,
@@ -666,7 +713,7 @@ export default function NewJobPage() {
                       setFormData({
                         /* 共通 */
                         title: "",
-                        department: "",
+                        departments: [],
                         employmentType: "正社員",
                         description: "",
                         requirements: "",
@@ -773,17 +820,43 @@ export default function NewJobPage() {
                 {selectionType !== "event" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="department">部署</Label>
-                      <div className="relative">
-                        <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                        <Input
-                          id="department"
-                          name="department"
-                          value={formData.department}
-                          onChange={handleInputChange}
-                          className="pl-10 mt-1"
-                          placeholder="例: 開発部"
-                        />
+                      <div>
+                        <Label className="flex items-center gap-1">
+                          職種（複数選択可）<span className="text-red-500">*</span>
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={`mt-3.5 w-full flex justify-between ${errors.departments ? "border-red-500" : ""}`}
+                            >
+                              {formData.departments.length
+                                ? formData.departments.join(", ")
+                                : "職種を選択"}
+                              <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0" side="bottom" align="start">
+                            <Command loop>
+                              {JOB_CATEGORIES.map((cat) => (
+                                <CommandItem
+                                  key={cat}
+                                  onSelect={() => toggleDepartment(cat)}
+                                  className="flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Checkbox
+                                    checked={formData.departments.includes(cat)}
+                                    className="mr-2"
+                                  />
+                                  {cat}
+                                </CommandItem>
+                              ))}
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        {errors.departments && (
+                          <p className="text-sm text-red-500 mt-1">{errors.departments}</p>
+                        )}
                       </div>
                     </div>
 
