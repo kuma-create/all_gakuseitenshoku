@@ -110,6 +110,7 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
               remuneration_type,
               hourly_wage,
               commission_rate
+            ),
             fulltime:fulltime_details!job_id(*),
             event:event_details!job_id(*)
           `)
