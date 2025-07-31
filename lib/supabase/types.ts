@@ -2574,6 +2574,7 @@ export type Database = {
           last_name_kana: string | null
           last_sign_in_at: string | null
           motive: string | null
+          phase_status: string | null
           phone: string | null
           postal_code: string | null
           pr_body: string | null
@@ -2632,6 +2633,7 @@ export type Database = {
           last_name_kana?: string | null
           last_sign_in_at?: string | null
           motive?: string | null
+          phase_status?: string | null
           phone?: string | null
           postal_code?: string | null
           pr_body?: string | null
@@ -2690,6 +2692,7 @@ export type Database = {
           last_name_kana?: string | null
           last_sign_in_at?: string | null
           motive?: string | null
+          phase_status?: string | null
           phone?: string | null
           postal_code?: string | null
           pr_body?: string | null
