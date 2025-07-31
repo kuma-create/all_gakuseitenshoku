@@ -1383,6 +1383,7 @@ export type Database = {
           id: string
           is_paid: boolean
           job_id: string | null
+          min_duration_months: string | null
           nearest_station: string | null
           remuneration_type: string
           selection_id: string
@@ -1400,6 +1401,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           job_id?: string | null
+          min_duration_months?: string | null
           nearest_station?: string | null
           remuneration_type?: string
           selection_id: string
@@ -1417,6 +1419,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           job_id?: string | null
+          min_duration_months?: string | null
           nearest_station?: string | null
           remuneration_type?: string
           selection_id?: string
