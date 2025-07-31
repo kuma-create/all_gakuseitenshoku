@@ -4,6 +4,13 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { Send, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import JobSnippetCard from '@/components/JobSnippetCard'
@@ -33,6 +40,15 @@ export default function CareerAdvisorChat() {
   const [isThinking, setIsThinking] = useState(false)
   const [jobs, setJobs] = useState<JobSnippet[]>([])
   const [input, setInput] = useState('')
+  const [preset, setPreset] = useState('')
+
+  // 選択式プリセット
+  const presetOptions = [
+    { value: 'resume', label: '職務経歴書 / ES 添削' },
+    { value: 'interview', label: '面接対策' },
+    { value: 'career', label: 'キャリアパス提案' },
+    { value: 'research', label: '企業研究' },
+  ]
   const bottomRef = useRef<HTMLDivElement>(null)
 
   /* ------- スクロールを常に最下部へ ------- */
@@ -147,7 +163,31 @@ export default function CareerAdvisorChat() {
       </div>
 
       {/* 入力フォーム */}
-      <form onSubmit={handleSubmit} className="flex gap-2 p-3 border-t bg-white">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col md:flex-row gap-2 p-3 border-t bg-white"
+      >
+        {/* プリセット選択 */}
+        <Select
+          value={preset}
+          onValueChange={(v) => {
+            setPreset(v)
+            const opt = presetOptions.find((o) => o.value === v)
+            if (opt) setInput(opt.label)
+          }}
+        >
+          <SelectTrigger className="md:w-52">
+            <SelectValue placeholder="お悩みを選択…" />
+          </SelectTrigger>
+          <SelectContent>
+            {presetOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
