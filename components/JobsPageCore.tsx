@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star, ClipboardList, Clock, Mic } from "lucide-react"
+import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star, ClipboardList, Clock, Mic, GraduationCap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState, useRef } from "react"
@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// （Tabs 依存を削除したため、インポートも削除）
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 import Head from "next/head"
@@ -330,6 +330,15 @@ job_tags!job_tags_job_id_fkey (
       return daysLeft >= 0 && daysLeft <= 7 // 7日以内に締切
     })
   }, [jobs])
+
+  /* ----- category lists for grouped view ----- */
+  const fulltimeJobs = displayed.filter((j) => j.selection_type === "fulltime");
+
+  const internJobs = displayed.filter((j) =>
+    ["internship_short", "internship_long", "intern_long"].includes(j.selection_type ?? ""),
+  );
+
+  const eventJobs = displayed.filter((j) => j.selection_type === "event");
 
   /* ------------- helpers ------------------ */
   const toggleSave = (id: string) =>
@@ -691,46 +700,56 @@ job_tags!job_tags_job_id_fkey (
 
       {/* content */}
       <main className="container mx-auto max-w-6xl px-4 py-8">
-        <Tabs defaultValue="all">
-          <TabsList className="mb-6 grid max-w-md grid-cols-3 bg-gray-100 p-1 rounded-lg">
-            <TabsTrigger value="all" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              すべて
-            </TabsTrigger>
-            <TabsTrigger value="saved" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              保存済み
-            </TabsTrigger>
-            <TabsTrigger value="new" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              新着
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all">
-            <JobGrid jobs={displayed} view={view} saved={saved} toggleSave={toggleSave} tagColor={tagColor} />
-          </TabsContent>
-
-          <TabsContent value="saved">
+        {/* ---------- 求人カテゴリごとの表示 ---------- */}
+        <section className="space-y-10">
+          {/* 本選考 */}
+          <div>
+            <CategoryHeader
+              icon={<Briefcase size={16} />}
+              label="本選考"
+              colorClass="bg-indigo-500"
+            />
             <JobGrid
-              jobs={displayed.filter((j) => saved.has(j.id))}
+              jobs={fulltimeJobs}
               view={view}
               saved={saved}
               toggleSave={toggleSave}
               tagColor={tagColor}
             />
-          </TabsContent>
+          </div>
 
-          <TabsContent value="new">
+          {/* インターンシップ */}
+          <div>
+            <CategoryHeader
+              icon={<GraduationCap size={16} />}
+              label="インターンシップ"
+              colorClass="bg-pink-500"
+            />
             <JobGrid
-              jobs={displayed.filter((j) => {
-                const diff = (Date.now() - new Date(j.created_at!).getTime()) / 86400000
-                return diff < 7
-              })}
+              jobs={internJobs}
               view={view}
               saved={saved}
               toggleSave={toggleSave}
               tagColor={tagColor}
             />
-          </TabsContent>
-        </Tabs>
+          </div>
+
+          {/* 説明会／イベント */}
+          <div>
+            <CategoryHeader
+              icon={<Mic size={16} />}
+              label="説明会／イベント"
+              colorClass="bg-purple-500"
+            />
+            <JobGrid
+              jobs={eventJobs}
+              view={view}
+              saved={saved}
+              toggleSave={toggleSave}
+              tagColor={tagColor}
+            />
+          </div>
+        </section>
       </main>
 
       {/* "締め切り間近なインターン" Section */}
@@ -766,6 +785,27 @@ job_tags!job_tags_job_id_fkey (
       </footer>
     </div>
     </>
+  )
+}
+
+
+/** ── 求人カテゴリ見出し ─────────────────────────── */
+function CategoryHeader({
+  icon,
+  label,
+  colorClass,
+}: {
+  icon: JSX.Element
+  label: string
+  colorClass: string
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className={`${colorClass} rounded-md p-2 text-white flex items-center justify-center`}>
+        {icon}
+      </div>
+      <h2 className="text-2xl font-bold text-gray-800">{label}</h2>
+    </div>
   )
 }
 
