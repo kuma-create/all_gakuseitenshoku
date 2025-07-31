@@ -345,7 +345,6 @@ export default function NewJobPage() {
 
     // intern_long 必須
     if (selectionType === "intern_long") {
-      if (!formData.startDate.trim()) newErrors.startDate = "開始日を入力してください";
       if (!formData.workDaysPerWeek.trim())
         newErrors.workDaysPerWeek = "週あたり勤務日数を入力してください";
 
@@ -1116,24 +1115,6 @@ export default function NewJobPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* 開始日 */}
-                    <div>
-                      <Label htmlFor="startDate" className="flex items-center gap-1">
-                        開始日<span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="startDate"
-                        name="startDate"
-                        type="date"
-                        value={formData.startDate}
-                        onChange={handleInputChange}
-                        className={`mt-1 ${errors.startDate ? "border-red-500" : ""}`}
-                      />
-                      {errors.startDate && (
-                        <p className="text-sm text-red-500 mt-1">{errors.startDate}</p>
-                      )}
-                    </div>
-
                     {/* 最低参加期間（月） -> 勤務時間 */}
                     <div>
                       <Label htmlFor="workingHours" className="flex items-center gap-1">
@@ -1173,9 +1154,9 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* 報酬形態 */}
-                    <div>
+                    <div className="md:col-span-1">
                       <Label htmlFor="remunerationType" className="flex items-center gap-1">
                         報酬形態<span className="text-red-500">*</span>
                       </Label>
@@ -1195,7 +1176,7 @@ export default function NewJobPage() {
 
                     {/* 時給 or 歩合 */}
                     {formData.remunerationType === "hourly" ? (
-                      <div>
+                      <div className="md:col-span-2">
                         <Label htmlFor="hourlyWage" className="flex items-center gap-1">
                           時給<span className="text-red-500">*</span>
                         </Label>
@@ -1217,7 +1198,7 @@ export default function NewJobPage() {
                         )}
                       </div>
                     ) : (
-                      <div>
+                      <div className="md:col-span-2">
                         <Label htmlFor="commissionRate" className="flex items-center gap-1">
                           歩合<span className="text-red-500">*</span>
                         </Label>
@@ -1431,7 +1412,6 @@ export default function NewJobPage() {
                                 .filter(Boolean)
                                 .map((r: string, i: number) => (
                                   <li key={i} className="flex gap-2">
-                                    <Plus size={16} className="text-red-600 mt-0.5" />
                                     <span>{r}</span>
                                   </li>
                                 ))}
@@ -1494,7 +1474,6 @@ export default function NewJobPage() {
                                 .filter(Boolean)
                                 .map((r: string, i: number) => (
                                   <li key={i} className="flex gap-2">
-                                    <Plus size={16} className="text-red-600 mt-0.5" />
                                     <span>{r}</span>
                                   </li>
                                 ))}
@@ -1720,6 +1699,8 @@ export default function NewJobPage() {
                     <>
                       <Save className="mr-2 h-4 w-4" />
                       {selectionType === "internship_short"
+                        ? "インターンを作成"
+                        : selectionType == "intern_long"
                         ? "インターンを作成"
                         : selectionType === "event"
                         ? "イベントを作成"

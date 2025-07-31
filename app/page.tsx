@@ -20,6 +20,7 @@ import {
   Zap,
   Calendar,
   Star,
+  MapPin,
 } from "lucide-react"
 import ArticleCard from "@/components/article-card"
 import TrendingTopics from "@/components/trending-topics"
@@ -125,9 +126,11 @@ export default function Home() {
           supabase
             .from("jobs")
             .select(
-              `id, title, description, location, salary_range, work_type,
+              `id, title, description, location, work_type,
                selection_type, cover_image_url, created_at, is_recommended,
-               companies ( name, logo )`
+               companies ( name, logo ),
+               intern_long_details!job_id ( hourly_wage, remuneration_type, commission_rate ),
+               internship_details!job_id ( allowance )`
             )
             .eq("published", true)
             .in("selection_type", ["intern_long", "internship_short"])
@@ -200,13 +203,35 @@ export default function Home() {
               title: i.title,
               company: i.companies?.name ?? "",
               companyLogo: i.companies?.logo ?? "",
+              location: i.location ?? "",
               description: i.description ?? "",
               coverImageUrl: i.cover_image_url ?? "",
               isNew:
                 Date.now() - new Date(i.created_at).getTime() <
                 1000 * 60 * 60 * 24 * 7,
               duration: "-", // 期間情報は別テーブルを後で紐づける想定
-              salary: i.salary_range ?? "",
+              salary:
+                i.selection_type === "intern_long"
+                  ? (() => {
+                      const d =
+                        (Array.isArray(i.intern_long_details)
+                          ? i.intern_long_details[0]
+                          : i.intern_long_details) || {};
+                      if (d.remuneration_type === "hourly") {
+                        return d.hourly_wage ? `時給${d.hourly_wage}円` : "";
+                      }
+                      if (d.remuneration_type === "commission") {
+                        return d.commission_rate
+                          ? `歩合${d.commission_rate}`
+                          : "";
+                      }
+                      return "";
+                    })()
+                  : i.selection_type === "internship_short"
+                  ? (i.internship_details?.allowance ??
+                      i.internship_details?.[0]?.allowance ??
+                      "")
+                  : "",
               isRemote: i.work_type === "リモート",
               isRecommended: i.is_recommended,
             }))
@@ -606,7 +631,12 @@ return (
                   <div className="p-4">
                     <h3 className="mb-1 line-clamp-1 font-bold">{job.title}</h3>
                     <p className="line-clamp-1 text-sm text-gray-600">{job.company}</p>
-
+                    {job.location && (
+                      <p className="line-clamp-1 text-xs text-gray-500 flex items-center gap-1">
+                        <MapPin size={12} />
+                        {job.location}
+                      </p>
+                    )}
                     {(job.salary || job.deadline) && (
                       <div className="mt-3 text-xs text-gray-500 flex gap-1 items-center">
                         {job.salary && <span>{job.salary}</span>}
@@ -686,7 +716,12 @@ return (
                   <div className="p-4">
                     <h3 className="mb-1 line-clamp-1 font-bold">{internship.title}</h3>
                     <p className="line-clamp-1 text-sm text-gray-600">{internship.company}</p>
-
+                    {internship.location && (
+                      <p className="line-clamp-1 text-xs text-gray-500 flex items-center gap-1">
+                        <MapPin size={12} />
+                        {internship.location}
+                      </p>
+                    )}
                     {(internship.salary || internship.duration) && (
                       <div className="mt-3 text-xs text-gray-500 flex gap-1 items-center">
                         {internship.salary && <span>{internship.salary}</span>}
