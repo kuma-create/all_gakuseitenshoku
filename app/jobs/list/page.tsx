@@ -124,7 +124,14 @@ export default function JobSearchPage() {
   const pageDescription = qParam
     ? `「${qParam}」の求人を検索。業界・職種・年収など細かくフィルターして自分に合った仕事を見つけましょう。`
     : "学生向け転職サービス「学生転職」の求人検索ページ。業界・職種・年収など細かくフィルターして自分に合った仕事を見つけましょう。"
+
   const tabParam = (searchParams.get("tab") ?? "company") as "company" | "fulltime" | "intern" | "event"
+
+  // Accept both ?selectionType= and legacy ?type=
+  const selectionTypeParam =
+    searchParams.get("selectionType") ??
+    searchParams.get("type") ??
+    "all";
 
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobRow[]>([])
@@ -134,7 +141,7 @@ export default function JobSearchPage() {
   const [search, setSearch] = useState(qParam)
   const [industry, setIndustry] = useState("all")
   const [jobType, setJobType] = useState("all")
-  const [selectionType, setSelectionType] = useState("all")
+  const [selectionType, setSelectionType] = useState(selectionTypeParam)
   const [salaryMin, setSalaryMin] = useState<string>("all")
   const [saved, setSaved] = useState<Set<string>>(new Set())
   // --- 初期化: localStorage から保存済み ID を読み込む --------------------
@@ -240,7 +247,17 @@ job_tags!job_tags_job_id_fkey (
 
       const matchesSalary = salaryMin === "all" || (j.salary_max ?? j.salary_min ?? 0) >= Number(salaryMin)
 
-      const matchesCategory = selectionType === "all" || (j.selection_type ?? "") === selectionType
+      // treat legacy & canonical keys as identical
+      const isSameSelection = (
+        selFilter: string,
+        selJob: string | null | undefined,
+      ) => {
+        if (selFilter === "all") return true;
+        const canon = (v: string) =>
+          v === "intern_long" ? "internship_long" : v;
+        return canon(selFilter) === canon(selJob ?? "");
+      };
+      const matchesCategory = isSameSelection(selectionType, j.selection_type);
 
       return matchesQ && matchesInd && matchesJob && matchesSalary && matchesCategory
     })
