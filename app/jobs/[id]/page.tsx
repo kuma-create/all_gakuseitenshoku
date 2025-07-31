@@ -104,7 +104,12 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
               description
             ),
             internship:internship_details!job_id(*),
-            intern_long:intern_long_details!job_id(*),
+            intern_long_details!job_id(
+              min_duration_months,
+              work_days_per_week,
+              remuneration_type,
+              hourly_wage,
+              commission_rate
             fulltime:fulltime_details!job_id(*),
             event:event_details!job_id(*)
           `)
@@ -276,9 +281,22 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
       | "event"
   ) {
     case "internship_short":
-    case "internship_long":
       Body = (
         <InternInfo
+          job={job}
+          company={company!}
+          tags={tags}
+          related={related}
+          apply={handleApply}
+          hasApplied={hasApplied}
+          showForm={showForm}
+          setShowForm={setShowForm}
+        />
+      );
+      break;
+    case "internship_long":
+      Body = (
+        <InternLongInfo
           job={job}
           company={company!}
           tags={tags}
