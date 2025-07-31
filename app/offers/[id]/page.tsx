@@ -639,7 +639,59 @@ function InterestButtons({
 
         if (msgErr) console.error("auto‑message error", msgErr);
       }
-      // 5) チャット画面へ遷移
+      // 5) 企業へメール通知
+      try {
+        // 会社側 Auth UID・会社名を取得
+        const { data: companyAuth, error: companyAuthErr } = await supabase
+          .from("companies")
+          .select("user_id, name")
+          .eq("id", company_id)
+          .single();
+
+        if (companyAuthErr) throw companyAuthErr;
+
+        // 学生氏名を取得
+        const { data: studentProfile, error: studentErr } = await supabase
+          .from("student_profiles")
+          .select("full_name")
+          .eq("id", student_id)        // scouts.student_id は student_profiles.id
+          .single();
+        if (studentErr) throw studentErr;
+        const studentName = studentProfile?.full_name ?? "学生";
+        const companyName = (companyAuth as { user_id: string; name: string })?.name ?? "";
+
+        if (companyAuth?.user_id) {
+          await supabase.functions.invoke("send-email", {
+            body: {
+              user_id:           companyAuth.user_id,   // 会社側 Auth UID
+              from_role:         "student",             // 送信者ロール
+              notification_type: "scout_accepted",      // テンプレート切り替え用
+              related_id:        offerId,
+              link:              `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp"}/company/chat/${roomId}`,
+              title:             `【学生転職】${studentName}さんがスカウトを承諾しました！！`,
+              message:           `${studentName}さんがスカウトを承諾しました。<a href="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp"}/company/chat/${roomId}">チャットルームに移動する</a>`,
+            },
+          });
+        }
+        // --- システム監視用メール送信 --------------------
+        try {
+          await supabase.functions.invoke("send-email", {
+            body: {
+              user_id:           "e567ebe5-55d3-408a-b591-d567cdd3470a", // システム監視用ユーザー ID
+              from_role:         "system",
+              notification_type: "scout_accepted_system",
+              related_id:        offerId,
+              title:             `【学生転職】 スカウトが承諾されました！！`,
+              message:           `会社名：${companyName}\n学生名：${studentName}`,
+            },
+          });
+        } catch (sysEmailErr) {
+          console.error("send-email (system) error", sysEmailErr);
+        }
+      } catch (emailErr) {
+        console.error("send-email error", emailErr);
+      }
+      // 6) チャット画面へ遷移
       router.push(`/chat/${roomId}`);
     } catch (err) {
       console.error("handleAccept error", err);
