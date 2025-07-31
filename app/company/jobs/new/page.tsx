@@ -106,6 +106,8 @@ export default function NewJobPage() {
     salary: "",
     coverImageUrl: "",
     benefits: "",
+    travelExpense   : "",
+    nearestStation  : "",
     applicationDeadline: "",
     status: "非公開",
 
@@ -117,7 +119,6 @@ export default function NewJobPage() {
     allowance: "",
 
     /* intern long only */
-    minDurationMonths: "",
     hourlyWage      : "",
     remunerationType: "hourly", // "hourly" | "commission"
     commissionRate  : "",
@@ -520,7 +521,7 @@ export default function NewJobPage() {
             {
               selection_id        : jobId,   // FK (同値)
               job_id              : jobId,
-              min_duration_months : parseNumber(formData.minDurationMonths),
+              working_hours       : formData.workingHours || null,              
               work_days_per_week  : parseNumber(formData.workDaysPerWeek),
               hourly_wage         : formData.remunerationType === "hourly"
                                       ? parseNumber(formData.hourlyWage)
@@ -530,6 +531,9 @@ export default function NewJobPage() {
                                       : false,
               remuneration_type   : formData.remunerationType,
               commission_rate     : formData.commissionRate || null,
+              travel_expense     : formData.travelExpense || null,
+              nearest_station    : formData.nearestStation || null,
+              benefits           : formData.benefits || null,
               start_date          : formData.startDate || null,
             } as Database["public"]["Tables"]["intern_long_details"]["Insert"]
           );
@@ -723,6 +727,8 @@ export default function NewJobPage() {
                         salary: "",
                         coverImageUrl: "",
                         benefits: "",
+                        travelExpense   : "",
+                        nearestStation  : "",
                         applicationDeadline: "",
                         status: "非公開",
                         /* intern only */
@@ -732,7 +738,6 @@ export default function NewJobPage() {
                         workDaysPerWeek: "",
                         allowance: "",
                         /* intern long only */
-                        minDurationMonths: "",
                         hourlyWage      : "",
                         remunerationType: "hourly",
                         commissionRate  : "",
@@ -779,7 +784,6 @@ export default function NewJobPage() {
                     value={formData.title}
                     onChange={handleInputChange}
                     className={`mt-1 ${errors.title ? "border-red-500" : ""}`}
-                    placeholder="例: フロントエンドエンジニア"
                   />
                   {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title}</p>}
                   <p className="text-sm text-muted-foreground mt-1">求職者が検索しやすいタイトルを設定してください</p>
@@ -1130,18 +1134,19 @@ export default function NewJobPage() {
                       )}
                     </div>
 
-                    {/* 最低参加期間（月） */}
+                    {/* 最低参加期間（月） -> 勤務時間 */}
                     <div>
-                      <Label htmlFor="minDurationMonths">最低参加期間（月）</Label>
+                      <Label htmlFor="workingHours" className="flex items-center gap-1">
+                        勤務時間<span className="text-red-500">*</span>
+                      </Label>
                       <Input
-                        id="minDurationMonths"
-                        name="minDurationMonths"
-                        type="number"
-                        min="1"
-                        value={formData.minDurationMonths}
+                        id="workingHours"
+                        name="workingHours"
+                        type="text"
+                        value={formData.workingHours}
                         onChange={handleInputChange}
                         className="mt-1"
-                        placeholder="例: 3"
+                        placeholder="例: 9:00〜18:00"
                       />
                     </div>
 
@@ -1289,6 +1294,62 @@ export default function NewJobPage() {
                 </CardContent>
               </Card>
             )}
+            {/* Notes (備考) – only for long‑term internship */}
+            {isInternLong && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <CardTitle>備考</CardTitle>
+                  </div>
+                  <CardDescription>
+                    交通費や最寄駅など、補足情報を入力してください
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* 交通費の支給 */}
+                    <div>
+                      <Label htmlFor="travelExpense">交通費の支給</Label>
+                      <Input
+                        id="travelExpense"
+                        name="travelExpense"
+                        value={formData.travelExpense}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        placeholder="例: 月上限2万円まで支給"
+                      />
+                    </div>
+
+                    {/* 最寄駅 */}
+                    <div>
+                      <Label htmlFor="nearestStation">最寄駅</Label>
+                      <Input
+                        id="nearestStation"
+                        name="nearestStation"
+                        value={formData.nearestStation}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        placeholder="例: 渋谷駅 徒歩5分"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 福利厚生（既存 benefits を再利用） */}
+                  <div>
+                    <Label htmlFor="benefits">福利厚生</Label>
+                    <Textarea
+                      id="benefits"
+                      name="benefits"
+                      value={formData.benefits}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="例: 社会保険完備、健康診断、社員旅行 など"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Preview trigger */}
 
@@ -1377,6 +1438,94 @@ export default function NewJobPage() {
                             </ul>
                           </SectionCard>
                         )}
+                        {/* 備考 SectionCard - removed for internship_short */}
+                      </>
+                    ) : isInternLong ? (
+                      /* ---------- Long‑term Internship preview ---------- */
+                      <>
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="勤務時間"
+                            value={formData.workingHours || "応相談"}
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="週あたりの勤務日数"
+                            value={
+                              formData.workDaysPerWeek
+                                ? `週${formData.workDaysPerWeek}日`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="報酬"
+                            value={
+                              formData.remunerationType === "hourly"
+                                ? formData.hourlyWage
+                                  ? `${formData.hourlyWage}円／時`
+                                  : "要相談"
+                                : formData.commissionRate
+                                ? `歩合 ${formData.commissionRate}`
+                                : "歩合"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="勤務地"
+                            value={formData.location || ""}
+                          />
+                        </div>
+
+                        {/* description */}
+                        <SectionCard icon={FileText} title="インターン内容">
+                          <p className="whitespace-pre-wrap text-gray-700">
+                            {formData.description || "職務内容がここに表示されます。"}
+                          </p>
+                        </SectionCard>
+
+                        {/* requirements */}
+                        {formData.requirements && (
+                          <SectionCard icon={CheckCircle} title="応募条件">
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              {formData.requirements
+                                .split("\n")
+                                .filter(Boolean)
+                                .map((r: string, i: number) => (
+                                  <li key={i} className="flex gap-2">
+                                    <Plus size={16} className="text-red-600 mt-0.5" />
+                                    <span>{r}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </SectionCard>
+                        )}
+                        {/* 備考 SectionCard */}
+                        {(formData.travelExpense || formData.nearestStation || formData.benefits) && (
+                          <SectionCard icon={FileText} title="備考">
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              {formData.travelExpense && (
+                                <li className="flex gap-2">
+                                  <Plus size={16} className="text-red-600 mt-0.5" />
+                                  <span>交通費: {formData.travelExpense}</span>
+                                </li>
+                              )}
+                              {formData.nearestStation && (
+                                <li className="flex gap-2">
+                                  <Plus size={16} className="text-red-600 mt-0.5" />
+                                  <span>最寄駅: {formData.nearestStation}</span>
+                                </li>
+                              )}
+                              {formData.benefits && (
+                                <li className="flex gap-2">
+                                  <Plus size={16} className="text-red-600 mt-0.5" />
+                                  <span>福利厚生: {formData.benefits}</span>
+                                </li>
+                              )}
+                            </ul>
+                          </SectionCard>
+                        )}
                       </>
                     ) : isEvent ? (
                       /* ---------- Event preview ---------- */
@@ -1430,6 +1579,7 @@ export default function NewJobPage() {
                             </p>
                           </SectionCard>
                         )}
+                        {/* 備考 SectionCard - removed for event */}
                       </>
                     ) : (
                       /* ---------- Full‑time preview ---------- */
@@ -1512,6 +1662,7 @@ export default function NewJobPage() {
                             </div>
                           </div>
                         </SectionCard>
+                        {/* 備考 SectionCard - removed for fulltime */}
                       </>
                     )}
                   </CardContent>
