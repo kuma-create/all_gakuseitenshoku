@@ -14,6 +14,23 @@ function parseNumber(input: string | null | undefined): number | null {
   return cleaned ? Number(cleaned) : null;
 }
 import type React from "react"
+
+// --- selectable job categories (multi-select) ---
+const JOB_CATEGORIES = [
+  "エンジニア",
+  "研究・開発",
+  "品質管理",
+  "デザイナー",
+  "営業",
+  "総務・人事",
+  "物流",
+  "生産管理",
+  "コンサルタント",
+  "経理・財務",
+  "企画・マーケティング",
+  "販売・サービス",
+] as const;
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // ---------- local form type ----------
@@ -22,7 +39,7 @@ type FormData = {
   title: string
   description: string
   requirements: string
-  department: string
+  departments: string[]
   employmentType: string
   location: string
   workingDays: string
@@ -33,7 +50,7 @@ type FormData = {
   applicationDeadline: string   // 追加
   status: string
   /* 共通プレビュー */
-  schedule: string
+
   /* Internship */
   startDate: string
   endDate: string
@@ -41,14 +58,14 @@ type FormData = {
   workDaysPerWeek: string
   allowance: string
   /* Intern‑Long */
-  minDurationMonths: string
   hourlyWage: string
+  travelExpense: string
+  nearestStation: string
   /* Event */
   eventDate: string
   capacity: string
   venue: string
   format: "onsite" | "online" | "hybrid"
-  schedule: string 
 }
 
 import { useState, useEffect, useRef } from "react"
@@ -75,6 +92,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -91,7 +109,9 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-
+import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Command, CommandItem } from "@/components/ui/command"
 import { useToast } from "@/lib/hooks/use-toast"
 
 /**
@@ -127,8 +147,8 @@ const fetchJob = async (id: string) => {
       work_type,
       fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
-      event_details:event_details!job_id (event_date, capacity, venue, format, schedule)
-
+      event_details:event_details!job_id (event_date, capacity, venue, format),
+      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits)
     `)
     .eq("id", id)
     .single()
@@ -147,7 +167,6 @@ const fetchJob = async (id: string) => {
     requirements: data.requirements ?? "",
     department : data.department ?? "",
     employmentType: data.work_type ?? "",
-    workingHours   : full.working_hours   ?? "",
     benefits       : full.benefits        ?? "",
     applicationDeadline: data.application_deadline ?? "",
     location   : data.location ?? "",
@@ -159,34 +178,34 @@ const fetchJob = async (id: string) => {
     startDate       : data.start_date ?? intern.start_date ?? "",
     endDate         : intern.end_date ?? "",
     durationWeeks   : intern.duration_weeks ?? "",
-    workDaysPerWeek : intern.work_days_per_week ?? "",
     allowance       : intern.allowance ?? "",
-
-    /* Intern‑Long */
+    /* unified work‑days */
     workDaysPerWeek:
       internLong.work_days_per_week !== undefined && internLong.work_days_per_week !== null
         ? String(internLong.work_days_per_week)
-        : "",
-    minDurationMonths:
-      internLong.min_duration_months !== undefined && internLong.min_duration_months !== null
-        ? String(internLong.min_duration_months)
-        : "",
+        : intern.work_days_per_week ?? "",
+
+    /* Intern‑Long */
+    workingHours:
+      internLong.working_hours !== undefined && internLong.working_hours !== null
+        ? String(internLong.working_hours)
+        : full.working_hours ?? "",
     hourlyWage:
       internLong.hourly_wage !== undefined && internLong.hourly_wage !== null
         ? String(internLong.hourly_wage)
         : "",
+    travelExpense  : internLong.travel_expense  ?? "",
+    nearestStation : internLong.nearest_station ?? "",
 
     /* Event */
     eventDate : event.event_date ?? "",
     capacity  : event.capacity ? String(event.capacity) : "",
     venue     : event.venue ?? "",
     format    : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
-    schedule  : event.schedule ?? "",
+
 
     /* 共通プレビュー */
-    schedule : data.selection_type === "event"
-                ? (event.event_date ?? "")
-                : data.start_date ?? "",
+    // Removed duplicate schedule property to resolve ts(1117)
     selectionType : data.selection_type ?? "fulltime",
     status        : data.published ? "公開" : "非公開",
     applicants    : 0,
@@ -268,7 +287,7 @@ export default function JobEditPage() {
     title: "",
     description: "",
     requirements: "",
-    department: "",
+    departments: [] as string[],
     employmentType: "正社員",      // 追加
     location: "",
     workingDays: "",
@@ -279,7 +298,7 @@ export default function JobEditPage() {
     applicationDeadline: "",      // 追加
     status: "",
     /* 共通プレビュー */
-    schedule: "",
+
 
     /* インターン専用 */
     startDate: "",
@@ -288,15 +307,15 @@ export default function JobEditPage() {
     workDaysPerWeek: "",
     allowance: "",
     /* Intern‑Long */
-    minDurationMonths: "",
     hourlyWage      : "",
+    travelExpense   : "",
+    nearestStation  : "",
 
     /* イベント専用 */
     eventDate: "",
     capacity: "",
     venue: "",
     format: "onsite",
-    schedule: "",
   })
 
   useEffect(() => {
@@ -308,7 +327,9 @@ export default function JobEditPage() {
           title      : jobData.title,
           description: jobData.description,
           requirements        : jobData.requirements,
-          department : jobData.department,
+          departments: jobData.department
+            ? jobData.department.split(",").map((s:string)=>s.trim())
+            : [],
           location   : jobData.location,
           workingDays: jobData.workingDays,
           salary     : jobData.salary,
@@ -319,7 +340,7 @@ export default function JobEditPage() {
           benefits            : jobData.benefits,
           applicationDeadline : jobData.applicationDeadline,
           /* 共通プレビュー */
-          schedule          : jobData.schedule ?? "",
+
           /* Internship */
           startDate       : jobData.startDate,
           endDate         : jobData.endDate,
@@ -327,14 +348,14 @@ export default function JobEditPage() {
           workDaysPerWeek : jobData.workDaysPerWeek,
           allowance       : jobData.allowance,
           /* Intern‑Long */
-          minDurationMonths : jobData.minDurationMonths ?? "",
           hourlyWage        : jobData.hourlyWage        ?? "",
+          travelExpense     : jobData.travelExpense,
+          nearestStation    : jobData.nearestStation,
           /* Event */
           eventDate : jobData.eventDate,
           capacity  : jobData.capacity,
           venue     : jobData.venue,
           format    : jobData.format,
-          schedule  : jobData.schedule,
         } as FormData)
       } catch (error: any) {
         // --- 詳細ログを出力 ---
@@ -368,6 +389,27 @@ export default function JobEditPage() {
     }
   }
 
+  /** add / remove job category in the multi‑select list */
+  const toggleDepartment = (value: string) => {
+    setFormData(prev => {
+      const exists = prev.departments.includes(value);
+      return {
+        ...prev,
+        departments: exists
+          ? prev.departments.filter(v => v !== value)
+          : [...prev.departments, value],
+      };
+    });
+    // clear validation error if fixed
+    if (errors.departments) {
+      setErrors(prev => {
+        const ne = { ...prev };
+        delete ne.departments;
+        return ne;
+      });
+    }
+  }
+
   const handleStatusChange = (value: string) => {
     setFormData((prev) => ({ ...prev, status: value }))
   }
@@ -391,6 +433,11 @@ export default function JobEditPage() {
       newErrors.location = "勤務地は必須です"
     }
 
+    // departments (職種) 必須
+    if (job.selectionType !== "event" && formData.departments.length === 0) {
+      newErrors.departments = "職種を選択してください";
+    }
+
     if (job.selectionType === "fulltime" && !formData.workingDays.trim()) {
       newErrors.workingDays = "勤務日は必須です"
     }
@@ -406,10 +453,8 @@ export default function JobEditPage() {
         newErrors.startDate = "開始日は必須です";
       }
 
-      if (!formData.minDurationMonths.trim()) {
-        newErrors.minDurationMonths = "最低参加期間（月）は必須です";
-      } else if (parseNumber(formData.minDurationMonths) === null) {
-        newErrors.minDurationMonths = "数字で入力してください（例: 3）";
+      if (!formData.workingHours.trim()) {
+        newErrors.workingHours = "勤務時間は必須です";
       }
 
       if (!formData.workDaysPerWeek.trim()) {
@@ -453,7 +498,9 @@ export default function JobEditPage() {
         location         : formData.location.trim(),
         salary_range     : formData.salary ? formData.salary.trim() : null,
         cover_image_url  : formData.coverImageUrl.trim(),
-        department       : formData.department || null,
+        department       : formData.departments.length
+                             ? formData.departments.join(",")
+                             : null,
         work_type        : formData.employmentType,
         published        : formData.status === "公開",
         application_deadline: toIsoOrNull(formData.applicationDeadline),
@@ -505,10 +552,13 @@ export default function JobEditPage() {
             selection_id        : id,
             start_date          : formData.startDate || null,
             // 0 が入り得ないため Non‑Null Assertion（バリデーション済）
-            min_duration_months : parseNumber(formData.minDurationMonths)!,
+            working_hours       : formData.workingHours || null,
             work_days_per_week  : parseNumber(formData.workDaysPerWeek),
             hourly_wage         : parseNumber(formData.hourlyWage),
             is_paid             : !!formData.hourlyWage,
+            travel_expense      : formData.travelExpense || null,
+            nearest_station     : formData.nearestStation || null,
+            benefits            : formData.benefits || null,
           };
           break;
         case "event":
@@ -519,7 +569,7 @@ export default function JobEditPage() {
             capacity   : formData.capacity ? Number(formData.capacity) : null,
             venue      : formData.venue || null,
             format     : formData.format,
-            schedule   : formData.schedule || null,
+
           }
           break
         default:
@@ -816,18 +866,42 @@ export default function JobEditPage() {
             {job.selectionType !== "event" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="department">部署</Label>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-                    <Input
-                      id="department"
-                      name="department"
-                      value={formData.department}
-                      onChange={handleInputChange}
-                      className="pl-10 mt-1"
-                      placeholder="例: 開発部"
-                    />
-                  </div>
+                  <Label className="flex items-center gap-1">
+                    職種（複数選択可）<span className="text-red-500">*</span>
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`mt-3.5 w-full flex justify-between ${errors.departments ? "border-red-500" : ""}`}
+                      >
+                        {formData.departments.length
+                          ? formData.departments.join(", ")
+                          : "職種を選択"}
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0" side="bottom" align="start">
+                      <Command loop>
+                        {JOB_CATEGORIES.map((cat) => (
+                          <CommandItem
+                            key={cat}
+                            onSelect={() => toggleDepartment(cat)}
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={formData.departments.includes(cat)}
+                              className="mr-2"
+                            />
+                            {cat}
+                          </CommandItem>
+                        ))}
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {errors.departments && (
+                    <p className="text-sm text-red-500 mt-1">{errors.departments}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1084,20 +1158,23 @@ export default function JobEditPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* 最低参加期間（月） */}
+              {/* 勤務時間 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="minDurationMonths">最低参加期間（月）</Label>
+                  <Label htmlFor="workingHours" className="flex items-center gap-1">
+                    勤務時間<span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    id="minDurationMonths"
-                    name="minDurationMonths"
-                    type="number"
-                    min="1"
-                    value={formData.minDurationMonths}
+                    id="workingHours"
+                    name="workingHours"
+                    value={formData.workingHours}
                     onChange={handleInputChange}
-                    className="mt-1"
-                    placeholder="例: 3"
+                    className={`mt-1 ${errors.workingHours ? "border-red-500" : ""}`}
+                    placeholder="例: 9:00〜18:00（休憩1時間）"
                   />
+                  {errors.workingHours && (
+                    <p className="text-sm text-red-500 mt-1">{errors.workingHours}</p>
+                  )}
                 </div>
 
                 {/* 週あたり勤務日数 */}
@@ -1349,6 +1426,63 @@ export default function JobEditPage() {
             </Button>
           </div>
         </div>
+
+        {/* 備考カード（長期インターンのみ表示） */}
+        {isInternLong && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <CardTitle>備考</CardTitle>
+              </div>
+              <CardDescription>
+                交通費や最寄駅など、補足情報を入力してください
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 交通費の支給 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="travelExpense">交通費の支給</Label>
+                  <Input
+                    id="travelExpense"
+                    name="travelExpense"
+                    value={formData.travelExpense}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 月上限2万円まで支給"
+                  />
+                </div>
+
+                {/* 最寄駅 */}
+                <div>
+                  <Label htmlFor="nearestStation">最寄駅</Label>
+                  <Input
+                    id="nearestStation"
+                    name="nearestStation"
+                    value={formData.nearestStation}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 渋谷駅 徒歩5分"
+                  />
+                </div>
+              </div>
+
+              {/* 福利厚生（既存 benefits を再利用） */}
+              <div>
+                <Label htmlFor="benefits">福利厚生</Label>
+                <Textarea
+                  id="benefits"
+                  name="benefits"
+                  value={formData.benefits}
+                  onChange={handleInputChange}
+                  className="mt-1"
+                  placeholder="例: 社会保険完備、健康診断、社員旅行 など"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Delete Section */}
         <Card className="border-red-100 bg-red-50">
