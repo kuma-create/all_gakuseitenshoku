@@ -1376,46 +1376,55 @@ export type Database = {
       }
       intern_long_details: {
         Row: {
+          benefits: string | null
           commission_rate: string | null
           created_at: string | null
           hourly_wage: number | null
           id: string
           is_paid: boolean
           job_id: string | null
-          min_duration_months: number | null
+          nearest_station: string | null
           remuneration_type: string
           selection_id: string
           start_date: string | null
+          travel_expense: string | null
           updated_at: string | null
           work_days_per_week: number | null
+          working_hours: string | null
         }
         Insert: {
+          benefits?: string | null
           commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
-          min_duration_months?: number | null
+          nearest_station?: string | null
           remuneration_type?: string
           selection_id: string
           start_date?: string | null
+          travel_expense?: string | null
           updated_at?: string | null
           work_days_per_week?: number | null
+          working_hours?: string | null
         }
         Update: {
+          benefits?: string | null
           commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
-          min_duration_months?: number | null
+          nearest_station?: string | null
           remuneration_type?: string
           selection_id?: string
           start_date?: string | null
+          travel_expense?: string | null
           updated_at?: string | null
           work_days_per_week?: number | null
+          working_hours?: string | null
         }
         Relationships: [
           {
@@ -1534,7 +1543,6 @@ export type Database = {
           },
         ]
       }
-
       job_embeddings: {
         Row: {
           content: string
@@ -1568,7 +1576,6 @@ export type Database = {
           },
         ]
       }
-
       job_interests: {
         Row: {
           created_at: string | null
@@ -2170,6 +2177,7 @@ export type Database = {
           experiences: Json | null
           form_data: Json
           id: string
+          job_type: string | null
           skills: Json | null
           summary: string | null
           updated_at: string | null
@@ -2183,6 +2191,7 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
+          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
@@ -2196,6 +2205,7 @@ export type Database = {
           experiences?: Json | null
           form_data?: Json
           id?: string
+          job_type?: string | null
           skills?: Json | null
           summary?: string | null
           updated_at?: string | null
@@ -3411,6 +3421,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           graduation_month: string | null
+          last_sign_in_at: string | null
           student_id: string | null
           university: string | null
         }
