@@ -17,6 +17,7 @@ import {
   Briefcase,
   ExternalLink,
   ListFilter,
+  FileText,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -107,12 +108,12 @@ export default function InternInfo({
   }, [job.id])
 
   /* computed */
+  // Prefer intern_long_details; fall back to internship_details
+  const details = job?.intern_long ?? job?.internship ?? {};
   const period =
-    job?.internship?.period ??
-    `${job?.internship?.start_date ?? "—"} 〜 ${
-      job?.internship?.end_date ?? "—"
-    }`
-  const workingDays = job?.internship?.working_days ?? "応相談"
+    details?.period ??
+    `${details?.start_date ?? "—"} 〜 ${details?.end_date ?? "—"}`
+  const workingDays = details?.working_days ?? "応相談"
   const hourlyWage =
     job?.salary_min && job?.salary_max
       ? `${job.salary_min.toLocaleString()}〜${job.salary_max.toLocaleString()}円／時`
@@ -231,18 +232,43 @@ export default function InternInfo({
           )}
 
           {/* requirements */}
-          {job.requirements && (
-            <SectionCard title="応募条件">
+          <SectionCard title="応募条件">
+            {job.requirements ? (
               <ul className="space-y-2 text-sm text-gray-700">
-                {job.requirements.split("\n").filter(Boolean).map((r: string, i: number) => (
-                  <li key={i} className="flex gap-2">
-                    <Plus size={16} className="text-red-600 mt-0.5" />
-                    <span>{r}</span>
-                  </li>
-                ))}
+                {job.requirements
+                  .split("\n")
+                  .filter(Boolean)
+                  .map((r: string, i: number) => (
+                    <li key={i} className="flex gap-2">
+                      <Plus size={16} className="text-red-600 mt-0.5" />
+                      <span>{r}</span>
+                    </li>
+                  ))}
               </ul>
-            </SectionCard>
-          )}
+            ) : (
+              <p className="text-sm text-gray-700">—</p>
+            )}
+          </SectionCard>
+          {/* 備考 */}
+          <SectionCard title="備考" icon={<FileText size={16} />}>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li className="flex gap-2">
+                <span>
+                  交通費: {details?.travel_expense ?? "—"}
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span>
+                  最寄駅: {details?.nearest_station ?? "—"}
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span>
+                  福利厚生: {details?.benefits ?? "—"}
+                </span>
+              </li>
+            </ul>
+          </SectionCard>
         </div>
 
         {/* ---------- 右カラム ---------- */}
@@ -450,14 +476,17 @@ function SummaryItem({
 function SectionCard({
   title,
   children,
+  icon,
 }: {
   title: string
   children: React.ReactNode
+  icon?: React.ReactNode
 }) {
   return (
     <Card className="mb-6 border-0 shadow-md">
       <CardHeader className="border-b border-gray-100 bg-gray-50 pb-4">
         <CardTitle className="flex items-center gap-2 text-lg font-bold text-red-600">
+          {icon && icon}
           {title}
         </CardTitle>
       </CardHeader>

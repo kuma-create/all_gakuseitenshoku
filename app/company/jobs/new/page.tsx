@@ -1502,30 +1502,25 @@ export default function NewJobPage() {
                           </SectionCard>
                         )}
                         {/* 備考 SectionCard */}
-                        {(formData.travelExpense || formData.nearestStation || formData.benefits) && (
-                          <SectionCard icon={FileText} title="備考">
-                            <ul className="space-y-2 text-sm text-gray-700">
-                              {formData.travelExpense && (
-                                <li className="flex gap-2">
-                                  <Plus size={16} className="text-red-600 mt-0.5" />
-                                  <span>交通費: {formData.travelExpense}</span>
-                                </li>
-                              )}
-                              {formData.nearestStation && (
-                                <li className="flex gap-2">
-                                  <Plus size={16} className="text-red-600 mt-0.5" />
-                                  <span>最寄駅: {formData.nearestStation}</span>
-                                </li>
-                              )}
-                              {formData.benefits && (
-                                <li className="flex gap-2">
-                                  <Plus size={16} className="text-red-600 mt-0.5" />
-                                  <span>福利厚生: {formData.benefits}</span>
-                                </li>
-                              )}
-                            </ul>
-                          </SectionCard>
-                        )}
+                        <SectionCard icon={FileText} title="備考">
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            <li className="flex gap-2">
+                              <span>
+                                交通費: {formData.travelExpense || "—"}
+                              </span>
+                            </li>
+                            <li className="flex gap-2">
+                              <span>
+                                最寄駅: {formData.nearestStation || "—"}
+                              </span>
+                            </li>
+                            <li className="flex gap-2">
+                              <span>
+                                福利厚生: {formData.benefits || "—"}
+                              </span>
+                            </li>
+                          </ul>
+                        </SectionCard>
                       </>
                     ) : isEvent ? (
                       /* ---------- Event preview ---------- */
