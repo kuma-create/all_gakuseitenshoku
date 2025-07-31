@@ -1,9 +1,30 @@
+/* ---------- Wave Style (static) ---------- */
+const waveCSS = (
+  <style
+    dangerouslySetInnerHTML={{
+      __html: `
+        /* Disable wave animation */
+        svg.wave > path {
+          animation: none;
+        }
+      `,
+    }}
+  />
+);
 // app/internships/page.tsx
 import Link from "next/link";
 import Script from "next/script";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Globe, Rocket, Users } from "lucide-react";
+import {
+  Briefcase,
+  Globe,
+  Rocket,
+  Users,
+  Zap,
+  ShieldCheck,
+  TrendingUp,
+} from "lucide-react";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 
@@ -47,22 +68,22 @@ export const metadata = {
 const categories = [
   {
     label: "マーケティング",
-    href: "/internships/jobs?category=marketing",
+    href: "/jobs/list?jobType=marketing&selectionType=intern_long",
     icon: Globe,
   },
   {
     label: "エンジニア",
-    href: "/internships/jobs?category=engineering",
+    href: "/jobs/list?jobType=engineering&selectionType=intern_long",
     icon: Rocket,
   },
   {
     label: "営業",
-    href: "/internships/jobs?category=sales",
+    href: "/jobs/list?jobType=sales&selectionType=intern_long",
     icon: Briefcase,
   },
   {
     label: "人事 / HR",
-    href: "/internships/jobs?category=hr",
+    href: "/jobs/list?jobType=hr&selectionType=intern_long",
     icon: Users,
   },
 ];
@@ -79,6 +100,24 @@ const steps = [
   },
 ];
 
+const features = [
+  {
+    icon: Zap,
+    title: "最短1日で内定直結",
+    text: "スピーディーな選考フローで、挑戦したい気持ちをすぐに行動へ。",
+  },
+  {
+    icon: ShieldCheck,
+    title: "安心のサポート体制",
+    text: "応募から入社後まで、専属キャリアアドバイザーが徹底フォロー。",
+  },
+  {
+    icon: TrendingUp,
+    title: "成長機会が豊富",
+    text: "成長企業・スタートアップの実践的なプロジェクトに挑戦できる。",
+  },
+];
+
 type SimpleJob = {
   id: string;
   title: string;
@@ -92,9 +131,32 @@ async function getLatestInternJobs(): Promise<SimpleJob[]> {
     .select("id, title, company:companies(name, logo)")
     .eq("selection_type", "intern_long")
     .order("created_at", { ascending: false })
-    .limit(6);
+    .limit(8);
   return (data ?? []) as unknown as SimpleJob[];
 }
+
+
+/* ---------- Testimonials Data ---------- */
+const testimonials = [
+  {
+    quote:
+      "このサイトを通じて自分に合う成長環境を見つけ、半年で事業責任者を任されました！",
+    name: "早稲田大学 佐藤さん",
+    role: "マーケティングインターン",
+  },
+  {
+    quote:
+      "スタートアップの現場で実践的な開発に携われたことで、エンジニアとして一気にレベルアップできました。",
+    name: "慶應義塾大学 鈴木さん",
+    role: "エンジニアインターン",
+  },
+  {
+    quote:
+      "営業インターンで圧倒的な経験を積み、内定先の選択肢が一気に広がりました！",
+    name: "東京大学 田中さん",
+    role: "営業インターン",
+  },
+];
 
 /* ---------- Page ---------- */
 
@@ -102,7 +164,9 @@ export default async function InternshipTop() {
   const jobs = await getLatestInternJobs();
 
   return (
-    <main className="scroll-smooth">
+    <>
+      {waveCSS}
+      <main className="scroll-smooth">
       {/* --- SEO Structured Data --- */}
       <Script id="breadcrumbs-jsonld" type="application/ld+json">
         {JSON.stringify({
@@ -135,94 +199,112 @@ export default async function InternshipTop() {
         })}
       </Script>
       {/* ---------- Hero ---------- */}
-      <section className="relative isolate flex min-h-[90vh] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-600 via-orange-500 to-orange-400">
+      <section className="relative isolate flex min-h-[60vh] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-600 via-orange-500 to-orange-400">
         {/* Background image (optional) */}
         <Image
-          src="/hero/internship.jpg"
-          alt="インターンシップ募集サイトの背景画像"
+          src="/shukatu.jpg"
+          alt="学生が就活に励むイメージ写真"
           fill
           priority
-          className="absolute inset-0 -z-10 h-full w-full object-cover scale-110 blur-sm opacity-40"
+          className="absolute inset-0 -z-20 h-full w-full object-cover scale-105 opacity-40"
         />
+        {/* Color overlay to improve text readability */}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-orange-900/60 via-orange-800/40 to-orange-700/20 mix-blend-multiply"></div>
 
-        <div className="relative mx-auto max-w-5xl px-6 py-40 text-center text-white">
-          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight tracking-tight drop-shadow-lg">
+        <div className="relative mx-auto max-w-5xl px-6 py-24 text-center text-white">
+          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg">
             本気で成長したい学生のための
             <br className="hidden md:block" />
-            <span className="bg-gradient-to-r from-orange-500 to-orange-300 bg-clip-text text-transparent">
-              長期インターン求人サイト
+            <span className="text-6xl md:text-7xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
+              学転インターン
             </span>
           </h1>
-          <p className="mt-6 text-lg text-gray-200">
+          <p className="mt-6 text-lg text-white/90">
             スタートアップからメガベンチャーまで。
             あなたの“挑戦したい”を叶えるポジションが見つかる。
           </p>
-          {/* Quick search */}
+          {/* --- Search Bar --- */}
           <form
-            action="/internships/jobs"
+            action="/jobs/list"
             method="GET"
-            className="mx-auto mt-8 flex max-w-xl overflow-hidden rounded-md bg-white shadow-sm"
+            className="mx-auto mt-8 flex w-full max-w-lg sm:max-w-xl md:max-w-2xl overflow-hidden rounded-full bg-white shadow-lg"
           >
+            <input type="hidden" name="selectionType" value="intern_long" />
             <input
               type="text"
               name="q"
               placeholder="キーワードで検索（例：マーケティング）"
-              className="w-full flex-1 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
+              className="flex-1 px-5 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
             />
-            <Button type="submit" className="rounded-none rounded-r-md">
+            <Button
+              type="submit"
+              size="lg"
+              className="rounded-none rounded-r-full px-8 font-semibold"
+            >
               検索
             </Button>
           </form>
-          <div className="mt-10 flex justify-center gap-4">
-            <Button asChild size="lg">
-              <Link href="/internships/jobs">求人を探す</Link>
+          {/* CTA Buttons — styled like the reference UI */}
+          <div className="mt-10 flex flex-wrap justify-center gap-4">
+            {/* Filled pill button */}
+            <Button
+              asChild
+              size="lg"
+              className="rounded-full bg-white px-8 py-3 font-semibold text-orange-600 hover:bg-white/90"
+            >
+              <Link href="#how-it-works">無料登録</Link>
             </Button>
-            <Button asChild variant="secondary" size="lg">
-              <Link href="#how-it-works">はじめての方へ</Link>
+
+            {/* Outlined pill button with arrow */}
+            <Button
+              asChild
+              size="lg"
+              variant="ghost"
+              className="group rounded-full border border-white px-8 py-3 font-semibold text-white hover:bg-white/10"
+            >
+              <Link
+                href="/jobs/list?selectionType=intern_long"
+                className="flex items-center gap-2"
+              >
+                <span>求人を探す</span>
+                {/* arrow icon */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
+                >
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </Link>
             </Button>
           </div>
         </div>
         {/* Decorative wave */}
         <svg
-          viewBox="0 0 1440 100"
-          className="absolute bottom-[-1px] left-0 w-full text-background"
+          viewBox="0 0 2880 100"
+          className="wave absolute bottom-[-1px] left-0 w-full text-background"
           aria-hidden="true"
         >
           <path
             fill="currentColor"
-            d="M0,30 C360,90 1080,-60 1440,30 L1440,100 L0,100 Z"
+            d="M0,30 C360,90 1080,-60 1440,30 C1800,90 2520,-60 2880,30 L2880,100 L0,100 Z"
           />
         </svg>
       </section>
 
-
-      {/* ---------- Categories ---------- */}
-      <section className="container space-y-10 py-20">
-        <h2 className="relative mx-auto w-max text-center text-3xl font-bold after:block after:h-0.5 after:w-full after:origin-left after:scale-x-100 after:bg-orange-500 after:content-['']">
-          カテゴリから探す
-        </h2>
-
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {categories.map(({ label, href, icon: Icon }) => (
-            <Link
-              key={label}
-              href={href}
-              className="relative group rounded-2xl bg-card/70 p-6 text-center shadow-lg ring-1 ring-border backdrop-blur-sm transition-transform duration-300 hover:-translate-y-2 hover:bg-orange-500/10 hover:ring-orange-500/50"
-            >
-              <Icon className="mx-auto h-8 w-8 text-orange-500 transition-transform duration-300 group-hover:scale-110" />
-              <span className="mt-3 block font-medium">{label}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {/* ---------- Latest Jobs ---------- */}
-      <section className="container space-y-10 py-20">
+      <section className="container space-y-10 py-12">
         <h2 className="relative mx-auto w-max text-center text-3xl font-bold after:block after:h-0.5 after:w-full after:origin-left after:scale-x-100 after:bg-orange-500 after:content-['']">
           最新の長期インターン求人
         </h2>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {jobs.map((job) => (
             <Link
               key={job.id}
@@ -257,9 +339,75 @@ export default async function InternshipTop() {
 
         <div className="mt-10 text-center">
           <Button asChild size="lg">
-            <Link href="/internships/jobs">すべての求人を見る</Link>
+            <Link href="/jobs/list?selectionType=intern_long">すべての求人を見る</Link>
           </Button>
         </div>
+      </section>
+
+      {/* ---------- Categories ---------- */}
+      <section className="container space-y-10 py-20">
+        <h2 className="relative mx-auto w-max text-center text-3xl font-bold after:block after:h-0.5 after:w-full after:origin-left after:scale-x-100 after:bg-orange-500 after:content-['']">
+          カテゴリから探す
+        </h2>
+
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {categories.map(({ label, href, icon: Icon }) => (
+            <Link
+              key={label}
+              href={href}
+              className="relative group rounded-2xl bg-card/70 p-6 text-center shadow-lg ring-1 ring-border backdrop-blur-sm transition-transform duration-300 hover:-translate-y-2 hover:bg-orange-500/10 hover:ring-orange-500/50"
+            >
+              <Icon className="mx-auto h-8 w-8 text-orange-500 transition-transform duration-300 group-hover:scale-110" />
+              <span className="mt-3 block font-medium">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------- Why Choose Us ---------- */}
+      <section className="relative overflow-hidden py-20">
+        {/* Wave top */}
+        <svg
+          viewBox="0 0 2880 100"
+          className="wave absolute -top-px left-0 w-full rotate-180 text-orange-500/10"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            d="M0,30 C360,90 1080,-60 1440,30 C1800,90 2520,-60 2880,30 L2880,100 L0,100 Z"
+          />
+        </svg>
+
+        <div className="container relative space-y-12">
+          <h2 className="relative mx-auto w-max text-center text-3xl font-bold after:block after:h-0.5 after:w-full after:origin-left after:scale-x-100 after:bg-orange-500 after:content-['']">
+            学生転職が選ばれる理由
+          </h2>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {features.map(({ icon: Icon, title, text }) => (
+              <div
+                key={title}
+                className="rounded-2xl bg-white/60 p-8 text-center shadow-lg backdrop-blur-md transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <Icon className="mx-auto h-10 w-10 text-orange-500" />
+                <h3 className="mt-4 text-xl font-semibold">{title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Wave bottom */}
+        <svg
+          viewBox="0 0 2880 100"
+          className="wave absolute bottom-[-1px] left-0 w-full text-orange-500/10"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            d="M0,30 C360,90 1080,-60 1440,30 C1800,90 2520,-60 2880,30 L2880,100 L0,100 Z"
+          />
+        </svg>
       </section>
 
       {/* ---------- How it works ---------- */}
@@ -289,30 +437,19 @@ export default async function InternshipTop() {
           活躍する先輩の声
         </h2>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {[1, 2, 3].map((idx) => (
+        <div className="grid justify-items-center gap-8 md:grid-cols-3">
+          {testimonials.map((t) => (
             <figure
-              key={idx}
-              className="rounded-lg bg-card p-6 shadow-sm transition hover:shadow-lg"
+              key={t.name}
+              className="flex max-w-sm flex-col gap-6 rounded-2xl bg-white/70 p-8 shadow-lg backdrop-blur transition hover:-translate-y-1 hover:shadow-xl"
             >
-              <blockquote className="text-sm leading-relaxed">
-                &quot;このサイト経由で挑戦的なポジションに出会い、半年で内定直結の成果を
-                出せました！&quot;
+              <blockquote className="text-sm leading-relaxed text-gray-700 md:text-base">
+                「{t.quote}」
               </blockquote>
-              <figcaption className="mt-4 flex items-center gap-3">
-                <Image
-                  src={`/avatars/student${idx}.jpg`}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
-                />
-                <div>
-                  <div className="text-xs font-medium">早稲田大学 佐藤さん</div>
-                  <div className="text-xs text-muted-foreground">
-                    マーケティングインターン
-                  </div>
-                </div>
+
+              <figcaption className="pt-4 text-sm">
+                <div className="font-medium text-gray-900">{t.name}</div>
+                <div className="text-muted-foreground">{t.role}</div>
               </figcaption>
             </figure>
           ))}
@@ -320,34 +457,19 @@ export default async function InternshipTop() {
       </section>
 
       {/* ---------- Stats ---------- */}
-      <section className="bg-background py-12">
-        <div className="container grid gap-8 text-center md:grid-cols-3">
-          <div>
-            <p className="text-4xl font-extrabold text-orange-500">1,200+</p>
-            <p className="mt-2 text-sm text-muted-foreground">掲載求人数</p>
-          </div>
-          <div>
-            <p className="text-4xl font-extrabold text-orange-500">50,000+</p>
-            <p className="mt-2 text-sm text-muted-foreground">利用学生数</p>
-          </div>
-          <div>
-            <p className="text-4xl font-extrabold text-orange-500">92%</p>
-            <p className="mt-2 text-sm text-muted-foreground">平均マッチ率</p>
-          </div>
-        </div>
-      </section>
 
       {/* Sticky CTA (mobile) */}
       <div className="fixed bottom-6 left-1/2 z-50 w-[92%] -translate-x-1/2 md:hidden">
         <div className="flex gap-3 rounded-2xl bg-orange-500 px-4 py-3 shadow-2xl">
           <Button asChild variant="link" className="flex-1 text-primary-foreground">
-            <Link href="/internships/jobs">求人を探す</Link>
+            <Link href="/jobs/list?selectionType=intern_long">求人を探す</Link>
           </Button>
           <Button asChild variant="secondary" className="flex-1">
-            <Link href="/internships/jobs?sort=new">新着をみる</Link>
+            <Link href="/jobs/list?sort=new&selectionType=intern_long">新着をみる</Link>
           </Button>
         </div>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

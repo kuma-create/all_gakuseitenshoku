@@ -161,14 +161,23 @@ export default function JobsPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
 
   /* UI filter states */
+  // --- initialize filters from URL query parameters ---
+  const industryParam      = searchParams.get("industry")      ?? "all";
+  const jobTypeParam       = searchParams.get("jobType")       ?? "all";
+  // Accept both ?selectionType= and legacy ?type=
+  const selectionTypeParam =
+    searchParams.get("selectionType") ??
+    searchParams.get("type") ??
+    "all";
+  const salaryMinParam     = searchParams.get("salaryMin")     ?? "all";
   // `search` is the committed keyword that triggers filtering.
   // `query` is the text the user is currently typing.
   const [search, setSearch] = useState(qParam);
   const [query, setQuery] = useState(qParam);
-  const [industry, setIndustry] = useState("all")
-  const [jobType, setJobType] = useState("all")
-  const [selectionType, setSelectionType] = useState("all")
-  const [salaryMin, setSalaryMin] = useState<string>("all")
+  const [industry, setIndustry] = useState(industryParam);
+  const [jobType, setJobType] = useState(jobTypeParam);
+  const [selectionType, setSelectionType] = useState(selectionTypeParam);
+  const [salaryMin, setSalaryMin] = useState<string>(salaryMinParam);
   const [saved, setSaved] = useState<Set<string>>(new Set())
   // 最初に localStorage から読み取って saved セットを初期化
   useEffect(() => {
@@ -187,6 +196,39 @@ export default function JobsPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
 
+  /**
+   * ------------------------------------------------------------
+   * Keep local filter / query / category states aligned with the
+   * current URL.  When the user lands on a link that already has
+   * ?industry=...&jobType=... etc., or navigates with <Link>,
+   * this effect updates all relevant React states so the UI and
+   * displayed results always reflect the URL.
+   * ------------------------------------------------------------
+   */
+  useEffect(() => {
+    const currentIndustry       = searchParams.get("industry")      ?? "all";
+    const currentJobType        = searchParams.get("jobType")       ?? "all";
+    const currentSelectionType =
+      searchParams.get("selectionType") ??
+      searchParams.get("type") ??
+      "all";
+    const currentSalaryMin      = searchParams.get("salaryMin")     ?? "all";
+    const currentQuery          = searchParams.get("q")             ?? "";
+    const currentTab = (searchParams.get("tab") ?? "company") as
+      | "company"
+      | "fulltime"
+      | "intern"
+      | "event";
+
+    setIndustry(currentIndustry);
+    setJobType(currentJobType);
+    setSelectionType(currentSelectionType);
+    setSalaryMin(currentSalaryMin);
+    setSearch(currentQuery);
+    setQuery(currentQuery);
+    setCategory(currentTab);
+  }, [searchParams]);
+
   // --- build a query‑string that reflects current filter states ---
   const buildParams = (qValue: string = search.trim()) => {
     const params = new URLSearchParams();
@@ -194,7 +236,10 @@ export default function JobsPage() {
     params.set("tab", category);
     if (industry !== "all") params.set("industry", industry);
     if (jobType !== "all") params.set("jobType", jobType);
-    if (selectionType !== "all") params.set("selectionType", selectionType);
+    if (selectionType !== "all") {
+      params.set("selectionType", selectionType);
+      params.set("type", selectionType);          // legacy alias
+    }
     if (salaryMin !== "all") params.set("salaryMin", salaryMin);
     return params.toString();
   };
@@ -316,7 +361,21 @@ job_tags!job_tags_job_id_fkey (
 
       const matchesSalary = salaryMin === "all" || (j.salary_max ?? j.salary_min ?? 0) >= Number(salaryMin)
 
-      const matchesCategory = selectionType === "all" || (j.selection_type ?? "") === selectionType
+      // treat legacy & canonical keys as identical
+      const isSameSelection = (
+        selFilter: string,
+        selJob: string | null | undefined,
+      ) => {
+        if (selFilter === "all") return true;
+        const f = selFilter ?? "";
+        const jv = selJob ?? "";
+        // canonicalise legacy alias
+        const canon = (v: string) =>
+          v === "intern_long" ? "internship_long" : v;
+        return canon(f) === canon(jv);
+      };
+
+      const matchesCategory = isSameSelection(selectionType, j.selection_type);
 
       return matchesQ && matchesInd && matchesJob && matchesSalary && matchesCategory
     })
@@ -715,7 +774,7 @@ job_tags!job_tags_job_id_fkey (
                 colorClass="bg-gradient-to-br from-indigo-500 to-indigo-700"
               />
               <Link
-                href="/jobs/list?tab=fulltime"
+                href="/jobs/list?tab=fulltime&selectionType=fulltime"
                 className="text-sm text-indigo-600 hover:underline flex items-center gap-1"
               >
                 もっと見る <ChevronRight className="h-4 w-4" />
@@ -740,7 +799,7 @@ job_tags!job_tags_job_id_fkey (
                 colorClass="bg-gradient-to-br from-pink-500 to-pink-700"
               />
               <Link
-                href="/jobs/list?tab=intern"
+                href="/jobs/list?tab=intern&selectionType=intern_long"
                 className="text-sm text-pink-600 hover:underline flex items-center gap-1"
               >
                 もっと見る <ChevronRight className="h-4 w-4" />
@@ -765,7 +824,7 @@ job_tags!job_tags_job_id_fkey (
                 colorClass="bg-gradient-to-br from-purple-500 to-purple-700"
               />
               <Link
-                href="/jobs/list?tab=event"
+                href="/jobs/list?tab=event&selectionType=event"
                 className="text-sm text-purple-600 hover:underline flex items-center gap-1"
               >
                 もっと見る <ChevronRight className="h-4 w-4" />
@@ -788,7 +847,7 @@ job_tags!job_tags_job_id_fkey (
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">締め切り間近なインターン</h2>
           <Link
-            href="/jobs/list?tab=intern"
+            href="/jobs/list?tab=intern&selectionType=intern_long"
             className="flex items-center gap-1 text-red-600 hover:underline"
           >
             すべて見る
