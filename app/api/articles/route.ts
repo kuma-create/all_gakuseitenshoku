@@ -2,7 +2,10 @@
 import { NextResponse } from 'next/server'
 import { getArticles } from '@/lib/getArticles'           // 既存のロジックを再利用
 
+
 export const revalidate = 3600  // ISR：1時間キャッシュ（任意）
+// 動的処理を含むため静的プリレンダを無効化
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
