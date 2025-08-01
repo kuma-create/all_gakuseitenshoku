@@ -28,6 +28,7 @@ import {
   Trash2,
   UserPlus,
   FileText,
+  ExternalLink,
 } from "lucide-react";
 import {
   Avatar,
@@ -1253,24 +1254,34 @@ export default function AdminDashboard() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>
-                              操作
-                            </DropdownMenuLabel>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                openModal(
-                                  "view-student",
-                                  s.id
-                                )
-                              }
-                            >
-                              <Eye /> 詳細
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/admin/resume?user_id=${s.user_id ?? s.id}`}>
-                                <Edit /> 編集
-                              </Link>
-                            </DropdownMenuItem>
+                          <DropdownMenuLabel>
+                            操作
+                          </DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              openModal(
+                                "view-student",
+                                s.id
+                              )
+                            }
+                          >
+                            <Eye /> 詳細
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              window.open(
+                                `/api/admin/impersonate?userId=${s.user_id ?? s.id}`,
+                                "_blank"
+                              )
+                            }
+                          >
+                            <ExternalLink /> ユーザーとして見る
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/resume?user_id=${s.user_id ?? s.id}`}>
+                              <Edit /> 編集
+                            </Link>
+                          </DropdownMenuItem>
                             {s.status === "アクティブ" ? (
                               <DropdownMenuItem
                                 onClick={() =>
@@ -1393,6 +1404,16 @@ export default function AdminDashboard() {
                           }
                         >
                           <Eye /> 詳細
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            window.open(
+                              `/api/admin/impersonate?userId=${c.id}`,
+                              "_blank"
+                            )
+                          }
+                        >
+                          <ExternalLink /> アカウントとして見る
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() =>

@@ -8,6 +8,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient }          from "@supabase/auth-helpers-nextjs";
 import type { Database }                   from "@/lib/supabase/types";
 
+/* ---------- Supabase cookie name (v2) ---------- */
+// Supabase v2 stores auth in a single cookie: sb-<projectRef>-auth-token
+const projectRef =
+  process.env.NEXT_PUBLIC_SUPABASE_URL!.match(/^https?:\/\/([^.]+)\./)?.[1] ??
+  "local";
+const AUTH_COOKIE_NAME = `sb-${projectRef}-auth-token`;
+
 /* ---------- 定数 ---------- */
 /** 静的アセット拡張子 */
 const STATIC_RE = /\.(png|jpe?g|webp|svg|gif|ico|css|js|json|txt|xml|webmanifest)$/i;
@@ -23,8 +30,9 @@ const PUBLIC_PREFIXES = [
   "/signup",                 // 新規登録
   "/auth/student/register",  // 学生登録フロー
   "/auth/reset",             // パスワードリセット
-  "/auth",                   // Supabase auth-helper routes (/auth/set, /auth/logout)
-  "/terms",                  // 利用規約
+  "/auth",                  // Supabase auth-helper routes (/auth/set, /auth/logout)
+  "/terms",
+  "/refer",                  // 利用規約
   "/privacy-policy",         // プライバシーポリシー
   "/grandprix", 
   "/whitepapers",            // グランプリ一覧
@@ -37,9 +45,10 @@ const PUBLIC_PREFIXES = [
   "/internships",
   "/features",
   "/onboarding/profile",
-  "/forgot-password",             // パスワード再設定
-  "/password-reset-callback",     // パスワード再設定用コールバック
-  "/email-callback",              // メールリンク用コールバック
+  "/forgot-password",            // 管理者ログイン
+  "/password-reset-callback",    // パスワード再設定用コールバック
+  "/email-callback",        // メールリンク用コールバック
+  "/impersonated",            // 管理者がユーザーになり切った直後の着地点
   /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
   "/offers",                 // スカウト /offers(/...)
   "/applications",           // 応募履歴 /applications(/...)
@@ -84,9 +93,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  /* ---------- Cookie が無い場合の早期リターン ---------- */
-  const hasAuthCookie =
-    !!req.cookies.get("sb-access-token") || !!req.cookies.get("sb-refresh-token");
+
+/* ---------- Cookie が無い場合の早期リターン ---------- */
+const hasAuthCookie =
+  !!req.cookies.get("sb-access-token") ||           // Supabase <v2
+  !!req.cookies.get("sb-refresh-token") ||          // Supabase <v2
+  !!req.cookies.get(AUTH_COOKIE_NAME);              // Supabase v2 (sb-<ref>-auth-token)
 
   if (!hasAuthCookie) {
     // 未ログインでログインページはそのまま表示
@@ -207,6 +219,7 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|internships|ipo|admin|company|lp|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|search|media|whitepapers).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|refer||admin|company|lp|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|media|whitepapers|impersonated).*)",
+
   ],
 };

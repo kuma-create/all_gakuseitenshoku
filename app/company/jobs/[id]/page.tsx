@@ -186,7 +186,6 @@ const fetchJob = async (id: string) => {
       internLong.work_days_per_week !== undefined && internLong.work_days_per_week !== null
         ? String(internLong.work_days_per_week)
         : intern.work_days_per_week ?? "",
-
     /* Intern‑Long */
     workingHours:
       internLong.working_hours !== undefined && internLong.working_hours !== null

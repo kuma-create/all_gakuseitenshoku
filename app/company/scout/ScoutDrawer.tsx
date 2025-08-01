@@ -216,7 +216,6 @@ export default function ScoutDrawer({
   }
 
   const handleSend = async () => {
-    if (readOnly) return
     if (!student) return
 
     // company_member_id は NOT NULL 制約があるため必須
@@ -224,6 +223,8 @@ export default function ScoutDrawer({
       toast.error("ログインユーザーが company_members に登録されていません。スカウトを送信できません。")
       return
     }
+
+    const statusValue = readOnly ? "resent" : "sent"
 
     const payload: Database["public"]["Tables"]["scouts"]["Insert"] & {
       company_member_id?: string | null
@@ -235,17 +236,17 @@ export default function ScoutDrawer({
       job_id: selectedJobId,
       student_id: student.id,
       message,
-      status: "sent",
+      status: statusValue,
       offer_position: offerPosition.trim() || null,
       offer_amount: offerAmount.trim() || null,
     }
 
-    // RLS ポリシーにより自社スカウトは SELECT 可能
+    // Use upsert so "再送" can overwrite the existing record (conflict on PK / unique key)
     const { data: scoutRow, error: scoutErr } = await supabase
       .from("scouts")
-      .insert(payload)
-      .select()          // フルカラムを返す
-      .single();
+      .upsert(payload, { onConflict: "company_id,student_id,job_id" })
+      .select()          // return full row
+      .single()
 
     if (scoutErr) {
       toast.error("送信に失敗しました")
@@ -302,8 +303,7 @@ export default function ScoutDrawer({
             </div>
 
             {/* ── 右 1/3：スカウト送信フォーム ───────────────── */}
-            {!readOnly && (
-              <div className="border-l p-6 flex flex-col space-y-6 overflow-y-auto">
+            <div className="border-l p-6 flex flex-col space-y-6 overflow-y-auto">
                 {/* 学生サマリー */}
                 <Card>
                   <CardContent className="pt-4 flex items-start gap-4">
@@ -428,16 +428,28 @@ export default function ScoutDrawer({
                   >
                     キャンセル
                   </Button>
-                  <Button
-                    className="flex-1"
-                    disabled={isDisabled}
-                    onClick={handleSend}
-                  >
-                    <Send className="h-4 w-4 mr-2" /> 送信
-                  </Button>
+
+                  {readOnly ? (
+                    /* === 再送ボタン（readOnly 時のみ表示） === */
+                    <Button
+                      className="flex-1"
+                      disabled={isDisabled}
+                      onClick={handleSend}
+                    >
+                      <Send className="h-4 w-4 mr-2" /> 再送
+                    </Button>
+                  ) : (
+                    /* === 新規送信ボタン === */
+                    <Button
+                      className="flex-1"
+                      disabled={isDisabled}
+                      onClick={handleSend}
+                    >
+                      <Send className="h-4 w-4 mr-2" /> 送信
+                    </Button>
+                  )}
                 </div>
               </div>
-            )}
           </div>
         )}
       </SheetContent>

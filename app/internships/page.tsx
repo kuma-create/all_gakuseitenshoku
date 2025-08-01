@@ -1,3 +1,4 @@
+
 /* ---------- Wave Style (static) ---------- */
 const waveCSS = (
   <style
@@ -473,6 +474,3 @@ export default async function InternshipTop() {
     </>
   );
 }
-
-
-      {/* ---------- Stats ---------- */}

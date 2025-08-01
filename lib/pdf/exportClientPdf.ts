@@ -5,7 +5,7 @@ import html2pdf from "html2pdf.js";
  * A4 縦・日本語フォント対応で PDF に変換して保存
  * @param el 対象 Element
  */
-export function exportClientPdf(el: HTMLElement) {
+export function exportClientPdf(el: HTMLElement, filename: string = "resume.pdf") {
   html2pdf()
     .set({
       filename: "resume.pdf",
@@ -17,5 +17,5 @@ export function exportClientPdf(el: HTMLElement) {
       },
     })
     .from(el)
-    .save();
+    .save(filename);
 }
