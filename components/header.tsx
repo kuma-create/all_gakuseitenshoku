@@ -40,6 +40,7 @@ const studentMain: NavItem[] = [
   { href: "/offers",    label: "スカウト",   icon: Mail },
   { href: "/chat",      label: "チャット",   icon: MessageSquare },
   { href: "/grandprix",         label: "就活GP",    icon: Trophy },
+  { href: "/media", label: "学転メディア", icon: BookOpen },
   { href: "/features",          label: "特集",       icon: BookOpen },
 ];
 /* ---------- マイページ配下 ---------- */
