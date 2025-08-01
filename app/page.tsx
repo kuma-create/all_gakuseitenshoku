@@ -28,7 +28,6 @@ import GptCareerAdvisorCard from "@/components/GptCareerAdvisorCard"
 import MobileAppBanner from "@/components/mobile-app-banner"
 import { ProfileCompletionCard } from "@/components/ProfileCompletionCard"
 import { motion } from "framer-motion"
-import JobsAdvisorInline from "@/components/JobsAdvisorInline"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation";
 
@@ -41,6 +40,8 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card"
+
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 
 
@@ -315,6 +316,10 @@ export default function Home() {
     readers: "0",
     companies: 0,
   });
+  // controls visibility of the bottom banner
+  const [bannerClosed, setBannerClosed] = useState(false);
+  // Controls the AI advisor modal
+  const [showAdvisor, setShowAdvisor] = useState(false);
 return (
     <div className="min-h-screen bg-white">
 
@@ -486,6 +491,10 @@ return (
             ))}
           </div>
         </div>
+        {/* --- AI Career Advisor Card --- */}
+        <div id="ai-advisor" className="mt-12">
+          <GptCareerAdvisorCard />
+        </div>
       </section>
 
       {/* Trending Articles Section ----------------------------------------- */}
@@ -501,17 +510,18 @@ return (
             すべて見る <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {articlesWithImages.slice(0, 3).map((a) => (
-            <ArticleCard
-              key={a.id}
-              title={a.title}
-              excerpt={a.description ?? ''}
-              imageUrl={a.imageUrl!}
-              category={a.source}
-              date={a.publishedAt.slice(0, 10)}
-              onClick={() => setActive(a)}
-            />
+        <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
+          {articlesWithImages.slice(0, 8).map((a) => (
+            <div key={a.id} className="min-w-[200px] max-w-[200px] flex-shrink-0">
+              <ArticleCard
+                title={a.title}
+                excerpt={a.description ?? ''}
+                imageUrl={a.imageUrl!}
+                category={a.source}
+                date={a.publishedAt.slice(0, 10)}
+                onClick={() => setActive(a)}
+              />
+            </div>
           ))}
         </div>
       </section>
@@ -584,8 +594,8 @@ return (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <Users className="w-4 h-4 text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-full flex items-center justify-center shadow-md">
+                <Users className="w-5 h-5 text-white" />
               </div>
               <h2 className="text-xl md:text-2xl font-bold text-gray-900">新着求人</h2>
             </div>
@@ -666,8 +676,8 @@ return (
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-pink-600 rounded-lg flex items-center justify-center">
-              <GraduationCap className="w-4 h-4 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center shadow-md">
+              <GraduationCap className="w-5 h-5 text-white" />
             </div>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900">インターンシップ</h2>
           </div>
@@ -771,12 +781,6 @@ return (
                   AI分析
                 </TabsTrigger>
                 <TabsTrigger
-                  value="interview"
-                  className="px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent min-w-max"
-                >
-                  体験談
-                </TabsTrigger>
-                <TabsTrigger
                   value="companies"
                   className="px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent min-w-max"
                 >
@@ -811,7 +815,7 @@ return (
             {newsArticles.length === 0 ? (
               <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
                 {newsArticles.map((a) => (
                   <ArticleCard
                     key={a.id}
@@ -830,7 +834,7 @@ return (
             {careerArticles.length === 0 ? (
               <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
                 {careerArticles.map((a) => (
                   <ArticleCard
                     key={a.id}
@@ -849,27 +853,8 @@ return (
             {aiArticles.length === 0 ? (
               <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
                 {aiArticles.map((a) => (
-                  <ArticleCard
-                    key={a.id}
-                    title={a.title}
-                    excerpt={a.description ?? ""}
-                    imageUrl={a.imageUrl!}
-                    category={a.source}
-                    date={a.publishedAt.slice(0, 10)}
-                    onClick={() => setActive(a)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="interview" className="mt-6">
-            {interviewArticles.length === 0 ? (
-              <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {interviewArticles.map((a) => (
                   <ArticleCard
                     key={a.id}
                     title={a.title}
@@ -887,7 +872,7 @@ return (
             {companyArticlesTab.length === 0 ? (
               <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
                 {companyArticlesTab.map((a) => (
                   <ArticleCard
                     key={a.id}
@@ -908,7 +893,7 @@ return (
                 記事が見つかりませんでした
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
                 {companyArticlesWithImages.map((c) => (
                   <ArticleCard
                     key={c.id}
@@ -923,11 +908,6 @@ return (
               </div>
             )}
           </TabsContent>
-          <TabsContent value="advisor" className="mt-6">
-            <div className="max-w-2xl mx-auto">
-              <JobsAdvisorInline />
-            </div>
-          </TabsContent>
         </Tabs>
       </main>
 
@@ -941,94 +921,53 @@ return (
         />
       )}
 
-      {/* Newsletter & Trending sidebar (from v0) ---------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Newsletter sign‑up */}
-          <div className="lg:col-span-3">
-            <Card className="bg-gradient-to-r from-red-600 to-red-700 text-white p-8">
-              <div className="text-center">
-                <h3 className="text-2xl font-bold mb-4">最新のキャリア情報をお届け</h3>
-                <p className="mb-6 opacity-90">
-                  週1回、厳選されたキャリア情報とトレンドをメールでお送りします
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                  <Input
-                    placeholder="メールアドレスを入力"
-                    className="bg-white text-gray-900 border-0"
-                  />
-                  <Button className="bg-white text-red-600 hover:bg-gray-100 font-semibold">
-                    登録する
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Sidebar cards */}
-          <div className="space-y-6">
-            {/* Trending Topics */}
-            <Card className="p-6">
-              <h3 className="font-bold text-lg mb-4 flex items-center">
-                <TrendingUp className="w-5 h-5 mr-2 text-red-600" />
-                トレンドトピック
-              </h3>
-              <div className="space-y-3">
-                {trendingTopics.map((topic, index) => (
-                  <div
-                    key={topic.name}
-                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-bold text-gray-400 w-4">
-                        {index + 1}
-                      </span>
-                      <span className="font-medium text-gray-900">
-                        {topic.name}
-                      </span>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {topic.count}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Quick Stats */}
-            <Card className="p-6">
-              <h3 className="font-bold text-lg mb-4">今月の統計</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">記事数</span>
-                  <span className="font-bold text-2xl text-blue-600">
-                    {quickStats.articles.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">読者数</span>
-                  <span className="font-bold text-2xl text-green-600">
-                    {quickStats.readers}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">企業情報</span>
-                  <span className="font-bold text-2xl text-purple-600">
-                    {quickStats.companies.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
+      {/* CV Registration CTA */}
+      <section className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <h2 className="text-2xl md:text-3xl font-bold mb-6">
+          学生転職に登録してキャリアを広げよう
+        </h2>
+        <Button
+          size="lg"
+          className="bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full px-8 py-4"
+          asChild
+        >
+          <Link href="/cv/register">無料で登録する</Link>
+        </Button>
       </section>
-      {/* ------------------------------------------------------------------- */}
 
 
-      {/* Mobile App Banner – fixed at bottom, all devices */}
-      <div className="fixed inset-x-0 bottom-0 z-50">
-        <MobileAppBanner />
+      {/* Floating AI Advisor Button */}
+      <div
+        className={`fixed ${bannerClosed ? 'bottom-4' : 'bottom-36'} right-4 z-60`}
+      >
+        <button
+          onClick={() => setShowAdvisor(true)}
+          className="block focus:outline-none"
+          aria-label="Open AI Advisor"
+        >
+          <Image
+            src="/logo2.png"
+            alt="AI Advisor"
+            width={56}
+            height={56}
+            className="rounded-full shadow-lg hover:scale-105 transition-transform"
+          />
+        </button>
       </div>
+
+      {/* Mobile App Banner – fixed at bottom */}
+      {!bannerClosed && (
+        <div className="fixed inset-x-0 bottom-0 z-50">
+          <MobileAppBanner onClose={() => setBannerClosed(true)} />
+        </div>
+      )}
+
+      {/* AI Advisor Modal */}
+      <Dialog open={showAdvisor} onOpenChange={setShowAdvisor}>
+        <DialogContent className="max-w-3xl p-0">
+          <GptCareerAdvisorCard />
+        </DialogContent>
+      </Dialog>
 
       {/* Footer */}
       <footer className="bg-gray-50 border-t py-8 md:py-12">
