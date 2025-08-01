@@ -14,6 +14,23 @@ function parseNumber(input: string | null | undefined): number | null {
   return cleaned ? Number(cleaned) : null;
 }
 import type React from "react"
+
+// --- selectable job categories (multi-select) ---
+const JOB_CATEGORIES = [
+  "エンジニア",
+  "研究・開発",
+  "品質管理",
+  "デザイナー",
+  "営業",
+  "総務・人事",
+  "物流",
+  "生産管理",
+  "コンサルタント",
+  "経理・財務",
+  "企画・マーケティング",
+  "販売・サービス",
+] as const;
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // ---------- local form type ----------
@@ -22,7 +39,7 @@ type FormData = {
   title: string
   description: string
   requirements: string
-  department: string
+  departments: string[]
   employmentType: string
   location: string
   workingDays: string
@@ -33,7 +50,7 @@ type FormData = {
   applicationDeadline: string   // 追加
   status: string
   /* 共通プレビュー */
-  schedule: string
+
   /* Internship */
   startDate: string
   endDate: string
@@ -41,8 +58,11 @@ type FormData = {
   workDaysPerWeek: string
   allowance: string
   /* Intern‑Long */
-  minDurationMonths: string
   hourlyWage: string
+  travelExpense: string
+  nearestStation: string
+  remunerationType: "hourly" | "commission",
+  commissionRate: string,
   /* Event */
   eventDate: string
   capacity: string
@@ -74,6 +94,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -90,7 +111,17 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Command, CommandItem } from "@/components/ui/command"
 import { useToast } from "@/lib/hooks/use-toast"
+
+/**
+ * Convert `YYYY-MM-DD` (date‑input value) to ISO string for
+ * timestamp/date columns. Returns `null` for empty strings.
+ */
+const toIsoOrNull = (d: string | undefined | null) =>
+  d && d.trim() !== "" ? new Date(d).toISOString() : null;
 
 /**
  * Supabase から求人 1 件を取得し、フロントで使いやすい shape に整形して返す
@@ -119,7 +150,7 @@ const fetchJob = async (id: string) => {
       fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
       event_details:event_details!job_id (event_date, capacity, venue, format),
-      intern_long_details:intern_long_details!job_id (min_duration_months, work_days_per_week, hourly_wage)
+      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits)
     `)
     .eq("id", id)
     .single()
@@ -138,7 +169,6 @@ const fetchJob = async (id: string) => {
     requirements: data.requirements ?? "",
     department : data.department ?? "",
     employmentType: data.work_type ?? "",
-    workingHours   : full.working_hours   ?? "",
     benefits       : full.benefits        ?? "",
     applicationDeadline: data.application_deadline ?? "",
     location   : data.location ?? "",
@@ -150,22 +180,23 @@ const fetchJob = async (id: string) => {
     startDate       : data.start_date ?? intern.start_date ?? "",
     endDate         : intern.end_date ?? "",
     durationWeeks   : intern.duration_weeks ?? "",
-    // workDaysPerWeek : intern.work_days_per_week ?? "",
     allowance       : intern.allowance ?? "",
-
-    /* Intern‑Long */
+    /* unified work‑days */
     workDaysPerWeek:
       internLong.work_days_per_week !== undefined && internLong.work_days_per_week !== null
         ? String(internLong.work_days_per_week)
         : intern.work_days_per_week ?? "",
-    minDurationMonths:
-      internLong.min_duration_months !== undefined && internLong.min_duration_months !== null
-        ? String(internLong.min_duration_months)
-        : "",
+    /* Intern‑Long */
+    workingHours:
+      internLong.working_hours !== undefined && internLong.working_hours !== null
+        ? String(internLong.working_hours)
+        : full.working_hours ?? "",
     hourlyWage:
       internLong.hourly_wage !== undefined && internLong.hourly_wage !== null
         ? String(internLong.hourly_wage)
         : "",
+    travelExpense  : internLong.travel_expense  ?? "",
+    nearestStation : internLong.nearest_station ?? "",
 
     /* Event */
     eventDate : event.event_date ?? "",
@@ -173,10 +204,9 @@ const fetchJob = async (id: string) => {
     venue     : event.venue ?? "",
     format    : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
 
+
     /* 共通プレビュー */
-    schedule : data.selection_type === "event"
-                ? (event.event_date ?? "")
-                : data.start_date ?? "",
+    // Removed duplicate schedule property to resolve ts(1117)
     selectionType : data.selection_type ?? "fulltime",
     status        : data.published ? "公開" : "非公開",
     applicants    : 0,
@@ -258,7 +288,7 @@ export default function JobEditPage() {
     title: "",
     description: "",
     requirements: "",
-    department: "",
+    departments: [] as string[],
     employmentType: "正社員",      // 追加
     location: "",
     workingDays: "",
@@ -269,7 +299,7 @@ export default function JobEditPage() {
     applicationDeadline: "",      // 追加
     status: "",
     /* 共通プレビュー */
-    schedule: "",
+
 
     /* インターン専用 */
     startDate: "",
@@ -278,9 +308,11 @@ export default function JobEditPage() {
     workDaysPerWeek: "",
     allowance: "",
     /* Intern‑Long */
-    minDurationMonths: "",
     hourlyWage      : "",
-
+    travelExpense   : "",
+    nearestStation  : "",
+    remunerationType   : "hourly",
+    commissionRate     : "",
     /* イベント専用 */
     eventDate: "",
     capacity: "",
@@ -297,7 +329,9 @@ export default function JobEditPage() {
           title      : jobData.title,
           description: jobData.description,
           requirements        : jobData.requirements,
-          department : jobData.department,
+          departments: jobData.department
+            ? jobData.department.split(",").map((s:string)=>s.trim())
+            : [],
           location   : jobData.location,
           workingDays: jobData.workingDays,
           salary     : jobData.salary,
@@ -308,7 +342,7 @@ export default function JobEditPage() {
           benefits            : jobData.benefits,
           applicationDeadline : jobData.applicationDeadline,
           /* 共通プレビュー */
-          schedule          : jobData.schedule ?? "",
+
           /* Internship */
           startDate       : jobData.startDate,
           endDate         : jobData.endDate,
@@ -316,8 +350,9 @@ export default function JobEditPage() {
           workDaysPerWeek : jobData.workDaysPerWeek,
           allowance       : jobData.allowance,
           /* Intern‑Long */
-          minDurationMonths : jobData.minDurationMonths ?? "",
           hourlyWage        : jobData.hourlyWage        ?? "",
+          travelExpense     : jobData.travelExpense,
+          nearestStation    : jobData.nearestStation,
           /* Event */
           eventDate : jobData.eventDate,
           capacity  : jobData.capacity,
@@ -356,6 +391,27 @@ export default function JobEditPage() {
     }
   }
 
+  /** add / remove job category in the multi‑select list */
+  const toggleDepartment = (value: string) => {
+    setFormData(prev => {
+      const exists = prev.departments.includes(value);
+      return {
+        ...prev,
+        departments: exists
+          ? prev.departments.filter(v => v !== value)
+          : [...prev.departments, value],
+      };
+    });
+    // clear validation error if fixed
+    if (errors.departments) {
+      setErrors(prev => {
+        const ne = { ...prev };
+        delete ne.departments;
+        return ne;
+      });
+    }
+  }
+
   const handleStatusChange = (value: string) => {
     setFormData((prev) => ({ ...prev, status: value }))
   }
@@ -379,6 +435,11 @@ export default function JobEditPage() {
       newErrors.location = "勤務地は必須です"
     }
 
+    // departments (職種) 必須
+    if (job.selectionType !== "event" && formData.departments.length === 0) {
+      newErrors.departments = "職種を選択してください";
+    }
+
     if (job.selectionType === "fulltime" && !formData.workingDays.trim()) {
       newErrors.workingDays = "勤務日は必須です"
     }
@@ -394,10 +455,8 @@ export default function JobEditPage() {
         newErrors.startDate = "開始日は必須です";
       }
 
-      if (!formData.minDurationMonths.trim()) {
-        newErrors.minDurationMonths = "最低参加期間（月）は必須です";
-      } else if (parseNumber(formData.minDurationMonths) === null) {
-        newErrors.minDurationMonths = "数字で入力してください（例: 3）";
+      if (!formData.workingHours.trim()) {
+        newErrors.workingHours = "勤務時間は必須です";
       }
 
       if (!formData.workDaysPerWeek.trim()) {
@@ -441,10 +500,12 @@ export default function JobEditPage() {
         location         : formData.location.trim(),
         salary_range     : formData.salary ? formData.salary.trim() : null,
         cover_image_url  : formData.coverImageUrl.trim(),
-        department       : formData.department || null,
+        department       : formData.departments.length
+                             ? formData.departments.join(",")
+                             : null,
         work_type        : formData.employmentType,
         published        : formData.status === "公開",
-        application_deadline: formData.applicationDeadline || null,
+        application_deadline: toIsoOrNull(formData.applicationDeadline),
         /* 追加: カテゴリと開始日 */
         category           :
           (job.selectionType === "internship_short" || job.selectionType === "intern_long")
@@ -452,7 +513,7 @@ export default function JobEditPage() {
             : job.selectionType === "event"
             ? "イベント"
             : "本選考",
-        start_date         : formData.startDate || null,
+        start_date         : toIsoOrNull(formData.startDate),
       }
 
       /* ---------- 各詳細テーブル用ペイロード -------------------- */
@@ -477,9 +538,10 @@ export default function JobEditPage() {
         case "internship_short":
           detailTable = "internship_details"
           detailPayload = {
-            selection_id      : id,
-            start_date        : formData.startDate || null,
-            end_date          : formData.endDate   || null,
+
+            ...detailPayload,
+            start_date        : toIsoOrNull(formData.startDate),
+            end_date          : toIsoOrNull(formData.endDate),
             duration_weeks    : formData.durationWeeks || null,
             work_days_per_week: formData.workDaysPerWeek || null,
             allowance         : formData.allowance || null,
@@ -492,20 +554,24 @@ export default function JobEditPage() {
             selection_id        : id,
             start_date          : formData.startDate || null,
             // 0 が入り得ないため Non‑Null Assertion（バリデーション済）
-            min_duration_months : parseNumber(formData.minDurationMonths)!,
+            working_hours       : formData.workingHours || null,
             work_days_per_week  : parseNumber(formData.workDaysPerWeek),
             hourly_wage         : parseNumber(formData.hourlyWage),
             is_paid             : !!formData.hourlyWage,
+            travel_expense      : formData.travelExpense || null,
+            nearest_station     : formData.nearestStation || null,
+            benefits            : formData.benefits || null,
           };
           break;
         case "event":
           detailTable = "event_details"
           detailPayload = {
-            selection_id: id,
-            event_date  : formData.eventDate   || null,
-            capacity    : formData.capacity    ? Number(formData.capacity) : null,
-            venue       : formData.venue       || null,
-            format      : formData.format,
+            ...detailPayload,
+            event_date : toIsoOrNull(formData.eventDate),
+            capacity   : formData.capacity ? Number(formData.capacity) : null,
+            venue      : formData.venue || null,
+            format     : formData.format,
+
           }
           break
         default:
@@ -802,18 +868,42 @@ export default function JobEditPage() {
             {job.selectionType !== "event" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="department">部署</Label>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-                    <Input
-                      id="department"
-                      name="department"
-                      value={formData.department}
-                      onChange={handleInputChange}
-                      className="pl-10 mt-1"
-                      placeholder="例: 開発部"
-                    />
-                  </div>
+                  <Label className="flex items-center gap-1">
+                    職種（複数選択可）<span className="text-red-500">*</span>
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`mt-3.5 w-full flex justify-between ${errors.departments ? "border-red-500" : ""}`}
+                      >
+                        {formData.departments.length
+                          ? formData.departments.join(", ")
+                          : "職種を選択"}
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0" side="bottom" align="start">
+                      <Command loop>
+                        {JOB_CATEGORIES.map((cat) => (
+                          <CommandItem
+                            key={cat}
+                            onSelect={() => toggleDepartment(cat)}
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={formData.departments.includes(cat)}
+                              className="mr-2"
+                            />
+                            {cat}
+                          </CommandItem>
+                        ))}
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {errors.departments && (
+                    <p className="text-sm text-red-500 mt-1">{errors.departments}</p>
+                  )}
                 </div>
 
                 <div>
@@ -868,32 +958,60 @@ export default function JobEditPage() {
           </CardContent>
         </Card>
 
-        {/* Working Conditions Section */}
-        <Card>
-          <CardHeader className="bg-gray-50 border-b">
-            <div className="flex items-center space-x-2">
-              <Building className="h-5 w-5 text-gray-500" />
-              <CardTitle className="text-lg">勤務条件</CardTitle>
-            </div>
-            <CardDescription>勤務地や給与などの条件を入力してください</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div>
-              <Label htmlFor="location" className="flex items-center">
-                勤務地 <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleInputChange}
-                className={`mt-1 ${errors.location ? "border-red-500" : ""}`}
-                placeholder="例: 東京都渋谷区"
-              />
-              {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
-            </div>
-          </CardContent>
-        </Card>
+            {/* Working Conditions */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  <CardTitle>勤務条件</CardTitle>
+                </div>
+                <CardDescription>勤務地や給与などの条件を入力してください</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="location" className="flex items-center gap-1">
+                    勤務地<span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                    <Input
+                      id="location"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className={`pl-10 mt-1 ${errors.location ? "border-red-500" : ""}`}
+                      placeholder="例: 東京都渋谷区"
+                    />
+                  </div>
+                  {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="applicationDeadline">応募締切日</Label>
+                    <Input
+                      id="applicationDeadline"
+                      name="applicationDeadline"
+                      type="date"
+                      value={formData.applicationDeadline}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                    />
+                    <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="startDate">勤務開始日</Label>
+                    <Input
+                      id="startDate"
+                      name="startDate"
+                      type="date"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
         {/* --- Full‑time specific fields ------------------------------------------------ */}
         {isFulltime && (
@@ -1059,82 +1177,185 @@ export default function JobEditPage() {
 
         {/* --- Long-term Internship specific fields --------------------------- */}
         {isInternLong && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                <CardTitle>長期インターン詳細</CardTitle>
-              </div>
-              <CardDescription>
-                長期インターンに必要な詳細情報を入力してください
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* 最低参加期間（月） */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="minDurationMonths">最低参加期間（月）</Label>
-                  <Input
-                    id="minDurationMonths"
-                    name="minDurationMonths"
-                    type="number"
-                    min="1"
-                    value={formData.minDurationMonths}
-                    onChange={handleInputChange}
-                    className="mt-1"
-                    placeholder="例: 3"
-                  />
+          <>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  <CardTitle>長期インターン詳細</CardTitle>
+                </div>
+                <CardDescription>
+                  長期インターンに必要な詳細情報を入力してください
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 勤務時間 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="workingHours" className="flex items-center gap-1">
+                      勤務時間<span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="workingHours"
+                      name="workingHours"
+                      value={formData.workingHours}
+                      onChange={handleInputChange}
+                      className={`mt-1 ${errors.workingHours ? "border-red-500" : ""}`}
+                      placeholder="例: 9:00〜18:00（休憩1時間）"
+                    />
+                    {errors.workingHours && (
+                      <p className="text-sm text-red-500 mt-1">{errors.workingHours}</p>
+                    )}
+                  </div>
+
+                  {/* 週あたり勤務日数 */}
+                  <div>
+                    <Label htmlFor="workDaysPerWeek" className="flex items-center gap-1">
+                      週あたり勤務日数<span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="workDaysPerWeek"
+                      name="workDaysPerWeek"
+                      type="number"
+                      min="1"
+                      value={formData.workDaysPerWeek}
+                      onChange={handleInputChange}
+                      className={`mt-1 ${errors.workDaysPerWeek ? "border-red-500" : ""}`}
+                      placeholder="例: 3"
+                    />
+                    {errors.workDaysPerWeek && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errors.workDaysPerWeek}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                {/* 週あたり勤務日数 */}
-                <div>
-                  <Label htmlFor="workDaysPerWeek" className="flex items-center gap-1">
-                    週あたり勤務日数<span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="workDaysPerWeek"
-                    name="workDaysPerWeek"
-                    type="number"
-                    min="1"
-                    value={formData.workDaysPerWeek}
-                    onChange={handleInputChange}
-                    className={`mt-1 ${errors.workDaysPerWeek ? "border-red-500" : ""}`}
-                    placeholder="例: 3"
-                  />
-                  {errors.workDaysPerWeek && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {errors.workDaysPerWeek}
-                    </p>
+                {/* 報酬形態・時給/歩合 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 報酬形態 */}
+                  <div className="">
+                    <Label htmlFor="remunerationType" className="flex items-center gap-1">
+                      報酬形態<span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.remunerationType}
+                      onValueChange={(v) =>
+                        setFormData((p) => ({ ...p, remunerationType: v as "hourly" | "commission" }))
+                      }
+                    >
+                      <SelectTrigger id="remunerationType" className="mt-1">
+                        <SelectValue placeholder="選択してください" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hourly">時給</SelectItem>
+                        <SelectItem value="commission">歩合</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 時給 or 歩合 */}
+                  {formData.remunerationType === "hourly" ? (
+                    <div className="">
+                      <Label htmlFor="hourlyWage" className="flex items-center gap-1">
+                        時給<span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                        <Input
+                          id="hourlyWage"
+                          name="hourlyWage"
+                          value={formData.hourlyWage}
+                          onChange={handleInputChange}
+                          className={`pl-10 mt-1 ${
+                            errors.hourlyWage ? "border-red-500" : ""
+                          }`}
+                          placeholder="例: 1500円"
+                        />
+                      </div>
+                      {errors.hourlyWage && (
+                        <p className="text-sm text-red-500 mt-1">{errors.hourlyWage}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="">
+                      <Label htmlFor="commissionRate" className="flex items-center gap-1">
+                        歩合<span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="commissionRate"
+                        name="commissionRate"
+                        value={formData.commissionRate}
+                        onChange={handleInputChange}
+                        className={`mt-1 ${
+                          errors.commissionRate ? "border-red-500" : ""
+                        }`}
+                        placeholder="例: アポイント1件あたり10000円"
+                      />
+                      {errors.commissionRate && (
+                        <p className="text-sm text-red-500 mt-1">{errors.commissionRate}</p>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              {/* 時給 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="hourlyWage" className="flex items-center gap-1">
-                    時給<span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+            {/* 備考 */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <CardTitle>備考</CardTitle>
+                </div>
+                <CardDescription>
+                  交通費や最寄駅など、補足情報を入力してください
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 交通費の支給 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="travelExpense">交通費の支給</Label>
                     <Input
-                      id="hourlyWage"
-                      name="hourlyWage"
-                      value={formData.hourlyWage}
+                      id="travelExpense"
+                      name="travelExpense"
+                      value={formData.travelExpense}
                       onChange={handleInputChange}
-                      className={`pl-10 mt-1 ${errors.hourlyWage ? "border-red-500" : ""}`}
-                      placeholder="例: 1500円"
+                      className="mt-1"
+                      placeholder="例: 月上限2万円まで支給"
                     />
                   </div>
-                  {errors.hourlyWage && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {errors.hourlyWage}
-                    </p>
-                  )}
+
+                  {/* 最寄駅 */}
+                  <div>
+                    <Label htmlFor="nearestStation">最寄駅</Label>
+                    <Input
+                      id="nearestStation"
+                      name="nearestStation"
+                      value={formData.nearestStation}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="例: 渋谷駅 徒歩5分"
+                    />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+
+                {/* 福利厚生（既存 benefits を再利用） */}
+                <div>
+                  <Label htmlFor="benefits">福利厚生</Label>
+                  <Textarea
+                    id="benefits"
+                    name="benefits"
+                    value={formData.benefits}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    placeholder="例: 社会保険完備、健康診断、社員旅行 など"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         {/* --- Event specific fields ---------------------------------------------------- */}
@@ -1195,6 +1416,19 @@ export default function JobEditPage() {
                 <Label htmlFor="venue">会場 / URL</Label>
                 <Input id="venue" name="venue"
                   value={formData.venue} onChange={handleInputChange} className="mt-1"/>
+              </div>
+
+              {/* スケジュール */}
+              <div>
+                <Label htmlFor="schedule">スケジュール詳細</Label>
+                <Textarea
+                  id="schedule"
+                  name="schedule"
+                  value={formData.schedule}
+                  onChange={handleInputChange}
+                  className="mt-1 min-h-[100px]"
+                  placeholder="当日のタイムラインやアジェンダなどを記入してください。"
+                />
               </div>
 
               {/* 開催形態 */}
@@ -1323,6 +1557,7 @@ export default function JobEditPage() {
           </div>
         </div>
 
+
         {/* Delete Section */}
         <Card className="border-red-100 bg-red-50">
           <CardHeader>
@@ -1381,231 +1616,317 @@ export default function JobEditPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Modal */}
-      <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-3xl w-full max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-red-600" />
-              プレビュー
-            </DialogTitle>
-          </DialogHeader>
+            {/* Preview trigger */}
 
-          {/* --- Preview Card --- */}
-          <Card className="overflow-hidden border-0 shadow-md">
-            {/* header (always gradient, no cover image) */}
-            <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
+            {/* Preview Modal */}
+            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+            <DialogContent className="max-w-3xl w-full max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5 text-red-600" />
+                    プレビュー
+                  </DialogTitle>
+                </DialogHeader>
 
-            <CardContent className="relative -mt-16 bg-white p-6">
-              {/* Title & meta */}
-              <div className="mb-6 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-                <h1 className="text-xl font-bold text-gray-900 sm:text-2xl md:text-3xl">
-                  {formData.title || "求人タイトル"}
-                </h1>
-                <p className="text-sm text-gray-500">{formData.employmentType}</p>
-              </div>
+                {/* --- Preview Card (same layout as before) --- */}
+                <Card className="overflow-hidden border-0 shadow-md">
+                  {/* header (always gradient, no cover image) */}
+                  <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
 
-              {/* summary */}
-              {isInternship ? (
-                /* ---------- Internship preview ---------- */
-                <>
-                  {/* internship summary grid */}
-                  <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
-                    <SummaryItem
-                      icon={<Calendar size={16} />}
-                      label="期間"
-                      value={
-                        formData.startDate && formData.endDate
-                          ? `${formData.startDate} 〜 ${formData.endDate}`
-                          : "未設定"
-                      }
-                    />
-                    <SummaryItem
-                      icon={<Clock size={16} />}
-                      label="勤務日数"
-                      value={
-                        formData.workDaysPerWeek
-                          ? `${formData.workDaysPerWeek}日 / 週`
-                          : "応相談"
-                      }
-                    />
-                    <SummaryItem
-                      icon={<Briefcase size={16} />}
-                      label="報酬"
-                      value={formData.allowance || "応相談"}
-                    />
-                    <SummaryItem
-                      icon={<MapPin size={16} />}
-                      label="勤務地"
-                      value={formData.location || "オンライン可"}
-                    />
-                  </div>
-
-                  {/* description */}
-                  <SectionCard icon={FileText} title="インターン内容">
-                    <p className="whitespace-pre-wrap text-gray-700">
-                      {formData.description || "職務内容がここに表示されます。"}
-                    </p>
-                  </SectionCard>
-
-                  {/* requirements */}
-                  {formData.requirements && (
-                    <SectionCard icon={CheckCircle} title="応募条件">
-                      <ul className="space-y-2 text-sm text-gray-700">
-                        {formData.requirements
-                          .split("\n")
-                          .filter(Boolean)
-                          .map((r: string, i: number) => (
-                            <li key={i} className="flex gap-2">
-                              <Plus size={16} className="text-red-600 mt-0.5" />
-                              <span>{r}</span>
-                            </li>
-                          ))}
-                      </ul>
-                    </SectionCard>
-                  )}
-                </>
-              ) : isEvent ? (
-                /* ---------- Event preview ---------- */
-                <>
-                  {/* event summary grid */}
-                  <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
-                    <SummaryItem
-                      icon={<Calendar size={16} />}
-                      label="開催日"
-                      value={
-                        formData.eventDate
-                          ? new Date(formData.eventDate).toLocaleDateString("ja-JP")
-                          : "未設定"
-                      }
-                    />
-                    <SummaryItem
-                      icon={<Users size={16} />}
-                      label="定員"
-                      value={formData.capacity || "未設定"}
-                    />
-                    <SummaryItem
-                      icon={<MapPin size={16} />}
-                      label="会場 / URL"
-                      value={formData.venue || "未設定"}
-                    />
-                    <SummaryItem
-                      icon={<Briefcase size={16} />}
-                      label="開催形態"
-                      value={
-                        formData.format === "online"
-                          ? "オンライン"
-                          : formData.format === "hybrid"
-                          ? "ハイブリッド"
-                          : "対面"
-                      }
-                    />
-                  </div>
-
-                  {/* event overview */}
-                  <SectionCard icon={FileText} title="イベント概要">
-                    <p className="whitespace-pre-wrap text-gray-700">
-                      {formData.description || "イベント概要がここに表示されます。"}
-                    </p>
-                  </SectionCard>
-
-                  {/* schedule */}
-                  {formData.schedule && (
-                    <SectionCard icon={Clock} title="スケジュール">
-                      <p className="whitespace-pre-wrap text-gray-700">
-                        {formData.schedule}
+                  <CardContent className="relative -mt-16 bg-white p-6">
+                    {/* Title & meta */}
+                    <div className="mb-6 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl md:text-3xl">
+                        {formData.title || "求人タイトル"}
+                      </h1>
+                      <p className="text-sm text-gray-500">
+                        {formData.employmentType}
                       </p>
-                    </SectionCard>
-                  )}
-                </>
-              ) : (
-                /* ---------- Full-time preview ---------- */
-                <>
-                  {/* fulltime summary grid */}
-                  <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
-                    <SummaryItem
-                      icon={<MapPin size={16} />}
-                      label="勤務地"
-                      value={formData.location || "未設定"}
-                    />
-                    <SummaryItem
-                      icon={<Briefcase size={16} />}
-                      label="雇用形態"
-                      value={formData.employmentType}
-                    />
-                    <SummaryItem
-                      icon={<DollarSign size={16} />}
-                      label="給与"
-                      value={formData.salary || "非公開"}
-                    />
-                    <SummaryItem
-                      icon={<Calendar size={16} />}
-                      label="応募締切"
-                      value={
-                        formData.applicationDeadline
-                          ? new Date(formData.applicationDeadline).toLocaleDateString("ja-JP")
-                          : "期限なし"
-                      }
-                    />
-                  </div>
-
-                  {/* description */}
-                  <SectionCard icon={FileText} title="業務内容">
-                    <div
-                      className="prose max-w-none text-gray-700"
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          (formData.description ||
-                            "職務内容がここに表示されます。"
-                          ).replace(/\n/g, "<br/>"),
-                      }}
-                    />
-                  </SectionCard>
-
-                  {/* requirements */}
-                  {formData.requirements && (
-                    <SectionCard icon={CheckCircle} title="応募条件・スキル">
-                      <RequirementBlock
-                        title="応募資格"
-                        icon={<Check size={16} />}
-                        list={formData.requirements}
-                      />
-                    </SectionCard>
-                  )}
-
-                  {/* working conditions */}
-                  <SectionCard icon={Clock} title="勤務時間・給与">
-                    <div className="space-y-5">
-                      <ConditionBox
-                        title="勤務時間"
-                        text={formData.workingHours || "9:00〜18:00（休憩1時間）"}
-                      />
-                      <ConditionBox
-                        title="給与"
-                        text={`${formData.salary || "非公開"}（経験・能力により決定）`}
-                      />
-                      <div>
-                        <h3 className="mb-3 text-base font-medium">福利厚生</h3>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          {(formData.benefits || "")
-                            .split("\n")
-                            .filter(Boolean)
-                            .map((b: string, i: number) => (
-                              <div key={i} className="flex items-center gap-2">
-                                <Check size={16} className="text-green-600" />
-                                <span className="text-gray-700">{b}</span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
                     </div>
-                  </SectionCard>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </DialogContent>
-      </Dialog>
+
+                    {/* summary */}
+                    {isInternship ? (
+                      /* ---------- Internship preview ---------- */
+                      <>
+                        {/* internship summary grid */}
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<Calendar size={16} />}
+                            label="期間"
+                            value={
+                              formData.startDate && formData.endDate
+                                ? `${formData.startDate} 〜 ${formData.endDate}`
+                                : "未設定"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="勤務日数"
+                            value={
+                              formData.workDaysPerWeek
+                                ? `${formData.workDaysPerWeek}日 / 週`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="報酬"
+                            value={formData.allowance || "応相談"}
+                          />
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="勤務地"
+                            value={formData.location || "オンライン可"}
+                          />
+                        </div>
+
+                        {/* description */}
+                        <SectionCard icon={FileText} title="インターン内容">
+                          <p className="whitespace-pre-wrap text-gray-700">
+                            {formData.description || "職務内容がここに表示されます。"}
+                          </p>
+                        </SectionCard>
+
+                        {/* requirements */}
+                        {formData.requirements && (
+                          <SectionCard icon={CheckCircle} title="応募条件">
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              {formData.requirements
+                                .split("\n")
+                                .filter(Boolean)
+                                .map((r: string, i: number) => (
+                                  <li key={i} className="flex gap-2">
+                                    <span>{r}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </SectionCard>
+                        )}
+                        {/* 備考 SectionCard - removed for internship_short */}
+                      </>
+                    ) : isInternLong ? (
+                      /* ---------- Long‑term Internship preview ---------- */
+                      <>
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="勤務時間"
+                            value={formData.workingHours || "応相談"}
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="週あたりの勤務日数"
+                            value={
+                              formData.workDaysPerWeek
+                                ? `週${formData.workDaysPerWeek}日`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="報酬"
+                            value={
+                              formData.remunerationType === "hourly"
+                                ? formData.hourlyWage
+                                  ? `${formData.hourlyWage}円／時`
+                                  : "要相談"
+                                : formData.commissionRate
+                                ? `歩合 ${formData.commissionRate}`
+                                : "歩合"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="勤務地"
+                            value={formData.location || ""}
+                          />
+                        </div>
+
+                        {/* description */}
+                        <SectionCard icon={FileText} title="インターン内容">
+                          <p className="whitespace-pre-wrap text-gray-700">
+                            {formData.description || "職務内容がここに表示されます。"}
+                          </p>
+                        </SectionCard>
+
+                        {/* requirements */}
+                        {formData.requirements && (
+                          <SectionCard icon={CheckCircle} title="応募条件">
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              {formData.requirements
+                                .split("\n")
+                                .filter(Boolean)
+                                .map((r: string, i: number) => (
+                                  <li key={i} className="flex gap-2">
+                                    <span>{r}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </SectionCard>
+                        )}
+                        {/* 備考 SectionCard */}
+                        <SectionCard icon={FileText} title="備考">
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            <li className="flex gap-2">
+                              <span>
+                                交通費: {formData.travelExpense || "—"}
+                              </span>
+                            </li>
+                            <li className="flex gap-2">
+                              <span>
+                                最寄駅: {formData.nearestStation || "—"}
+                              </span>
+                            </li>
+                            <li className="flex gap-2">
+                              <span>
+                                福利厚生: {formData.benefits || "—"}
+                              </span>
+                            </li>
+                          </ul>
+                        </SectionCard>
+                      </>
+                    ) : isEvent ? (
+                      /* ---------- Event preview ---------- */
+                      <>
+                        {/* event summary grid */}
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<Calendar size={16} />}
+                            label="開催日"
+                            value={
+                              formData.eventDate
+                                ? new Date(formData.eventDate).toLocaleDateString("ja-JP")
+                                : "未設定"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Users size={16} />}
+                            label="定員"
+                            value={formData.capacity || "未設定"}
+                          />
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="会場 / URL"
+                            value={formData.venue || "未設定"}
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="開催形態"
+                            value={
+                              formData.format === "online"
+                                ? "オンライン"
+                                : formData.format === "hybrid"
+                                ? "ハイブリッド"
+                                : "対面"
+                            }
+                          />
+                        </div>
+
+                        {/* event overview */}
+                        <SectionCard icon={FileText} title="イベント概要">
+                          <p className="whitespace-pre-wrap text-gray-700">
+                            {formData.description || "イベント概要がここに表示されます。"}
+                          </p>
+                        </SectionCard>
+
+                        {/* schedule */}
+                        {formData.schedule && (
+                          <SectionCard icon={Clock} title="スケジュール">
+                            <p className="whitespace-pre-wrap text-gray-700">
+                              {formData.schedule}
+                            </p>
+                          </SectionCard>
+                        )}
+                        {/* 備考 SectionCard - removed for event */}
+                      </>
+                    ) : (
+                      /* ---------- Full‑time preview ---------- */
+                      <>
+                        {/* fulltime summary grid */}
+                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
+                          <SummaryItem
+                            icon={<MapPin size={16} />}
+                            label="勤務地"
+                            value={formData.location || "未設定"}
+                          />
+                          <SummaryItem
+                            icon={<Briefcase size={16} />}
+                            label="雇用形態"
+                            value={formData.employmentType}
+                          />
+                          <SummaryItem
+                            icon={<DollarSign size={16} />}
+                            label="給与"
+                            value={formData.salary || "非公開"}
+                          />
+                          <SummaryItem
+                            icon={<Calendar size={16} />}
+                            label="応募締切"
+                            value={
+                              formData.applicationDeadline
+                                ? new Date(formData.applicationDeadline).toLocaleDateString("ja-JP")
+                                : "期限なし"
+                            }
+                          />
+                        </div>
+
+                        {/* description */}
+                        <SectionCard icon={FileText} title="業務内容">
+                          <div
+                            className="prose max-w-none text-gray-700"
+                            dangerouslySetInnerHTML={{
+                              __html: (formData.description ||
+                                "職務内容がここに表示されます。"
+                              ).replace(/\n/g, "<br/>"),
+                            }}
+                          />
+                        </SectionCard>
+
+                        {/* requirements */}
+                        {formData.requirements && (
+                          <SectionCard icon={CheckCircle} title="応募条件・スキル">
+                            <RequirementBlock
+                              title="応募資格"
+                              icon={<Check size={16} />}
+                              list={formData.requirements}
+                            />
+                          </SectionCard>
+                        )}
+
+                        {/* working conditions */}
+                        <SectionCard icon={Clock} title="勤務時間・給与">
+                          <div className="space-y-5">
+                            <ConditionBox
+                              title="勤務時間"
+                              text={formData.workingHours || "9:00〜18:00（休憩1時間）"}
+                            />
+                            <ConditionBox
+                              title="給与"
+                              text={`${formData.salary || "非公開"}（経験・能力により決定）`}
+                            />
+                            <div>
+                              <h3 className="mb-3 text-base font-medium">福利厚生</h3>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {(formData.benefits || "")
+                                  .split("\n")
+                                  .filter(Boolean)
+                                  .map((b: string, i: number) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <Check size={16} className="text-green-600" />
+                                      <span className="text-gray-700">{b}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </div>
+                        </SectionCard>
+                        {/* 備考 SectionCard - removed for fulltime */}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </DialogContent>
+            </Dialog>
     </div>
   )
 }
