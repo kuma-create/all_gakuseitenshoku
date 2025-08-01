@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star } from "lucide-react"
+import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star, ClipboardList, Clock, Mic, GraduationCap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 
@@ -15,23 +15,60 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// （Tabs 依存を削除したため、インポートも削除）
 import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 import Head from "next/head"
+
+/** Props */
+export interface JobsPageProps {
+  /** 検索パネルの初期「選考種類」タブ (例: "intern_long") */
+  defaultSelectionType?: string;
+}
 
 /* ---------- Selection type → JP label ---------- */
 const SELECTION_LABELS = {
   fulltime:         "本選考",
   internship_short: "インターン（短期）",
-  internship_long:  "インターン(長期)",
   intern_long:      "インターン(長期)", // legacy key
   event:            "説明会／イベント",
 } as const;
 
+
+const SELECTION_ICONS: Record<string, JSX.Element> = {
+  fulltime: <Briefcase size={12} />,
+  internship_short: <ClipboardList size={12} />,
+  internship_long: <Clock size={12} />,
+  intern_long: <Clock size={12} />,
+  event: <Mic size={12} />,
+};
+
+// Badge color map for selection types
+const badgeColorMap: Record<string, string> = {
+  fulltime: "bg-blue-100 text-blue-800",
+  internship_short: "bg-green-100 text-green-800",
+  internship_long: "bg-yellow-100 text-yellow-800",
+  intern_long: "bg-yellow-100 text-yellow-800",
+  event: "bg-purple-100 text-purple-800",
+};
+
 const getSelectionLabel = (type?: string | null) => {
   const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
-  return SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime;
+  const colorClass = badgeColorMap[key] ?? "bg-gray-100 text-gray-800";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${colorClass} w-fit`}
+    >
+      {SELECTION_ICONS[key]}
+      {SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime}
+    </span>
+  );
+};
+
+// Helper function to get just the badge classes for selection type
+const getSelectionLabelClass = (type?: string | null) => {
+  const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
+  return `inline-flex w-fit items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${badgeColorMap[key]}`;
 };
 
 /** Supabase 型を拡張 */
@@ -117,7 +154,9 @@ type EventRow = {
 const FEATURED_KEYWORDS = ["IT", "コンサル", "金融", "メーカー", "商社"] as const;
 
 /* ────────────────────────────────────────── */
-export default function JobsPage() {
+export default function JobsPage({
+  defaultSelectionType = "all",
+}: JobsPageProps) {
   /* ---------------- state ---------------- */
   const searchParams = useSearchParams()
   const qParam = searchParams.get("q") ?? ""
@@ -129,11 +168,23 @@ export default function JobsPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
 
   /* UI filter states */
-  const [search, setSearch] = useState(qParam)
-  const [industry, setIndustry] = useState("all")
-  const [jobType, setJobType] = useState("all")
-  const [selectionType, setSelectionType] = useState("all")
-  const [salaryMin, setSalaryMin] = useState<string>("all")
+  // --- initialize filters from URL query parameters ---
+  const industryParam      = searchParams.get("industry")      ?? "all";
+  const jobTypeParam       = searchParams.get("jobType")       ?? "all";
+  // Accept both ?selectionType= and legacy ?type=
+  const selectionTypeParam =
+    searchParams.get("selectionType") ??
+    searchParams.get("type") ??
+    "all";
+  const salaryMinParam     = searchParams.get("salaryMin")     ?? "all";
+  // `search` is the committed keyword that triggers filtering.
+  // `query` is the text the user is currently typing.
+  const [search, setSearch] = useState(qParam);
+  const [query, setQuery] = useState(qParam);
+  const [industry, setIndustry] = useState(industryParam);
+  const [jobType, setJobType] = useState(jobTypeParam);
+  const [selectionType, setSelectionType] = useState(selectionTypeParam);
+  const [salaryMin, setSalaryMin] = useState<string>(salaryMinParam);
   const [saved, setSaved] = useState<Set<string>>(new Set())
   // 最初に localStorage から読み取って saved セットを初期化
   useEffect(() => {
@@ -151,6 +202,66 @@ export default function JobsPage() {
   const [view, setView] = useState<"grid" | "list">("grid")
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
+
+  /**
+   * ------------------------------------------------------------
+   * Keep local filter / query / category states aligned with the
+   * current URL.  When the user lands on a link that already has
+   * ?industry=...&jobType=... etc., or navigates with <Link>,
+   * this effect updates all relevant React states so the UI and
+   * displayed results always reflect the URL.
+   * ------------------------------------------------------------
+   */
+  useEffect(() => {
+    const currentIndustry       = searchParams.get("industry")      ?? "all";
+    const currentJobType        = searchParams.get("jobType")       ?? "all";
+    const currentSelectionType =
+      searchParams.get("selectionType") ??
+      searchParams.get("type") ??
+      "all";
+    const currentSalaryMin      = searchParams.get("salaryMin")     ?? "all";
+    const currentQuery          = searchParams.get("q")             ?? "";
+    const currentTab = (searchParams.get("tab") ?? "company") as
+      | "company"
+      | "fulltime"
+      | "intern"
+      | "event";
+
+    setIndustry(currentIndustry);
+    setJobType(currentJobType);
+    setSelectionType(currentSelectionType);
+    setSalaryMin(currentSalaryMin);
+    setSearch(currentQuery);
+    setQuery(currentQuery);
+    setCategory(currentTab);
+  }, [searchParams]);
+
+  // --- build a query‑string that reflects current filter states ---
+  const buildParams = (qValue: string = search.trim()) => {
+    const params = new URLSearchParams();
+    if (qValue) params.set("q", qValue);
+    params.set("tab", category);
+    if (industry !== "all") params.set("industry", industry);
+    if (jobType !== "all") params.set("jobType", jobType);
+    if (selectionType !== "all") {
+      params.set("selectionType", selectionType);
+      params.set("type", selectionType);          // legacy alias
+    }
+    if (salaryMin !== "all") params.set("salaryMin", salaryMin);
+    return params.toString();
+  };
+
+  // --- keep the URL in sync when any filter changes (skip first render) ---
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    // stay on the current pathname; just update query parameters
+    const path = typeof window !== "undefined" ? window.location.pathname : "/jobs";
+    router.replace(`${path}?${buildParams()}`, { scroll: false });
+  }, [industry, jobType, selectionType, salaryMin, category]);
 
   /* ---------------- fetch ----------------- */
   useEffect(() => {
@@ -257,7 +368,21 @@ job_tags!job_tags_job_id_fkey (
 
       const matchesSalary = salaryMin === "all" || (j.salary_max ?? j.salary_min ?? 0) >= Number(salaryMin)
 
-      const matchesCategory = selectionType === "all" || (j.selection_type ?? "") === selectionType
+      // treat legacy & canonical keys as identical
+      const isSameSelection = (
+        selFilter: string,
+        selJob: string | null | undefined,
+      ) => {
+        if (selFilter === "all") return true;
+        const f = selFilter ?? "";
+        const jv = selJob ?? "";
+        // canonicalise legacy alias
+        const canon = (v: string) =>
+          v === "intern_long" ? "internship_long" : v;
+        return canon(f) === canon(jv);
+      };
+
+      const matchesCategory = isSameSelection(selectionType, j.selection_type);
 
       return matchesQ && matchesInd && matchesJob && matchesSalary && matchesCategory
     })
@@ -271,6 +396,19 @@ job_tags!job_tags_job_id_fkey (
       return daysLeft >= 0 && daysLeft <= 7 // 7日以内に締切
     })
   }, [jobs])
+
+  /* ----- category lists for grouped view ----- */
+  const fulltimeJobs = displayed.filter(
+    (j) => j.selection_type === "fulltime",
+  );
+
+  const internJobs = displayed.filter((j) =>
+    ["internship_short", "internship_long", "intern_long"].includes(
+      j.selection_type ?? "",
+    ),
+  );
+
+  const eventJobs = displayed.filter((j) => j.selection_type === "event");
 
   /* ------------- helpers ------------------ */
   const toggleSave = (id: string) =>
@@ -289,10 +427,11 @@ job_tags!job_tags_job_id_fkey (
   /* ------------- UI ----------------------- */
   const router = useRouter()
   const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const q = search.trim()
-    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(q)}`)
-  }
+    e.preventDefault();
+    const committed = query.trim();
+    setSearch(committed);                 // update filter keyword
+    router.push(`/jobs/list?${buildParams(committed)}`);
+  };
 
   if (loading) {
     return (
@@ -393,8 +532,8 @@ job_tags!job_tags_job_id_fkey (
                 <Input
                   placeholder="職種、キーワード、会社名"
                   className="pr-10 rounded-full border-gray-300"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
                 />
                 <Button
                   type="submit"
@@ -526,8 +665,9 @@ job_tags!job_tags_job_id_fkey (
                   key={kw}
                   className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
                   onClick={() => {
-                    setSearch(kw)
-                    router.replace(`/jobs?tab=${category}&q=${encodeURIComponent(kw)}`)
+                    setQuery(kw);
+                    setSearch(kw);
+                    router.push(`/jobs/list?${buildParams(kw)}`);
                   }}
                 >
                   {kw}
@@ -630,46 +770,83 @@ job_tags!job_tags_job_id_fkey (
 
       {/* content */}
       <main className="container mx-auto max-w-6xl px-4 py-8">
-        <Tabs defaultValue="all">
-          <TabsList className="mb-6 grid max-w-md grid-cols-3 bg-gray-100 p-1 rounded-lg">
-            <TabsTrigger value="all" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              すべて
-            </TabsTrigger>
-            <TabsTrigger value="saved" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              保存済み
-            </TabsTrigger>
-            <TabsTrigger value="new" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              新着
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all">
-            <JobGrid jobs={displayed} view={view} saved={saved} toggleSave={toggleSave} tagColor={tagColor} />
-          </TabsContent>
-
-          <TabsContent value="saved">
+        {/* ---------- 求人カテゴリごとの表示 ---------- */}
+        <section className="space-y-10">
+          {/* 本選考 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <CategoryHeader
+                icon={<Briefcase size={16} />}
+                label="本選考"
+                colorClass="bg-gradient-to-br from-indigo-500 to-indigo-700"
+              />
+              <Link
+                href="/jobs/list?tab=fulltime&selectionType=fulltime"
+                className="text-sm text-indigo-600 hover:underline flex items-center gap-1"
+              >
+                もっと見る <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
             <JobGrid
-              jobs={displayed.filter((j) => saved.has(j.id))}
+              jobs={fulltimeJobs}
               view={view}
               saved={saved}
               toggleSave={toggleSave}
               tagColor={tagColor}
+              singleRow
             />
-          </TabsContent>
+          </div>
 
-          <TabsContent value="new">
+          {/* インターンシップ */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <CategoryHeader
+                icon={<GraduationCap size={16} />}
+                label="インターンシップ"
+                colorClass="bg-gradient-to-br from-pink-500 to-pink-700"
+              />
+              <Link
+                href="/jobs/list?tab=intern&selectionType=intern_long"
+                className="text-sm text-pink-600 hover:underline flex items-center gap-1"
+              >
+                もっと見る <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
             <JobGrid
-              jobs={displayed.filter((j) => {
-                const diff = (Date.now() - new Date(j.created_at!).getTime()) / 86400000
-                return diff < 7
-              })}
+              jobs={internJobs}
               view={view}
               saved={saved}
               toggleSave={toggleSave}
               tagColor={tagColor}
+              singleRow
             />
-          </TabsContent>
-        </Tabs>
+          </div>
+
+          {/* 説明会／イベント */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <CategoryHeader
+                icon={<Mic size={16} />}
+                label="説明会／イベント"
+                colorClass="bg-gradient-to-br from-purple-500 to-purple-700"
+              />
+              <Link
+                href="/jobs/list?tab=event&selectionType=event"
+                className="text-sm text-purple-600 hover:underline flex items-center gap-1"
+              >
+                もっと見る <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <JobGrid
+              jobs={eventJobs}
+              view={view}
+              saved={saved}
+              toggleSave={toggleSave}
+              tagColor={tagColor}
+              singleRow
+            />
+          </div>
+        </section>
       </main>
 
       {/* "締め切り間近なインターン" Section */}
@@ -677,7 +854,7 @@ job_tags!job_tags_job_id_fkey (
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">締め切り間近なインターン</h2>
           <Link
-            href="/jobs/list?tab=intern"
+            href="/jobs/list?tab=intern&selectionType=intern_long"
             className="flex items-center gap-1 text-red-600 hover:underline"
           >
             すべて見る
@@ -705,6 +882,27 @@ job_tags!job_tags_job_id_fkey (
       </footer>
     </div>
     </>
+  )
+}
+
+
+/** ── 求人カテゴリ見出し ─────────────────────────── */
+function CategoryHeader({
+  icon,
+  label,
+  colorClass,
+}: {
+  icon: JSX.Element
+  label: string
+  colorClass: string
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className={`${colorClass} rounded-md p-2 text-white flex items-center justify-center`}>
+        {icon}
+      </div>
+      <h2 className="text-2xl font-bold text-gray-800">{label}</h2>
+    </div>
   )
 }
 
@@ -795,12 +993,14 @@ function JobGrid({
   saved,
   toggleSave,
   tagColor,
+  singleRow = false,
 }: {
-  jobs: JobRow[]
-  view: "grid" | "list"
-  saved: Set<string>
-  toggleSave: (id: string) => void
-  tagColor: (t: string) => string
+  jobs: JobRow[];
+  view: "grid" | "list";
+  saved: Set<string>;
+  toggleSave: (id: string) => void;
+  tagColor: (t: string) => string;
+  singleRow?: boolean;
 }) {
   if (!jobs.length) return <p className="text-center text-gray-500">該当する選考情報がありません</p>
 
@@ -832,9 +1032,10 @@ function JobGrid({
                 </div>
               )}
               <div className="flex flex-1 flex-col gap-2 p-4">
-                <Badge variant="outline" className="mb-0.5 text-[10px] rounded-full w-fit">
-                  {getSelectionLabel(j.selection_type)}
-                </Badge>
+                <span className={getSelectionLabelClass(j.selection_type)}>
+                  {SELECTION_ICONS[j.selection_type ?? "fulltime"]}
+                  {SELECTION_LABELS[j.selection_type ?? "fulltime"]}
+                </span>
                 <h3 className="text-lg font-bold">{j.title}</h3>
                 <p className="text-sm text-gray-600">
                   {j.companies?.name ?? "-"} / {j.location}
@@ -880,7 +1081,13 @@ function JobGrid({
 
   /* ----- grid view ----- */
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div
+      className={
+        singleRow
+          ? "grid grid-flow-col auto-cols-[minmax(250px,1fr)] gap-4 overflow-x-auto"
+          : "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      }
+    >
       {jobs.map((j) => (
         <Card
           key={j.id}
@@ -914,9 +1121,10 @@ function JobGrid({
               </div>
             )}
             <div className="p-4">
-              <Badge variant="outline" className="mb-0.5 text-[10px] rounded-full">
-                {getSelectionLabel(j.selection_type)}
-              </Badge>
+              <span className={getSelectionLabelClass(j.selection_type)}>
+                {SELECTION_ICONS[j.selection_type ?? "fulltime"]}
+                {SELECTION_LABELS[j.selection_type ?? "fulltime"]}
+              </span>
               <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
               <p className="line-clamp-1 text-sm text-gray-600">
                 {j.companies?.name ?? "-"}

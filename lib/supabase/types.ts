@@ -1376,46 +1376,58 @@ export type Database = {
       }
       intern_long_details: {
         Row: {
+          benefits: string | null
           commission_rate: string | null
           created_at: string | null
           hourly_wage: number | null
           id: string
           is_paid: boolean
           job_id: string | null
-          min_duration_months: number | null
+          min_duration_months: string | null
+          nearest_station: string | null
           remuneration_type: string
           selection_id: string
           start_date: string | null
+          travel_expense: string | null
           updated_at: string | null
           work_days_per_week: number | null
+          working_hours: string | null
         }
         Insert: {
+          benefits?: string | null
           commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
-          min_duration_months?: number | null
+          min_duration_months?: string | null
+          nearest_station?: string | null
           remuneration_type?: string
           selection_id: string
           start_date?: string | null
+          travel_expense?: string | null
           updated_at?: string | null
           work_days_per_week?: number | null
+          working_hours?: string | null
         }
         Update: {
+          benefits?: string | null
           commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
-          min_duration_months?: number | null
+          min_duration_months?: string | null
+          nearest_station?: string | null
           remuneration_type?: string
           selection_id?: string
           start_date?: string | null
+          travel_expense?: string | null
           updated_at?: string | null
           work_days_per_week?: number | null
+          working_hours?: string | null
         }
         Relationships: [
           {
@@ -2562,6 +2574,7 @@ export type Database = {
           last_name_kana: string | null
           last_sign_in_at: string | null
           motive: string | null
+          phase_status: string | null
           phone: string | null
           postal_code: string | null
           pr_body: string | null
@@ -2620,6 +2633,7 @@ export type Database = {
           last_name_kana?: string | null
           last_sign_in_at?: string | null
           motive?: string | null
+          phase_status?: string | null
           phone?: string | null
           postal_code?: string | null
           pr_body?: string | null
@@ -2678,6 +2692,7 @@ export type Database = {
           last_name_kana?: string | null
           last_sign_in_at?: string | null
           motive?: string | null
+          phase_status?: string | null
           phone?: string | null
           postal_code?: string | null
           pr_body?: string | null
