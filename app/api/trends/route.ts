@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server'
 
 /** 1 時間 (3600 秒) エッジキャッシュ */
 export const revalidate = 3600
+// 動的処理を含むため静的プリレンダを無効化
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs'; // Edge Runtime を使う場合は 'edge'
 
 export async function GET() {
   try {
