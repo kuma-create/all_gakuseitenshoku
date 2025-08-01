@@ -56,6 +56,7 @@
     "@uiw/react-markdown-preview": "^3.5.2",
     "@uiw/react-md-editor": "^3.25.6",
     "add": "^2.0.6",
+    "ai": "^5.0.0",
     "aos": "^2.3.4",
     "autoprefixer": "^10.4.20",
     "chart.js": "^4.5.0",
