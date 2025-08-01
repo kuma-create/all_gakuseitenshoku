@@ -25,7 +25,7 @@ import {
 import ArticleCard from "@/components/article-card"
 import TrendingTopics from "@/components/trending-topics"
 import GptCareerAdvisorCard from "@/components/GptCareerAdvisorCard"
-import MobileAppBanner from "@/components/mobile-app-banner"
+import dynamic from "next/dynamic";
 import { ProfileCompletionCard } from "@/components/ProfileCompletionCard"
 import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
@@ -506,7 +506,7 @@ return (
             トレンド記事
           </h2>
           <Link
-            href="/trending"
+            href="/media"
             className="text-blue-600 hover:text-blue-700 font-medium flex items-center"
           >
             すべて見る <ArrowRight className="ml-1 h-4 w-4" />
@@ -957,12 +957,12 @@ return (
         </button>
       </div>
 
-      {/* Mobile App Banner – fixed at bottom */}
+      {/* Mobile App Banner – fixed at bottom 
       {!bannerClosed && (
         <div className="fixed inset-x-0 bottom-0 z-50">
           <MobileAppBanner onClose={() => setBannerClosed(true)} />
         </div>
-      )}
+      )}*/}
 
       {/* AI Advisor Modal */}
       <Dialog open={showAdvisor} onOpenChange={setShowAdvisor}>
