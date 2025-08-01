@@ -5,7 +5,6 @@
 
 "use client"
 import React from "react";
-
 import { use as usePromise, useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -38,7 +37,7 @@ const JobDescription = dynamic(() => import("./JobDescription"), {
 })
 
 /* Variant UIs */
-import { FulltimeInfo, InternInfo, InternLongInfo, EventInfo } from "./_variants"
+import { FulltimeInfo, InternInfo, EventInfo, InternLongInfo } from "./_variants"
 
 import Head from "next/head";
 
@@ -274,7 +273,14 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
 
   // --- choose variant component ---
   let Body: React.JSX.Element;
-  switch (job.selection_type as "fulltime" | "internship_short" | "internship_long" | "intern_long" | "event") {
+  switch (
+    job.selection_type as
+      | "fulltime"
+      | "internship_short"
+      | "internship_long"
+      | "intern_long"
+      | "event"
+  ) {
     case "internship_short":
       Body = (
         <InternInfo
@@ -290,6 +296,19 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
       );
       break;
     case "internship_long":
+      Body = (
+        <InternLongInfo
+          job={job}
+          company={company!}
+          tags={tags}
+          related={related}
+          apply={handleApply}
+          hasApplied={hasApplied}
+          showForm={showForm}
+          setShowForm={setShowForm}
+        />
+      );
+      break;
     case "intern_long":
       Body = (
         <InternLongInfo

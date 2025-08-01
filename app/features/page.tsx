@@ -115,7 +115,7 @@ export default function FeaturesPage() {
     (u) => u.status === 'completed'
   )
   const rewardYen = completed.length * 2000
-  const referralLink = `https://gakuten.co.jp/refer?code=${referral.code}`
+  const referralLink = `https://gakuten.co.jp/refer/${referral.code}`
 
   // ── コピー & シェア（モバイル） ─────────────────────
   const handleCopy = async () => {

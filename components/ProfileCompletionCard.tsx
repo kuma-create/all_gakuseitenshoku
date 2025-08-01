@@ -35,7 +35,13 @@ type MissingField = { key: string; label?: string; href?: string };
 /* ================================================================
    ProfileCompletionCard
 ================================================================ */
-export function ProfileCompletionCard() {
+/** props */
+export interface ProfileCompletionCardProps {
+  /** Supabase セッション (使用予定) */
+  session: any
+}
+
+export function ProfileCompletionCard({ session }: ProfileCompletionCardProps) {
   const [loading, setLoading] = useState(true);
   const [score,   setScore]   = useState<number>(0);
   const [missing, setMissing] = useState<MissingField[]>([]);
