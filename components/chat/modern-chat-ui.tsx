@@ -112,23 +112,18 @@ export function ModernChatUI({
     if (!recipient.id) return;
 
     const fetchData = async () => {
-      const cols = [
-        "full_name", "avatar_url",
-        "university", "faculty", "department",
-        "admission_month", "graduation_month",
-        "gender", "has_internship_experience",
-        "research_theme", "about",
-        "status", "pr_title", "pr_body", "pr_text",
-        "strength1", "strength2", "strength3",
-        "desired_industries", "desired_positions", "desired_locations",
-        "work_style", "employment_type", "salary_range",
-        "work_style_options", "preference_note",
-        "interests", "skills", "qualifications"
-      ].join(", ");
+      // Fetch *all* columns plus nested resumes so that
+      // StudentDetailTabs receives complete data.
+      const STUDENT_SELECT = `
+        *,
+        resumes:resumes (
+          work_experiences
+        )
+      `;
 
       let { data: prof, error: profErr } = await supabase
         .from("student_profiles")
-        .select(cols)
+        .select(STUDENT_SELECT)
         .eq("id", recipient.id)
         .single();
 
@@ -136,7 +131,7 @@ export function ModernChatUI({
       if (!prof && !profErr) {
         const { data: byAuth } = await supabase
           .from("student_profiles")
-          .select(cols)
+          .select(STUDENT_SELECT)
           .eq("auth_user_id", recipient.id)
           .single();
         prof = byAuth ?? prof;
@@ -144,21 +139,38 @@ export function ModernChatUI({
       if (!prof && !profErr) {
         const { data: byUser } = await supabase
           .from("student_profiles")
-          .select(cols)
+          .select(STUDENT_SELECT)
           .eq("user_id", recipient.id)
           .single();
         prof = byUser ?? prof;
       }
 
-      if (profErr) {
-        console.error("Profile fetch error:", profErr);
-      } else if (prof) {
+      // --- Get e‑mail from the student_with_email view so that StudentDetailTabs can display it ---
+      let emailFromView: string | null = null;
+      const { data: emailRow, error: emailErr } = await supabase
+        .from("student_with_email")
+        .select("email")
+        .eq("student_id", recipient.id)
+        .maybeSingle();
+
+      if (emailErr) {
+        console.error("student_with_email fetch error:", emailErr);
+      } else if (emailRow?.email) {
+        emailFromView = emailRow.email;
+      }
+
+      if (prof || emailFromView) {
         setProfileData({
-          ...(recipient as any),
-          ...(prof  as any),
+          ...(recipient as any),  // minimal ChatUser fields (id, name, avatar …)
+          ...(prof as any),       // full student_profiles row (may be null)
+          // Ensure StudentDetailTabs receives { student_with_email: { email } }
+          student_with_email: { email: emailFromView ?? (prof as any)?.email ?? null },
         });
       } else {
-        console.warn("No student_profiles row matched for id/auth_user_id/user_id =", recipient.id);
+        console.warn(
+          "No student_profiles row and no student_with_email row matched for id/auth_user_id/user_id =",
+          recipient.id,
+        );
       }
     };
 
@@ -400,10 +412,10 @@ export function ModernChatUI({
     <div className={cn("flex flex-col h-full bg-gray-50 dark:bg-gray-900", className)}>
       {/* Student title bar (for accepted scout / self‑applied) */}
       {showStudentTitle && currentUser === "company" && (
-        <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-2">
+        <div className="sticky top-12 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-2">
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 border dark:border-gray-600">
-              <AvatarImage src={recipient.avatar || "/placeholder.svg"} alt={recipient.name} />
+              <AvatarImage src={recipient.avatar || "/placeholder.png"} alt={recipient.name} />
               <AvatarFallback>{getInitials(recipient.name)}</AvatarFallback>
             </Avatar>
             <span className="text-base font-semibold text-gray-800 dark:text-gray-100">
@@ -413,11 +425,11 @@ export function ModernChatUI({
         </div>
       )}
       {/* Chat header - always visible */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
+      <div className="sticky top-12 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border dark:border-gray-600">
-              <AvatarImage src={recipient.avatar || "/placeholder.svg"} alt={recipient.name} />
+              <AvatarImage src={recipient.avatar || "/placeholder.png"} alt={recipient.name} />
               <AvatarFallback>{getInitials(recipient.name)}</AvatarFallback>
             </Avatar>
             <div>
@@ -434,7 +446,7 @@ export function ModernChatUI({
 
           <div className="flex items-center gap-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
-              <TabsList className="h-8 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex gap-0.5">
+              <TabsList className="h-8 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg flex gap-0.5 sticky top-0 z-20">
                 <TabsTrigger
                   value="chat"
                   className="h-7 px-3 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:shadow data-[state=inactive]:opacity-80"
@@ -524,7 +536,7 @@ export function ModernChatUI({
                     >
                       {!isCurrentUser && showAvatar && (
                         <Avatar className="h-8 w-8 flex-shrink-0">
-                          <AvatarImage src={recipient.avatar || "/placeholder.svg"} alt={recipient.name} />
+                          <AvatarImage src={recipient.avatar || "/placeholder.png"} alt={recipient.name} />
                           <AvatarFallback>{getInitials(recipient.name)}</AvatarFallback>
                         </Avatar>
                       )}
@@ -626,7 +638,7 @@ export function ModernChatUI({
                     {file.type.startsWith("image/") ? (
                       <div className="relative h-16 w-16 rounded overflow-hidden border dark:border-gray-600">
                         <img
-                          src={previewUrls[index] || "/placeholder.svg"}
+                          src={previewUrls[index] || "/placeholder.png"}
                           alt={file.name}
                           className="h-full w-full object-cover"
                         />
@@ -749,7 +761,7 @@ export function ModernChatUI({
           className="fixed top-[64px] right-0 w-full md:w-[350px] h-[calc(100%-64px)] overflow-y-auto p-0 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10"
         >
             {/* --- Student detail (reuse scout component) --- */}
-            <StudentDetailTabs student={studentForDetail} />
+            <StudentDetailTabs student={studentForDetail} showContact />
         </TabsContent>
 
 

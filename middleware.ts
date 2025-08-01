@@ -18,34 +18,35 @@ const LOGIN_REQUIRED_PREFIXES: string[] = [];
 /** 誰でもアクセスできるパス */
 const PUBLIC_PREFIXES = [
   "/",                       // トップページ
+  "/app",                    // ← 追加: アプリのトップも公開扱い
   "/login",                  // 共通ログイン
   "/signup",                 // 新規登録
   "/auth/student/register",  // 学生登録フロー
   "/auth/reset",             // パスワードリセット
-  "/auth",                  // Supabase auth-helper routes (/auth/set, /auth/logout)
+  "/auth",                   // Supabase auth-helper routes (/auth/set, /auth/logout)
   "/terms",                  // 利用規約
   "/privacy-policy",         // プライバシーポリシー
   "/grandprix", 
-  "/whitepapers",             // グランプリ一覧
-  "/api",
+  "/whitepapers",            // グランプリ一覧
+  "/api",                    // API ルート
   "/jobs", 
-  "/lp",                 // API ルート
-  "/admin/login", 
+  "/lp",
+  "/admin/login",            // 管理者ログイン
   "/media",
   "/search",
   "/internships",
   "/features",
   "/onboarding/profile",
-  "/forgot-password",            // 管理者ログイン
-  "/password-reset-callback",    // パスワード再設定用コールバック
-  "/email-callback",        // メールリンク用コールバック
+  "/forgot-password",             // パスワード再設定
+  "/password-reset-callback",     // パスワード再設定用コールバック
+  "/email-callback",              // メールリンク用コールバック
   /* -------- 学生サイトの入口ページ (クライアント側ガード) -------- */
   "/offers",                 // スカウト /offers(/...)
   "/applications",           // 応募履歴 /applications(/...)
   "/chat",
   "/ipo",
   "/resume",
-  "/companies",                 // 学生チャット /chat(/...)
+  "/companies",
 ];
 
 /* ------------------------------------------------------------------ */
@@ -65,7 +66,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // b) ルート (LP)
-  if (pathname === "/") {
+  if (pathname === "/" || pathname === "/app") {
     return NextResponse.next();
   }
 
@@ -83,9 +84,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-/* ---------- Cookie が無い場合の早期リターン ---------- */
-const hasAuthCookie =
-  !!req.cookies.get("sb-access-token") || !!req.cookies.get("sb-refresh-token");
+  /* ---------- Cookie が無い場合の早期リターン ---------- */
+  const hasAuthCookie =
+    !!req.cookies.get("sb-access-token") || !!req.cookies.get("sb-refresh-token");
 
   if (!hasAuthCookie) {
     // 未ログインでログインページはそのまま表示
@@ -111,7 +112,6 @@ const hasAuthCookie =
   } catch (_) {
     // 失効トークンで 400/401 が返る場合は握り潰す
   }
-
 
   /* ---------- ロール判定 ---------- */
   let role: string | null = null;
@@ -158,8 +158,6 @@ const hasAuthCookie =
     login.searchParams.set("next", pathname);
     return NextResponse.redirect(login, { status: 302 });
   }
-
-
 
   /* ログインしていない & 非公開ページ → /login?next=... */
   if (!session && !isPublic && !isLoginPage) {

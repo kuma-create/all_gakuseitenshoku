@@ -28,6 +28,12 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   has_internship_experience?: boolean | null
   graduation_year?: number | null
   status?: string | null
+  phone?: string | null
+  email?: string | null
+
+  student_with_email?: {
+    email: string | null
+  } | null
 }
 
 /* ---------- Experience ---------- */
@@ -55,6 +61,7 @@ type Resume = {
 
 interface Props {
   student: Student | null
+  showContact?: boolean
 }
 
 /* ---------- presenter helpers ---------- */
@@ -156,7 +163,7 @@ function TimelineItem({
   )
 }
 
-export default function StudentDetailTabs({ student }: Props) {
+export default function StudentDetailTabs({ student, showContact = false }: Props) {
   if (!student)
     return (
       <div className="p-6 text-sm text-gray-500">
@@ -252,13 +259,20 @@ export default function StudentDetailTabs({ student }: Props) {
             <Field label="大学" value={student.university} />
             <Field label="学部" value={student.faculty} />
             <Field label="学科" value={student.department} />
-            <Field label="入学月" value={fmtDate(student.admission_month)} />
             <Field label="卒業月" value={fmtDate(student.graduation_month)} />
           </Section>
 
           <Section title="プロフィール">
-            <Field label="性別" value={student.gender} />
-            <Field label="ステータス" value={student.status} />
+            <Field
+              label="性別"
+              value={
+                student.gender === "male"
+                  ? "男"
+                  : student.gender === "female"
+                  ? "女"
+                  : "―"
+              }
+            />
             <Field
               label="インターン経験"
               value={student.has_internship_experience ? "あり" : "なし"}
@@ -266,6 +280,30 @@ export default function StudentDetailTabs({ student }: Props) {
             <Field label="研究テーマ" value={student.research_theme} multiline />
             <Field label="About" value={student.about} multiline />
             <Field label="興味分野" value={student.interests?.join(" / ")} />
+            {showContact && (
+              <>
+                {/* 電話は改行可＆ホバーで全文ツールチップ */}
+                <div className="col-span-full">
+                  <p className="text-xs text-gray-500 mb-0.5">電話</p>
+                  <p
+                    className="text-sm text-gray-900 break-all dark:text-gray-100"
+                    title={student.phone ?? ""}
+                  >
+                    {student.phone ?? "―"}
+                  </p>
+                </div>
+                {/* メールは改行可＆ホバーで全文ツールチップ */}
+                <div className="col-span-full">
+                  <p className="text-xs text-gray-500 mb-0.5">メール</p>
+                  <p
+                    className="text-sm text-gray-900 break-all dark:text-gray-100"
+                    title={student.student_with_email?.email ?? student.email ?? ""}
+                  >
+                    {student.student_with_email?.email ?? student.email ?? "―"}
+                  </p>
+                </div>
+              </>
+            )}
           </Section>
         </TabsContent>
 
@@ -300,20 +338,6 @@ export default function StudentDetailTabs({ student }: Props) {
               value={student.language_skill}
               multiline
             />
-          </Section>
-
-          <Section title="職歴・プロジェクト">
-            {experiences.length > 0 ? (
-              <div className="col-span-full">
-                {experiences
-                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                  .map((exp, i) => (
-                    <TimelineItem key={exp.id} idx={i} exp={exp} fmtDate={fmtDate} />
-                  ))}
-              </div>
-            ) : (
-              <Field label="" value="職歴・プロジェクト情報は未登録です。" multiline />
-            )}
           </Section>
         </TabsContent>
 
