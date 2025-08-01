@@ -1,5 +1,6 @@
 // components/ListingPage.tsx
 import React from "react";
+import JobsPageCore from "@/components/JobsPageCore";
 
 import type { Metadata } from "next";
 
@@ -42,18 +43,6 @@ export const metadata: Metadata = {
   },
 };
 
-interface ListingPageProps {
-  title: string;
-  description: string;
-  ogImage: string;
-  defaultSelectionType?: string;
-}
-
-export default function ListingPage({
-  title,
-  description,
-  ogImage,
-  defaultSelectionType = "all",
-}: ListingPageProps) {
-  // ...rest of the function body remains unchanged
+export default function Page() {
+  return <JobsPageCore />;
 }
