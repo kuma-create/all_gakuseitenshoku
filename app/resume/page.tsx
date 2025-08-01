@@ -4,23 +4,24 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import {
-  PlusCircle,
-  Trash2,
+  AlertCircle,
+  Bot,
+  Briefcase,
+  Building,
+  Check,
   ChevronDown,
   ChevronUp,
-  Save,
-  User,
-  FileText,
-  Briefcase,
-  Check,
-  AlertCircle,
-  Info,
   Clock,
-  Building,
-  GraduationCap,
   Code,
-  Star,
+  FileText,
+  GraduationCap,
   Heart,
+  Info,
+  PlusCircle,
+  Save,
+  Star,
+  Trash2,
+  User,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,141 @@ import ResumeTemplate from "@/components/pdf/ResumeTemplate";
 
 
 import { supabase } from "@/lib/supabase/client";
+
+// ─── Chat (AI Hearing) 追加コンポーネント ───────────────────────────
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ChatWindowProps {
+  formData: FormData;
+  onFunctionCall: (name: string, args: Record<string, any>) => void;
+}
+
+const ChatWindow: React.FC<ChatWindowProps> = ({ formData, onFunctionCall }) => {
+  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
+  const [input, setInput] = React.useState("");
+  // 学生が選択しやすい定型プロンプト
+  const quickPrompts = [
+    "自己紹介を入力して",
+    "大学名を入力して",
+    "インターン経験を入力して",
+    "強みを教えて",
+  ];
+
+  const sendMessage = async (content?: string) => {
+    const text = (content ?? input).trim();
+    if (!text) return;
+
+    // ① ユーザメッセージをローカルに追加
+    const userMsg: ChatMessage = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
+    if (!content) setInput("");
+
+    try {
+      // ② OpenAI API (Edge 関数) に POST
+      const res = await fetch("/api/ai-hearing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMsg],
+          formData,               // 未入力フィールド判定用に送信
+        }),
+      });
+      if (!res.ok) {
+        console.error("❌ API error status:", res.status);
+        return;
+      }
+
+      const data = await res.json();
+
+      // ③ 応答パース
+      const choice = data?.choices?.[0]?.message;
+      if (!choice) return;
+
+      if (choice.function_call) {
+        // function_call が返ってきた場合 → onFunctionCall へ引き渡し
+        try {
+          const args = JSON.parse(choice.function_call.arguments || "{}");
+          onFunctionCall(choice.function_call.name, args);
+        } catch (e) {
+          console.error("⚠️ function_call 解析失敗", e);
+        }
+      } else if (choice.content) {
+        // 通常メッセージの場合 → そのまま表示
+        const aiMsg: ChatMessage = { role: "assistant", content: choice.content };
+        setMessages((prev) => [...prev, aiMsg]);
+      }
+    } catch (err) {
+      console.error("❌ Chat send error:", err);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full border rounded-lg bg-white shadow-sm shadow-indigo-200/50 ring-1 ring-indigo-100">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b bg-gradient-to-r from-indigo-50 to-white px-3 py-2">
+        <Bot className="h-4 w-4 text-indigo-600" />
+        <span className="text-sm font-semibold text-indigo-700">AI 入力アシスタント</span>
+        <Badge variant="outline" className="ml-auto text-[10px]">Beta</Badge>
+      </div>
+      {/* クイック選択ボタン（最初の入力支援） */}
+      {messages.length === 0 && (
+        <div className="flex flex-wrap gap-2 p-3">
+          {quickPrompts.map((qp) => (
+            <Button
+              key={qp}
+              variant="secondary"
+              size="sm"
+              className="text-xs"
+              onClick={() => sendMessage(qp)}
+            >
+              {qp}
+            </Button>
+          ))}
+        </div>
+      )}
+      {/* メッセージ一覧 */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {messages.length === 0 ? (
+          <div className="rounded-lg bg-indigo-50 p-3 text-xs text-indigo-700">
+            例: 「自己紹介を入力して」「大学名を教えて」などと入力すると、AI が質問を投げてくれます。
+          </div>
+        ) : (
+          messages.map((m, i) => (
+            <div
+              key={i}
+              className={`text-sm ${m.role === "user" ? "text-right" : "text-left"}`}
+            >
+              <span
+                className={`inline-block max-w-[80%] rounded px-2 py-1 ${
+                  m.role === "user" ? "bg-blue-100" : "bg-gray-100"
+                }`}
+              >
+                {m.content}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 入力欄 */}
+      <div className="flex items-center gap-2 border-t p-2">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="ここに入力..."
+          className="flex-1 h-8"
+        />
+        <Button size="sm" className="h-8" onClick={() => sendMessage()}>
+          送信
+        </Button>
+      </div>
+    </div>
+  );
+};
+// ────────────────────────────────────────────────────────────────
 
 // ─── PDF Export Button ─────────────────────────────────────────────
 interface ExportButtonProps {
@@ -515,6 +651,22 @@ export default function ResumePage() {
     handleInputChange("pr", "strengths", newStrengths);
   };
 
+  // AI からの updateField 関数呼び出しを解釈してフォームを更新
+  const handleAIUpdateField = (name: string, args: any) => {
+    if (name !== "updateField" || !args) return;
+    try {
+      const { section, field, value } = args as {
+        section: SectionKey;
+        field: string;
+        value: any;
+      };
+      // `field` は string 型なので型制約を回避して any キャスト
+      handleInputChange(section as any, field as any, value);
+    } catch (err) {
+      console.error("❌ handleAIUpdateField parse error:", err);
+    }
+  };
+
   // 保存／自動保存
   const handleSave = async (): Promise<void> => {
     console.log("🟡 Auto‑save fired");
@@ -656,6 +808,10 @@ export default function ResumePage() {
             style={{ width: `${completionPercentage}%` }}
           />
         </div>
+      </div>
+      {/* ─── AI 入力アシスタント (ファーストビュー) ────────────────── */}
+      <div className="mb-6 sm:mb-8">
+        <ChatWindow formData={formData} onFunctionCall={handleAIUpdateField} />
       </div>
 
       {/* 職歴セクション - 最も目立つように最上部に配置 */}

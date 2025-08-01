@@ -21,6 +21,7 @@ export default function AuthGuard() {
       "/lp/students/fee", 
       "/features", 
       "/onboarding/profile",
+      "/refer",
       "/media",
       "/companies",
       "/whitepapers", 

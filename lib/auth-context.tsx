@@ -118,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pathname.startsWith("/media/") ||
           pathname === "/lp" ||
           pathname.startsWith("/lp/") ||
+          pathname === "/refer" ||
+          pathname.startsWith("/refer/") ||
           pathname === "/jobs" ||
           pathname.startsWith("/jobs/") ||
           pathname === "/companies" ||

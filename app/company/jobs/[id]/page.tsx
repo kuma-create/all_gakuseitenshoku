@@ -150,14 +150,14 @@ const fetchJob = async (id: string) => {
     startDate       : data.start_date ?? intern.start_date ?? "",
     endDate         : intern.end_date ?? "",
     durationWeeks   : intern.duration_weeks ?? "",
-    workDaysPerWeek : intern.work_days_per_week ?? "",
+    // workDaysPerWeek : intern.work_days_per_week ?? "",
     allowance       : intern.allowance ?? "",
 
     /* Intern‑Long */
     workDaysPerWeek:
       internLong.work_days_per_week !== undefined && internLong.work_days_per_week !== null
         ? String(internLong.work_days_per_week)
-        : "",
+        : intern.work_days_per_week ?? "",
     minDurationMonths:
       internLong.min_duration_months !== undefined && internLong.min_duration_months !== null
         ? String(internLong.min_duration_months)
