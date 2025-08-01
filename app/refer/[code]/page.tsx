@@ -46,12 +46,21 @@ export default function ReferralRedirect() {
 
       // 未ログインユーザー → コード保存してサインアップへ
       try {
+        // localStorage でも保持（バックアップ）
         localStorage.setItem('referral_code', code)
       } catch (_) {
         /* Safari プライベートモード等の例外は無視 */
       }
 
-      router.replace('/signup')
+      // Cookie でも保持（サーバーサイド API 用）– 10分間有効
+      try {
+        document.cookie = `referral_code=${code}; path=/; max-age=600; SameSite=Lax`
+      } catch (_) {
+        /* ignore */
+      }
+
+      // クエリパラメータにも付与して /signup へリダイレクト
+      router.replace(`/signup?ref=${code}`)
     })()
   }, [code, router, supabase])
 
