@@ -260,7 +260,7 @@ export default function TemplateEditor({ mode }: Props) {
               onChange={(e) => setTpl({ ...tpl, content: e.target.value })}
             />
             <p className="text-xs text-gray-500 mt-1">
-              {tpl.content.length} 文字
+              {tpl.content.length} 文字/1000文字
             </p>
           </>
         )}

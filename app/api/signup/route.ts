@@ -44,6 +44,7 @@ export async function POST(req: Request) {
         last_name,
         graduation_month,
         referral_source: referral ?? "",
+        referral_code: referral ?? "",
       },
     });
 
