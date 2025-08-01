@@ -9,6 +9,7 @@ export default function AuthGuard() {
   useEffect(() => {
     const publicPrefixes = [
       "/",                         // トップ
+      "/app",                      // アプリのトップも公開扱い
       "/login",                    // 共通ログイン
       "/signup",                   // 新規登録
       "/admin/login",              // 管理者ログイン
