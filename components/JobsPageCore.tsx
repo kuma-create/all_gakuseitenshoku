@@ -20,11 +20,16 @@ import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 import Head from "next/head"
 
+/** Props */
+export interface JobsPageProps {
+  /** 検索パネルの初期「選考種類」タブ (例: "intern_long") */
+  defaultSelectionType?: string;
+}
+
 /* ---------- Selection type → JP label ---------- */
 const SELECTION_LABELS = {
   fulltime:         "本選考",
   internship_short: "インターン（短期）",
-  internship_long:  "インターン(長期)",
   intern_long:      "インターン(長期)", // legacy key
   event:            "説明会／イベント",
 } as const;
@@ -117,7 +122,9 @@ type EventRow = {
 const FEATURED_KEYWORDS = ["IT", "コンサル", "金融", "メーカー", "商社"] as const;
 
 /* ────────────────────────────────────────── */
-export default function JobsPage() {
+export default function JobsPage({
+  defaultSelectionType = "all",
+}: JobsPageProps) {
   /* ---------------- state ---------------- */
   const searchParams = useSearchParams()
   const qParam = searchParams.get("q") ?? ""
@@ -132,7 +139,7 @@ export default function JobsPage() {
   const [search, setSearch] = useState(qParam)
   const [industry, setIndustry] = useState("all")
   const [jobType, setJobType] = useState("all")
-  const [selectionType, setSelectionType] = useState("all")
+  const [selectionType, setSelectionType] = useState(defaultSelectionType)
   const [salaryMin, setSalaryMin] = useState<string>("all")
   const [saved, setSaved] = useState<Set<string>>(new Set())
   // 最初に localStorage から読み取って saved セットを初期化
