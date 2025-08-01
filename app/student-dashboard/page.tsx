@@ -22,6 +22,7 @@ import {
 import { Button }   from "@/components/ui/button";
 import { Badge }    from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import Footer from "@/components/footer";
 
@@ -188,6 +189,7 @@ export default function StudentDashboard() {
       <main className="container mx-auto space-y-10 px-4 py-8">
         {/* ---- Greeting ---- */}
         <GreetingHero userName={displayName} />
+        <PhaseModal />
 
 
         {/* ---- 1:2 レイアウト ---- */}
@@ -726,5 +728,72 @@ function LinkButton({ href, children }: { href: string; children: React.ReactNod
 function SkeletonCard({ height = 200 }: { height?: number }) {
   return (
     <div style={{ height }} className="w-full animate-pulse rounded-lg bg-gray-100" />
+  );
+}
+
+
+/* ================================================================
+   PhaseModal – 登録後フェーズ確認用ポップアップ
+================================================================= */
+function PhaseModal() {
+  const [open, setOpen] = React.useState(false);
+  const { user } = useAuth();
+
+  // ▶︎ 表示条件：未回答 もしくは 前回回答から 30 日以上経過
+  React.useEffect(() => {
+    const last = localStorage.getItem("phaseLastRespondedAt");
+    if (!last) {
+      setOpen(true);
+      return;
+    }
+    const lastDate = new Date(last);
+    const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
+    if (Date.now() - lastDate.getTime() > THIRTY_DAYS) {
+      setOpen(true);
+    }
+  }, []);
+
+  const handleSelect = async (choice: string) => {
+    if (!user) return;                       // 念のためガード
+
+    // ── Supabase に保存：student_profiles.phase_status を更新 ──
+    await supabase
+      .from("student_profiles")
+      .update({ phase_status: choice })
+      .eq("user_id", user.id);
+
+    // ── ローカルにも保存して 30 日ルールを維持 ──
+    localStorage.setItem("phaseStatus", choice);
+    localStorage.setItem("phaseLastRespondedAt", new Date().toISOString());
+
+    setOpen(false);
+  };
+
+  const options = [
+    "絶賛就活頑張ってます！",
+    "インターンをやりたい！",
+    "就活もやりつつインターンもやりたい！",
+    "就活は終わって良いインターンを探している！",
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md space-y-4">
+        <DialogHeader>
+          <DialogTitle>今あなたはどのフェーズにいますか？</DialogTitle>
+        </DialogHeader>
+
+        {options.map((opt) => (
+          <Button
+            key={opt}
+            variant="outline"
+            className="w-full"
+            onClick={() => handleSelect(opt)}
+          >
+            {opt}
+          </Button>
+        ))}
+      </DialogContent>
+    </Dialog>
   );
 }
