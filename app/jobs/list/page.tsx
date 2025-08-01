@@ -2,7 +2,18 @@
 
 import type React from "react"
 
-import { ArrowLeft, Briefcase, Heart, MapPin, Search, Star, SlidersHorizontal } from "lucide-react"
+import {
+  ArrowLeft,
+  Briefcase,
+  Heart,
+  MapPin,
+  Search,
+  Star,
+  SlidersHorizontal,
+  ClipboardList,
+  Clock,
+  Mic,
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import Head from "next/head"
@@ -57,6 +68,37 @@ const SELECTION_LABELS = {
   event:           "説明会／イベント",
 } as const
 
+/* アイコンマッピング */
+const SELECTION_ICONS: Record<string, JSX.Element> = {
+  fulltime: <Briefcase size={12} />,
+  internship_short: <ClipboardList size={12} />,
+  internship_long: <Clock size={12} />,
+  intern_long: <Clock size={12} />,
+  event: <Mic size={12} />,
+};
+
+/* バッジの色マッピング */
+const badgeColorMap: Record<string, string> = {
+  fulltime: "bg-blue-100 text-blue-800",
+  internship_short: "bg-green-100 text-green-800",
+  internship_long: "bg-yellow-100 text-yellow-800",
+  intern_long: "bg-yellow-100 text-yellow-800",
+  event: "bg-purple-100 text-purple-800",
+};
+
+const renderSelectionBadge = (type?: string | null) => {
+  const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS;
+  return (
+    <Badge
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold w-fit ${badgeColorMap[key]}`}
+      variant="outline"
+    >
+      {SELECTION_ICONS[key]}
+      {SELECTION_LABELS[key]}
+    </Badge>
+  );
+};
+
 /* 選考種類コード → 表示ラベルを安全に取得 */
 const getSelectionLabel = (type?: string | null) => {
   const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS
@@ -82,7 +124,14 @@ export default function JobSearchPage() {
   const pageDescription = qParam
     ? `「${qParam}」の求人を検索。業界・職種・年収など細かくフィルターして自分に合った仕事を見つけましょう。`
     : "学生向け転職サービス「学生転職」の求人検索ページ。業界・職種・年収など細かくフィルターして自分に合った仕事を見つけましょう。"
+
   const tabParam = (searchParams.get("tab") ?? "company") as "company" | "fulltime" | "intern" | "event"
+
+  // Accept both ?selectionType= and legacy ?type=
+  const selectionTypeParam =
+    searchParams.get("selectionType") ??
+    searchParams.get("type") ??
+    "all";
 
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobRow[]>([])
@@ -92,7 +141,7 @@ export default function JobSearchPage() {
   const [search, setSearch] = useState(qParam)
   const [industry, setIndustry] = useState("all")
   const [jobType, setJobType] = useState("all")
-  const [selectionType, setSelectionType] = useState("all")
+  const [selectionType, setSelectionType] = useState(selectionTypeParam)
   const [salaryMin, setSalaryMin] = useState<string>("all")
   const [saved, setSaved] = useState<Set<string>>(new Set())
   // --- 初期化: localStorage から保存済み ID を読み込む --------------------
@@ -198,7 +247,17 @@ job_tags!job_tags_job_id_fkey (
 
       const matchesSalary = salaryMin === "all" || (j.salary_max ?? j.salary_min ?? 0) >= Number(salaryMin)
 
-      const matchesCategory = selectionType === "all" || (j.selection_type ?? "") === selectionType
+      // treat legacy & canonical keys as identical
+      const isSameSelection = (
+        selFilter: string,
+        selJob: string | null | undefined,
+      ) => {
+        if (selFilter === "all") return true;
+        const canon = (v: string) =>
+          v === "intern_long" ? "internship_long" : v;
+        return canon(selFilter) === canon(selJob ?? "");
+      };
+      const matchesCategory = isSameSelection(selectionType, j.selection_type);
 
       return matchesQ && matchesInd && matchesJob && matchesSalary && matchesCategory
     })
@@ -267,7 +326,9 @@ job_tags!job_tags_job_id_fkey (
               <span className="hidden sm:inline">戻る</span>
             </Link>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-gray-800">"{qParam}" の検索結果</h1>
+              <h1 className="text-xl font-bold text-gray-800">
+                {qParam ? `「${qParam}」 の検索結果` : "検索結果"}
+              </h1>
               <p className="text-sm text-gray-500">{displayed.length}件の求人が見つかりました</p>
             </div>
           </div>
@@ -325,60 +386,6 @@ job_tags!job_tags_job_id_fkey (
                 </SheetContent>
               </Sheet>
 
-              {/* Desktop filters */}
-              <div className="hidden lg:flex items-center gap-2">
-                <Select value={industry} onValueChange={setIndustry}>
-                  <SelectTrigger className="w-32 h-9 rounded-full text-sm">
-                    <SelectValue placeholder="業界" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {industries.map((i) => (
-                      <SelectItem key={i} value={i}>
-                        {i === "all" ? "すべての業界" : i}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={jobType} onValueChange={setJobType}>
-                  <SelectTrigger className="w-32 h-9 rounded-full text-sm">
-                    <SelectValue placeholder="職種" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobTypes.map((j) => (
-                      <SelectItem key={j} value={j}>
-                        {j === "all" ? "すべての職種" : j}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectionType} onValueChange={setSelectionType}>
-                  <SelectTrigger className="w-40 h-9 rounded-full text-sm">
-                    <SelectValue placeholder="選考種類" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SELECTION_TYPES.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={salaryMin} onValueChange={setSalaryMin}>
-                  <SelectTrigger className="w-32 h-9 rounded-full text-sm">
-                    <SelectValue placeholder="年収" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SALARY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             {/* View toggle */}
@@ -469,46 +476,67 @@ job_tags!job_tags_job_id_fkey (
 
       {/* Content */}
       <main className="container mx-auto max-w-7xl px-4 py-6">
-        <Tabs defaultValue="all">
-          <TabsList className="mb-6 grid max-w-md grid-cols-3 bg-gray-100 p-1 rounded-lg">
-            <TabsTrigger value="all" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              すべて
-            </TabsTrigger>
-            <TabsTrigger value="saved" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              保存済み
-            </TabsTrigger>
-            <TabsTrigger value="new" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
-              新着
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all">
-            <JobGrid jobs={displayed} view={view} saved={saved} toggleSave={toggleSave} tagColor={tagColor} />
-          </TabsContent>
-
-          <TabsContent value="saved">
-            <JobGrid
-              jobs={displayed.filter((j) => saved.has(j.id))}
-              view={view}
-              saved={saved}
-              toggleSave={toggleSave}
-              tagColor={tagColor}
+        <div className="flex gap-6">
+          {/* --- Sidebar filters (desktop only) --- */}
+          <aside className="hidden lg:block w-64 flex-shrink-0">
+            <FilterPanel
+              industries={industries}
+              jobTypes={jobTypes}
+              industry={industry}
+              setIndustry={setIndustry}
+              jobType={jobType}
+              setJobType={setJobType}
+              selectionType={selectionType}
+              setSelectionType={setSelectionType}
+              salaryMin={salaryMin}
+              setSalaryMin={setSalaryMin}
             />
-          </TabsContent>
+          </aside>
 
-          <TabsContent value="new">
-            <JobGrid
-              jobs={displayed.filter((j) => {
-                const diff = (Date.now() - new Date(j.created_at!).getTime()) / 86400000
-                return diff < 7
-              })}
-              view={view}
-              saved={saved}
-              toggleSave={toggleSave}
-              tagColor={tagColor}
-            />
-          </TabsContent>
-        </Tabs>
+          {/* --- Listings & tabs --- */}
+          <div className="flex-1">
+            <Tabs defaultValue="all">
+              <TabsList className="mb-6 grid max-w-md grid-cols-3 bg-gray-100 p-1 rounded-lg">
+                <TabsTrigger value="all" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
+                  すべて
+                </TabsTrigger>
+                <TabsTrigger value="saved" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
+                  保存済み
+                </TabsTrigger>
+                <TabsTrigger value="new" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow">
+                  新着
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="all">
+                <JobGrid jobs={displayed} view={view} saved={saved} toggleSave={toggleSave} tagColor={tagColor} />
+              </TabsContent>
+
+              <TabsContent value="saved">
+                <JobGrid
+                  jobs={displayed.filter((j) => saved.has(j.id))}
+                  view={view}
+                  saved={saved}
+                  toggleSave={toggleSave}
+                  tagColor={tagColor}
+                />
+              </TabsContent>
+
+              <TabsContent value="new">
+                <JobGrid
+                  jobs={displayed.filter((j) => {
+                    const diff = (Date.now() - new Date(j.created_at!).getTime()) / 86400000
+                    return diff < 7
+                  })}
+                  view={view}
+                  saved={saved}
+                  toggleSave={toggleSave}
+                  tagColor={tagColor}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </main>
 
       <Footer />
@@ -647,7 +675,7 @@ function JobGrid({
             <div className="flex">
               <Link href={`/jobs/${j.id}`} className="flex flex-1 hover:bg-gray-50 transition-colors">
                 {j.cover_image_url && (
-                  <div className="w-48 h-32 flex-shrink-0">
+                  <div className="w-64 h-40 flex-shrink-0">
                     <Image
                       src={j.cover_image_url || "/placeholder.svg"}
                       alt="cover"
@@ -660,9 +688,7 @@ function JobGrid({
                 <div className="flex-1 p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <Badge variant="outline" className="mb-2 text-xs rounded-full">
-                        {getSelectionLabel(j.selection_type)}
-                      </Badge>
+                      {renderSelectionBadge(j.selection_type)}
                       <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{j.title}</h3>
                       <p className="text-sm text-gray-600 mb-3">{j.companies?.name ?? "-"}</p>
                     </div>
@@ -712,43 +738,43 @@ function JobGrid({
 
   /* ----- grid view ----- */
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-4">
       {jobs.map((j) => (
         <Card
           key={j.id}
-          className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 rounded-xl"
+          className="relative overflow-hidden border-0 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl"
         >
-          <Link href={`/jobs/${j.id}`} className="block">
+          <Link href={`/jobs/${j.id}`} className="flex">
+            {/* Cover Image (left) */}
             {j.cover_image_url && (
-              <div className="relative h-40 w-full overflow-hidden">
+              <div className="relative w-64 sm:w-80 h-40 sm:h-48 flex-shrink-0 overflow-hidden">
                 <Image
                   src={j.cover_image_url || "/placeholder.svg"}
                   alt="cover"
                   fill
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                {j.is_featured && (
-                  <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-yellow-400 px-3 py-1 text-xs font-medium text-yellow-900">
-                    <Star size={12} />
-                    おすすめ
-                  </div>
-                )}
               </div>
             )}
-            <div className="p-5">
-              <Badge variant="outline" className="mb-3 text-xs rounded-full">
-                {getSelectionLabel(j.selection_type)}
-              </Badge>
-              <h3 className="mb-2 line-clamp-2 font-bold text-gray-900 leading-tight">{j.title}</h3>
-              <p className="line-clamp-1 text-sm text-gray-600 mb-3">{j.companies?.name ?? "-"}</p>
 
-              <div className="flex flex-wrap gap-1 mb-3">
-                {(j.tags ?? []).slice(0, 3).map((t) => (
-                  <Badge key={t} variant="secondary" className="text-xs">
-                    {t}
-                  </Badge>
-                ))}
+            {/* Details (right) */}
+            <div className="flex flex-col justify-between p-5 flex-1">
+              <div>
+                {renderSelectionBadge(j.selection_type)}
+                <h3 className="mt-1 mb-2 line-clamp-2 font-bold text-gray-900 leading-snug">
+                  {j.title}
+                </h3>
+                <p className="line-clamp-1 text-sm text-gray-600 mb-3">
+                  {j.companies?.name ?? "-"}
+                </p>
+
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {(j.tags ?? []).slice(0, 3).map((t) => (
+                    <Badge key={t} variant="secondary" className="text-xs">
+                      {t}
+                    </Badge>
+                  ))}
+                </div>
               </div>
 
               <div className="text-xs text-gray-500">
@@ -756,6 +782,8 @@ function JobGrid({
               </div>
             </div>
           </Link>
+
+          {/* Save (heart) button */}
           <Button
             variant="ghost"
             size="icon"

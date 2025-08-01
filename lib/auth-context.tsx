@@ -73,7 +73,10 @@ const PUBLIC_ROUTES = new Set([
   "/jobs",
   "/onboarding/profile",
   "/grandprix",
+  "/internships",
   "/lp",
+  "/ipo",
+  "/search",
   "/terms",  
   "/lp/students/fee",
   "/media",
@@ -122,6 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pathname.startsWith("/refer/") ||
           pathname === "/jobs" ||
           pathname.startsWith("/jobs/") ||
+          pathname === "/search" ||
+          pathname.startsWith("/search/") ||
           pathname === "/companies" ||
           pathname.startsWith("/companies/");
         if (!isPublic) router.replace("/login");

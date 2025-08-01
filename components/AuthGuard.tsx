@@ -9,6 +9,7 @@ export default function AuthGuard() {
   useEffect(() => {
     const publicPrefixes = [
       "/",                         // トップ
+      "/app",                      // アプリのトップも公開扱い
       "/login",                    // 共通ログイン
       "/signup",                   // 新規登録
       "/admin/login",              // 管理者ログイン
@@ -25,6 +26,7 @@ export default function AuthGuard() {
       "/media",
       "/companies",
       "/whitepapers", 
+      "/internships",
       "/auth",                  // Supabase auth-helper routes (/auth/set, /auth/logout)
       "/forgot-password",              // グランプリ一覧
       "/password-reset-callback",    // パスワード再設定コールバック
@@ -32,7 +34,8 @@ export default function AuthGuard() {
       "/offers",                   // 学生スカウト
       "/applications",             // 学生応募履歴
       "/chat",                     // 学生チャット
-      "/company",                  // 企業配下
+      "/company", 
+      "/ipo",                 // 企業配下
       "/student",   
       "/jobs", 
       "/resume",               // 学生配下

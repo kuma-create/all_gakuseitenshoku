@@ -17,6 +17,7 @@ import {
   Briefcase,
   ExternalLink,
   ListFilter,
+  FileText,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -112,6 +113,7 @@ export default function InternInfo({
     setIsInterested(arr.includes(job.id))
   }, [job.id])
 
+
   // ----- Summary values -----
   // Prefer `job.intern_long_details` (joined directly from Supabase) but
   // fall back to `job.internship` for compatibility.
@@ -140,6 +142,7 @@ export default function InternInfo({
     typeof workingDaysRaw === "number"
       ? `週${workingDaysRaw}日`
       : workingDaysRaw ?? "応相談"
+
 
   const isNew =
     job?.created_at &&
@@ -254,18 +257,43 @@ export default function InternInfo({
           )}
 
           {/* requirements */}
-          {job.requirements && (
-            <SectionCard title="応募条件">
+          <SectionCard title="応募条件">
+            {job.requirements ? (
               <ul className="space-y-2 text-sm text-gray-700">
-                {job.requirements.split("\n").filter(Boolean).map((r: string, i: number) => (
-                  <li key={i} className="flex gap-2">
-                    <Plus size={16} className="text-red-600 mt-0.5" />
-                    <span>{r}</span>
-                  </li>
-                ))}
+                {job.requirements
+                  .split("\n")
+                  .filter(Boolean)
+                  .map((r: string, i: number) => (
+                    <li key={i} className="flex gap-2">
+                      <Plus size={16} className="text-red-600 mt-0.5" />
+                      <span>{r}</span>
+                    </li>
+                  ))}
               </ul>
-            </SectionCard>
-          )}
+            ) : (
+              <p className="text-sm text-gray-700">—</p>
+            )}
+          </SectionCard>
+          {/* 備考 */}
+          <SectionCard title="備考" icon={<FileText size={16} />}>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li className="flex gap-2">
+                <span>
+                  交通費: {internship?.travel_expense ?? "—"}
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span>
+                  最寄駅: {internship?.nearest_station ?? "—"}
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span>
+                  福利厚生: {internship?.benefits ?? "—"}
+                </span>
+              </li>
+            </ul>
+          </SectionCard>
         </div>
 
         {/* ---------- 右カラム ---------- */}
@@ -473,14 +501,17 @@ function SummaryItem({
 function SectionCard({
   title,
   children,
+  icon,
 }: {
   title: string
   children: React.ReactNode
+  icon?: React.ReactNode
 }) {
   return (
     <Card className="mb-6 border-0 shadow-md">
       <CardHeader className="border-b border-gray-100 bg-gray-50 pb-4">
         <CardTitle className="flex items-center gap-2 text-lg font-bold text-red-600">
+          {icon && icon}
           {title}
         </CardTitle>
       </CardHeader>
