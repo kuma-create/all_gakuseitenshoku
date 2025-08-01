@@ -14,7 +14,8 @@ import {
   Eye,
   Heart,
   Search,
-  FolderOpen,
+  GraduationCap,
+  ChevronUp,
 } from "lucide-react";
 
 import type { Metadata } from "next";
@@ -335,33 +336,34 @@ export default async function MediaPage() {
           </div>
 
           <div className="space-y-4">
+            {/* === Sidebar Actions (Calm palette) === */}
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white rounded-full"
+              className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-orange-300 to-amber-400 hover:from-orange-400 hover:to-amber-500 text-white rounded-full shadow"
             >
-              <Link href="/jobs" className="flex items-center justify-center">
-                <Search className="w-4 h-4 mr-2" />
-                求人を探す
+              <Link href="/internships" className="flex items-center justify-center gap-2">
+                <Search className="w-5 h-5" />
+                長期インターンを探す
               </Link>
             </Button>
 
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-full"
+              className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-teal-300 to-blue-400 hover:from-teal-400 hover:to-blue-500 text-white rounded-full shadow"
             >
-              <Link href="/media" className="flex items-center justify-center">
-                <Star className="w-4 h-4 mr-2" />
-                おすすめ記事
+              <Link href="/jobs" className="flex items-center justify-center gap-2">
+                <GraduationCap className="w-5 h-5" />
+                新卒求人を探す
               </Link>
             </Button>
 
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-lime-500 to-emerald-500 hover:from-lime-600 hover:to-emerald-600 text-white rounded-full"
+              className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-gray-300 to-gray-400 hover:from-gray-400 hover:to-gray-500 text-white rounded-full shadow"
             >
-              <Link href="/media/categories" className="flex items-center justify-center">
-                <FolderOpen className="w-4 h-4 mr-2" />
-                カテゴリ一覧
+              <Link href="#pageTop" scroll={true} className="flex items-center justify-center gap-2">
+                <ChevronUp className="w-5 h-5" />
+                トップに戻る
               </Link>
             </Button>
           </div>

@@ -5,7 +5,7 @@
 
 "use client"
 import React from "react";
-import { use as usePromise, useState, useEffect, useCallback } from "react"
+import { use as usePromise, useState, useEffect, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
@@ -265,6 +265,44 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
         }。`
       : "学生向け求人詳細ページ。";
 
+  /* ---------- structured data (JobPosting) ---------- */
+  const ldJson = useMemo(() => {
+    if (!job || !company) return null;
+
+    return JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      title: job.title,
+      description: metaDescription,
+      datePosted: job.created_at ?? new Date().toISOString(),
+      employmentType:
+        job.selection_type === "fulltime" ? "FULL_TIME" : "INTERN",
+      hiringOrganization: {
+        "@type": "Organization",
+        name: company.name,
+        sameAs: company.website,
+        logo: company.logo,
+      },
+      jobLocation: {
+        "@type": "Place",
+        address: job.location ?? "Japan",
+      },
+      baseSalary:
+        job.salary_min && job.salary_max
+          ? {
+              "@type": "MonetaryAmount",
+              currency: "JPY",
+              value: {
+                "@type": "QuantitativeValue",
+                minValue: job.salary_min,
+                maxValue: job.salary_max,
+                unitText: "MONTH",
+              },
+            }
+          : undefined,
+    });
+  }, [job, company, metaDescription]);
+
   // --- choose variant component ---
   let Body: React.JSX.Element;
   switch (
@@ -351,6 +389,22 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
           rel="canonical"
           href={`${process.env.NEXT_PUBLIC_BASE_URL}/jobs/${id}`}
         />
+        {/* additional SEO tags */}
+        <meta name="robots" content="index,follow" />
+        <meta name="keywords" content={`${job.title}, ${company?.name ?? ""}, 学生転職, インターン, 新卒求人`} />
+        <meta property="og:site_name" content="学生転職" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        {company?.logo && <meta name="twitter:image" content={company.logo} />}
+
+        {/* JobPosting structured data */}
+        {ldJson && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: ldJson }}
+          />
+        )}
       </Head>
       {Body}
     </>

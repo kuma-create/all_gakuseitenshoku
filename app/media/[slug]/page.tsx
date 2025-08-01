@@ -21,6 +21,9 @@ import {
   Search,
   Star,
   FolderOpen,
+  UserPlus,
+  Sparkles,
+  GraduationCap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -430,6 +433,42 @@ export default async function MediaDetailPage(
           {/* ----- SIDEBAR ----- */}
           <aside className="lg:col-span-1 sticky top-32 space-y-6">
 
+            {/* === CTA: Find Internships === */}
+            <Card className="bg-gradient-to-br from-orange-50 to-amber-100 border-0 shadow-lg">
+              <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+                <Image
+                  src="/5096022_l.jpg"
+                  alt="長期インターンを探す"
+                  width={160}
+                  height={120}
+                  className="object-contain"
+                />
+                <h3 className="text-lg font-bold text-gray-900 leading-snug">
+                  あなたにぴったりの<br />長期インターンを探してみよう！
+                </h3>
+                <Button
+                  asChild
+                  className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-full"
+                >
+                  <Link href="/internships" className="flex items-center justify-center">
+                    <Search className="w-4 h-4 mr-2" />
+                    インターンを探す
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full border-orange-500 text-orange-600 rounded-full"
+                >
+                  <Link href="/signup" className="flex items-center justify-center">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    無料会員登録
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+
             {related.length > 0 && (
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardContent className="p-6">
@@ -470,42 +509,33 @@ export default async function MediaDetailPage(
               </Card>
             )}
 
+            {/* === Sidebar Actions (Calm palette) === */}
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white rounded-full"
+              className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-orange-300 to-amber-400 hover:from-orange-400 hover:to-amber-500 text-white rounded-full shadow"
             >
-              <Link href="/jobs" className="flex items-center justify-center">
-                <Search className="w-4 h-4 mr-2" />
-                求人を探す
+              <Link href="/internships" className="flex items-center justify-center gap-2">
+                <Search className="w-5 h-5" />
+                長期インターンを探す
               </Link>
             </Button>
 
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-full"
+              className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-teal-300 to-blue-400 hover:from-teal-400 hover:to-blue-500 text-white rounded-full shadow"
             >
-              <Link href="/media" className="flex items-center justify-center">
-                <Star className="w-4 h-4 mr-2" />
-                おすすめ記事
+              <Link href="/jobs" className="flex items-center justify-center gap-2">
+                <GraduationCap className="w-5 h-5" />
+                新卒求人を探す
               </Link>
             </Button>
 
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-lime-500 to-emerald-500 hover:from-lime-600 hover:to-emerald-600 text-white rounded-full"
+              className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-gray-300 to-gray-400 hover:from-gray-400 hover:to-gray-500 text-white rounded-full shadow"
             >
-              <Link href="/media/categories" className="flex items-center justify-center">
-                <FolderOpen className="w-4 h-4 mr-2" />
-                カテゴリ一覧
-              </Link>
-            </Button>
-
-            <Button
-              asChild
-              className="w-full bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white rounded-full"
-            >
-              <Link href="#pageTop" scroll={true} className="flex items-center justify-center">
-                <ChevronUp className="w-4 h-4 mr-2" />
+              <Link href="#pageTop" scroll={true} className="flex items-center justify-center gap-2">
+                <ChevronUp className="w-5 h-5" />
                 トップに戻る
               </Link>
             </Button>
