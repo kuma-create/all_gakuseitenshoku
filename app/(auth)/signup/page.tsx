@@ -6,7 +6,7 @@
 ------------------------------------------------------------------------- */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -26,6 +26,7 @@ import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/lib/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Script from "next/script";
 
@@ -39,6 +40,28 @@ export default function SignupPage() {
   const [error, setError]             = useState<string | null>(null);
   const [termsChecked, setTermsChecked] = useState(false);
   const [newUserId, setNewUserId] = useState<string>("");
+
+  // 紹介コード: /signup?ref=XXXX or localStorage/cookie
+  const [referralCode, setReferralCode] = useState<string>("");
+  useEffect(() => {
+    // 1) クエリパラメータ ?ref=XXXX
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref") ?? "";
+      if (ref) {
+        setReferralCode(ref);
+        // backup
+        try { localStorage.setItem("referral_code", ref); } catch (_) {}
+        return;
+      }
+
+      // 2) localStorage
+      try {
+        const lsRef = localStorage.getItem("referral_code") ?? "";
+        if (lsRef) setReferralCode(lsRef);
+      } catch (_) {}
+    }
+  }, []);
 
   /* form state */
   const [formData, setFormData] = useState({
@@ -75,48 +98,59 @@ export default function SignupPage() {
   /* ---------------- signup submit ---------------- */
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    // --- ensure latest referral_code ---
+    let refCode = referralCode;
+    if (!refCode && typeof window !== "undefined") {
+      const urlRef = new URLSearchParams(window.location.search).get("ref") ?? "";
+      const lsRef  = localStorage.getItem("referral_code") ?? "";
+      refCode = urlRef || lsRef;
+      if (refCode) setReferralCode(refCode); // sync state for future use
+    }
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await fetch("/api/signup", {
-        method : "POST",
-        headers: { "Content-Type": "application/json" },
-        body   : JSON.stringify({
-          email     : formData.email,
-          password  : formData.password,
-          first_name: formData.first_name,
-          last_name : formData.last_name,
-          referral  : formData.referral,
-          graduation_month : formData.graduation_month,
-        }),
+      /* ---------- Supabase Auth signUp ---------- */
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          /* raw_user_meta_data に保存する */
+          data: {
+            first_name: formData.first_name,
+            last_name : formData.last_name,
+            referral  : formData.referral,
+            referral_code: refCode ?? "",
+            graduation_month: formData.graduation_month,
+          },
+          /* 認証メールのリンク遷移先（適宜変更） */
+          emailRedirectTo: `${location.origin}/auth/callback`,
+        },
       });
 
-      const json = await res.json();
-
       /* ---------------- duplicate email handling ---------------- */
-      if (!res.ok) {
-        const msg: string = json.error ?? "";
+      if (error) {
+        const msg = error.message ?? "";
         const isDuplicate =
-          res.status === 409 || // Conflict – email already registered
           /already/i.test(msg) ||
-          /exists/i.test(msg);
+          /exists/i.test(msg) ||
+          /duplicate/i.test(msg);
 
         if (isDuplicate) {
-          // メールアドレス重複の場合はエラー文言を表示してログイン画面へ
           setError("そのメールアドレスはすでに登録されています。ログインしてください。");
           setTimeout(() => router.push("/login"), 1000);
           return;
         }
-
-        throw new Error(msg || "登録に失敗しました");
+        throw error;
       }
 
       /* 完了画面へ */
-      if (json.id) {
-        setNewUserId(json.id as string);
+      if (data?.user?.id) {
+        setNewUserId(data.user.id);
       }
+      try { localStorage.removeItem("referral_code"); } catch (_) {}
       setStep(2);
+
     } catch (err: any) {
       console.error(err);
       setError(err.message ?? "登録中に問題が発生しました。もう一度お試しください。");
