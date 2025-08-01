@@ -326,7 +326,7 @@ return (
       {/* Desktop and Mobile Headers removed */}
 
       {/* Hero Section -------------------------------------------------- */}
-      <section className="relative isolate flex items-center bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white overflow-hidden h-[80vh] md:h-[85vh] animate-hero-bg">
+      <section className="relative isolate flex items-center pt-24 pb-16 bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white overflow-hidden min-h-screen animate-hero-bg">
         {/* Decorative gradient blobs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -top-32 -left-40 w-[580px] h-[580px] rounded-full bg-white/10 blur-3xl animate-[blob_35s_ease-in-out_infinite]"></div>
@@ -352,18 +352,18 @@ return (
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-6"
             >
-              <span className="block">学生のキャリアは</span>
-              <span className="block mt-[2mm] text-6xl sm:text-7xl lg:text-8xl text-white drop-shadow-md">
+              <span className="block text-3xl sm:text-4xl lg:text-5xl">学生のキャリアは</span>
+              <span className="block mt-[2mm] text-5xl sm:text-6xl lg:text-7xl text-white drop-shadow-md">
                 可能性
               </span>
-              <span className="block mt-[2mm]">に満ち溢れている</span>
+              <span className="block mt-[2mm] text-3xl sm:text-4xl lg:text-5xl">に満ち溢れている</span>
             </motion.h1>
 
             <motion.p
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-              className="text-lg sm:text-xl lg:text-2xl font-medium mb-10 opacity-90 leading-relaxed"
+              className="text-base sm:text-lg lg:text-xl font-medium mb-10 opacity-90 leading-relaxed"
             >
               知ってる人は使ってる。キャリアプラットフォーム
             </motion.p>
@@ -398,7 +398,7 @@ return (
           </div>
 
           {/* --- Illustration ------------------------------------------------------- */}
-          <div className="relative flex justify-center md:justify-end">
+          <div className="relative flex justify-center md:justify-end mb-6 md:mb-0 pointer-events-none">
             {/* subtle glow backdrop */}
             <div className="absolute -z-10 w-[500px] h-[500px] rounded-full bg-white/10 blur-3xl" />
             <Image
@@ -406,7 +406,7 @@ return (
               alt="就活生がキャリアを考えるイメージ"
               width={460}
               height={350}
-              className="w-72 sm:w-96 lg:w-[460px] h-auto drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)] animate-[float_6s_ease-in-out_infinite]"
+              className="w-52 sm:w-720 lg:w-[460px] h-auto drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)] animate-[float_6s_ease-in-out_infinite]"
               priority
             />
           </div>
