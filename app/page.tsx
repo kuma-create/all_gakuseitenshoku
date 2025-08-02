@@ -924,17 +924,24 @@ return (
       )}
 
       {/* CV Registration CTA */}
-      <section className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl md:text-3xl font-bold mb-6">
-          学生転職に登録してキャリアを広げよう
-        </h2>
-        <Button
-          size="lg"
-          className="bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full px-8 py-4"
-          asChild
-        >
-          <Link href="/cv/register">無料で登録する</Link>
-        </Button>
+      <section className="relative flex items-center justify-center min-h-[60vh] bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white px-4">
+        {/* Decorative gradient blobs */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-32 -left-40 w-[580px] h-[580px] rounded-full bg-white/10 blur-3xl animate-[blob_35s_ease-in-out_infinite]"></div>
+          <div className="absolute bottom-0 right-0 w-[460px] h-[460px] rounded-full bg-white/10 blur-3xl animate-[blob_40s_ease-in-out_infinite]"></div>
+        </div>
+        <div className="text-center max-w-xl">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-8 leading-tight">
+            学生転職に登録してキャリアを広げよう
+          </h2>
+          <Button
+            size="lg"
+            className="bg-white hover:bg-red-50 text-red-600 font-semibold rounded-full px-10 py-5 shadow-lg"
+            asChild
+          >
+            <Link href="/cv/register">無料で登録する</Link>
+          </Button>
+        </div>
       </section>
 
 
@@ -970,101 +977,6 @@ return (
           <GptCareerAdvisorCard />
         </DialogContent>
       </Dialog>
-
-      {/* Footer */}
-      <footer className="bg-gray-50 border-t py-8 md:py-12">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between">
-            <div className="mb-6 md:mb-0">
-              <Image src="/images/logo.png" alt="学生転職" width={120} height={40} className="h-8 w-auto mb-4" />
-              <p className="text-sm text-gray-600 max-w-md">
-                学生転職は、最新のAI技術を活用した就活支援メディアプラットフォームです。
-                キャリア形成から企業研究、面接対策まで、あなたの就活をサポートします。
-              </p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
-              <div>
-                <h3 className="font-medium mb-3">コンテンツ</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      トレンド
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      ニュース
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      キャリアガイド
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      AI分析
-                    </a>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">サービス</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      就活支援
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      スカウト
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      ES添削
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      面接対策
-                    </a>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3">会社情報</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      運営会社
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      プライバシーポリシー
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      利用規約
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-red-600">
-                      お問い合わせ
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-500 text-center">© 2025 学生転職 All Rights Reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
