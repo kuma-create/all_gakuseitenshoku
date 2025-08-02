@@ -15,6 +15,7 @@ import {
   Share2,
   Bookmark,
   ArrowRight,
+  ChevronDown,
   Users,
   GraduationCap,
   Zap,
@@ -326,7 +327,7 @@ return (
       {/* Desktop and Mobile Headers removed */}
 
       {/* Hero Section -------------------------------------------------- */}
-      <section className="relative isolate flex items-center pt-24 pb-16 bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white overflow-hidden min-h-screen animate-hero-bg">
+      <section className="relative isolate flex items-center pt-20 pb-24 sm:pb-20 md:pb-16 bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white overflow-hidden min-h-[75vh] animate-hero-bg">
         {/* Decorative gradient blobs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -top-32 -left-40 w-[580px] h-[580px] rounded-full bg-white/10 blur-3xl animate-[blob_35s_ease-in-out_infinite]"></div>
@@ -411,6 +412,23 @@ return (
             />
           </div>
         </div>
+        {/* --- Scroll Indicator --------------------------------------------- */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, ease: "easeOut", delay: 1 }}
+          onClick={() => {
+            const el = document.getElementById("trending-articles");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}
+          className="absolute inset-x-0 bottom-4 sm:bottom-6 md:bottom-8 flex flex-col items-center justify-center group"
+          aria-label="Scroll to content"
+        >
+          <ChevronDown className="w-6 h-6 animate-bounce text-white group-hover:text-red-200" />
+          <span className="mt-1 text-xs tracking-wide text-white/80 group-hover:text-red-200">
+            SCROLL
+          </span>
+        </motion.button>
       </section>
 
       {/* ---- Animations -------------------------------------------------- */}
@@ -500,7 +518,7 @@ return (
       )}
 
       {/* Trending Articles Section ----------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 py-12">
+      <section id="trending-articles" className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">
             トレンド記事
