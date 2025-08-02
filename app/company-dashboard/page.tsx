@@ -307,7 +307,7 @@ export default function CompanyDashboard() {
             <FileText className="h-4 w-4" /> 求人
           </TabsTrigger>
           <TabsTrigger value="messages" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" /> メッセージ
+            <MessageSquare className="h-4 w-4" /> チャット
           </TabsTrigger>
         </TabsList>
         <TabsContent value="applicants">
