@@ -789,7 +789,7 @@ export default function NewJobPage() {
                 </div>
                 <div>
                   <Label className="flex items-center gap-1">
-                    背景写真アップロード<span className="text-red-500">*</span>
+                    背景写真アップロード（横長推奨）<span className="text-red-500">*</span>
                   </Label>
                   <div className="flex items-center gap-4 mt-1">
                     <input
