@@ -660,18 +660,6 @@ export default function StudentProfilePage() {
                     placeholder="YYYY-MM-DD"
                   />
                 <div className="flex items-center gap-2">
-                <input
-                  id="has_internship_experience"
-                  type="checkbox"
-                  checked={profile.has_internship_experience ?? false}
-                  onChange={(e) =>
-                    updateMark({ has_internship_experience: e.target.checked })
-                  }
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="has_internship_experience" className="text-xs sm:text-sm">
-                  インターン経験あり
-                </Label>
               </div>
                 </CardContent>
               </Card>
