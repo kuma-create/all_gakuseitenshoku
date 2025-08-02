@@ -327,7 +327,9 @@ export default function NewJobPage() {
     if (!formData.description.trim()) newErrors.description = "職務内容を入力してください"
     if (!formData.coverImageUrl.trim())
       newErrors.coverImageUrl = "背景写真URLを入力してください"
-    if (!formData.location.trim()) newErrors.location = "勤務地を入力してください"
+    if (selectionType !== "event" && !formData.location.trim()) {
+      newErrors.location = "勤務地を入力してください";
+    }
     // departments (職種) 必須
     if (selectionType !== "event" && formData.departments.length === 0) {
       newErrors.departments = "職種を選択してください";
@@ -886,7 +888,7 @@ export default function NewJobPage() {
 
                 <div>
                   <Label htmlFor="description" className="flex items-center gap-1">
-                    職務内容<span className="text-red-500">*</span>
+                    内容<span className="text-red-500">*</span>
                   </Label>
                   <Textarea
                     id="description"
@@ -914,59 +916,61 @@ export default function NewJobPage() {
             </Card>
 
             {/* Working Conditions */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-primary" />
-                  <CardTitle>勤務条件</CardTitle>
-                </div>
-                <CardDescription>勤務地や給与などの条件を入力してください</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="location" className="flex items-center gap-1">
-                    勤務地<span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                    <Input
-                      id="location"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleInputChange}
-                      className={`pl-10 mt-1 ${errors.location ? "border-red-500" : ""}`}
-                      placeholder="例: 東京都渋谷区"
-                    />
+            {!isEvent && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <CardTitle>勤務条件</CardTitle>
                   </div>
-                  {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardDescription>勤務地や給与などの条件を入力してください</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="applicationDeadline">応募締切日</Label>
-                    <Input
-                      id="applicationDeadline"
-                      name="applicationDeadline"
-                      type="date"
-                      value={formData.applicationDeadline}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                    <Label htmlFor="location" className="flex items-center gap-1">
+                      勤務地<span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                      <Input
+                        id="location"
+                        name="location"
+                        value={formData.location}
+                        onChange={handleInputChange}
+                        className={`pl-10 mt-1 ${errors.location ? "border-red-500" : ""}`}
+                        placeholder="例: 東京都渋谷区"
+                      />
+                    </div>
+                    {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
                   </div>
-                  <div>
-                    <Label htmlFor="startDate">勤務開始日</Label>
-                    <Input
-                      id="startDate"
-                      name="startDate"
-                      type="date"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="applicationDeadline">応募締切日</Label>
+                      <Input
+                        id="applicationDeadline"
+                        name="applicationDeadline"
+                        type="date"
+                        value={formData.applicationDeadline}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="startDate">勤務開始日</Label>
+                      <Input
+                        id="startDate"
+                        name="startDate"
+                        type="date"
+                        value={formData.startDate}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* --- Full‑time specific fields ------------------------------------------------ */}
             {isFulltime && (
@@ -1501,72 +1505,7 @@ export default function NewJobPage() {
                           </ul>
                         </SectionCard>
                       </>
-                    ) : isInternLong ? (
-                      /* ---------- Long‑term Internship preview ---------- */
-                      <>
-                        <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
-                          <SummaryItem
-                            icon={<Calendar size={16} />}
-                            label="最低参加期間"
-                            value={
-                              formData.minDurationMonths
-                                ? `${formData.minDurationMonths}ヶ月〜`
-                                : "応相談"
-                            }
-                          />
-                          <SummaryItem
-                            icon={<Clock size={16} />}
-                            label="週あたりの勤務日数"
-                            value={
-                              formData.workDaysPerWeek
-                                ? `週${formData.workDaysPerWeek}日`
-                                : "応相談"
-                            }
-                          />
-                          <SummaryItem
-                            icon={<Briefcase size={16} />}
-                            label="報酬"
-                            value={
-                              formData.remunerationType === "hourly"
-                                ? formData.hourlyWage
-                                  ? `${formData.hourlyWage}円／時`
-                                  : "要相談"
-                                : formData.commissionRate
-                                ? `歩合 ${formData.commissionRate}`
-                                : "歩合"
-                            }
-                          />
-                          <SummaryItem
-                            icon={<MapPin size={16} />}
-                            label="勤務地"
-                            value={formData.location || "オンライン可"}
-                          />
-                        </div>
-
-                        {/* description */}
-                        <SectionCard icon={FileText} title="インターン内容">
-                          <p className="whitespace-pre-wrap text-gray-700">
-                            {formData.description || "職務内容がここに表示されます。"}
-                          </p>
-                        </SectionCard>
-
-                        {/* requirements */}
-                        {formData.requirements && (
-                          <SectionCard icon={CheckCircle} title="応募条件">
-                            <ul className="space-y-2 text-sm text-gray-700">
-                              {formData.requirements
-                                .split("\n")
-                                .filter(Boolean)
-                                .map((r: string, i: number) => (
-                                  <li key={i} className="flex gap-2">
-                                    <Plus size={16} className="text-red-600 mt-0.5" />
-                                    <span>{r}</span>
-                                  </li>
-                                ))}
-                            </ul>
-                          </SectionCard>
-                        )}
-                      </>
+                           
                     ) : isEvent ? (
                       /* ---------- Event preview ---------- */
                       <>

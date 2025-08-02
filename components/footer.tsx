@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
+
+import { usePathname } from "next/navigation";
 
 /**
  * Site–wide footer component.
@@ -10,6 +14,10 @@ import { Separator } from "@/components/ui/separator";
  * - four columns ≥ lg
  */
 export default function Footer() {
+    const pathname = usePathname();
+    if (pathname.startsWith("/admin") || pathname.startsWith("/company")) {
+      return null; // Hide footer on admin and company pages
+    }
   return (
     <footer className="bg-white py-8 md:py-12">          
       <div className="container mx-auto px-4 md:px-6">

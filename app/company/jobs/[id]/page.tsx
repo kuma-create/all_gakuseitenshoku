@@ -213,7 +213,7 @@ const fetchJob = async (id: string) => {
     views         : data.views ?? 0,
     companyId     : data.company_id,
     createdAt     : data.created_at,
-    updatedAt     : data.created_at,
+    updatedAt     : data.updated_at,
   }
 }
 
@@ -417,38 +417,39 @@ export default function JobEditPage() {
   }
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
 
     if (!formData.title.trim()) {
-      newErrors.title = "求人タイトルは必須です"
+      newErrors.title = "求人タイトルは必須です";
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = "職務内容は必須です"
+      newErrors.description = "職務内容は必須です";
     }
 
     if (!formData.coverImageUrl.trim()) {
-      newErrors.coverImageUrl = "背景写真は必須です"
+      newErrors.coverImageUrl = "背景写真は必須です";
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location = "勤務地は必須です"
+    // Skip location for events
+    if (job.selectionType !== "event" && !formData.location.trim()) {
+      newErrors.location = "勤務地を入力してください";
     }
 
-    // departments (職種) 必須
+    // Skip departments validation for events
     if (job.selectionType !== "event" && formData.departments.length === 0) {
       newErrors.departments = "職種を選択してください";
     }
 
     if (job.selectionType === "fulltime" && !formData.workingDays.trim()) {
-      newErrors.workingDays = "勤務日は必須です"
+      newErrors.workingDays = "勤務日は必須です";
     }
     if (job.selectionType === "fulltime" && !formData.salary.trim())
-      newErrors.salary = "給与は必須です"
+      newErrors.salary = "給与は必須です";
 
     if (job.selectionType === "internship_short") {
-      if (!formData.startDate.trim()) newErrors.startDate = "開始日は必須です"
-      if (!formData.endDate.trim())   newErrors.endDate   = "終了日は必須です"
+      if (!formData.startDate.trim()) newErrors.startDate = "開始日は必須です";
+      if (!formData.endDate.trim()) newErrors.endDate = "終了日は必須です";
     }
     if (job.selectionType === "intern_long") {
       if (!formData.startDate.trim()) {
@@ -472,9 +473,9 @@ export default function JobEditPage() {
       }
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   /** ----------------------------------------------------------------
    * 保存処理 (jobs テーブルのみ)
@@ -929,7 +930,7 @@ export default function JobEditPage() {
 
             <div>
               <Label htmlFor="description" className="flex items-center">
-                職務内容 <span className="text-red-500 ml-1">*</span>
+                内容 <span className="text-red-500 ml-1">*</span>
               </Label>
               <Textarea
                 id="description"
@@ -959,59 +960,61 @@ export default function JobEditPage() {
         </Card>
 
             {/* Working Conditions */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-primary" />
-                  <CardTitle>勤務条件</CardTitle>
-                </div>
-                <CardDescription>勤務地や給与などの条件を入力してください</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="location" className="flex items-center gap-1">
-                    勤務地<span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                    <Input
-                      id="location"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleInputChange}
-                      className={`pl-10 mt-1 ${errors.location ? "border-red-500" : ""}`}
-                      placeholder="例: 東京都渋谷区"
-                    />
+            {!isEvent && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <CardTitle>勤務条件</CardTitle>
                   </div>
-                  {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardDescription>勤務地や給与などの条件を入力してください</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="applicationDeadline">応募締切日</Label>
-                    <Input
-                      id="applicationDeadline"
-                      name="applicationDeadline"
-                      type="date"
-                      value={formData.applicationDeadline}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                    <Label htmlFor="location" className="flex items-center gap-1">
+                      勤務地<span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                      <Input
+                        id="location"
+                        name="location"
+                        value={formData.location}
+                        onChange={handleInputChange}
+                        className={`pl-10 mt-1 ${errors.location ? "border-red-500" : ""}`}
+                        placeholder="例: 東京都渋谷区"
+                      />
+                    </div>
+                    {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
                   </div>
-                  <div>
-                    <Label htmlFor="startDate">勤務開始日</Label>
-                    <Input
-                      id="startDate"
-                      name="startDate"
-                      type="date"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="applicationDeadline">応募締切日</Label>
+                      <Input
+                        id="applicationDeadline"
+                        name="applicationDeadline"
+                        type="date"
+                        value={formData.applicationDeadline}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="startDate">勤務開始日</Label>
+                      <Input
+                        id="startDate"
+                        name="startDate"
+                        type="date"
+                        value={formData.startDate}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
         {/* --- Full‑time specific fields ------------------------------------------------ */}
         {isFulltime && (
@@ -1525,11 +1528,7 @@ export default function JobEditPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">作成日</p>
-                <p>{job.createdAt}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">最終更新日</p>
-                <p>{job.createdAt}</p>
+                <p>{new Date(job.createdAt).toLocaleDateString('ja-JP')}</p>
               </div>
             </div>
           </CardContent>
