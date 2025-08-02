@@ -15,6 +15,7 @@ import Header               from "@/components/header";
 import { MobileNavigation } from "@/components/mobile-navigation";
 import AuthGuard            from "@/components/AuthGuard";
 import Footer from "@/components/footer";
+import { AuthProvider } from "@/components/auth/client-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -145,17 +146,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           />
         </noscript>
         <Suspense fallback={null}>
-          <Providers>
-            {/* クライアント側で認可判定 */}
-            <AuthGuard />
+          <AuthProvider>
+            <Providers>
+              {/* クライアント側で認可判定 */}
+              <AuthGuard />
 
-            <div className="flex min-h-screen flex-col">
-              <Header />
-              <main className="flex-1 pb-16 md:pb-0">{children}</main>
-              <Footer />
-              <MobileNavigation />
-            </div>
-          </Providers>
+              <div className="flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1 pb-16 md:pb-0">{children}</main>
+                <Footer />
+                <MobileNavigation />
+              </div>
+            </Providers>
+          </AuthProvider>
         </Suspense>
 
         {/* ACS 着地点タグ */}

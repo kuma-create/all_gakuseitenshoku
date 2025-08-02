@@ -42,6 +42,7 @@ const PUBLIC_PREFIXES = [
   "/admin/login",            // 管理者ログイン
   "/media",
   "/search",
+  "/support",
   "/internships",
   "/features",
   "/onboarding/profile",
