@@ -1,7 +1,6 @@
-
-
 import Link from "next/link";
 import Image from "next/image";
+import { Separator } from "@/components/ui/separator";
 
 /**
  * Site–wide footer component.
@@ -12,9 +11,9 @@ import Image from "next/image";
  */
 export default function Footer() {
   return (
-    <footer className="border-t bg-white py-12 md:py-16">
+    <footer className="bg-white py-8 md:py-12">          
       <div className="container mx-auto px-4 md:px-6">
-        <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-10 md:grid-cols-4">         
           {/* ── Brand ─────────────────────── */}
           <div>
             <Link href="/" className="flex items-center gap-2">
@@ -28,41 +27,42 @@ export default function Footer() {
               />
             </Link>
             <p className="mt-4 text-sm text-gray-600">
-              学生のための新しい就活プラットフォーム。 あなたらしいキャリアを見つけよう。
+              学生転職は、最新のAI技術を活用した就活支援メディアプラットフォームです。
+              キャリア形成から企業研究、面接対策まで、あなたの就活をサポートします。
             </p>
           </div>
 
-          {/* ── Services ─────────────────── */}
+          {/* ── Links ─────────────────────── */}
+          <div className="flex flex-col gap-8 md:col-span-3 md:flex-row md:flex-nowrap md:justify-end md:gap-12 md:pr-24">
           <div>
-            <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">サービス</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="font-medium mb-3">コンテンツ</h3>
+            <ul className="space-y-2 text-sm text-gray-600">
               <li>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                  職務経歴書作成
-                </Link>
+                <a href="#" className="hover:text-red-600">
+                  就活GP
+                </a>
               </li>
               <li>
-                <Link href="/grandprix" className="text-gray-600 transition-colors hover:text-red-600">
-                  就活グランプリ
-                </Link>
+                <a href="#" className="hover:text-red-600">
+                  学転メディア
+                </a>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 transition-colors hover:text-red-600">
-                  企業スカウト
-                </Link>
+                <a href="#" className="hover:text-red-600">
+                  学転AIアドバイザー
+                </a>
               </li>
               <li>
-                <Link href="https://intern.gakuten.co.jp/" className="text-gray-600 transition-colors hover:text-red-600">
-                  長期インターン
-                </Link>
+                <a href="#" className="hover:text-red-600">
+                  求人を探す
+                </a>
               </li>
             </ul>
           </div>
-
-          {/* ── Company ──────────────────── */}
+          {/* ── about Us ─────────────────── */}
           <div>
-            <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">会社情報</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="font-medium mb-3">会社情報</h3>
+            <ul className="space-y-2 text-sm text-gray-600">
               <li>
                 <Link href="https://www.makeculture.jp/" className="text-gray-600 transition-colors hover:text-red-600">
                   運営会社
@@ -85,11 +85,10 @@ export default function Footer() {
               </li>
             </ul>
           </div>
-
           {/* ── Follow Us ─────────────────── */}
           <div>
             <h3 className="mb-4 text-sm font-bold uppercase text-gray-900">フォローする</h3>
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 md:justify-end">
               <Link href="https://x.com/gakuten_shukatu" className="text-gray-600 transition-colors hover:text-red-600">
                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
@@ -106,8 +105,13 @@ export default function Footer() {
               </Link>
             </div>
           </div>
-        </div>
-      </div>
+        </div>{/* end Links flex wrapper */}
+        </div>{/* end grid */}
+      </div>{/* end container */}
+      <Separator className="my-6 border-t" />
+      <p className="text-center text-sm text-gray-500 mb-4">
+        © 2025 学生転職 All Rights Reserved.
+      </p>
     </footer>
   );
 }
