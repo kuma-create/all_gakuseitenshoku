@@ -24,7 +24,6 @@ import { Badge }    from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import Footer from "@/components/footer";
 
 
 import {
@@ -211,7 +210,6 @@ export default function StudentDashboard() {
           </div>
         </section>
       </main>
-      <Footer />
     </>
   );
 }
