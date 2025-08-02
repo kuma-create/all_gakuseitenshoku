@@ -888,7 +888,7 @@ export default function NewJobPage() {
 
                 <div>
                   <Label htmlFor="description" className="flex items-center gap-1">
-                    職務内容<span className="text-red-500">*</span>
+                    内容<span className="text-red-500">*</span>
                   </Label>
                   <Textarea
                     id="description"

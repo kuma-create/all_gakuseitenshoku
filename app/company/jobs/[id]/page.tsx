@@ -213,7 +213,7 @@ const fetchJob = async (id: string) => {
     views         : data.views ?? 0,
     companyId     : data.company_id,
     createdAt     : data.created_at,
-    updatedAt     : data.created_at,
+    updatedAt     : data.updated_at,
   }
 }
 
@@ -930,7 +930,7 @@ export default function JobEditPage() {
 
             <div>
               <Label htmlFor="description" className="flex items-center">
-                職務内容 <span className="text-red-500 ml-1">*</span>
+                内容 <span className="text-red-500 ml-1">*</span>
               </Label>
               <Textarea
                 id="description"
@@ -1528,11 +1528,7 @@ export default function JobEditPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">作成日</p>
-                <p>{job.createdAt}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">最終更新日</p>
-                <p>{job.createdAt}</p>
+                <p>{new Date(job.createdAt).toLocaleDateString('ja-JP')}</p>
               </div>
             </div>
           </CardContent>
