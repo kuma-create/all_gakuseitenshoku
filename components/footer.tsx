@@ -38,12 +38,12 @@ export default function Footer() {
             <h3 className="font-medium mb-3">コンテンツ</h3>
             <ul className="space-y-2 text-sm text-gray-600">
               <li>
-                <a href="#" className="hover:text-red-600">
+                <a href="/grandprix" className="hover:text-red-600">
                   就活GP
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-red-600">
+                <a href="/media" className="hover:text-red-600">
                   学転メディア
                 </a>
               </li>
@@ -53,7 +53,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-red-600">
+                <a href="/jobs" className="hover:text-red-600">
                   求人を探す
                 </a>
               </li>
@@ -79,7 +79,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="https://www.makeculture.jp/contact" className="text-gray-600 transition-colors hover:text-red-600">
+                <Link href="/support" className="text-gray-600 transition-colors hover:text-red-600">
                   お問い合わせ
                 </Link>
               </li>
