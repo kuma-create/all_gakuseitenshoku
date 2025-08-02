@@ -4,6 +4,7 @@
    動画埋め込みの新規作成フォーム
 ------------------------------------------------------------------ */
 import Link from "next/link";
+import Head from "next/head";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,117 +54,132 @@ export default function VideoNewPage() {
   });
 
   return (
-    <section className="container mx-auto px-6 py-12 max-w-3xl">
-      <h1 className="text-2xl font-bold mb-8">動画を追加</h1>
+    <>
+      {/* --- SEO / <head> meta tags --- */}
+      <Head>
+        <title>新規投稿 | 管理画面 | 学生転職</title>
+        <meta
+          name="description"
+          content="学生転職メディアの記事を新規作成する管理フォームです。"
+        />
+        {/* Prevent search engines from indexing this protected admin page */}
+        <meta name="robots" content="noindex,nofollow" />
+        <link rel="canonical" href="https://culture.gakuten.co.jp/admin/media/new" />
+      </Head>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(insertVideo)} className="space-y-6">
-          {/* タイトル */}
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>タイトル</FormLabel>
-                <FormControl>
-                  <Input placeholder="例）学転サービス紹介ムービー" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      {/* ---- Page content ---- */}
+      <section className="container mx-auto px-6 py-12 max-w-3xl">
+        <h1 className="text-2xl font-bold mb-8">動画を追加</h1>
 
-          {/* embed_url */}
-          <FormField
-            control={form.control}
-            name="embed_url"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Embed URL</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="https://www.youtube.com/embed/XXXXXXXXXXX"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* thumbnail_url */}
-          <FormField
-            control={form.control}
-            name="thumbnail_url"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>サムネイル URL（任意）</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="https://img.youtube.com/vi/XXXXXXXXXXX/maxresdefault.jpg"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* description */}
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>説明（任意）</FormLabel>
-                <FormControl>
-                  <Textarea rows={4} placeholder="動画の概要や補足説明" {...field} />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-
-          {/* sort_order & publish */}
-          <div className="flex items-end gap-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(insertVideo)} className="space-y-6">
+            {/* タイトル */}
             <FormField
               control={form.control}
-              name="sort_order"
+              name="title"
               render={({ field }) => (
-                <FormItem className="w-32">
-                  <FormLabel>表示順</FormLabel>
+                <FormItem>
+                  <FormLabel>タイトル</FormLabel>
                   <FormControl>
-                    <Input type="number" min={0} {...field} />
+                    <Input placeholder="例）学転サービス紹介ムービー" {...field} />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
 
+            {/* embed_url */}
             <FormField
               control={form.control}
-              name="is_published"
+              name="embed_url"
               render={({ field }) => (
-                <FormItem className="flex items-center gap-2">
+                <FormItem>
+                  <FormLabel>Embed URL</FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={(v) => field.onChange(!!v)}
+                    <Input
+                      placeholder="https://www.youtube.com/embed/XXXXXXXXXXX"
+                      {...field}
                     />
                   </FormControl>
-                  <Label htmlFor="is_published">公開する</Label>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
 
-          {/* buttons */}
-          <div className="flex gap-4">
-            <Button type="submit">保存</Button>
-            <Button variant="secondary" asChild>
-              <Link href="/admin/media?tab=video">キャンセル</Link>
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </section>
+            {/* thumbnail_url */}
+            <FormField
+              control={form.control}
+              name="thumbnail_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>サムネイル URL（任意）</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://img.youtube.com/vi/XXXXXXXXXXX/maxresdefault.jpg"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* description */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>説明（任意）</FormLabel>
+                  <FormControl>
+                    <Textarea rows={4} placeholder="動画の概要や補足説明" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* sort_order & publish */}
+            <div className="flex items-end gap-6">
+              <FormField
+                control={form.control}
+                name="sort_order"
+                render={({ field }) => (
+                  <FormItem className="w-32">
+                    <FormLabel>表示順</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="is_published"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(v) => field.onChange(!!v)}
+                      />
+                    </FormControl>
+                    <Label htmlFor="is_published">公開する</Label>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* buttons */}
+            <div className="flex gap-4">
+              <Button type="submit">保存</Button>
+              <Button variant="secondary" asChild>
+                <Link href="/admin/media?tab=video">キャンセル</Link>
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </section>
+    </>
   );
 }
