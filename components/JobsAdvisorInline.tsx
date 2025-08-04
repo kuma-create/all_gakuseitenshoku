@@ -14,6 +14,8 @@ type JobSnippet = {
   score: number;
 };
 
+type ChatResponse = { text: string; intent?: string };
+
 export default function JobsAdvisorInline() {
   const [profile, setProfile] = useState("");
   const [result, setResult] = useState<{
@@ -34,14 +36,20 @@ export default function JobsAdvisorInline() {
       }).then((r) => r.json() as Promise<{ jobs: JobSnippet[] }>);
 
       // ② GPT で提案文生成
-      const aiReply = await fetch("/api/chat", {
+      const { text: aiReply, intent } = await fetch("/api/chat", {
         method: "POST",
         body: JSON.stringify({
           messages: [], // 履歴があればここに入れる
           candidate: { profile }, // name フィールドが必要なら追加
           jobs,
         }),
-      }).then((r) => r.json() as Promise<string>);
+      }).then((r) => r.json() as Promise<ChatResponse>);
+
+      // intent が job_recommendation でない場合は求人カードを表示しない
+      if (intent !== "job_recommendation") {
+        setResult(null);      // 以前の結果をクリア
+        return;
+      }
 
       setResult({ aiReply, jobs });
     } finally {

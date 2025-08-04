@@ -29,7 +29,7 @@ import Footer from "@/components/footer";
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
-  Edit, Camera, BellDot, Menu,
+  Edit, Camera, BellDot, Menu, GraduationCap,
 } from "lucide-react";
 
 /* ---------- 型 ---------- */
@@ -303,114 +303,107 @@ function ProfileCard({ userId }: { userId: string }) {
     [userId],
   );
 
-  /* ── Front‑side completion
-        overall = profilePct * 0.7 + (resumeForm *0.7 + work *0.3) * 0.3 ── */
-  useEffect(() => {
-    (async () => {
-      if (!userId) return;
+  /* ---- completion calculator (re‑usable) ---- */
+  const computeCompletion = useCallback(async () => {
+    if (!userId) return;
 
-      /* fetch profile & resume in parallel */
-      const [{ data: sp }, { data: resume }] = await Promise.all([
-        supabase
-          .from("student_profiles")
-          .select(`
-            last_name, first_name, last_name_kana, first_name_kana,
-            birth_date, gender,
-            postal_code, prefecture, city, address_line,
-            pr_title, pr_text, about,
-            desired_positions, work_style_options,
-            preferred_industries, desired_locations
-          `)
-          .eq("user_id", userId)
-          .maybeSingle(),
+    /* fetch profile & latest resume in parallel */
+    const [{ data: sp }, { data: resume }] = await Promise.all([
+      supabase
+        .from("student_profiles")
+        .select(`
+          last_name, first_name, last_name_kana, first_name_kana,
+          birth_date, gender,
+          postal_code, prefecture, city, address_line,
+          pr_title, pr_text, about,
+          desired_positions, work_style_options,
+          preferred_industries, desired_locations
+        `)
+        .eq("user_id", userId)
+        .maybeSingle(),
 
-        supabase
-          .from("resumes")
-          .select("form_data, work_experiences")
-          .eq("user_id", userId)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
+      supabase
+        .from("resumes")
+        .select("form_data, work_experiences")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-      const spi = sp as any;   /* loose object for optional props */
+    const spi = sp as any;
 
-      /* helper */
-      const filled = (v: any) =>
-        Array.isArray(v) ? v.length > 0 : v != null && v !== "";
+    const filled = (v: any) =>
+      Array.isArray(v) ? v.length > 0 : v != null && v !== "";
 
-      /* ==== profilePct (basic / pr / pref) =================================== */
-      const basicArr = [
-        spi?.last_name, spi?.first_name,
-        spi?.last_name_kana, spi?.first_name_kana,
-        spi?.birth_date, spi?.gender,
-        spi?.postal_code, spi?.prefecture,
-        spi?.city, spi?.address_line,
-      ];
-      const prArr    = [spi?.pr_title, spi?.pr_text, spi?.about];
-      const prefArr  = [
-        spi?.desired_positions,
-        spi?.work_style_options,
-        spi?.preferred_industries,
-        spi?.desired_locations,
-      ];
+    const pct = (arr: any[]) =>
+      Math.round((arr.filter(filled).length / arr.length) * 100);
 
-      const pct = (arr: any[]) =>
-        Math.round((arr.filter(filled).length / arr.length) * 100);
+    /* ---- profile pct ---- */
+    const basicArr = [
+      spi?.last_name, spi?.first_name,
+      spi?.last_name_kana, spi?.first_name_kana,
+      spi?.birth_date, spi?.gender,
+      spi?.postal_code, spi?.prefecture,
+      spi?.city, spi?.address_line,
+    ];
+    const prArr   = [spi?.pr_title, spi?.pr_text, spi?.about];
+    const prefArr = [
+      spi?.desired_positions,
+      spi?.work_style_options,
+      spi?.preferred_industries,
+      spi?.desired_locations,
+    ];
+    const profilePct =
+      Math.round((pct(basicArr) + pct(prArr) + pct(prefArr)) / 3);
 
-      const profilePct =
-        Math.round((pct(basicArr) + pct(prArr) + pct(prefArr)) / 3);
+    /* ---- resume pct (work experiences only) ---- */
+    const works = Array.isArray(resume?.work_experiences)
+      ? (resume!.work_experiences as any[])
+      : [];
 
-      /* form_data は JSON 型なので any キャストで型エラーを回避 */
-      const form  = (resume?.form_data as any) ?? {};
-      /* work_experiences も JSON 配列なので any[] キャスト */
-      const works = Array.isArray(resume?.work_experiences)
-        ? (resume!.work_experiences as any[])
-        : [];
+    let t = 0, f = 0;
+    works.forEach((w: any) => {
+      t += 6;
+      if (filled(w.company))      f++;
+      if (filled(w.position))     f++;
+      if (filled(w.startDate))    f++;
+      if (filled(w.description))  f++;
+      if (filled(w.achievements)) f++;
+      if (w.isCurrent || filled(w.endDate)) f++;
+    });
+    const workPct = works.length ? Math.round((f / t) * 100) : 0;
 
-      const b  = form.basic ?? {};
-      const pr = form.pr ?? {};
-      const cd = form.conditions ?? {};
-
-      const resumeBasic = [
-        b.lastName, b.firstName, b.lastNameKana, b.firstNameKana,
-        b.birthdate, b.gender, b.address,
-      ];
-      const resumePR   = [pr.title, pr.content, pr.motivation];
-      const cArrKeys   = ["jobTypes","locations","industries","workPreferences"];
-      const condArr    = cArrKeys.map((k) => (cd[k] ?? []).length > 0);
-      const condScalar = filled(cd.workStyle);
-
-      const resumeFormPct =
-        Math.round((pct(resumeBasic) + pct(resumePR) +
-                    Math.round(((condArr.filter(Boolean).length + (condScalar?1:0)) / 5) * 100)
-                   ) / 3);
-
-      /* workPct */
-      let t = 0, f = 0;
-      (works as any[]).forEach((w) => {
-        t += 6;
-        if (filled(w.company))      f++;
-        if (filled(w.position))     f++;
-        if (filled(w.startDate))    f++;
-        if (filled(w.description))  f++;
-        if (filled(w.achievements)) f++;
-        if (w.isCurrent || filled(w.endDate)) f++;
-      });
-      const workPct = works.length
-        ? Math.round((f / t) * 100)
-        : 0;
-
-      /* resumeOverall = 職務経歴書ページのロジックに合わせ
-         Work 完了率のみで評価する  */
-      const resumeOverall = workPct;
-
-      /* Final overall = profile 70% + resumeOverall 30% */
-      const overall = Math.round(profilePct * 0.7 + resumeOverall * 0.3);
-
-      setCompletion(overall);
-    })();
+    const overall = Math.round(profilePct * 0.7 + workPct * 0.3);
+    setCompletion(overall);
   }, [userId]);
+
+  useEffect(() => {
+    computeCompletion();
+  }, [computeCompletion]);
+
+  /* realtime – update completion when student_profiles or resumes change */
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel("profile_live_" + userId)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "student_profiles", filter: `user_id=eq.${userId}` },
+        () => computeCompletion(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "resumes", filter: `user_id=eq.${userId}` },
+        () => computeCompletion(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, computeCompletion]);
 
   return (
     <Card className="lg:sticky lg:top-20">
@@ -769,11 +762,12 @@ function PhaseModal() {
     setOpen(false);
   };
 
-  const options = [
-    "絶賛就活頑張ってます！",
-    "インターンをやりたい！",
-    "就活もやりつつインターンもやりたい！",
-    "就活は終わって良いインターンを探している！",
+  // フェーズ選択肢（ラベル & アイコン）
+  const phaseOptions = [
+    { label: "就職活動中", icon: <Briefcase className="h-4 w-4 text-red-600" /> },
+    { label: "長期インターンを探している", icon: <GraduationCap className="h-4 w-4 text-red-600" /> },
+    { label: "就活も長期インターンも探している", icon: <Briefcase className="h-4 w-4 text-red-600" /> },
+    { label: "就活は終了していて、長期インターンを探している", icon: <GraduationCap className="h-4 w-4 text-red-600" /> },
   ];
 
   return (
@@ -783,16 +777,19 @@ function PhaseModal() {
           <DialogTitle>今あなたはどのフェーズにいますか？</DialogTitle>
         </DialogHeader>
 
-        {options.map((opt) => (
-          <Button
-            key={opt}
-            variant="outline"
-            className="w-full"
-            onClick={() => handleSelect(opt)}
-          >
-            {opt}
-          </Button>
-        ))}
+        <div className="grid gap-3">
+          {phaseOptions.map((opt) => (
+            <Button
+              key={opt.label}
+              variant="outline"
+              className="flex w-full items-center justify-start gap-3 rounded-lg border-gray-300 bg-white py-3 hover:bg-gray-50"
+              onClick={() => handleSelect(opt.label)}
+            >
+              {opt.icon}
+              <span className="text-sm font-medium">{opt.label}</span>
+            </Button>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );

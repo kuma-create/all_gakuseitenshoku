@@ -188,7 +188,7 @@ export default function Header() {
             </Link>
             <Link
               href="/jobs"
-              className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900"
+              className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-gray-900"
             >
               <Search size={16} />
               探す

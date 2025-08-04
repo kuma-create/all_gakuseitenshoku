@@ -264,6 +264,32 @@ export default function StudentProfilePage() {
     };
   }, [profile]);
 
+  // ---- realtime sync: reflect backend updates (e.g., AI autofill) ----
+  useEffect(() => {
+    if (!profile?.user_id) return;
+
+    const channel = supabase
+      .channel(`student_profile_updates_${profile.user_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'student_profiles',
+          filter: `user_id=eq.${profile.user_id}`,
+        },
+        (payload) => {
+          const next = (payload.new as StudentProfileRow) ?? {};
+          updateLocal({ pr_text: next.pr_text ?? "" });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.user_id]);
+
   // 値を変更 → ローカルだけ更新し dirty フラグ
   const updateMark = (partial: Partial<StudentProfileRow>) => {
     updateLocal(partial)
