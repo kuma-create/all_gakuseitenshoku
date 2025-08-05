@@ -35,6 +35,9 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import SkillPicker from "@/components/SkillPicker"
 import QualificationPicker from "@/components/QualificationPicker"
+
+/* ---------- AI ---------- */
+import DraftButton from "@/components/ai/DraftButton";
 import type { Database } from "@/lib/supabase/types"
 
 
@@ -817,6 +820,16 @@ export default function StudentProfilePage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 p-4">
+              {/* AI draft generation button */}
+              <div className="flex justify-end">
+                <DraftButton
+                  prompt={profile}
+                  onInsert={(d) => {
+                    updateMark({ pr_title: d.title, pr_text: d.body });
+                    handleBlur(); // 自動保存を即実行
+                  }}
+                />
+              </div>
               <FieldInput
                 id="pr_title"
                 label="PR タイトル"

@@ -1,7 +1,7 @@
 create extension if not exists "http" with schema "extensions";
 
 
-drop policy "company_members_can_access_company" on "public"."companies";
+drop policy IF EXISTS "company_members_can_access_company" on "public"."companies";
 
 revoke references on table "public"."user_roles" from "authenticated";
 
@@ -17,7 +17,7 @@ alter type "public"."selection_type" rename to "selection_type__old_version_to_b
 
 create type "public"."selection_type" as enum ('fulltime', 'internship_short', 'event', 'intern_long');
 
-create table "public"."intern_long_details" (
+create table if not exists "public"."intern_long_details" (
     "id" uuid not null default uuid_generate_v4(),
     "selection_id" uuid not null,
     "start_date" date,
@@ -37,31 +37,92 @@ alter table "public"."jobs" alter column selection_type type "public"."selection
 
 drop type "public"."selection_type__old_version_to_be_dropped";
 
-alter table "public"."resumes" add column "job_type" text;
 
-CREATE INDEX idx_intern_long_details_selection_id ON public.intern_long_details USING btree (selection_id);
+-- ensure job_id column exists before adding indexes / constraints
+ALTER TABLE "public"."intern_long_details"
+  ADD COLUMN IF NOT EXISTS "job_id" uuid;
 
-CREATE INDEX idx_jobs_selection_type_published ON public.jobs USING btree (selection_type, published) WHERE (published = true);
+alter table "public"."resumes" add column if not exists "job_type" text;
 
-CREATE UNIQUE INDEX intern_long_details_job_id_key ON public.intern_long_details USING btree (job_id);
+CREATE INDEX IF NOT EXISTS idx_intern_long_details_selection_id ON public.intern_long_details USING btree (selection_id);
 
-CREATE UNIQUE INDEX intern_long_details_pkey ON public.intern_long_details USING btree (id);
+CREATE INDEX IF NOT EXISTS idx_jobs_selection_type_published ON public.jobs USING btree (selection_type, published) WHERE (published = true);
 
-CREATE UNIQUE INDEX intern_long_details_selection_id_key ON public.intern_long_details USING btree (selection_id);
+CREATE UNIQUE INDEX IF NOT EXISTS intern_long_details_job_id_key ON public.intern_long_details USING btree (job_id);
 
-alter table "public"."intern_long_details" add constraint "intern_long_details_pkey" PRIMARY KEY using index "intern_long_details_pkey";
+CREATE UNIQUE INDEX IF NOT EXISTS intern_long_details_pkey ON public.intern_long_details USING btree (id);
 
-alter table "public"."intern_long_details" add constraint "intern_long_details_job_id_fkey" FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE DEFERRABLE not valid;
+CREATE UNIQUE INDEX IF NOT EXISTS intern_long_details_selection_id_key ON public.intern_long_details USING btree (selection_id);
 
-alter table "public"."intern_long_details" validate constraint "intern_long_details_job_id_fkey";
+-- add constraints only if they do not already exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'intern_long_details_pkey'
+  ) THEN
+    ALTER TABLE public.intern_long_details
+      ADD CONSTRAINT intern_long_details_pkey
+      PRIMARY KEY USING INDEX intern_long_details_pkey;
+  END IF;
+END$$;
 
-alter table "public"."intern_long_details" add constraint "intern_long_details_job_id_key" UNIQUE using index "intern_long_details_job_id_key";
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'intern_long_details_job_id_key'
+  ) THEN
+    ALTER TABLE public.intern_long_details
+      ADD CONSTRAINT intern_long_details_job_id_key
+      UNIQUE USING INDEX intern_long_details_job_id_key;
+  END IF;
+END$$;
 
-alter table "public"."intern_long_details" add constraint "intern_long_details_selection_id_fkey" FOREIGN KEY (selection_id) REFERENCES jobs(id) ON DELETE CASCADE not valid;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'intern_long_details_selection_id_key'
+  ) THEN
+    ALTER TABLE public.intern_long_details
+      ADD CONSTRAINT intern_long_details_selection_id_key
+      UNIQUE USING INDEX intern_long_details_selection_id_key;
+  END IF;
+END$$;
 
-alter table "public"."intern_long_details" validate constraint "intern_long_details_selection_id_fkey";
+-- add FK to jobs.id (job_id) only if it doesn't already exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'intern_long_details_job_id_fkey'
+  ) THEN
+    ALTER TABLE public.intern_long_details
+      ADD CONSTRAINT intern_long_details_job_id_fkey
+      FOREIGN KEY (job_id)
+      REFERENCES public.jobs(id)
+      ON DELETE CASCADE
+      DEFERRABLE NOT VALID;
 
-alter table "public"."intern_long_details" add constraint "intern_long_details_selection_id_key" UNIQUE using index "intern_long_details_selection_id_key";
+    ALTER TABLE public.intern_long_details
+      VALIDATE CONSTRAINT intern_long_details_job_id_fkey;
+  END IF;
+END$$;
+
+-- add FK to jobs.id (selection_id) only if it doesn't already exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'intern_long_details_selection_id_fkey'
+  ) THEN
+    ALTER TABLE public.intern_long_details
+      ADD CONSTRAINT intern_long_details_selection_id_fkey
+      FOREIGN KEY (selection_id)
+      REFERENCES public.jobs(id)
+      ON DELETE CASCADE
+      NOT VALID;
+
+    ALTER TABLE public.intern_long_details
+      VALIDATE CONSTRAINT intern_long_details_selection_id_fkey;
+  END IF;
+END$$;
 
 set check_function_bodies = off;
 
@@ -155,19 +216,48 @@ grant truncate on table "public"."intern_long_details" to "service_role";
 
 grant update on table "public"."intern_long_details" to "service_role";
 
-create policy "company can manage own intern_long_details"
-on "public"."intern_long_details"
-as permissive
-for all
-to public
-using (is_company_member(( SELECT jobs.company_id
-   FROM jobs
-  WHERE (jobs.id = intern_long_details.selection_id))))
-with check (is_company_member(( SELECT jobs.company_id
-   FROM jobs
-  WHERE (jobs.id = intern_long_details.selection_id))));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'intern_long_details'
+      AND policyname = 'company can manage own intern_long_details'
+  ) THEN
+    CREATE POLICY "company can manage own intern_long_details"
+    ON public.intern_long_details
+    AS PERMISSIVE
+    FOR ALL
+    TO PUBLIC
+    USING (
+      is_company_member(
+        (SELECT jobs.company_id FROM jobs WHERE jobs.id = intern_long_details.selection_id)
+      )
+    )
+    WITH CHECK (
+      is_company_member(
+        (SELECT jobs.company_id FROM jobs WHERE jobs.id = intern_long_details.selection_id)
+      )
+    );
+  END IF;
+END$$;
 
 
-CREATE TRIGGER trg_intern_long_details_timestamp BEFORE UPDATE ON public.intern_long_details FOR EACH ROW EXECUTE FUNCTION set_timestamp_intern_long_details();
+-- recreate trigger only if it doesn't already exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'trg_intern_long_details_timestamp'
+      AND tgrelid = 'public.intern_long_details'::regclass
+  ) THEN
+    CREATE TRIGGER trg_intern_long_details_timestamp
+      BEFORE UPDATE ON public.intern_long_details
+      FOR EACH ROW
+      EXECUTE FUNCTION set_timestamp_intern_long_details();
+  END IF;
+END$$;
 
 

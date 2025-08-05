@@ -43,6 +43,8 @@ import { Badge } from "@/components/ui/badge";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+import DraftButton, { type AIDraft } from "@/components/ai/DraftButton";
+
 
 import { exportClientPdf } from "@/lib/pdf/exportClientPdf";
 import ResumeTemplate from "@/components/pdf/ResumeTemplate";
@@ -1209,10 +1211,24 @@ export default function ResumePage() {
                       <Building className="h-4 w-4 text-gray-500" />
                       <h3 className="text-sm font-medium sm:text-base">
                         {exp.company ? exp.company : `職歴 #${exp.id}`}
-                        {exp.position && <span className="ml-2 text-xs text-gray-500">（{exp.position}）</span>}
+                        {exp.position && (
+                          <span className="ml-2 text-xs text-gray-500">（{exp.position}）</span>
+                        )}
                       </h3>
                     </div>
+
+                    {/* --- AI Draft Button (work experience) --- */}
                     <div className="flex items-center gap-1 sm:gap-2">
+                      <DraftButton
+                        prompt={exp}
+                        onInsert={(d: AIDraft) => {
+                          // description に AI が生成した body を挿入
+                          handleWorkExperienceChange(exp.id, "description", d.body);
+                          // achievements に length 情報などを入れたい場合はここで追記可
+                        }}
+                      />
+
+                      {/* existing toggle / delete buttons */}
                       <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-8">
                           {exp.isOpen ? (
