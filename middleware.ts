@@ -44,6 +44,7 @@ const PUBLIC_PREFIXES = [
   "/search",
   "/support",
   "/internships",
+  "/legal",
   "/features",
   "/onboarding/profile",
   "/forgot-password",            // 管理者ログイン
