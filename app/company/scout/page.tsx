@@ -173,6 +173,7 @@ export default function ScoutPage() {
         .select(`
           *,
           resumes!left(
+            id,
             form_data,
             work_experiences
           )
@@ -200,72 +201,93 @@ export default function ScoutPage() {
             Array.isArray(v) ? v.length > 0 : v != null && v !== ""
           const pct = (arr: any[]) =>
             arr.length === 0 ? 0 : Math.round((arr.filter(filled).length / arr.length) * 100)
-          /* ---------- プロフィール入力率 ---------- */
+          /* ---------- 入力率（カテゴリ別） ---------- */
           const pBasic = [
             row.last_name, row.first_name,
             row.last_name_kana, row.first_name_kana,
             row.birth_date, row.gender, row.address_line,
           ]
-          const pPR = [row.pr_title, row.pr_text, row.about]
+          // 自己 PR はタイトルと本文の 2 項目を必須評価とする
+          const pPR = [row.pr_title, row.pr_text]
+          /* ---------- 希望条件 ---------- */
+          const resume = Array.isArray(row.resumes) && row.resumes.length
+            ? row.resumes[0]
+            : null
+          const cond = (resume?.form_data as any)?.conditions ?? {}
           const pPref = [
-            row.desired_positions,
-            row.work_style_options,
-            row.preferred_industries,
-            row.desired_locations,
+            // 希望職種
+            (Array.isArray(row.desired_positions) && row.desired_positions.length)
+              ? row.desired_positions
+              : (cond.jobTypes ?? []),
+
+            // 働き方オプション
+            (Array.isArray(row.work_style_options) && row.work_style_options.length)
+              ? row.work_style_options
+              : (cond.workPreferences ?? cond.workStyle ?? null),
+
+            // 希望業界
+            (Array.isArray(row.preferred_industries) && row.preferred_industries.length)
+              ? row.preferred_industries
+              : (cond.industries ?? []),
+
+            // 希望勤務地
+            (Array.isArray(row.desired_locations) && row.desired_locations.length)
+              ? row.desired_locations
+              : (cond.locations ?? []),
           ]
-          const profilePct = Math.round((pct(pBasic) + pct(pPR) + pct(pPref)) / 3)
-          /* ---------- 履歴書フォーム入力率 ---------- */
-          const resume = Array.isArray(row.resumes) && row.resumes.length ? row.resumes[0] : null
-          const form   = (resume?.form_data as any) ?? {}
-          const rBasic = [
-            form?.basic?.lastName, form?.basic?.firstName,
-            form?.basic?.lastNameKana, form?.basic?.firstNameKana,
-            form?.basic?.birthdate,  form?.basic?.gender,
-            form?.basic?.address,
-          ]
-          const rPR = [
-            form?.pr?.title, form?.pr?.content, form?.pr?.motivation,
-          ]
-          const condArrKeys = ["jobTypes","locations","industries","workPreferences"]
-          const rCondArr = condArrKeys.map((k) => (form?.conditions?.[k] ?? []).length > 0)
-          const rCondScalar = filled(form?.conditions?.workStyle)
-          const resumeFormPct = Math.round(
-            (pct(rBasic) + pct(rPR) +
-             Math.round(((rCondArr.filter(Boolean).length + (rCondScalar ? 1 : 0)) / 5) * 100)
-            ) / 3
-          )
+
+          // 個別カテゴリの入力率
+          const basicPct = pct(pBasic)   // 基本情報
+          const prPct    = pct(pPR)      // 自己 PR
+          const prefPct  = pct(pPref)    // 希望条件
           /* ---------- 職務経歴書入力率 ---------- */
           // ---------- work_experiences ---------- //
-          let worksRaw: unknown = resume?.work_experiences ?? []
-          if (typeof worksRaw === "string") {
-            try {
-              worksRaw = JSON.parse(worksRaw)
-            } catch {
-              worksRaw = []
+          // ソース: ① resumes.work_experiences と ② resumes.form_data.work_experiences
+          // 両方をマージして評価する。必須 4 項目 (company, position, description, achievements)
+          let worksRaw: unknown[] = []
+
+          if (resume) {
+            // ① 直下の work_experiences
+            const direct = resume.work_experiences
+            if (Array.isArray(direct)) {
+              worksRaw.push(...direct)
+            } else if (typeof direct === "string") {
+              try { worksRaw.push(...JSON.parse(direct)) } catch {/* ignore */}
+            }
+
+            // ② form_data.work_experiences
+            const nested = (resume.form_data as any)?.work_experiences
+            if (Array.isArray(nested)) {
+              worksRaw.push(...nested)
+            } else if (typeof nested === "string") {
+              try { worksRaw.push(...JSON.parse(nested)) } catch {/* ignore */}
             }
           }
-          const works = Array.isArray(worksRaw) ? (worksRaw as any[]) : []
-          // → 解析結果を元データへ反映
-          if (resume) {
-            // work_experiences が文字列だった場合は配列へ置換
-            (resume as any).work_experiences = works
-          }
+
+          const works = worksRaw.filter(Boolean) as any[]  // null/undefined guard
           let totalReq = 0, totalFilled = 0
           works.forEach((w) => {
-            totalReq += 6
-            if (filled(w.company))      totalFilled++
-            if (filled(w.position))     totalFilled++
-            if (filled(w.startDate))    totalFilled++
-            if (filled(w.description))  totalFilled++
-            if (filled(w.achievements)) totalFilled++
-            if (w.isCurrent || filled(w.endDate)) totalFilled++
+            totalReq += 4
+            if (filled(w.company))                  totalFilled++
+            // position (typo guard: positon)
+            if (filled(w.position ?? w.positon))    totalFilled++
+            if (filled(w.description))              totalFilled++
+            if (filled(w.achievements))             totalFilled++
           })
           const workPct = totalReq ? Math.round((totalFilled / totalReq) * 100) : 0
-          /* ---------- 総合入力率 (プロフィール70%, 履歴書30%) ---------- */
-          const resumeOverall = works.length === 0
-            ? resumeFormPct
-            : Math.round(resumeFormPct * 0.7 + workPct * 0.3)
-          const completionPct = Math.round(profilePct * 0.7 + resumeOverall * 0.3)
+          /* ---------- 総合入力率 ---------- */
+          // ❶ 仕様変更: 職務経歴書スコアは work_experiences の充足率(workPct)のみで評価する
+          //    フォーム(form_data.*) は寄与しない
+          const resumeOverall = works.length === 0 ? 0 : workPct
+
+          // ---- 総合入力率 ----
+          // 基本情報 50% / 自己 PR 20% / 希望条件 15% / 職経歴書 15%
+          const completionPct = Math.round(
+            basicPct * 0.50 +
+            prPct    * 0.20 +
+            prefPct  * 0.30 +
+            resumeOverall * 0.
+          )
           const normalized: Student = {
             ...row,
             match_score: completionPct,                       // ← match_score を入力率に置換
