@@ -1,7 +1,20 @@
 import OpenAI from "npm:openai@5.0.0-beta.0";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
+// --- CORS ---
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
+  // Pre‑flight request
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   // OpenAI API key is provided through environment variables (.env for local, secrets for prod)
   const apiKey = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
 
@@ -59,6 +72,6 @@ serve(async (req) => {
   });
 
   return new Response(JSON.stringify(completion.choices[0].message.tool_calls?.[0].function.arguments ?? {}), {
-    headers: { "Content-Type": "application/json" }
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
