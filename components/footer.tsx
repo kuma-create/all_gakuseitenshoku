@@ -87,6 +87,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/legal" className="text-gray-600 transition-colors hover:text-red-600">
+                  特定商取引法に基づく表示
+                </Link>
+              </li>              
+              <li>
                 <Link href="/support" className="text-gray-600 transition-colors hover:text-red-600">
                   お問い合わせ
                 </Link>

@@ -50,6 +50,9 @@ const PREFECTURES = [
 /** 性別の選択肢 */
 const GENDER_OPTIONS = ["男性", "女性"] as const
 
+/** 固定の役職リスト */
+const POSITION_OPTIONS = ["メンバー","リーダー","マネージャー","責任者","役員","代表"] as const
+
 
 /** 固定の希望職種リスト */
 const JOB_POSITIONS = [
@@ -137,35 +140,31 @@ export default function ScoutPage() {
 
   /** 履歴書の経験職種(jobType)フィルタ */
   const [experienceJobTypes, setExperienceJobTypes] = useState<string[]>([])
-  /** 職務経歴書の役職フィルタ */
-  const [positionFilter, setPositionFilter] = useState<string>("all")
+  /** 職務経歴書の役職フィルタ (複数選択) */
+  const [positionFilters, setPositionFilters] = useState<string[]>([])
 
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
     const init = async () => {
       setLoading(true)
-
       /* 認証 */
       const { data: { session }, error: authErr } = await sb.auth.getSession()
       if (authErr || !session) {
         router.push("/auth/signin")
         return
       }
-
       /* 会社 ID (owner / recruiter 共通) */
       const { data: member, error: memErr } = await sb
         .from("company_members")
         .select("company_id")
         .eq("user_id", session.user.id)
         .maybeSingle()
-
       if (memErr || !member) {
         toast({ title: "会社プロフィールが見つかりません", variant: "destructive" })
         return
       }
       const cid = member.company_id
       setCompanyId(cid)
-
       /* 学生一覧 */
       // 🔽 page.tsx の学生取得クエリをこれに置き換え
       const { data: stuRows, error: stuErr } = await sb
@@ -174,11 +173,11 @@ export default function ScoutPage() {
         .select(`
           *,
           resumes!left(
+            id,
             form_data,
             work_experiences
           )
         `)
-
       // ───────── 経験職種ビュー ─────────
       const { data: jtRows, error: jtErr } = await sb
         .from("student_resume_jobtypes")
@@ -190,7 +189,6 @@ export default function ScoutPage() {
           jobTypesMap.set(r.student_id, r.job_types ?? [])
         }
       })
-
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
       } else {
@@ -201,82 +199,95 @@ export default function ScoutPage() {
           /* ---------- completion helpers ---------- */
           const filled = (v: any) =>
             Array.isArray(v) ? v.length > 0 : v != null && v !== ""
-
           const pct = (arr: any[]) =>
             arr.length === 0 ? 0 : Math.round((arr.filter(filled).length / arr.length) * 100)
-
-          /* ---------- プロフィール入力率 ---------- */
+          /* ---------- 入力率（カテゴリ別） ---------- */
           const pBasic = [
             row.last_name, row.first_name,
             row.last_name_kana, row.first_name_kana,
             row.birth_date, row.gender, row.address_line,
           ]
-          const pPR = [row.pr_title, row.pr_text, row.about]
+          // 自己 PR はタイトルと本文の 2 項目を必須評価とする
+          const pPR = [row.pr_title, row.pr_text]
+          /* ---------- 希望条件 ---------- */
+          const resume = Array.isArray(row.resumes) && row.resumes.length
+            ? row.resumes[0]
+            : null
+          const cond = (resume?.form_data as any)?.conditions ?? {}
           const pPref = [
-            row.desired_positions,
-            row.work_style_options,
-            row.preferred_industries,
-            row.desired_locations,
-          ]
-          const profilePct = Math.round((pct(pBasic) + pct(pPR) + pct(pPref)) / 3)
+            // 希望職種
+            (Array.isArray(row.desired_positions) && row.desired_positions.length)
+              ? row.desired_positions
+              : (cond.jobTypes ?? []),
 
-          /* ---------- 履歴書フォーム入力率 ---------- */
-          const resume = Array.isArray(row.resumes) && row.resumes.length ? row.resumes[0] : null
-          const form   = (resume?.form_data as any) ?? {}
+            // 働き方オプション
+            (Array.isArray(row.work_style_options) && row.work_style_options.length)
+              ? row.work_style_options
+              : (cond.workPreferences ?? cond.workStyle ?? null),
 
-          const rBasic = [
-            form?.basic?.lastName, form?.basic?.firstName,
-            form?.basic?.lastNameKana, form?.basic?.firstNameKana,
-            form?.basic?.birthdate,  form?.basic?.gender,
-            form?.basic?.address,
-          ]
-          const rPR = [
-            form?.pr?.title, form?.pr?.content, form?.pr?.motivation,
-          ]
-          const condArrKeys = ["jobTypes","locations","industries","workPreferences"]
-          const rCondArr = condArrKeys.map((k) => (form?.conditions?.[k] ?? []).length > 0)
-          const rCondScalar = filled(form?.conditions?.workStyle)
-          const resumeFormPct = Math.round(
-            (pct(rBasic) + pct(rPR) +
-             Math.round(((rCondArr.filter(Boolean).length + (rCondScalar ? 1 : 0)) / 5) * 100)
-            ) / 3
-          )
+            // 希望業界
+            (Array.isArray(row.preferred_industries) && row.preferred_industries.length)
+              ? row.preferred_industries
+              : (cond.industries ?? []),
 
+            // 希望勤務地
+            (Array.isArray(row.desired_locations) && row.desired_locations.length)
+              ? row.desired_locations
+              : (cond.locations ?? []),
+          ]
+
+          // 個別カテゴリの入力率
+          const basicPct = pct(pBasic)   // 基本情報
+          const prPct    = pct(pPR)      // 自己 PR
+          const prefPct  = pct(pPref)    // 希望条件
           /* ---------- 職務経歴書入力率 ---------- */
           // ---------- work_experiences ---------- //
-          let worksRaw: unknown = resume?.work_experiences ?? []
-          if (typeof worksRaw === "string") {
-            try {
-              worksRaw = JSON.parse(worksRaw)
-            } catch {
-              worksRaw = []
+          // ソース: ① resumes.work_experiences と ② resumes.form_data.work_experiences
+          // 両方をマージして評価する。必須 4 項目 (company, position, description, achievements)
+          let worksRaw: unknown[] = []
+
+          if (resume) {
+            // ① 直下の work_experiences
+            const direct = resume.work_experiences
+            if (Array.isArray(direct)) {
+              worksRaw.push(...direct)
+            } else if (typeof direct === "string") {
+              try { worksRaw.push(...JSON.parse(direct)) } catch {/* ignore */}
+            }
+
+            // ② form_data.work_experiences
+            const nested = (resume.form_data as any)?.work_experiences
+            if (Array.isArray(nested)) {
+              worksRaw.push(...nested)
+            } else if (typeof nested === "string") {
+              try { worksRaw.push(...JSON.parse(nested)) } catch {/* ignore */}
             }
           }
-          const works = Array.isArray(worksRaw) ? (worksRaw as any[]) : []
-          // → 解析結果を元データへ反映
-          if (resume) {
-            // work_experiences が文字列だった場合は配列へ置換
-            (resume as any).work_experiences = works
-          }
+
+          const works = worksRaw.filter(Boolean) as any[]  // null/undefined guard
           let totalReq = 0, totalFilled = 0
           works.forEach((w) => {
-            totalReq += 6
-            if (filled(w.company))      totalFilled++
-            if (filled(w.position))     totalFilled++
-            if (filled(w.startDate))    totalFilled++
-            if (filled(w.description))  totalFilled++
-            if (filled(w.achievements)) totalFilled++
-            if (w.isCurrent || filled(w.endDate)) totalFilled++
+            totalReq += 4
+            if (filled(w.company))                  totalFilled++
+            // position (typo guard: positon)
+            if (filled(w.position ?? w.positon))    totalFilled++
+            if (filled(w.description))              totalFilled++
+            if (filled(w.achievements))             totalFilled++
           })
           const workPct = totalReq ? Math.round((totalFilled / totalReq) * 100) : 0
+          /* ---------- 総合入力率 ---------- */
+          // ❶ 仕様変更: 職務経歴書スコアは work_experiences の充足率(workPct)のみで評価する
+          //    フォーム(form_data.*) は寄与しない
+          const resumeOverall = works.length === 0 ? 0 : workPct
 
-          /* ---------- 総合入力率 (プロフィール70%, 履歴書30%) ---------- */
-          const resumeOverall = works.length === 0
-            ? resumeFormPct
-            : Math.round(resumeFormPct * 0.7 + workPct * 0.3)
-
-          const completionPct = Math.round(profilePct * 0.7 + resumeOverall * 0.3)
-
+          // ---- 総合入力率 ----
+          // 基本情報 50% / 自己 PR 20% / 希望条件 15% / 職経歴書 15%
+          const completionPct = Math.round(
+            basicPct * 0.50 +
+            prPct    * 0.20 +
+            prefPct  * 0.30 +
+            resumeOverall * 0.
+          )
           const normalized: Student = {
             ...row,
             match_score: completionPct,                       // ← match_score を入力率に置換
@@ -315,7 +326,6 @@ export default function ScoutPage() {
         }
         setStudents(Array.from(mergedById.values()))
       }
-
       /* スカウト履歴 */
       const { data: scoutRows } = await sb
         .from("scouts")
@@ -323,7 +333,6 @@ export default function ScoutPage() {
         .eq("company_id", cid)
         .order("created_at", { ascending: false })
       setSentScouts(scoutRows ?? [])
-
       /* テンプレート */
       const { data: tplRows } = await sb
         .from("scout_templates")
@@ -331,10 +340,21 @@ export default function ScoutPage() {
         .eq("company_id", cid)
         .order("created_at")
       setTemplates(tplRows ?? [])
-
       setLoading(false)
     }
     init()
+    // Subscribe to profile updates to auto-refresh list
+    const channel = sb
+      .channel('student_profiles_updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'student_profiles' },
+        () => { init() }
+      )
+      .subscribe()
+    return () => {
+      sb.removeChannel(channel)
+    }
   }, [router, toast])
 
   /** 学生データからユニークな卒業年リストを生成（昇順） */
@@ -480,16 +500,28 @@ export default function ScoutPage() {
     }
 
     /* 役職・ポジション */
-    if (positionFilter !== "all") {
+    if (positionFilters.length) {
       list = list.filter((s) => {
-        const resume = s.resumes?.[0]
-        const raw = resume?.work_experiences
-        const works = raw
-          ? Array.isArray(raw)
-            ? raw
-            : [raw]
-          : []
-        return works.some((w: any) => w.position === positionFilter)
+        // Ensure resumes is an array
+        const resumesArr = Array.isArray(s.resumes) ? s.resumes : []
+        // Flatten work_experiences entries from both direct and form_data
+        const works: any[] = resumesArr.flatMap((r: any) => [
+          ...(Array.isArray(r.work_experiences) ? r.work_experiences : []),
+          ...(Array.isArray(r.form_data?.work_experiences) ? r.form_data.work_experiences : []),
+        ])
+        // Normalize each position
+        const allPositions: string[] = works.map((w: any) => {
+          const raw = typeof w.position === 'string'
+            ? w.position
+            : typeof w.positon === 'string'
+            ? w.positon
+            : ''
+          return raw.replace(/\u3000/g, "").trim()
+        })
+        // Allow partial match of the filter value within the normalized positions
+        return positionFilters.some(filter =>
+          allPositions.some((p) => p.includes(filter))      
+        )
       })
     }
 
@@ -532,7 +564,7 @@ export default function ScoutPage() {
     genders, // 性別フィルタも依存に追加
     sortBy,
     offeredIds,
-    positionFilter,
+    positionFilters,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -724,18 +756,23 @@ export default function ScoutPage() {
               {/* 役職・ポジション */}
               <div>
                 <h4 className="font-semibold mb-2">役職・ポジション</h4>
-                <select
-                  className="w-full border rounded px-2 py-1 text-sm"
-                  value={positionFilter}
-                  onChange={(e) => setPositionFilter(e.target.value)}
-                >
-                  <option value="all">全て</option>
-                  {["メンバー","リーダー","マネージャー","責任者","役員","代表"].map((pos) => (
-                    <option key={pos} value={pos}>{pos}</option>
-                  ))}
-                </select>
+                {POSITION_OPTIONS.map((pos) => (
+                  <div key={pos} className="flex items-center mb-1">
+                    <Checkbox
+                     id={`position-${pos}`}
+                      checked={positionFilters.includes(pos)}
+                      onCheckedChange={(v) =>
+                        setPositionFilters(prev =>
+                          v ? [...prev, pos] : prev.filter(x => x !== pos)
+                        )
+                      }
+                    />
+                    <label htmlFor={`position-${pos}`} className="ml-2 text-sm">
+                      {pos}
+                    </label>
+                 </div>
+                ))}
               </div>
-
 
               {/* ステータス */}
               <div>
@@ -817,6 +854,7 @@ export default function ScoutPage() {
                   setDesiredPosition("all")
                   setDesiredWorkLocation("all")
                   setGenders([])  // 性別フィルタクリア
+                  setPositionFilters([])
                 }}
               >
                 リセット
