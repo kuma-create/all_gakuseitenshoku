@@ -137,6 +137,8 @@ export default function ScoutPage() {
 
   /** 履歴書の経験職種(jobType)フィルタ */
   const [experienceJobTypes, setExperienceJobTypes] = useState<string[]>([])
+  /** 職務経歴書の役職フィルタ */
+  const [positionFilter, setPositionFilter] = useState<string>("all")
 
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
@@ -477,6 +479,20 @@ export default function ScoutPage() {
       )
     }
 
+    /* 役職・ポジション */
+    if (positionFilter !== "all") {
+      list = list.filter((s) => {
+        const resume = s.resumes?.[0]
+        const raw = resume?.work_experiences
+        const works = raw
+          ? Array.isArray(raw)
+            ? raw
+            : [raw]
+          : []
+        return works.some((w: any) => w.position === positionFilter)
+      })
+    }
+
     /* 9) 希望勤務地 */
     if (desiredWorkLocation !== "all") {
       list = list.filter((s) =>
@@ -516,6 +532,7 @@ export default function ScoutPage() {
     genders, // 性別フィルタも依存に追加
     sortBy,
     offeredIds,
+    positionFilter,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -703,6 +720,22 @@ export default function ScoutPage() {
                   </div>
                 ))}
               </div>
+
+              {/* 役職・ポジション */}
+              <div>
+                <h4 className="font-semibold mb-2">役職・ポジション</h4>
+                <select
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  value={positionFilter}
+                  onChange={(e) => setPositionFilter(e.target.value)}
+                >
+                  <option value="all">全て</option>
+                  {["メンバー","リーダー","マネージャー","責任者","役員","代表"].map((pos) => (
+                    <option key={pos} value={pos}>{pos}</option>
+                  ))}
+                </select>
+              </div>
+
 
               {/* ステータス */}
               <div>

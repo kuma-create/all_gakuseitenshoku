@@ -32,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -922,13 +922,22 @@ export default function ResumePage() {
                       <Label htmlFor={`position-${exp.id}`} className="text-xs sm:text-sm">
                         役職・ポジション
                       </Label>
-                      <Input
-                        id={`position-${exp.id}`}
-                        placeholder="インターン、アルバイトなど"
-                        className="h-8 text-xs sm:h-10 sm:text-sm"
+                      <Select
                         value={exp.position}
-                        onChange={(e) => handleWorkExperienceChange(exp.id, "position", e.target.value)}
-                      />
+                        onValueChange={(value) => handleWorkExperienceChange(exp.id, "position", value)}
+                      >
+                        <SelectTrigger className="w-48 h-8 text-xs sm:h-10 sm:text-sm" id={`position-${exp.id}`}>
+                          <SelectValue placeholder="役職を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="メンバー">メンバー</SelectItem>
+                          <SelectItem value="リーダー">リーダー</SelectItem>
+                          <SelectItem value="マネージャー">マネージャー</SelectItem>
+                          <SelectItem value="責任者">責任者</SelectItem>
+                          <SelectItem value="役員">役員</SelectItem>
+                          <SelectItem value="代表">代表</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-1 sm:space-y-2">
