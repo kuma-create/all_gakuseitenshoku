@@ -50,6 +50,9 @@ const PREFECTURES = [
 /** 性別の選択肢 */
 const GENDER_OPTIONS = ["男性", "女性"] as const
 
+/** 固定の役職リスト */
+const POSITION_OPTIONS = ["メンバー","リーダー","マネージャー","責任者","役員","代表"] as const
+
 
 /** 固定の希望職種リスト */
 const JOB_POSITIONS = [
@@ -137,35 +140,31 @@ export default function ScoutPage() {
 
   /** 履歴書の経験職種(jobType)フィルタ */
   const [experienceJobTypes, setExperienceJobTypes] = useState<string[]>([])
-  /** 職務経歴書の役職フィルタ */
-  const [positionFilter, setPositionFilter] = useState<string>("all")
+  /** 職務経歴書の役職フィルタ (複数選択) */
+  const [positionFilters, setPositionFilters] = useState<string[]>([])
 
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
     const init = async () => {
       setLoading(true)
-
       /* 認証 */
       const { data: { session }, error: authErr } = await sb.auth.getSession()
       if (authErr || !session) {
         router.push("/auth/signin")
         return
       }
-
       /* 会社 ID (owner / recruiter 共通) */
       const { data: member, error: memErr } = await sb
         .from("company_members")
         .select("company_id")
         .eq("user_id", session.user.id)
         .maybeSingle()
-
       if (memErr || !member) {
         toast({ title: "会社プロフィールが見つかりません", variant: "destructive" })
         return
       }
       const cid = member.company_id
       setCompanyId(cid)
-
       /* 学生一覧 */
       // 🔽 page.tsx の学生取得クエリをこれに置き換え
       const { data: stuRows, error: stuErr } = await sb
@@ -178,7 +177,6 @@ export default function ScoutPage() {
             work_experiences
           )
         `)
-
       // ───────── 経験職種ビュー ─────────
       const { data: jtRows, error: jtErr } = await sb
         .from("student_resume_jobtypes")
@@ -190,7 +188,6 @@ export default function ScoutPage() {
           jobTypesMap.set(r.student_id, r.job_types ?? [])
         }
       })
-
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
       } else {
@@ -201,10 +198,8 @@ export default function ScoutPage() {
           /* ---------- completion helpers ---------- */
           const filled = (v: any) =>
             Array.isArray(v) ? v.length > 0 : v != null && v !== ""
-
           const pct = (arr: any[]) =>
             arr.length === 0 ? 0 : Math.round((arr.filter(filled).length / arr.length) * 100)
-
           /* ---------- プロフィール入力率 ---------- */
           const pBasic = [
             row.last_name, row.first_name,
@@ -219,11 +214,9 @@ export default function ScoutPage() {
             row.desired_locations,
           ]
           const profilePct = Math.round((pct(pBasic) + pct(pPR) + pct(pPref)) / 3)
-
           /* ---------- 履歴書フォーム入力率 ---------- */
           const resume = Array.isArray(row.resumes) && row.resumes.length ? row.resumes[0] : null
           const form   = (resume?.form_data as any) ?? {}
-
           const rBasic = [
             form?.basic?.lastName, form?.basic?.firstName,
             form?.basic?.lastNameKana, form?.basic?.firstNameKana,
@@ -241,7 +234,6 @@ export default function ScoutPage() {
              Math.round(((rCondArr.filter(Boolean).length + (rCondScalar ? 1 : 0)) / 5) * 100)
             ) / 3
           )
-
           /* ---------- 職務経歴書入力率 ---------- */
           // ---------- work_experiences ---------- //
           let worksRaw: unknown = resume?.work_experiences ?? []
@@ -269,14 +261,11 @@ export default function ScoutPage() {
             if (w.isCurrent || filled(w.endDate)) totalFilled++
           })
           const workPct = totalReq ? Math.round((totalFilled / totalReq) * 100) : 0
-
           /* ---------- 総合入力率 (プロフィール70%, 履歴書30%) ---------- */
           const resumeOverall = works.length === 0
             ? resumeFormPct
             : Math.round(resumeFormPct * 0.7 + workPct * 0.3)
-
           const completionPct = Math.round(profilePct * 0.7 + resumeOverall * 0.3)
-
           const normalized: Student = {
             ...row,
             match_score: completionPct,                       // ← match_score を入力率に置換
@@ -315,7 +304,6 @@ export default function ScoutPage() {
         }
         setStudents(Array.from(mergedById.values()))
       }
-
       /* スカウト履歴 */
       const { data: scoutRows } = await sb
         .from("scouts")
@@ -323,7 +311,6 @@ export default function ScoutPage() {
         .eq("company_id", cid)
         .order("created_at", { ascending: false })
       setSentScouts(scoutRows ?? [])
-
       /* テンプレート */
       const { data: tplRows } = await sb
         .from("scout_templates")
@@ -331,10 +318,21 @@ export default function ScoutPage() {
         .eq("company_id", cid)
         .order("created_at")
       setTemplates(tplRows ?? [])
-
       setLoading(false)
     }
     init()
+    // Subscribe to profile updates to auto-refresh list
+    const channel = sb
+      .channel('student_profiles_updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'student_profiles' },
+        () => { init() }
+      )
+      .subscribe()
+    return () => {
+      sb.removeChannel(channel)
+    }
   }, [router, toast])
 
   /** 学生データからユニークな卒業年リストを生成（昇順） */
@@ -480,16 +478,28 @@ export default function ScoutPage() {
     }
 
     /* 役職・ポジション */
-    if (positionFilter !== "all") {
+    if (positionFilters.length) {
       list = list.filter((s) => {
-        const resume = s.resumes?.[0]
-        const raw = resume?.work_experiences
-        const works = raw
-          ? Array.isArray(raw)
-            ? raw
-            : [raw]
-          : []
-        return works.some((w: any) => w.position === positionFilter)
+        // Ensure resumes is an array
+        const resumesArr = Array.isArray(s.resumes) ? s.resumes : []
+        // Flatten work_experiences entries from both direct and form_data
+        const works: any[] = resumesArr.flatMap((r: any) => [
+          ...(Array.isArray(r.work_experiences) ? r.work_experiences : []),
+          ...(Array.isArray(r.form_data?.work_experiences) ? r.form_data.work_experiences : []),
+        ])
+        // Normalize each position
+        const allPositions: string[] = works.map((w: any) => {
+          const raw = typeof w.position === 'string'
+            ? w.position
+            : typeof w.positon === 'string'
+            ? w.positon
+            : ''
+          return raw.replace(/\u3000/g, "").trim()
+        })
+        // Allow partial match of the filter value within the normalized positions
+        return positionFilters.some(filter =>
+          allPositions.some((p) => p.includes(filter))      
+        )
       })
     }
 
@@ -532,7 +542,7 @@ export default function ScoutPage() {
     genders, // 性別フィルタも依存に追加
     sortBy,
     offeredIds,
-    positionFilter,
+    positionFilters,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -724,18 +734,23 @@ export default function ScoutPage() {
               {/* 役職・ポジション */}
               <div>
                 <h4 className="font-semibold mb-2">役職・ポジション</h4>
-                <select
-                  className="w-full border rounded px-2 py-1 text-sm"
-                  value={positionFilter}
-                  onChange={(e) => setPositionFilter(e.target.value)}
-                >
-                  <option value="all">全て</option>
-                  {["メンバー","リーダー","マネージャー","責任者","役員","代表"].map((pos) => (
-                    <option key={pos} value={pos}>{pos}</option>
-                  ))}
-                </select>
+                {POSITION_OPTIONS.map((pos) => (
+                  <div key={pos} className="flex items-center mb-1">
+                    <Checkbox
+                     id={`position-${pos}`}
+                      checked={positionFilters.includes(pos)}
+                      onCheckedChange={(v) =>
+                        setPositionFilters(prev =>
+                          v ? [...prev, pos] : prev.filter(x => x !== pos)
+                        )
+                      }
+                    />
+                    <label htmlFor={`position-${pos}`} className="ml-2 text-sm">
+                      {pos}
+                    </label>
+                 </div>
+                ))}
               </div>
-
 
               {/* ステータス */}
               <div>
@@ -817,6 +832,7 @@ export default function ScoutPage() {
                   setDesiredPosition("all")
                   setDesiredWorkLocation("all")
                   setGenders([])  // 性別フィルタクリア
+                  setPositionFilters([])
                 }}
               >
                 リセット
