@@ -311,8 +311,8 @@ export default function StudentDetailTabs({ student, showContact = false }: Prop
         <TabsContent value="pr" className="p-6 space-y-6">
           <Section title="自己PR">
             <Field label="PR タイトル" value={student.pr_title} />
-            <Field label="PR 本文" value={student.pr_body} multiline />
-            <Field label="ひとこと自己紹介" value={student.pr_text} multiline />
+            <Field label="自己紹介" value={student.about} multiline />
+            <Field label="自己PR" value={student.pr_text} multiline />
             <Field
               label="Strength 1"
               value={student.strength1 ?? "―"}
