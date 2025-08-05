@@ -889,15 +889,14 @@ export default function ResumePage() {
                             "エンジニア",
                             "営業",
                             "コンサルタント",
-                            "研究・開発",
+                            "経営・経営企画",
                             "総務・人事",
                             "経理・財務",
-                            "品質管理",
-                            "物流",
-                            "企画・マーケティング",
+                            "企画",
+                            "マーケティング",
                             "デザイナー",
-                            "生産管理",
-                            "販売・サービス",
+                            "広報",
+                            "その他",
                           ].map((opt) => (
                             <div key={opt} className="flex items-center space-x-2">
                               <Checkbox
