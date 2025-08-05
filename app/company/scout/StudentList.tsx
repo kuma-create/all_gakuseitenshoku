@@ -210,6 +210,16 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                       {[stu.major, stu.location].filter(Boolean).join(" / ")}
                     </p>
                   )}
+                  {/* 役職・ポジション */}
+                  {stu.resumes &&
+                    Array.isArray(stu.resumes) &&
+                    stu.resumes[0]?.work_experiences &&
+                    Array.isArray(stu.resumes[0].work_experiences) &&
+                    stu.resumes[0].work_experiences[0]?.position && (
+                      <p className="text-[11px] text-gray-500 truncate">
+                        役職: {stu.resumes[0].work_experiences[0].position}
+                      </p>
+                    )}
                   <p className="text-[11px] text-gray-500 truncate">
                     登録: {formatDate(stu.created_at) ?? "－"} / 最終ログイン: {formatDate(stu.last_sign_in_at) ?? "－"}
                   </p>
