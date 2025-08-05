@@ -115,6 +115,7 @@ export default function NewJobPage() {
     startDate: "",
     endDate: "",
     durationWeeks: "",
+    minDurationMonths: "",
     workDaysPerWeek: "",
     allowance: "",
 
@@ -734,6 +735,7 @@ export default function NewJobPage() {
                         startDate: "",
                         endDate: "",
                         durationWeeks: "",
+                        minDurationMonths: "",
                         workDaysPerWeek: "",
                         allowance: "",
                         /* intern long only */

@@ -11,6 +11,17 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/types";
+/** resumes への Insert 型に不足しているカラムを補完した独自型 */
+type ResumeInsertExt = Database["public"]["Tables"]["resumes"]["Insert"] & {
+  profile_id: string;            // 学生プロフィール ID
+  kind?:      string;            // "company" | "summary" | "skill" | "qualification"
+  order?:             number | null;
+  company_name?:      string | null;
+  summary_text?:      string | null;
+  skill_text?:        string | null;
+  qualification_text?: string | null;
+};
 
 /* shadcn/ui を barrel export している想定 */
 import {
@@ -21,10 +32,12 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui";
 
+import { Command, CommandInput, CommandList, CommandItem } from "@/components/ui/command";
+
 
 import {
   PlusCircle, Trash2, ChevronDown, ChevronUp,
-  Briefcase, Building, Info,
+  Briefcase, Building, Info, CheckCircle, Circle, User, Upload,
 } from "lucide-react";
 
 /* ------------------------------------------------------------
@@ -78,7 +91,18 @@ const prefectures = [
   "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県",
 ];
 
+/* 国公立・私立主要大学（一部サンプル。必要に応じて追記してください） */
+const sampleUniversities = [
+  "北海道大学","東北大学","東京大学","名古屋大学","京都大学","大阪大学","九州大学",
+  "早稲田大学","慶應義塾大学","上智大学","東京工業大学","一橋大学","筑波大学",
+  "神戸大学","広島大学","岡山大学","立命館大学","同志社大学","関西学院大学",
+  "明治大学","法政大学","中央大学","青山学院大学","学習院大学"
+] as const;
+
 /* ---------------- 型定義 ---------------- */
+
+/* ---------------- 表示用ステップラベル ---------------- */
+const STEP_LABELS = ["基本情報", "住所情報", "学業情報", "職歴・補足情報"] as const;
 type Step1 = {
   last_name: string;
   first_name: string;
@@ -111,6 +135,7 @@ type Step4 = {
   company3: string;
   skill_text: string;
   qualification_text: string;
+  has_intern: boolean;           // インターン経験の有無
 };
 
 type FormState = Step1 & Step2 & Step3 & Step4;
@@ -138,8 +163,47 @@ const initialState: FormState = {
   university: "", faculty: "", department: "", graduation_month: null, join_ipo: false,
   work_summary: "", company1: "", company2: "", company3: "",
   skill_text: "", qualification_text: "",
+  has_intern: false,
 };
 
+/* ---------------- プログレスステップコンポーネント ---------------- */
+function ProgressSteps({ step }: { step: 1 | 2 | 3 | 4 }) {
+  const steps = ["基本情報", "住所", "学業", "職歴"];
+  return (
+    <div className="relative mx-auto mb-8 flex max-w-md justify-between">
+      {steps.map((label, i) => {
+        const idx = i + 1;
+        const reached = step > idx;
+        const active  = step === idx;
+        return (
+          <div key={label} className="flex-1 text-center">
+            <div
+              className={[
+                "mx-auto flex h-7 w-7 items-center justify-center rounded-full border text-sm font-medium transition-colors duration-300",
+                reached
+                  ? "border-primary bg-primary text-white"
+                  : active
+                  ? "border-primary text-primary"
+                  : "border-gray-300 text-gray-400",
+              ].join(" ")}
+            >
+              {idx}
+            </div>
+            <p className={["mt-1 text-xs", active && "text-primary"].filter(Boolean).join(" ")}>{label}</p>
+            {idx < steps.length && (
+              <span
+                className={[
+                  "absolute top-[13px] left-full h-1 flex-1",
+                  reached ? "bg-primary" : "bg-gray-200",
+                ].join(" ")}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 /* ******************************************************************* */
 export default function OnboardingProfile() {
 /* ******************************************************************* */
@@ -152,6 +216,22 @@ export default function OnboardingProfile() {
   /* 住所検索 */
   const [zipLoading, setZipLoading] = useState(false);
   const [zipError,   setZipError]   = useState<string | null>(null);
+  /* 大学候補リスト --------------- */
+  const [universities, setUniversities] = useState<string[]>(
+    [...sampleUniversities]            // 初期値はサンプル
+  );
+  useEffect(() => {
+    // /public/universities_jp.json (要作成) から読み込む
+    fetch("/universities_jp.json")
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.statusText)))
+      .then((data: string[]) => {
+        if (Array.isArray(data) && data.length) setUniversities(data);
+      })
+      .catch((err) => {
+        console.warn("universities fetch failed:", err);
+        // 失敗してもサンプルを使い続ける
+      });
+  }, []);
   /* ---------------- 職歴 (Step4) ---------------- */
 const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([
   {
@@ -401,39 +481,52 @@ const handleWorkExperienceChange = (
         );
       if (profileErr) throw profileErr;
 
-      /* ---------- experiences テーブルを再構築 ---------- */
-      // 1) 既存行を全削除
-      await supabase.from("experiences").delete().eq("profile_id", profileId);
+      /* ---------- Plan A: resumes 一括 JSONB upsert ---------- */
+      const resumePayload = {
+        user_id:       user.id,
+        /* text 型カラムなので文字列化してから送る */
+        form_data:         JSON.stringify({
+          basic: {
+            lastName:       form.last_name,
+            firstName:      form.first_name,
+            lastNameKana:   form.last_name_kana,
+            firstNameKana:  form.first_name_kana,
+            phone:          form.phone,
+            gender:         form.gender,
+            address:        `${form.prefecture}${form.city}${form.address_line}`,
+            birthdate:      form.birth_date,
+          },
+          education: {
+            university:       form.university,
+            faculty:          form.faculty,
+            department:       form.department,
+            graduationDate:   normalizedGrad,
+            status:           "enrolled",
+          },
+          pr: {},          // いまは未入力。将来の UI 拡張用に空オブジェクトで保持
+          skills: {},      // 〃
+          conditions: {},  // 〃
+        }),
+        work_experiences: JSON.stringify(
+          workExperiences.map((w) => ({
+            company:      w.company,
+            position:     w.position,
+            startDate:    w.startDate,
+            endDate:      w.isCurrent ? null : w.endDate,
+            isCurrent:    w.isCurrent,
+            description:  w.description,
+            technologies: w.technologies,
+            achievements: w.achievements,
+            jobTypes:     [], // 後続 UI で対応予定
+          }))
+        ),
+      };
 
-      // 2) 会社名 (kind='company')
-      const companyRows = [
-        { order: 1, company_name: form.company1?.trim() },
-        { order: 2, company_name: form.company2?.trim() },
-        { order: 3, company_name: form.company3?.trim() },
-      ].filter((c) => c.company_name);
-
-      // 3) プロフィール補足情報を kind 別に行で保存
-      const metaRows = [
-        form.work_summary?.trim()
-          ? { kind: "summary", summary_text: form.work_summary.trim() }
-          : null,
-        form.skill_text?.trim()
-          ? { kind: "skill", skill_text: form.skill_text.trim() }
-          : null,
-        form.qualification_text?.trim()
-          ? { kind: "qualification", qualification_text: form.qualification_text.trim() }
-          : null,
-      ].filter(Boolean) as Record<string, any>[];
-
-      const rows = [
-        ...companyRows.map((c) => ({ profile_id: profileId, kind: "company", ...c })),
-        ...metaRows.map((m)   => ({ profile_id: profileId, ...m })),
-      ];
-
-      if (rows.length) {
-        const { error: expErr } = await supabase.from("experiences").insert(rows);
-        if (expErr) throw expErr;
-      }
+      /* user_id を一意キーとして upsert */
+      const { error: resumeErr } = await supabase
+        .from("resumes")
+        .upsert(resumePayload, { onConflict: "user_id" });
+      if (resumeErr) throw resumeErr;
 
       router.replace("/student-dashboard");
     } catch (err: any) {
@@ -446,96 +539,140 @@ const handleWorkExperienceChange = (
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="flex min-h-screen justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-3xl">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">
-            ユーザー登録
-          </CardTitle>
-          <p className="mt-2 text-center font-semibold text-blue-700">
-            {step < 4 ? `残り${4 - step}ステップで完了` : "入力内容を確認して登録"}
-          </p>
-        </CardHeader>
-
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* ---- ステップ入力 ---- */}
-            {step === 1 && (
-              <Step1Inputs
-                form={form}
-                onChange={handleChange}
-                setAvatarFile={setAvatarFile}
-                avatarError={avatarError}
-              />
-            )}
-            {step === 2 && (
-              <Step2Inputs
-                form={form}
-                onChange={handleChange}
-                zipLoading={zipLoading}
-                zipError={zipError}
-              />
-            )}
-            {step === 3 && <Step3Inputs form={form} onChange={handleChange} />}
-            {step === 4 && (
-              <Step4Inputs
-                form={form}
-                onChange={handleChange}
-                workExperiences={workExperiences}
-                addWorkExperience={addWorkExperience}
-                removeWorkExperience={removeWorkExperience}
-                toggleCollapsible={toggleCollapsible}
-                handleWorkExperienceChange={handleWorkExperienceChange}
-              />
-            )}
-
-            {/* エラー表示 */}
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex justify-between">
-              {step > 1 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setStep((s) => (s - 1) as typeof step)}
-                >
-                  戻る
-                </Button>
+    <div className="flex min-h-screen justify-center bg-[radial-gradient(ellipse_at_top,theme(colors.blue.50),white)] dark:bg-slate-900 p-4">
+      <div className="flex w-full max-w-5xl gap-6">
+        {/* ----- 左サイドバー：ステップ一覧 ----- */}
+        <aside className="hidden w-60 shrink-0 rounded-xl bg-white px-4 py-6 shadow-sm sm:block">
+          <ul className="space-y-4">
+            {STEP_LABELS.map((label, idx) => {
+              const reached = step > (idx + 1);
+              const active  = step === (idx + 1);
+              return (
+                <li key={label} className="flex items-center gap-3">
+                  {reached ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <Circle className={`h-5 w-5 ${active ? "text-primary" : "text-gray-300"}`} />
+                  )}
+                  <span
+                    className={`text-sm font-medium ${
+                      active ? "text-primary" : "text-gray-600"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+        {/* ----- 右側メインフォーム ----- */}
+        <Card className="w-full flex-1 border-none bg-white/80 dark:bg-slate-800/70 shadow-2xl/10 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="text-left text-2xl font-bold">
+              ユーザー登録
+            </CardTitle>
+            <p className="mt-2 text-left font-semibold text-blue-700">
+              {step < 4 ? `残り${4 - step}ステップで完了` : "入力内容を確認して登録"}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-10 p-4 sm:p-6">
+            <form onSubmit={handleSubmit} className="space-y-10">
+              {/* ---- ステップ入力 ---- */}
+              {step === 1 && (
+                <Step1Inputs
+                  form={form}
+                  onChange={handleChange}
+                  setAvatarFile={setAvatarFile}
+                  avatarFile={avatarFile}
+                  avatarError={avatarError}
+                />
               )}
-              <Button
-                type="submit"
-                disabled={loading || avatarUploading}
-                className="ml-auto"
-              >
-                {loading
-                  ? "保存中..."
-                  : step < 4
-                  ? "保存して次へ"
-                  : "登録する"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              {step === 2 && (
+                <Step2Inputs
+                  form={form}
+                  onChange={handleChange}
+                  zipLoading={zipLoading}
+                  zipError={zipError}
+                />
+              )}
+              {step === 3 && (
+                <Step3Inputs
+                  form={form}
+                  onChange={handleChange}
+                  universities={universities}
+                />
+              )}
+              {step === 4 && (
+                <Step4Inputs
+                  form={form}
+                  onChange={handleChange}
+                  workExperiences={workExperiences}
+                  addWorkExperience={addWorkExperience}
+                  removeWorkExperience={removeWorkExperience}
+                  toggleCollapsible={toggleCollapsible}
+                  handleWorkExperienceChange={handleWorkExperienceChange}
+                />
+              )}
+
+              {/* エラー表示 */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex justify-between">
+                {step > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStep((s) => (s - 1) as typeof step)}
+                  >
+                    戻る
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  disabled={loading || avatarUploading}
+                  className="ml-auto"
+                >
+                  {loading
+                    ? "保存中..."
+                    : step < 4
+                    ? "保存して次へ"
+                    : "登録する"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
 
 /* ================= ステップ別コンポーネント ================= */
 function Step1Inputs({
-  form, onChange, setAvatarFile, avatarError,
+  form, onChange, setAvatarFile, avatarFile, avatarError,
 }: {
   form: FormState;
   onChange: (e: InputChange) => void;
   setAvatarFile: React.Dispatch<React.SetStateAction<File | null>>;
+  avatarFile: File | null;
   avatarError: string | null;
 }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (avatarFile) {
+      const url = URL.createObjectURL(avatarFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [avatarFile]);
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 px-1 sm:px-0">
       <TwoCol>
         <Field id="last_name"  label="苗字"   value={form.last_name}  onChange={onChange} required />
         <Field id="first_name" label="名前"   value={form.first_name} onChange={onChange} required />
@@ -580,11 +717,34 @@ function Step1Inputs({
 
       {/* 顔写真 */}
       <div className="grid gap-2">
-        <Label htmlFor="avatar">自分らしい写真</Label>
+        <Label htmlFor="avatar" className="font-semibold">
+          プロフィール写真
+        </Label>
+        <p className="text-xs text-gray-600">
+          あなたらしさが伝わる写真を選んで、企業担当者にアピールしましょう（10MBまで）
+        </p>
+
+        {/* Avatar drop‑zone */}
+        <label
+          htmlFor="avatar"
+          className="relative flex h-24 w-24 sm:h-32 sm:w-32 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-blue-50 border-4 border-white shadow-md hover:scale-105 transition-transform"
+        >
+          {previewUrl ? (
+            <img src={previewUrl} alt="avatar preview" className="h-full w-full object-cover" />
+          ) : (
+            <User className="h-12 w-12 text-gray-400" />
+          )}
+          <span className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-black/80 text-white shadow-lg ring-2 ring-white hover:scale-105 transition-transform">
+            <Upload className="h-4 w-4" />
+          </span>
+        </label>
+
+        {/* Hidden file input */}
         <Input
           id="avatar"
           type="file"
           accept="image/*"
+          className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;
             setAvatarFile(f);
@@ -632,28 +792,75 @@ function Step2Inputs({
   );
 }
 
-function Step3Inputs({ form, onChange }: { form: FormState; onChange: (e: InputChange) => void }) {
+function Step3Inputs({
+  form,
+  onChange,
+  universities,
+}: {
+  form: FormState;
+  onChange: (e: InputChange) => void;
+  universities: string[];
+}) {
   return (
     <div className="space-y-6">
-      <Field id="university" label="大学名" value={form.university} onChange={onChange} required />
+      {/* 大学名（検索付きコンボボックス） */}
+      <div className="grid gap-2">
+        <Label htmlFor="university">
+          大学名<span className="ml-0.5 text-red-600">*</span>
+        </Label>
+
+        <Command className="relative w-full rounded-md border">
+          {/* 検索入力 */}
+          <CommandInput
+            id="university"
+            placeholder="大学名を入力"
+            value={form.university}
+            onValueChange={(v) =>
+              onChange({ target: { id: "university", value: v } } as any)
+            }
+            className="h-11 px-3"
+          />
+
+          {/* 候補リスト */}
+          <CommandList className="max-h-60 overflow-y-auto">
+            {universities
+              .filter((u) =>
+                u.toLowerCase().includes(form.university.toLowerCase())
+              )
+              .slice(0, 100) // 最大100件表示でパフォーマンス確保
+              .map((u) => (
+                <CommandItem
+                  key={u}
+                  value={u}
+                  onSelect={() =>
+                    onChange({ target: { id: "university", value: u } } as any)
+                  }
+                >
+                  {u}
+                </CommandItem>
+              ))}
+          </CommandList>
+        </Command>
+      </div>
       <Field id="faculty"    label="学部名" value={form.faculty}    onChange={onChange} required />
       <Field id="department" label="学科名" value={form.department} onChange={onChange} required />
-      <Field
-        id="graduation_month"
-        label="卒業予定年月"
-        type="month"
-        value={form.graduation_month ?? ""}  // null → ""
-        onChange={onChange}
-        required
-      />
-      <div className="flex items-center gap-2">
-        <input
-          id="join_ipo"
-          type="checkbox"
-          checked={form.join_ipo}
-          onChange={onChange}
-        />
-        <Label htmlFor="join_ipo">選抜コミュニティ IPO への参加を希望する</Label>
+      {/* 就活大学IPO への参加有無 */}
+      <div className="flex flex-col gap-1">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            id="join_ipo"
+            type="checkbox"
+            checked={form.join_ipo}
+            onChange={onChange}
+            className="accent-red-600"
+          />
+          <span>就活大学 <strong>IPO</strong> への参加を希望する</span>
+        </label>
+        <p className="ml-6 text-xs text-gray-500">
+          就活大学IPOは、学生限定の<span className="font-semibold">キャリア形成コミュニティ</span>です。
+          現役キャリアアドバイザーや企業の採用担当者から直接フィードバックを受け、
+          グループワークや模擬面接を通じて実践的な就活スキルを習得できます。
+        </p>
       </div>
     </div>
   );
@@ -681,8 +888,21 @@ function Step4Inputs({
   ) => void;
 }) {
   return (
-
-    <Card className="mb-6 border-2 border-primary/20 bg-primary/5 sm:mb-8">
+    <>
+      {/* インターン経験の有無 */}
+      <div className="mb-4 flex items-center gap-2">
+        <input
+          id="has_intern"
+          type="checkbox"
+          checked={form.has_intern}
+          onChange={onChange}
+          className="accent-red-600"
+        />
+        <Label htmlFor="has_intern" className="text-sm">
+          インターン経験あり
+        </Label>
+      </div>
+      <Card className="mb-6 border-2 border-primary/20 bg-primary/5 sm:mb-8">
     <CardHeader className="bg-primary/10 p-3 sm:p-6">
       <div className="flex items-center gap-2">
         <Briefcase className="h-5 w-5 text-primary" />
@@ -822,7 +1042,7 @@ function Step4Inputs({
                 </div>
                 <div className="space-y-1 sm:space-y-2">
                   <Label htmlFor={`technologies-${exp.id}`} className="text-xs sm:text-sm">
-                    使用技術・ツール
+                    スキル
                   </Label>
                   <Input
                     id={`technologies-${exp.id}`}
@@ -871,42 +1091,53 @@ function Step4Inputs({
       </Button>
     </CardContent>
   </Card>
+  </>
   );
 }
 
 /* ================= 汎用パーツ ================= */
 function Field({
-  id, label, ...rest
+  id, label, required, ...rest
 }: React.InputHTMLAttributes<HTMLInputElement> & { id: string; label: string }) {
   return (
     <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input id={id} {...rest} />
+      <Label htmlFor={id}>
+        {label}
+        {required && <span className="ml-0.5 text-red-600">*</span>}
+      </Label>
+      <Input id={id} required={required} className="h-11" {...rest} />
     </div>
   );
 }
 
 function TextField({
-  id, label, ...rest
+  id, label, required, ...rest
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { id: string; label: string }) {
   return (
     <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Textarea id={id} rows={4} {...rest} />
+      <Label htmlFor={id}>
+        {label}
+        {required && <span className="ml-0.5 text-red-600">*</span>}
+      </Label>
+      <Textarea id={id} rows={4} required={required} {...rest} />
     </div>
   );
 }
 
 function SelectField({
-  id, label, options, ...rest
+  id, label, options, required, ...rest
 }: React.SelectHTMLAttributes<HTMLSelectElement> & {
   id: string; label: string; options: readonly string[];
 }) {
   return (
     <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>
+        {label}
+        {required && <span className="ml-0.5 text-red-600">*</span>}
+      </Label>
       <select
         id={id}
+        required={required}
         className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-red-600"
         {...rest}
       >
@@ -920,5 +1151,5 @@ function SelectField({
 }
 
 function TwoCol({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-4 md:grid-cols-2">{children}</div>;
+  return <div className="grid gap-6 md:grid-cols-2">{children}</div>;
 }

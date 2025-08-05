@@ -1,7 +1,5 @@
-// components/GptCareerAdvisorCard.tsx
 "use client"
-import { useState } from "react"
-import AdvisorDialog from "@/components/AdvisorDialog"
+import { useAIAdvisor } from "@/components/ai-advisor/provider"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Check, Sparkles } from "lucide-react"
 import {
@@ -12,15 +10,29 @@ import {
   CardContent,
 } from "@/components/ui/card"
 
-export default function GptCareerAdvisorCard() {
-  const [open, setOpen] = useState(false)
+/** デフォルトの AI アドバイザー設定 */
+const DEFAULT_ADVISOR_CONFIG: AIAdvisorConfig = {
+  role: "assistant",
+  systemPrompt: "あなたは学生のキャリア相談に応えるAIアドバイザーです。",
+};
+
+interface GptCareerAdvisorCardProps {
+  /** 任意設定。未指定ならデフォルトを使用 */
+  advisorConfig?: Partial<AIAdvisorConfig>
+}
+
+export default function GptCareerAdvisorCard({
+  advisorConfig = DEFAULT_ADVISOR_CONFIG,
+}: GptCareerAdvisorCardProps) {
+  const { openAdvisor } = useAIAdvisor()
+  // `advisorConfig` は現状未使用だが、将来の拡張に備えて残す
 
   return (
     <>
       {/* ---- カード本体 ---- */}
       <Card
         className="w-full rounded-xl border-0 bg-white shadow-lg ring-1 ring-gray-100"
-        onClick={() => setOpen(true)}
+        onClick={openAdvisor}
       >
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center gap-4">
           {/* Icon bubble */}
@@ -62,15 +74,13 @@ export default function GptCareerAdvisorCard() {
           <Button
             size="lg"
             className="w-full rounded-full bg-red-600 py-6 text-base font-semibold tracking-wide hover:bg-red-700"
+            onClick={openAdvisor}
           >
             AIアドバイザーに相談する
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </CardContent>
       </Card>
-
-      {/* ---- モーダル ---- */}
-      <AdvisorDialog open={open} onOpenChange={setOpen} />
     </>
   )
 }

@@ -1,4 +1,7 @@
 // lib/pdf/exportClientPdf.ts
+// html2pdf.js に型定義ファイルが無いため any 扱いでインポート
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import html2pdf from "html2pdf.js";
 
 /**

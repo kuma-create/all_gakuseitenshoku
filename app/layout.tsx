@@ -14,6 +14,8 @@ import Providers            from "./providers";
 import Header               from "@/components/header";
 import { MobileNavigation } from "@/components/mobile-navigation";
 import AuthGuard            from "@/components/AuthGuard";
+import { FloatingAIButton } from "@/components/ai-advisor/FloatingButton";
+import { AIAdvisorProvider } from "@/components/ai-advisor/provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -143,18 +145,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             alt=""
           />
         </noscript>
-        <Suspense fallback={null}>
-          <Providers>
-            {/* クライアント側で認可判定 */}
-            <AuthGuard />
+        <AIAdvisorProvider>
+          <Suspense fallback={null}>
+            <Providers>
+              {/* クライアント側で認可判定 */}
+              <AuthGuard />
 
-            <div className="flex min-h-screen flex-col">
-              <Header />
-              <main className="flex-1 pb-16 md:pb-0">{children}</main>
-              <MobileNavigation />
-            </div>
-          </Providers>
-        </Suspense>
+              <div className="flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1 pb-16 md:pb-0">{children}</main>
+                <MobileNavigation />
+              </div>
+              {/* 右下固定の AI アドバイザーボタン */}
+              <FloatingAIButton />
+            </Providers>
+          </Suspense>
+        </AIAdvisorProvider>
 
         {/* ACS 着地点タグ */}
         <Script

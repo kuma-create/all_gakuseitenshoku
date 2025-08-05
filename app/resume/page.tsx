@@ -2,7 +2,7 @@
 
 "use client"; // ─────────── 必ずファイル先頭１行目
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   AlertCircle,
   Bot,
@@ -17,6 +17,8 @@ import {
   GraduationCap,
   Heart,
   Info,
+  Mic,
+  Square,
   PlusCircle,
   Save,
   Star,
@@ -50,25 +52,74 @@ import { supabase } from "@/lib/supabase/client";
 
 // ─── Chat (AI Hearing) 追加コンポーネント ───────────────────────────
 interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
+  role: "user" | "assistant" | "function";
+  content: string | null;
+  /** `role: "function"` には必須 */
+  name?: string;
 }
 
 interface ChatWindowProps {
-  formData: FormData;
+  workExperiences: WorkExperience[];
   onFunctionCall: (name: string, args: Record<string, any>) => void;
+  /** when API returns full workExperiences, refresh parent state */
+  onWorkExperiencesUpdate?: (newList: WorkExperience[]) => void;
+  userId?: string;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ formData, onFunctionCall }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({
+  workExperiences,
+  onFunctionCall,
+  onWorkExperiencesUpdate,
+  userId,
+}) => {
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [input, setInput] = React.useState("");
+  const [thinking, setThinking] = React.useState(false);
+  const [isRecording, setIsRecording] = React.useState(false);
+  // NOTE: 型定義 (@types/web-speech-api) が入っていない環境でもビルドを通すため any で保持
+  const recognitionRef = React.useRef<any>(null);
+
+  // Initialise SpeechRecognition once
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recog = new SpeechRecognition();
+    recog.lang = "ja-JP";
+    recog.continuous = false;
+    recog.interimResults = false;
+
+    // NOTE: 型定義が無い環境でもビルドを通すため e を any で受け取る
+    recog.onresult = (e: any) => {
+      const text = e.results[0][0].transcript;
+      setInput((prev) => (prev ? prev + " " + text : text));
+    };
+
+    recog.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recog;
+  }, []);
+
   // 学生が選択しやすい定型プロンプト
   const quickPrompts = [
-    "自己紹介を入力して",
-    "大学名を入力して",
-    "インターン経験を入力して",
-    "強みを教えて",
+    "会社名を入力して",
+    "職種を入力して",
+    "業務内容を入力して",
+    "成果・実績を入力して",
   ];
+
+  // OpenAI 仕様: role "function" には必ず name が必要
+  const sanitizeMessages = (msgs: ChatMessage[]): ChatMessage[] =>
+    msgs.map((m) =>
+      m.role === "function" && !m.name
+        ? { ...m, name: "updateField" } // 既定の関数名で補完
+        : m
+    );
 
   const sendMessage = async (content?: string) => {
     const text = (content ?? input).trim();
@@ -79,42 +130,114 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ formData, onFunctionCall }) => 
     setMessages((prev) => [...prev, userMsg]);
     if (!content) setInput("");
 
+    setThinking(true);
+
     try {
       // ② OpenAI API (Edge 関数) に POST
       const res = await fetch("/api/ai-hearing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMsg],
-          formData,               // 未入力フィールド判定用に送信
+          messages: sanitizeMessages([...messages, userMsg]),
+          workExperiences,
+          userId,
         }),
       });
+
       if (!res.ok) {
         console.error("❌ API error status:", res.status);
         return;
       }
 
+      /* ---------- JSON response (non‑streaming) ---------- */
       const data = await res.json();
-
-      // ③ 応答パース
       const choice = data?.choices?.[0]?.message;
+      if (data.workExperiences && onWorkExperiencesUpdate) {
+        onWorkExperiencesUpdate(data.workExperiences as WorkExperience[]);
+      }
+
       if (!choice) return;
 
+      /* ---------- function_call のハンドリング ---------- */
       if (choice.function_call) {
-        // function_call が返ってきた場合 → onFunctionCall へ引き渡し
+        // 1) invoke the requested update on the form
         try {
           const args = JSON.parse(choice.function_call.arguments || "{}");
           onFunctionCall(choice.function_call.name, args);
         } catch (e) {
-          console.error("⚠️ function_call 解析失敗", e);
+          console.error("⚠️ function_call parse error", e);
         }
+
+        // 2) build new conversation history
+        const assistantFcMsg: ChatMessage = { role: "assistant", content: "" };
+        const functionMsg: ChatMessage = {
+          role: "function",
+          name: choice.function_call.name,
+          content: JSON.stringify({ status: "ok" }),
+        };
+        const newHistory = [...messages, userMsg, assistantFcMsg, functionMsg];
+
+        // 3) update visibsle chat (skip the function role to keep UI clean)
+        setMessages(newHistory.filter((m) => m.role !== "function"));
+
+        // 4) ask OpenAI for the next step
+        const followRes = await fetch("/api/ai-hearing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: sanitizeMessages(newHistory),
+            workExperiences,
+            userId,
+          }),
+        });
+
+        if (followRes.ok) {
+          const followData = await followRes.json();
+          if (followData.workExperiences && onWorkExperiencesUpdate) {
+            onWorkExperiencesUpdate(followData.workExperiences as WorkExperience[]);
+          }
+          const followChoice = followData?.choices?.[0]?.message;
+          if (followChoice?.content) {
+            const nextMsg: ChatMessage = {
+              role: "assistant",
+              content: followChoice.content,
+            };
+            setMessages((prev) => [...prev, nextMsg]);
+          }
+        } else {
+          console.error("❌ follow‑up API error status:", followRes.status);
+        }
+
+        setThinking(false);
+        return; // stop early – we already handled the follow‑up cycle
       } else if (choice.content) {
-        // 通常メッセージの場合 → そのまま表示
+        // 通常メッセージ
         const aiMsg: ChatMessage = { role: "assistant", content: choice.content };
         setMessages((prev) => [...prev, aiMsg]);
       }
     } catch (err) {
       console.error("❌ Chat send error:", err);
+    } finally {
+      setThinking(false);
+    }
+  };
+
+  const toggleRecording = () => {
+    const recog = recognitionRef.current;
+    if (!recog) {
+      alert("音声入力はこのブラウザではサポートされていません");
+      return;
+    }
+    if (isRecording) {
+      recog.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recog.start();
+        setIsRecording(true);
+      } catch (e) {
+        console.error("SpeechRecognition start error:", e);
+      }
     }
   };
 
@@ -146,7 +269,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ formData, onFunctionCall }) => 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {messages.length === 0 ? (
           <div className="rounded-lg bg-indigo-50 p-3 text-xs text-indigo-700">
-            例: 「自己紹介を入力して」「大学名を教えて」などと入力すると、AI が質問を投げてくれます。
+            例: 「会社名を入力して」「業務内容を入力して」などと入力すると、AI が質問を投げてくれます。
           </div>
         ) : (
           messages.map((m, i) => (
@@ -164,6 +287,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ formData, onFunctionCall }) => 
             </div>
           ))
         )}
+        {thinking && (
+          <div className="text-xs text-gray-400">（考え中…）</div>
+        )}
       </div>
 
       {/* 入力欄 */}
@@ -171,9 +297,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ formData, onFunctionCall }) => 
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            // Cmd+Enter (Mac) or Ctrl+Enter (Win) で送信
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
           placeholder="ここに入力..."
           className="flex-1 h-8"
         />
+        <Button
+          size="icon"
+          variant={isRecording ? "destructive" : "secondary"}
+          className="h-8 w-8"
+          onClick={toggleRecording}
+        >
+          {isRecording ? (
+            <Square className="h-4 w-4" />
+          ) : (
+            <Mic className="h-4 w-4" />
+          )}
+        </Button>
         <Button size="sm" className="h-8" onClick={() => sendMessage()}>
           送信
         </Button>
@@ -187,12 +332,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ formData, onFunctionCall }) => 
 interface ExportButtonProps {
   targetRef: React.RefObject<HTMLDivElement | null>;
   filename: string;
+  /** Optional callback that makes sure the preview DOM is mounted (e.g. 開いていない場合は開く) */
+  ensureContentVisible?: () => Promise<void>;
 }
 
-const ExportButton: React.FC<ExportButtonProps> = ({ targetRef, filename }) => (
+const ExportButton: React.FC<ExportButtonProps> = ({
+  targetRef,
+  filename,
+  ensureContentVisible,
+}) => (
   <Button
     variant="default"
-    onClick={() => {
+    onClick={async () => {
+      // ① プレビューが閉じている場合は開いて DOM が描画されるのを待つ
+      if (ensureContentVisible) {
+        await ensureContentVisible();
+      }
+
+      // ② DOM が存在すれば PDF 出力
       if (targetRef.current) {
         exportClientPdf(targetRef.current, filename);
       } else {
@@ -236,6 +393,25 @@ interface WorkExperience {
   technologies: string;
   achievements: string;
 }
+
+// ─── WorkExperience field aliases (AI → canonical) ───────────────
+const WORK_FIELD_ALIAS_MAP: Record<string, keyof WorkExperience> = {
+  // description variants
+  description: "description",
+  duty: "description",
+  jobDescription: "description",
+  job_description: "description",
+  "業務内容": "description",
+  "仕事内容": "description",
+  "業務": "description",
+  // technologies variants
+  technologies: "technologies",
+  skills: "technologies",
+  スキル: "technologies",
+  // achievements variants
+  achievements: "achievements",
+  "成果・実績": "achievements",
+};
 
 // 性別の選択肢
 type GenderOption = "male" | "female" | "other";
@@ -312,6 +488,68 @@ export default function ResumePage() {
     },
   ]);
 
+  const [userId, setUserId] = useState<string | null>(null);
+
+  /* ------------------------------------------------------------------ *
+   *  refreshResume(): Fetch the latest resume & work experiences from
+   *  Supabase and update local state — avoids a full page reload.
+   * ------------------------------------------------------------------ */
+  const refreshResume = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const { data: resumeRow, error } = await supabase
+        .from("resumes")
+        .select("form_data, work_experiences")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        console.warn("⚠️ refreshResume error:", error.message);
+        return;
+      }
+
+      /* --- form_data --- */
+      if (resumeRow?.form_data) {
+        try {
+          const parsed =
+            typeof resumeRow.form_data === "string"
+              ? (JSON.parse(resumeRow.form_data) as FormData)
+              : (resumeRow.form_data as unknown as FormData);
+          setFormData(parsed);
+        } catch (e) {
+          console.warn("⚠️ refreshResume form_data parse error", e);
+        }
+      }
+
+      /* --- work_experiences --- */
+      if (resumeRow?.work_experiences) {
+        try {
+          const parsed: WorkExperience[] =
+            typeof resumeRow.work_experiences === "string"
+              ? JSON.parse(resumeRow.work_experiences)
+              : (resumeRow.work_experiences as unknown as WorkExperience[]);
+
+          if (Array.isArray(parsed)) {
+            const seen = new Set<number>();
+            const normalised = parsed.map((w, i) => {
+              let id =
+                typeof w.id === "number" && !Number.isNaN(w.id) ? w.id : i + 1;
+              while (seen.has(id)) id += 1;
+              seen.add(id);
+              return { ...w, id };
+            });
+            setWorkExperiences(normalised);
+          }
+        } catch (e) {
+          console.warn("⚠️ refreshResume work_experiences parse error", e);
+        }
+      }
+    } catch (err) {
+      console.error("❌ refreshResume unexpected error:", err);
+    }
+  }, [userId]);
+
   const [saving, setSaving] = useState<boolean>(false);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
@@ -325,6 +563,8 @@ export default function ResumePage() {
     pr: 0,
     conditions: 0,
   });
+  // プレビューはデフォルトで折りたたみ状態
+  const [previewOpen, setPreviewOpen] = useState<boolean>(false);
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -389,6 +629,7 @@ export default function ResumePage() {
           console.warn("⚠️ No session – skipping resume fetch");
           return;
         }
+        setUserId(uid);   // <‑‑ add this
 
         // --- Supabase fetch for existing resume (replaced logic) ---
         const {
@@ -401,14 +642,52 @@ export default function ResumePage() {
           .maybeSingle();
 
         if (resumeRow) {
-          // 既存レジュメあり → フォームへ反映
-          if (resumeRow.form_data)
-            setFormData(resumeRow.form_data as unknown as FormData);
+          /* --- 既存レジュメあり → JSON 文字列かオブジェクトかを判定してパース --- */
+          if (resumeRow.form_data) {
+            try {
+              const parsed =
+                typeof resumeRow.form_data === "string"
+                  ? (JSON.parse(resumeRow.form_data) as FormData)
+                  : (resumeRow.form_data as unknown as FormData);
+              setFormData(parsed);
+            } catch (e) {
+              console.warn("⚠️ form_data JSON parse error – fallback to initial", e);
+            }
+          }
 
-          if (Array.isArray(resumeRow.work_experiences))
-            setWorkExperiences(
-              resumeRow.work_experiences as unknown as WorkExperience[]
-            );
+          /* ---------- work_experiences ---------- */
+          if (resumeRow.work_experiences) {
+            try {
+              const parsed: WorkExperience[] =
+                typeof resumeRow.work_experiences === "string"
+                  ? JSON.parse(resumeRow.work_experiences)
+                  : (resumeRow.work_experiences as unknown as WorkExperience[]);
+
+              if (Array.isArray(parsed) && parsed.length) {
+                // 1) 強制的に id を数値化。null/undefined や重複は後で解決
+                const withIds = parsed.map((w, i) => ({
+                  ...w,
+                  id:
+                    typeof w.id === "number" && !Number.isNaN(w.id)
+                      ? w.id
+                      : i + 1,
+                }));
+
+                // 2) id 重複を回避（重複があれば +1 ずつインクリメントしてユニークに）
+                const seen = new Set<number>();
+                const uniqueIds = withIds.map((w) => {
+                  let newId = w.id;
+                  while (seen.has(newId)) newId += 1;
+                  seen.add(newId);
+                  return { ...w, id: newId };
+                });
+
+                setWorkExperiences(uniqueIds);
+              }
+            } catch (e) {
+              console.warn("⚠️ work_experiences JSON parse error", e);
+            }
+          }
 
           console.log("📄 Resume loaded from DB");
         } else if (resumeErr && resumeErr.code !== "PGRST116") {
@@ -470,6 +749,21 @@ export default function ResumePage() {
 
     loadResume();
   }, []);
+
+  /* ------------------------------------------------------------------ *
+   *  listen for "resume-updated" custom event (fired by AI chat window)
+   *  → force a quick page refresh so the latest DB data appears instantly
+   * ------------------------------------------------------------------ */
+  useEffect(() => {
+    const handleResumeUpdated = () => {
+      // Supabase のレプリケーション完了を待ってからソフトリフレッシュ
+      setTimeout(() => {
+        refreshResume();
+      }, 100);
+    };
+    window.addEventListener("resume-updated", handleResumeUpdated);
+    return () => window.removeEventListener("resume-updated", handleResumeUpdated);
+  }, [refreshResume]);
 
 
   // ─── 完了率を計算 ────────────────────────────────────────────────
@@ -561,11 +855,16 @@ export default function ResumePage() {
   // 職歴を追加
   const addWorkExperience = (): void => {
     const newId =
-      workExperiences.length > 0
-        ? Math.max(...workExperiences.map((exp) => exp.id)) + 1
-        : 1;
-    setWorkExperiences([
-      ...workExperiences,
+      workExperiences.reduce(
+        (max, w) =>
+          typeof w.id === "number" && !Number.isNaN(w.id) && w.id > max
+            ? w.id
+            : max,
+        0
+      ) + 1;
+
+    setWorkExperiences((prev) => [
+      ...prev,
       {
         id: newId,
         isOpen: true,
@@ -584,7 +883,9 @@ export default function ResumePage() {
 
   // 職歴を削除
   const removeWorkExperience = (id: number): void => {
-    setWorkExperiences(workExperiences.filter((exp) => exp.id !== id));
+    setWorkExperiences(prev =>
+      prev.filter(exp => exp.id !== id)
+    );
   };
 
   // 折りたたみの開閉
@@ -654,14 +955,74 @@ export default function ResumePage() {
   // AI からの updateField 関数呼び出しを解釈してフォームを更新
   const handleAIUpdateField = (name: string, args: any) => {
     if (name !== "updateField" || !args) return;
+
     try {
-      const { section, field, value } = args as {
-        section: SectionKey;
+      /* OpenAI 側のスキーマ想定
+         {
+           section: "basic" | "education" | "skills" | "pr" | "conditions" | "work",
+           field: string,               // 更新するフィールド名
+           value: any,                  // その値
+           // --- work セクションのみ追加 ---
+           id?: number,                 // WorkExperience.id (優先)
+           index?: number               // or 配列 index (fallback)
+         }
+      */
+      const { section, field, value, id, index } = args as {
+        section: SectionKey | "work" | "workExperiences" | "work_experiences";
         field: string;
         value: any;
+        id?: number;
+        index?: number;
       };
-      // `field` は string 型なので型制約を回避して any キャスト
-      handleInputChange(section as any, field as any, value);
+      // resolve the field name (for debug log later)
+      let targetFieldDebug: string | undefined = undefined;
+      // --- accept multiple aliases for the work experience section ---
+      const normalizedSection: SectionKey | "work" =
+        section === "work" ||
+        section === "workExperiences" ||
+        section === "work_experiences"
+          ? "work"
+          : (section as SectionKey);
+      console.debug("🔧 AI updateField args:", args);
+
+      if (normalizedSection === "work") {
+        /* --------- 職歴セクションの更新 --------- */
+        // 1) decide which row to target (by id > index > 末尾)
+        let targetIdx: number;
+        if (typeof id === "number") {
+          targetIdx = workExperiences.findIndex((w) => w.id === id);
+        } else if (typeof index === "number") {
+          targetIdx = index;
+        } else {
+          targetIdx = 0; // fallback to first row
+        }
+
+        // 2) if the requested row doesn't exist yet, append rows until it does
+        while (targetIdx >= workExperiences.length) {
+          addWorkExperience();             // ← 2社目・3社目を自動追加
+        }
+
+        if (targetIdx < 0) {
+          // id 指定だが見つからない場合は末尾を新規作成
+          addWorkExperience();
+          targetIdx = workExperiences.length - 1;
+        }
+
+        const targetField =
+          WORK_FIELD_ALIAS_MAP[field] ?? (field as keyof WorkExperience);
+        targetFieldDebug = String(targetField);
+
+        // 4) finally update the requested field
+        handleWorkExperienceChange(
+          workExperiences[targetIdx].id,
+          targetField,
+          value
+        );
+      } else { /* --------- 通常セクションの更新 --------- */
+        handleInputChange(normalizedSection as any, field as any, value);
+        targetFieldDebug = String(field);
+      }
+      console.debug("✅ Updated field via AI:", { normalizedSection, targetField: targetFieldDebug, value });
     } catch (err) {
       console.error("❌ handleAIUpdateField parse error:", err);
     }
@@ -757,10 +1118,6 @@ export default function ResumePage() {
   };
 
   return (
-    // Optional UI guard: 読込中はローディング表示
-    !initialLoaded ? (
-      <div className="p-4 text-center text-sm text-gray-500">読込中…</div>
-    ) : (
     <div className="container mx-auto px-4 py-6 sm:py-8">
       {/* Header with progress tracker */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6">
@@ -809,9 +1166,14 @@ export default function ResumePage() {
           />
         </div>
       </div>
-      {/* ─── AI 入力アシスタント (ファーストビュー) ────────────────── */}
-      <div className="mb-6 sm:mb-8">
-        <ChatWindow formData={formData} onFunctionCall={handleAIUpdateField} />
+      {/* AI 入力アシスタント – 横幅を固定 (max‑w) */}
+      <div className="mb-6 sm:mb-8 max-w-3xl mx-auto w-full">
+        <ChatWindow
+          workExperiences={workExperiences}
+          onFunctionCall={handleAIUpdateField}
+          onWorkExperiencesUpdate={setWorkExperiences}
+          userId={userId ?? undefined}
+        />
       </div>
 
       {/* 職歴セクション - 最も目立つように最上部に配置 */}
@@ -835,8 +1197,12 @@ export default function ResumePage() {
               </AlertDescription>
             </Alert>
           ) : (
-            workExperiences.map((exp) => (
-              <Collapsible key={exp.id} open={exp.isOpen} onOpenChange={() => toggleCollapsible(exp.id)}>
+             workExperiences.map((exp, idx) => (
+              <Collapsible
+                key={`work-${exp.id}`}
+                open={exp.isOpen}
+                onOpenChange={() => toggleCollapsible(exp.id)}
+              >
                 <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -861,7 +1227,10 @@ export default function ResumePage() {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0 text-red-500 hover:text-red-600 sm:h-8 sm:w-8"
-                          onClick={() => removeWorkExperience(exp.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();      // prevent header toggle
+                            removeWorkExperience(exp.id);
+                          }}
                         >
                           <Trash2 size={14} className="sm:h-4 sm:w-4" />
                         </Button>
@@ -899,7 +1268,7 @@ export default function ResumePage() {
                             "生産管理",
                             "販売・サービス",
                           ].map((opt) => (
-                            <div key={opt} className="flex items-center space-x-2">
+                            <div key={`${exp.id}-${opt}`} className="flex items-center space-x-2">
                               <Checkbox
                                 id={`jobType-${exp.id}-${opt}`}
                                 className="h-3.5 w-3.5 sm:h-4 sm:w-4"
@@ -993,28 +1362,33 @@ export default function ResumePage() {
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       <Label htmlFor={`technologies-${exp.id}`} className="text-xs sm:text-sm">
-                        使用技術・ツール
+                        スキル
                       </Label>
                       <Input
                         id={`technologies-${exp.id}`}
-                        placeholder="Java, Python, AWS, Figmaなど"
+                        placeholder="Word, Chat Gpt,Java, Python, AWS, Figmaなど"
                         className="h-8 text-xs sm:h-10 sm:text-sm"
                         value={exp.technologies}
                         onChange={(e) => handleWorkExperienceChange(exp.id, "technologies", e.target.value)}
                       />
-                          {exp.technologies && exp.technologies.split(",").some((tech) => tech.trim() !== "") && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {exp.technologies.split(",").map((tech, i) => {
-                                const trimmed = tech.trim();
-                                if (!trimmed) return null;
-                                return (
-                                  <Badge key={i} variant="outline" className="bg-blue-50 text-xs">
-                                    {trimmed}
-                                  </Badge>
-                                );
-                              })}
-                            </div>
-                          )}
+                      {exp.technologies &&
+                        exp.technologies.split(",").some((tech) => tech.trim() !== "") && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {exp.technologies.split(",").map((tech, idx) => {
+                              const trimmed = tech.trim();
+                              if (!trimmed) return null;
+                              return (
+                                <Badge
+                                  key={`${exp.id}-tech-${idx}`}
+                                  variant="secondary"
+                                  className="text-[10px] sm:text-xs"
+                                >
+                                  {trimmed}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        )}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       <Label htmlFor={`achievements-${exp.id}`} className="text-xs sm:text-sm">
@@ -1031,6 +1405,7 @@ export default function ResumePage() {
                         例: 「顧客満足度調査で平均4.8/5.0の評価を獲得。前年比20%の売上向上に貢献した。」
                       </p>
                     </div>
+                  
                   </CollapsibleContent>
                 </div>
               </Collapsible>
@@ -1046,34 +1421,121 @@ export default function ResumePage() {
           </Button>
         </CardContent>
       </Card>
-      <div
-        ref={previewRef}
-        id="resume-preview"
-        className="border shadow-sm overflow-auto max-h-[80vh]"
-      >
-        <ResumeTemplate
-          basic={{
-            ...formData.basic,
-          }}
-          workExperiences={workExperiences}
-          skills={
-            formData.skills.skills
-              ? formData.skills.skills.split(/[\\s,]+/).filter((s) => s.trim() !== "")
-              : []
-          }
-          educations={
-            formData.education.university
-              ? [
-                  `${
-                    formData.education.graduationDate ||
-                    formData.education.admissionDate
-                  } ${formData.education.university} ${formData.education.faculty}`,
-                ]
-              : []
-          }
-        />
-      </div>
+      {/* ─── プレビュー（折りたたみ & PDF出力） ─────────────────── */}
+      <Card className="mb-6">
+        <Collapsible open={previewOpen} onOpenChange={setPreviewOpen}>
+          <CardHeader className="flex flex-row items-center justify-between bg-gray-50 p-3 sm:p-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base sm:text-lg">職務経歴書プレビュー</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                  {previewOpen ? (
+                    <ChevronUp size={14} className="sm:h-4 sm:w-4" />
+                  ) : (
+                    <ChevronDown size={14} className="sm:h-4 sm:w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <ExportButton
+                targetRef={previewRef}
+                filename={pdfFilename}
+                ensureContentVisible={async () => {
+                  if (!previewOpen) {
+                    // 折りたたまれている場合は開く → state 更新後に DOM が描画されるまで待つ
+                    setPreviewOpen(true);
+                    await new Promise((r) => setTimeout(r, 300)); // 300ms 待機
+                  }
+                }}
+              />
+            </div>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="p-3 sm:p-4">
+              <div
+                ref={previewRef}
+                id="resume-preview"
+                className="border shadow-sm overflow-auto max-h-[80vh]"
+              >
+                <ResumeTemplate
+                  basic={{ ...formData.basic }}
+                  contact={{
+                    email: formData.basic.email,
+                    phone: formData.basic.phone,
+                    address: formData.basic.address,
+                  }}
+                  workExperiences={workExperiences}
+                  educations={
+                    formData.education.university
+                      ? [
+                          `${
+                            formData.education.graduationDate ||
+                            formData.education.admissionDate ||
+                            ""
+                          } ${formData.education.university} ${
+                            formData.education.faculty
+                          }`.trim(),
+                        ].filter(Boolean)
+                      : []
+                  }
+                  skills={
+                    formData.skills.skills
+                      ? formData.skills.skills
+                          .split(/[\\s,]+/)
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : []
+                  }
+                  certifications={
+                    formData.skills.certifications
+                      ? formData.skills.certifications
+                          .split(/[\\s,]+/)
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : []
+                  }
+                  languages={
+                    formData.skills.languages
+                      ? formData.skills.languages
+                          .split(/[\\s,]+/)
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : []
+                  }
+                  frameworks={
+                    formData.skills.frameworks
+                      ? formData.skills.frameworks
+                          .split(/[\\s,]+/)
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : []
+                  }
+                  tools={
+                    formData.skills.tools
+                      ? formData.skills.tools
+                          .split(/[\\s,]+/)
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : []
+                  }
+                  pr={{
+                    title: formData.pr.title,
+                    content: formData.pr.content,
+                    strengths: (formData.pr.strengths || []).filter(
+                      (v) => v.trim() !== ""
+                    ),
+                    motivation: formData.pr.motivation,
+                  }}
+                />
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
+      {/* ───────────────────────────────────────────────────────────── */}
       <div className="h-16"></div>
     </div>
     )
-)}
+}
