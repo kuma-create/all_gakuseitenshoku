@@ -494,7 +494,7 @@ return (
         </div>
         {/* --- AI Career Advisor Card --- */}
         <div id="ai-advisor" className="mt-12">
-          <GptCareerAdvisorCard />
+          <GptCareerAdvisorCard advisorConfig={{}} />
         </div>
       </section>
       )}
@@ -939,23 +939,23 @@ return (
 
 
       {/* Floating AI Advisor Button */}
-      <div
-        className={`fixed ${bannerClosed ? 'bottom-4' : 'bottom-36'} right-4 z-60`}
-      >
-        <button
-          onClick={() => setShowAdvisor(true)}
-          className="block focus:outline-none"
-          aria-label="Open AI Advisor"
-        >
-          <Image
-            src="/logo2.png"
-            alt="AI Advisor"
-            width={56}
-            height={56}
-            className="rounded-full shadow-lg hover:scale-105 transition-transform"
-          />
-        </button>
-      </div>
+      {bannerClosed && (
+        <div className="fixed bottom-4 right-4 z-60">
+          <button
+            onClick={() => setShowAdvisor(true)}
+            className="block focus:outline-none"
+            aria-label="Open AI Advisor"
+          >
+            <Image
+              src="/logo2.png"
+              alt="AI Advisor"
+              width={56}
+              height={56}
+              className="rounded-full shadow-lg hover:scale-105 transition-transform"
+            />
+          </button>
+        </div>
+      )}
 
       {/* Mobile App Banner – fixed at bottom */}
       {!bannerClosed && (
@@ -967,7 +967,7 @@ return (
       {/* AI Advisor Modal */}
       <Dialog open={showAdvisor} onOpenChange={setShowAdvisor}>
         <DialogContent className="max-w-3xl p-0">
-          <GptCareerAdvisorCard />
+          <GptCareerAdvisorCard advisorConfig={{}} />
         </DialogContent>
       </Dialog>
 

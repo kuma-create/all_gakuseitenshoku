@@ -10,16 +10,22 @@ import {
   CardContent,
 } from "@/components/ui/card"
 
-import type { AIAdvisorConfig } from "@/components/ai-advisor/provider"
+/** デフォルトの AI アドバイザー設定 */
+const DEFAULT_ADVISOR_CONFIG: AIAdvisorConfig = {
+  role: "assistant",
+  systemPrompt: "あなたは学生のキャリア相談に応えるAIアドバイザーです。",
+};
 
 interface GptCareerAdvisorCardProps {
-  advisorConfig: AIAdvisorConfig
+  /** 任意設定。未指定ならデフォルトを使用 */
+  advisorConfig?: Partial<AIAdvisorConfig>
 }
 
 export default function GptCareerAdvisorCard({
-  advisorConfig,
+  advisorConfig = DEFAULT_ADVISOR_CONFIG,
 }: GptCareerAdvisorCardProps) {
   const { openAdvisor } = useAIAdvisor()
+  // `advisorConfig` は現状未使用だが、将来の拡張に備えて残す
 
   return (
     <>

@@ -358,6 +358,7 @@ export default function JobEditPage() {
           capacity  : jobData.capacity,
           venue     : jobData.venue,
           format    : jobData.format,
+          
         } as FormData)
       } catch (error: any) {
         // --- 詳細ログを出力 ---
