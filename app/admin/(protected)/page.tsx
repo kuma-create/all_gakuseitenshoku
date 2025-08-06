@@ -254,7 +254,6 @@ export default function AdminDashboard() {
   const [newFeatureTitle, setNewFeatureTitle] = useState("");
   const [newFeatureStatus, setNewFeatureStatus] = useState<"公開" | "下書き">("下書き");
 
-  const [studentPage, setStudentPage] = useState(1);
   const [companyPage, setCompanyPage] = useState(1);
   const [jobPage, setJobPage] = useState(1);
   const [requestPage, setRequestPage] = useState(1);
@@ -262,6 +261,9 @@ export default function AdminDashboard() {
   const [featurePage, setFeaturePage] = useState(1);
   const [eventPage, setEventPage] = useState(1);
   const [notificationPage, setNotificationPage] = useState(1);
+  /** フィルタ後の一覧を 50 件ずつ表示するための UI ページ */
+  const [studentUiPage, setStudentUiPage] = useState(1);
+  const rowsPerPage = 50;
 
   const [dateRange, setDateRange] = useState<DayPickerRange>({
     from: subDays(new Date(), 30),
@@ -303,6 +305,16 @@ export default function AdminDashboard() {
   const [studentStatusFilter, setStudentStatusFilter] = useState<string>("all");
   // 並び替え用 state
   const [studentSortBy, setStudentSortBy] = useState<"registration" | "lastLogin">("registration");
+  /* ---------- フィルタ／並び替え変更時はページを先頭に ---------- */
+  useEffect(() => {
+    setStudentUiPage(1);
+  }, [
+    studentSearchQuery,
+    studentUniversityFilter,
+    studentYearFilter,
+    studentStatusFilter,
+    studentSortBy
+  ]);
   // 卒業年度一覧（動的生成）
   const graduationYears = useMemo(() => {
     const years = students
@@ -455,7 +467,7 @@ export default function AdminDashboard() {
                 id
               `)
               .order("created_at", { ascending: false })
-              .range((studentPage - 1) * 50, studentPage * 50 - 1);
+              .range(0, 9999);   // 全件取得してクライアント側でページング
 
             if (stErr) {
               console.error("students fetch error:", stErr);
@@ -649,7 +661,6 @@ export default function AdminDashboard() {
       }
     },
     [
-      studentPage,
       companyPage,
       jobPage,
       requestPage,
@@ -657,7 +668,7 @@ export default function AdminDashboard() {
       dateRange,
       featurePage,
       eventPage,
-      notificationPage,
+      notificationPage
     ]
   );
 
@@ -1214,7 +1225,11 @@ export default function AdminDashboard() {
                 return bTime - aTime;
               }
             });
+            const totalStudentPages = Math.max(1, Math.ceil(sortedStudents.length / rowsPerPage));
+            const startIdx = (studentUiPage - 1) * rowsPerPage;
+            const paginatedStudents = sortedStudents.slice(startIdx, startIdx + rowsPerPage);
             return (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1230,7 +1245,7 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedStudents.map((s) => (
+                  {paginatedStudents.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell>{s.id}</TableCell>
                       <TableCell>{s.full_name}</TableCell>
@@ -1322,7 +1337,7 @@ export default function AdminDashboard() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {sortedStudents.length === 0 && (
+                  {paginatedStudents.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-4">
                         学生が見つかりません
@@ -1331,27 +1346,32 @@ export default function AdminDashboard() {
                   )}
                 </TableBody>
               </Table>
+              <Pagination className="my-2 flex items-center gap-2">
+                <PaginationPrevious
+                  aria-disabled={studentUiPage === 1}
+                  className={studentUiPage === 1 ? "pointer-events-none opacity-50" : ""}
+                  onClick={
+                    studentUiPage === 1
+                      ? undefined
+                      : () => setStudentUiPage((p) => Math.max(1, p - 1))
+                  }
+                />
+                <span className="text-sm">
+                  {studentUiPage} / {totalStudentPages}
+                </span>
+                <PaginationNext
+                  aria-disabled={studentUiPage >= totalStudentPages}
+                  className={studentUiPage >= totalStudentPages ? "pointer-events-none opacity-50" : ""}
+                  onClick={
+                    studentUiPage >= totalStudentPages
+                      ? undefined
+                      : () => setStudentUiPage((p) => Math.min(totalStudentPages, p + 1))
+                  }
+                />
+              </Pagination>
+              </>
             );
           })()}
-          <Pagination className="my-2">
-            <PaginationPrevious
-              onClick={() =>
-                setStudentPage((p) =>
-                  Math.max(1, p - 1)
-                )
-              }
-            />
-            <PaginationItem>
-              <PaginationLink isActive>
-                {studentPage}
-              </PaginationLink>
-            </PaginationItem>
-            <PaginationNext
-              onClick={() =>
-                setStudentPage((p) => p + 1)
-              }
-            />
-          </Pagination>
         </TabsContent>
 
         {/* --- 企業 --- */}
