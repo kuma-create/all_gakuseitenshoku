@@ -957,7 +957,7 @@ return (
             className="bg-white hover:bg-red-50 text-red-600 font-semibold rounded-full px-10 py-5 shadow-lg"
             asChild
           >
-            <Link href="/cv/register">無料で登録する</Link>
+            <Link href="/signup">無料で登録する</Link>
           </Button>
         </div>
       </section>
