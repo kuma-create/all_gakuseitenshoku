@@ -102,9 +102,17 @@ export async function POST(req: NextRequest) {
     });
 
     /* --------------------- Supabase client (user‑scoped) --------------------- */
-    // 📝 `cookies()` is async in Next.js 15 — we need to await it
+    // `cookies()` is synchronous in Next.js 15
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("sb-access-token")?.value;
+    let accessToken = cookieStore.get("sb-access-token")?.value ?? null;
+
+    // Fallback: allow bearer token from the client
+    if (!accessToken) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        accessToken = authHeader.slice(7);
+      }
+    }
 
     // Reject if the user is not signed in
     if (!accessToken) {
