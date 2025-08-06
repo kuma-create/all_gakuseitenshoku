@@ -24,7 +24,7 @@ serve(async (req) => {
       JSON.stringify({ error: "OPENAI_API_KEY is missing" }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
   }
@@ -37,7 +37,6 @@ serve(async (req) => {
     model: "gpt-4o-mini",                     // コスパ重視
     temperature: 0.7,
     max_tokens: 512,
-    response_format: { type: "json_object" },
     tools: [{
       type: "function",
       function: {

@@ -808,8 +808,8 @@ export default function ResumePage() {
           w.isCurrent || w.endDate.trim() !== "";
         if (hasEndInfo) cnt++;
 
-        if (w.description.trim() !== "") cnt++;             // 5. description
-        if (w.achievements.trim() !== "") cnt++;            // 6. achievements
+        if ((w.description ?? "").trim() !== "") cnt++;     // 5. description
+        if ((w.achievements ?? "").trim() !== "") cnt++;    // 6. achievements
         return cnt;
       }, 0);
 
@@ -1361,7 +1361,7 @@ export default function ResumePage() {
                         <Label htmlFor={`jobDescription-${exp.id}`} className="text-xs sm:text-sm">
                           業務内容
                         </Label>
-                        <span className="text-xs text-gray-500">{exp.description.length}/500文字</span>
+                        <span className="text-xs text-gray-500">{(exp.description?.length ?? 0)}/500文字</span>
                       </div>
                       <Textarea
                         id={`jobDescription-${exp.id}`}
