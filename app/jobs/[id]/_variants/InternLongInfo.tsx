@@ -144,6 +144,13 @@ export default function InternInfo({
       : workingDaysRaw ?? "応相談"
 
 
+  const workingHours =
+    internship?.working_hours && internship.working_hours.trim() !== ""
+      ? internship.working_hours
+      : job?.working_hours && job.working_hours.trim() !== ""
+          ? job.working_hours
+          : "9:00〜18:00（休憩1時間）";
+
   const isNew =
     job?.created_at &&
     new Date(job.created_at).getTime() >
@@ -290,6 +297,11 @@ export default function InternInfo({
               <li className="flex gap-2">
                 <span>
                   福利厚生: {internship?.benefits ?? "—"}
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span>
+                  勤務時間: {workingHours}
                 </span>
               </li>
             </ul>
