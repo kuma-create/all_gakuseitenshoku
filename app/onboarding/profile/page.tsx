@@ -40,6 +40,8 @@ import {
   Briefcase, Building, Info, CheckCircle, Circle, User, Upload,
 } from "lucide-react";
 
+import DraftButton, { type AIDraft } from "@/components/ai/DraftButton";
+
 /* ------------------------------------------------------------
    util: 画像アップロード
 ------------------------------------------------------------ */
@@ -890,7 +892,7 @@ function Step4Inputs({
   return (
     <>
       {/* インターン経験の有無 */}
-      <div className="mb-4 flex items-center gap-2">
+      {/* <div className="mb-4 flex items-center gap-2">
         <input
           id="has_intern"
           type="checkbox"
@@ -901,7 +903,7 @@ function Step4Inputs({
         <Label htmlFor="has_intern" className="text-sm">
           インターン経験あり
         </Label>
-      </div>
+      </div>*/}
       <Card className="mb-6 border-2 border-primary/20 bg-primary/5 sm:mb-8">
     <CardHeader className="bg-primary/10 p-3 sm:p-6">
       <div className="flex items-center gap-2">
@@ -934,6 +936,14 @@ function Step4Inputs({
                   </h3>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2">
+                  <DraftButton
+                    prompt={exp}
+                    buttonLabel="AIで下書き"
+                    onInsert={(d: AIDraft) => {
+                      // AI が生成した本文を description フィールドへ上書き
+                      handleWorkExperienceChange(exp.id, "description", d.body);
+                    }}
+                  />
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-8">
                       {exp.isOpen ? (
@@ -1025,7 +1035,7 @@ function Step4Inputs({
                     <Label htmlFor={`jobDescription-${exp.id}`} className="text-xs sm:text-sm">
                       業務内容
                     </Label>
-                    <span className="text-xs text-gray-500">{exp.description.length}/500文字</span>
+                    <span className="text-xs text-gray-500">{(exp.description ?? "").length}/500文字</span>
                   </div>
                   <Textarea
                     id={`jobDescription-${exp.id}`}

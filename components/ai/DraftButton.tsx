@@ -17,13 +17,18 @@ export type AIDraft = {
  * フォーム値 (`prompt`) と書き戻しハンドラ (`onInsert`) を
  * props でもらうボタン。react‑hook‑form に依存しない。
  */
+type Props = {
+  prompt: any
+  onInsert: (draft: AIDraft) => void
+  /** ボタンに表示する文言。省略時は "AIで下書き" */
+  buttonLabel?: string
+}
+
 export default function DraftButton({
   prompt,
   onInsert,
-}: {
-  prompt: any;
-  onInsert: (draft: AIDraft) => void;
-}) {
+  buttonLabel = "AIで下書き",
+}: Props) {
   const supabase = createClientComponentClient();
   const [loading, setLoading] = useState(false);
 
@@ -52,7 +57,7 @@ export default function DraftButton({
       ) : (
         <Sparkles className="mr-2 h-4 w-4" />
       )}
-      AI で下書き
+      {buttonLabel}
     </Button>
   );
 }
