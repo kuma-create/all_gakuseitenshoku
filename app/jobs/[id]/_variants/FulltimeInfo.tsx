@@ -120,10 +120,51 @@ export default function FulltimeInfo({
   }
 
   /* ----- helpers ----- */
+  // --------------------------------------------
+  // If a job has a related `fulltime_details` row
+  // (selected as `fulltime_details(*)`), use it.
+  // --------------------------------------------
+  const details =
+    Array.isArray(job?.fulltime_details) && job.fulltime_details.length
+      ? job.fulltime_details[0]            // inner join returns array
+      : job?.fulltime_details ?? null;     // single object pattern
+
   const salary =
-    job?.salary_min && job?.salary_max
-      ? `年収${job.salary_min}万円〜${job.salary_max}万円`
-      : "非公開"
+    job?.salary_range && job.salary_range.trim() !== ""
+      ? job.salary_range
+      : "非公開";
+
+  const workingHours =
+    Array.isArray(job?.workHoursList) && job.workHoursList.length
+      ? job.workHoursList.filter(Boolean).join(" / ")
+      : details?.working_hours && details.working_hours.trim() !== ""
+          ? details.working_hours
+          : job?.working_hours && job.working_hours.trim() !== ""
+              ? job.working_hours
+              : "9:00〜18:00（休憩1時間）";
+
+  // Normalize older ↔ newer field names ----------------------------
+  const requirementsRaw =
+    job?.requirementsList ??
+    job?.qualificationsList ??
+    job?.requirements ??
+    job?.qualifications ??
+    "";
+  const skillsRaw =
+    job?.skillsList ??
+    job?.preferred_skills ??
+    job?.skills ??
+    "";
+
+  // 福利厚生（改行 or カンマ区切り想定）
+  const benefitsRaw =
+    Array.isArray(details?.benefits_list)
+      ? details!.benefits_list
+      : (details?.benefits ??
+         job?.benefits ??
+         "")
+          .replace(/,/g, "\n")
+          .split("\n");
 
   const isNew =
     job?.created_at &&
@@ -226,13 +267,13 @@ export default function FulltimeInfo({
               <RequirementBlock
                 title="応募資格"
                 icon={<Check size={16} />}
-                list={job?.requirements}
+                list={requirementsRaw}
               />
-              {job?.preferred_skills && (
+              {skillsRaw && (
                 <RequirementBlock
                   title="歓迎スキル"
                   icon={<Plus size={16} />}
-                  list={job.preferred_skills}
+                  list={skillsRaw}
                 />
               )}
             </SectionCard>
@@ -240,17 +281,28 @@ export default function FulltimeInfo({
             {/* working conditions */}
             <SectionCard icon={Clock} title="勤務時間・給与">
               <div className="space-y-5">
-                <ConditionBox title="勤務時間" text={job?.working_hours ?? "9:00〜18:00（休憩1時間）"} />
-                <ConditionBox title="給与" text={`${salary}（経験・能力により決定）`} />
+                <ConditionBox
+                  title="勤務時間"
+                  text={workingHours}
+                />
+
+                <ConditionBox
+                  title="給与"
+                  text={`${salary}（経験・能力により決定）`}
+                />
+
+                {/* 福利厚生 */}
                 <div>
                   <h3 className="mb-3 text-base font-medium">福利厚生</h3>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {(job?.benefits ?? "").split("\n").filter(Boolean).map((b: string, i: number) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <Check size={16} className="text-green-600" />
-                        <span className="text-gray-700">{b}</span>
-                      </div>
-                    ))}
+                    {benefitsRaw
+                      .filter(Boolean)
+                      .map((b: string, i: number) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <Check size={16} className="text-green-600" />
+                          <span className="text-gray-700">{b}</span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -305,13 +357,20 @@ function SectionCard({ icon: Icon, title, children }: { icon: any; title: string
   )
 }
 
-function RequirementBlock({ title, icon, list }: { title: string; icon: React.ReactNode; list?: string }) {
-  if (!list) return null
+function RequirementBlock({ title, icon, list }: { title: string; icon: React.ReactNode; list?: string | string[] }) {
+  if (!list) return null;
+  const items = Array.isArray(list)
+    ? list.map((l) => (typeof l === "string" ? l.trim() : l)).filter(Boolean)
+    : list
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+  if (!items.length) return null;
   return (
     <div className="mb-6 last:mb-0">
       <h3 className="mb-3 text-base font-medium">{title}</h3>
       <ul className="space-y-2 text-gray-700">
-        {list.split("\n").filter(Boolean).map((l: string, i: number) => (
+        {items.map((l: string, i: number) => (
           <li key={i} className="flex items-start gap-2">
             <div className="mt-1 text-red-600">{icon}</div>
             <span>{l}</span>
@@ -319,7 +378,7 @@ function RequirementBlock({ title, icon, list }: { title: string; icon: React.Re
         ))}
       </ul>
     </div>
-  )
+  );
 }
 
 function ConditionBox({ title, text }: { title: string; text: string }) {
