@@ -93,6 +93,21 @@ const prefectures = [
   "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県",
 ];
 
+/* 職種マスタ ― 表示順はスクリーンショット準拠 */
+const jobCategoryOptions = [
+  "エンジニア",
+  "経営・経営企画",
+  "企画",
+  "広報",
+  "営業",
+  "総務・人事",
+  "マーケティング",
+  "その他",
+  "コンサルタント",
+  "経理・財務",
+  "デザイナー",
+] as const;
+
 /* 国公立・私立主要大学（一部サンプル。必要に応じて追記してください） */
 const sampleUniversities = [
   "北海道大学","東北大学","東京大学","名古屋大学","京都大学","大阪大学","九州大学",
@@ -137,7 +152,7 @@ type Step4 = {
   company3: string;
   skill_text: string;
   qualification_text: string;
-  has_intern: boolean;           // インターン経験の有無
+  desired_positions: string[];   // 追加
 };
 
 type FormState = Step1 & Step2 & Step3 & Step4;
@@ -148,6 +163,7 @@ interface WorkExperience {
   isOpen: boolean;
   company: string;
   position: string;
+  jobTypes: string[];
   startDate: string;
   endDate: string;
   isCurrent: boolean;
@@ -165,7 +181,7 @@ const initialState: FormState = {
   university: "", faculty: "", department: "", graduation_month: null, join_ipo: false,
   work_summary: "", company1: "", company2: "", company3: "",
   skill_text: "", qualification_text: "",
-  has_intern: false,
+  desired_positions: [],
 };
 
 /* ---------------- プログレスステップコンポーネント ---------------- */
@@ -241,6 +257,7 @@ const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([
     isOpen: true,
     company: "",
     position: "",
+    jobTypes: [],
     startDate: "",
     endDate: "",
     isCurrent: false,
@@ -261,6 +278,7 @@ const addWorkExperience = () => {
       isOpen: true,
       company: "",
       position: "",
+      jobTypes: [],
       startDate: "",
       endDate: "",
       isCurrent: false,
@@ -288,11 +306,34 @@ const handleWorkExperienceChange = (
   field: keyof WorkExperience,
   value: string | boolean,
 ) => {
-  setWorkExperiences(
-    workExperiences.map((e) =>
+  setWorkExperiences((prev) =>
+    prev.map((e) =>
       e.id === id ? { ...e, [field]: value } : e,
     ),
   );
+};
+
+
+// --- jobTypes ドロップダウン変更ハンドラ
+const handleJobTypeChange = (id: number, value: string) => {
+  setWorkExperiences(prev =>
+    prev.map(exp =>
+      exp.id === id ? { ...exp, jobTypes: value ? [value] : [] } : exp
+    )
+  );
+};
+
+// --- desired_positions チェックボックスハンドラ
+const toggleDesiredPosition = (value: string, checked: boolean) => {
+  setForm(p => {
+    const list = p.desired_positions ?? [];
+    return {
+      ...p,
+      desired_positions: checked
+        ? [...new Set([...list, value])]
+        : list.filter(v => v !== value),
+    };
+  });
 };
 
   /* アバター */
@@ -614,6 +655,8 @@ const handleWorkExperienceChange = (
                   removeWorkExperience={removeWorkExperience}
                   toggleCollapsible={toggleCollapsible}
                   handleWorkExperienceChange={handleWorkExperienceChange}
+                  handleJobTypeChange={handleJobTypeChange}
+                  toggleDesiredPosition={toggleDesiredPosition}
                 />
               )}
 
@@ -876,6 +919,8 @@ function Step4Inputs({
   removeWorkExperience,
   toggleCollapsible,
   handleWorkExperienceChange,
+  handleJobTypeChange,
+  toggleDesiredPosition,
 }: {
   form: FormState;
   onChange: (e: InputChange) => void;
@@ -888,22 +933,12 @@ function Step4Inputs({
     field: keyof WorkExperience,
     value: string | boolean
   ) => void;
+  handleJobTypeChange: (id: number, value: string) => void;
+  toggleDesiredPosition: (value: string, checked: boolean) => void;
 }) {
   return (
     <>
-      {/* インターン経験の有無 */}
-      {/* <div className="mb-4 flex items-center gap-2">
-        <input
-          id="has_intern"
-          type="checkbox"
-          checked={form.has_intern}
-          onChange={onChange}
-          className="accent-red-600"
-        />
-        <Label htmlFor="has_intern" className="text-sm">
-          インターン経験あり
-        </Label>
-      </div>*/}
+
       <Card className="mb-6 border-2 border-primary/20 bg-primary/5 sm:mb-8">
     <CardHeader className="bg-primary/10 p-3 sm:p-6">
       <div className="flex items-center gap-2">
@@ -937,11 +972,10 @@ function Step4Inputs({
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2">
                   <DraftButton
-                    prompt={exp}
                     buttonLabel="AIで下書き"
                     onInsert={(d: AIDraft) => {
-                      // AI が生成した本文を description フィールドへ上書き
-                      handleWorkExperienceChange(exp.id, "description", d.body);
+                      handleWorkExperienceChange(exp.id, "description",  d.description);
+                      handleWorkExperienceChange(exp.id, "achievements", d.achievements);
                     }}
                   />
                   <CollapsibleTrigger asChild>
@@ -978,17 +1012,38 @@ function Step4Inputs({
                     onChange={(e) => handleWorkExperienceChange(exp.id, "company", e.target.value)}
                   />
                 </div>
+                {/* 職種（複数選択可） */}
                 <div className="space-y-1 sm:space-y-2">
-                  <Label htmlFor={`position-${exp.id}`} className="text-xs sm:text-sm">
-                    役職・ポジション
+                  <Label className="text-xs sm:text-sm">職種 <span className="ml-1 text-gray-500">(複数選択可)</span></Label>
+                  <div className="grid grid-cols-3 gap-y-2 sm:grid-cols-4">
+                    {jobCategoryOptions.map((cat) => (
+                      <label key={cat} className="flex items-center gap-1 text-xs sm:text-sm">
+                        <Checkbox
+                          checked={form.desired_positions.includes(cat)}
+                          onCheckedChange={(checked) => toggleDesiredPosition(cat, checked === true)}
+                          className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                        />
+                        <span>{cat}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {/* 役職・ポジション（プルダウン） */}
+                <div className="space-y-1 sm:space-y-2">
+                  <Label htmlFor={`jobType-${exp.id}`} className="text-xs sm:text-sm">
+                    役職・ポジション<span className="ml-1 text-gray-500"></span>
                   </Label>
-                  <Input
-                    id={`position-${exp.id}`}
-                    placeholder="インターン、アルバイトなど"
-                    className="h-8 text-xs sm:h-10 sm:text-sm"
-                    value={exp.position}
-                    onChange={(e) => handleWorkExperienceChange(exp.id, "position", e.target.value)}
-                  />
+                  <select
+                    id={`jobType-${exp.id}`}
+                    className="h-8 w-full rounded-md border px-2 text-xs sm:h-10 sm:text-sm"
+                    value={exp.jobTypes[0] ?? ""}
+                    onChange={(e) => handleJobTypeChange(exp.id, e.target.value)}
+                  >
+                    <option value="">選択してください</option>
+                    {["メンバー","リーダー","マネージャー","責任者","役員","代表"].map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <div className="space-y-1 sm:space-y-2">
@@ -1047,7 +1102,7 @@ function Step4Inputs({
                   />
                   <p className="text-xs italic text-gray-500">
                     例:
-                    「Webアプリケーションの開発チームに参加し、フロントエンド実装を担当。React.jsを用いたUI開発を行い、チームの納期目標を達成した。」
+                    「Webアプリケーションの開発チームに参加し、フロントエンド実装を担当。React.jsを用いたUI開発を行いました。」
                   </p>
                 </div>
                 <div className="space-y-1 sm:space-y-2">
