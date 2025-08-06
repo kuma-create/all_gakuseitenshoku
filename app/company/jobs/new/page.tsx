@@ -338,6 +338,8 @@ export default function NewJobPage() {
       newErrors.workingDays = "勤務日を入力してください"
     if (selectionType === "fulltime" && !formData.salary.trim())
       newErrors.salary = "給与を入力してください"
+    if (selectionType === "fulltime" && !formData.workingHours.trim())
+      newErrors.workingHours = "勤務時間を入力してください"
 
     // internship_short 必須
     if (selectionType === "internship_short") {
@@ -986,11 +988,8 @@ export default function NewJobPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* workingDays / workingHours */}
                     <div>
-                      <Label
-                        htmlFor="workingDays"
-                        className="flex items-center after:ml-0.5 after:text-red-600 after:content-['*']"
-                      >
-                        勤務日
+                      <Label htmlFor="workingDays" className="flex items-center gap-1">
+                        勤務日<span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
                         <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
@@ -1006,7 +1005,9 @@ export default function NewJobPage() {
                       {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
                     </div>
                     <div>
-                      <Label htmlFor="workingHours" className="flex items-center">勤務時間</Label>
+                      <Label htmlFor="workingHours" className="flex items-center gap-1">
+                        勤務時間<span className="text-red-500">*</span>
+                      </Label>
                       <div className="relative">
                         <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
                         <Input
@@ -1014,10 +1015,13 @@ export default function NewJobPage() {
                           name="workingHours"
                           value={formData.workingHours}
                           onChange={handleInputChange}
-                          className="pl-10 mt-1"
+                          className={`pl-10 mt-1 ${errors.workingHours ? "border-red-500" : ""}`}
                           placeholder="例: 9:00〜18:00（休憩1時間）"
                         />
                       </div>
+                      {errors.workingHours && (
+                        <p className="text-sm text-red-500 mt-1">{errors.workingHours}</p>
+                      )}
                     </div>
                   </div>
                   {/* salary */}
