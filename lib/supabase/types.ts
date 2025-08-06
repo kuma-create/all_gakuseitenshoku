@@ -226,6 +226,35 @@ export type Database = {
         }
         Relationships: []
       }
+      career_calendars: {
+        Row: {
+          plan_json: Json | null
+          school_year: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          plan_json?: Json | null
+          school_year?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          plan_json?: Json | null
+          school_year?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_calendars_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_questions: {
         Row: {
           challenge_id: string
@@ -3115,7 +3144,7 @@ export type Database = {
           status: string
           subject: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           category: string
@@ -3125,7 +3154,7 @@ export type Database = {
           status?: string
           subject: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           category?: string
@@ -3135,7 +3164,7 @@ export type Database = {
           status?: string
           subject?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

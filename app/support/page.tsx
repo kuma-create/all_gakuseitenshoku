@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import type { Database } from "@/lib/supabase/types";
 
 // ⚙️ UI Components (ShadCN)
 import { Input } from "@/components/ui/input";
@@ -23,11 +24,11 @@ import { supabase } from "@/lib/supabase/client";
    Zod schema & types
 ------------------------------------------------------------------ */
 const schema = z.object({
-  subject: z.string().min(3, "件名を入力してください"),
+  subject: z.string().min(1, "件名を入力してください"),
   category: z.enum(["general", "bug", "feature", "billing"], {
     required_error: "カテゴリーを選択してください",
   }),
-  message: z.string().min(10, "お問い合わせ内容を入力してください"),
+  message: z.string().min(1, "お問い合わせ内容を入力してください"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -125,17 +126,20 @@ async function createInquiry(values: FormValues) {
     error: authError,
   } = await supabase.auth.getUser();
 
-  if (!user || authError) {
-    return { error: authError ?? new Error("not_authenticated") } as const;
+  if (authError) {
+    return { error: authError } as const;
   }
 
-  const { error } = await supabase.from("support_inquiries").insert({
-    user_id: user.id,
+  // 組み立てるデータオブジェクト（型を明示）
+  const data: Database["public"]["Tables"]["support_inquiries"]["Insert"] = {
     subject: values.subject,
     category: values.category,
     message: values.message,
     status: "open",
-  });
+    user_id: user ? user.id : null, // nullable 列なので null 可
+  };
+
+  const { error } = await supabase.from("support_inquiries").insert(data);
 
   if (error) {
     return { error } as const;
