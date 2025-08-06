@@ -26,7 +26,6 @@ import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/lib/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Script from "next/script";
 
@@ -69,7 +68,7 @@ export default function SignupPage() {
     first_name: "",
     email     : "",
     password  : "",
-    referral  : "",
+    referral_source  : "",
     graduation_month: "",
   });
 
@@ -98,6 +97,7 @@ export default function SignupPage() {
   /* ---------------- signup submit ---------------- */
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
     // --- ensure latest referral_code ---
     let refCode = referralCode;
     if (!refCode && typeof window !== "undefined") {
@@ -106,51 +106,44 @@ export default function SignupPage() {
       refCode = urlRef || lsRef;
       if (refCode) setReferralCode(refCode); // sync state for future use
     }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      /* ---------- Supabase Auth signUp ---------- */
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          /* raw_user_meta_data に保存する */
-          data: {
-            first_name: formData.first_name,
-            last_name : formData.last_name,
-            referral  : formData.referral,
-            referral_code: refCode ?? "",
-            graduation_month: formData.graduation_month,
-          },
-          /* 認証メールのリンク遷移先（適宜変更） */
-          emailRedirectTo: `${location.origin}/auth/callback`,
-        },
+      /* ---------- call server route ---------- */
+      const res = await fetch("/api/signup", {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({
+          email            : formData.email,
+          password         : formData.password,
+          first_name       : formData.first_name,
+          last_name        : formData.last_name,
+          referral_source  : formData.referral_source,
+          referral_code    : refCode ?? "",
+          graduation_month : formData.graduation_month,
+        }),
       });
 
-      /* ---------------- duplicate email handling ---------------- */
-      if (error) {
-        const msg = error.message ?? "";
-        const isDuplicate =
-          /already/i.test(msg) ||
-          /exists/i.test(msg) ||
-          /duplicate/i.test(msg);
-
-        if (isDuplicate) {
+      const json = await res.json();
+      if (!res.ok) {
+        // duplicate email などは 400 で返ってくる想定
+        const msg = json?.error ?? "登録中に問題が発生しました。もう一度お試しください。";
+        // 重複メール判定
+        if (/already|exists|duplicate/i.test(msg)) {
           setError("そのメールアドレスはすでに登録されています。ログインしてください。");
           setTimeout(() => router.push("/login"), 1000);
-          return;
+        } else {
+          setError(msg);
         }
-        throw error;
+        return;
       }
 
-      /* 完了画面へ */
-      if (data?.user?.id) {
-        setNewUserId(data.user.id);
-      }
+      /* ---------- success ---------- */
+      if (json?.id) setNewUserId(json.id);
       try { localStorage.removeItem("referral_code"); } catch (_) {}
       setStep(2);
-
     } catch (err: any) {
       console.error(err);
       setError(err.message ?? "登録中に問題が発生しました。もう一度お試しください。");
@@ -278,11 +271,11 @@ export default function SignupPage() {
 
                     {/* ▼ 流入経路 ▼ */}
                     <div className="grid gap-2">
-                      <Label htmlFor="referral">どこで知りましたか？</Label>
+                      <Label htmlFor="referral_source">どこで知りましたか？</Label>
                       <select
-                        id="referral"
+                        id="referral_source"
                         required
-                        value={formData.referral}
+                        value={formData.referral_source}
                         onChange={handleInputChange}
                         className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-red-600"
                       >
