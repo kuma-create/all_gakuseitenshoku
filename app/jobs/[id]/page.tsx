@@ -106,14 +106,13 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
             id,
             title,
             description,
+            requirements,
             location,
             work_type,
             salary_range,
-            benefits,
             selection_type,
             created_at,
             company_id,
-            *,
             company:companies(
               id,
               name,
@@ -126,25 +125,45 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
               website,
               description
             ),
-            internship:internship_details!job_id(*),
-            intern_long_details!job_id(
+            internship:internship_details!job_id(
+              start_date,
+              end_date,
+              work_days_per_week
+            ),
+            intern_long:intern_long_details!job_id(
               min_duration_months,
               work_days_per_week,
-              remuneration_type,
               hourly_wage,
-              commission_rate,
               travel_expense,
               nearest_station,
-              benefits,
-              working_hours
+              benefits
             ),
-            fulltime:fulltime_details!job_id(*),
-            event:event_details!job_id(*)
+            fulltime:fulltime_details!job_id(
+              working_days,
+              working_hours, 
+              benefits
+            ),
+            event:event_details!job_id(
+              event_date,
+              capacity,
+              venue,
+              format,
+              is_online
+            )
           `)
           .eq("id", id)
           .limit(1)              // まず 1 件に絞る
 
-        if (selErr) throw selErr
+        if (selErr) {
+          // expose Supabase error details for easier debugging
+          console.error("[selections_view] Supabase error:", {
+            message: selErr.message,
+            details: selErr.details,
+            hint: selErr.hint,
+            code: selErr.code,
+          });
+          throw new Error(selErr.message || selErr.details || "取得に失敗しました");
+        }
         if (!selRows || selRows.length === 0) {
           throw new Error("選考が見つかりませんでした")
         }
@@ -199,9 +218,72 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
             (sel as any).requirementsList = tokens;
           }
         }
+
+        /* ---- fallback: work hours & benefits from joined / nested columns ---- */
+
+        // --- Work Hours ---
+        // Merge explicit hours (job_work_hours & working_hours) with days‑per‑week information
+        let combinedWH: (string | null)[] = [...workHoursList];
+
+        // 1) working_hours columns (exact time range)
+        const explicitHours =
+          (sel as any).fulltime?.working_hours ??
+          (sel as any).intern_long?.working_hours ??
+          (sel as any).internship?.working_hours; // in case you add later
+
+        if (explicitHours && String(explicitHours).trim() !== "") {
+          combinedWH.push(String(explicitHours).trim());
+        }
+
+        // 2) days‑per‑week columns
+        const dPerWeek =
+          (sel as any).internship?.work_days_per_week ??
+          (sel as any).intern_long?.work_days_per_week ??
+          (sel as any).fulltime?.working_days;
+
+        if (dPerWeek) {
+          // If numeric => "週 N 日", else use the raw string
+          const token = /^\d+$/.test(String(dPerWeek).trim())
+            ? `週 ${dPerWeek} 日`
+            : String(dPerWeek).trim();
+          combinedWH.push(token);
+        }
+
+        // remove null / empty & duplicates
+        combinedWH = [...new Set(combinedWH.filter(Boolean))];
+
+        if (combinedWH.length > 0) {
+          (sel as any).workHoursList = combinedWH;
+        }
+
+        // --- Benefits ---
+        if (!benefitsList || benefitsList.length === 0) {
+          const rawBen =
+            (sel as any).fulltime?.benefits ??
+            (sel as any).fulltime?.benefits_list ??
+            (sel as any).intern_long?.benefits ??
+            (sel as any).intern_long?.benefits_list;
+
+          let tokens: string[] = [];
+
+          if (typeof rawBen === "string" && rawBen.trim() !== "") {
+            tokens = rawBen
+              // split by common Japanese separators as well
+              .split(/\r?\n|・|,|、|／|\//)
+              .map((t: string) => t.trim())
+              .filter(Boolean);
+          } else if (Array.isArray(rawBen)) {
+            tokens = rawBen.map((t: any) => String(t).trim()).filter(Boolean);
+          }
+
+          if (tokens.length > 0) {
+            (sel as any).benefitsList = tokens;
+          }
+        }
+
         (sel as any).skillsList       = skillsList;
-        (sel as any).workHoursList    = workHoursList;
-        (sel as any).benefitsList     = benefitsList;
+        (sel as any).workHoursList    = (sel as any).workHoursList ?? workHoursList;
+        (sel as any).benefitsList     = (sel as any).benefitsList  ?? benefitsList;
 
         /* tags */
         const { data: tagRows } = await supabase

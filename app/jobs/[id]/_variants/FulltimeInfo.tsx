@@ -134,14 +134,38 @@ export default function FulltimeInfo({
       ? job.salary_range
       : "非公開";
 
-  const workingHours =
-    Array.isArray(job?.workHoursList) && job.workHoursList.length
-      ? job.workHoursList.filter(Boolean).join(" / ")
-      : details?.working_hours && details.working_hours.trim() !== ""
-          ? details.working_hours
-          : job?.working_hours && job.working_hours.trim() !== ""
-              ? job.working_hours
-              : "9:00〜18:00（休憩1時間）";
+  // 勤務時間（勤務日数と就業時間の両方を結合して表示）
+  const workingHoursArr: string[] = [];
+
+  // ① サーバー側で生成済みの workHoursList
+  if (Array.isArray(job?.workHoursList) && job.workHoursList.length) {
+    workingHoursArr.push(
+      ...job.workHoursList.map((w: any) => String(w).trim()).filter(Boolean),
+    );
+  }
+
+  // ② fulltime_details 上のカラム
+  if (details?.working_days && details.working_days.trim() !== "") {
+    workingHoursArr.push(details.working_days.trim());
+  }
+  if (details?.working_hours && details.working_hours.trim() !== "") {
+    workingHoursArr.push(details.working_hours.trim());
+  }
+
+  // ③ jobs テーブルのフォールバック
+  if (job?.working_days && job.working_days.trim() !== "") {
+    workingHoursArr.push(job.working_days.trim());
+  }
+  if (job?.working_hours && job.working_hours.trim() !== "") {
+    workingHoursArr.push(job.working_hours.trim());
+  }
+
+  // ④ デフォルト
+  if (workingHoursArr.length === 0) {
+    workingHoursArr.push("9:00〜18:00（休憩1時間）");
+  }
+
+  const workingHours = [...new Set(workingHoursArr)].join(" / ");
 
   // Normalize older ↔ newer field names ----------------------------
   const requirementsRaw =
@@ -156,15 +180,18 @@ export default function FulltimeInfo({
     job?.skills ??
     "";
 
-  // 福利厚生（改行 or カンマ区切り想定）
+  // 福利厚生（改行・カンマ等区切り想定、配列フィールドも考慮）
   const benefitsRaw =
     Array.isArray(details?.benefits_list)
       ? details!.benefits_list
-      : (details?.benefits ??
-         job?.benefits ??
-         "")
-          .replace(/,/g, "\n")
-          .split("\n");
+      : Array.isArray(job?.benefitsList)
+        ? job.benefitsList
+        : (details?.benefits ??
+           job?.benefits ??
+           "")
+            .split(/\r?\n|・|,|、|／|\//)
+            .map((b: string) => b.trim())
+            .filter(Boolean);
 
   const isNew =
     job?.created_at &&
