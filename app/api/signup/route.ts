@@ -16,7 +16,8 @@ export async function POST(req: Request) {
     password,
     first_name,
     last_name,
-    referral,
+    referral_source,
+    referral_code,
     graduation_month,
   } = await req.json();
 
@@ -43,8 +44,8 @@ export async function POST(req: Request) {
         first_name,
         last_name,
         graduation_month,
-        referral_source: referral ?? "",
-        referral_code: referral ?? "",
+        referral_source: referral_source ?? "",
+        referral_code: referral_code ?? "",
       },
     });
 
@@ -96,7 +97,7 @@ export async function POST(req: Request) {
           last_name,
           full_name: `${last_name ?? ""} ${first_name ?? ""}`.trim(),
           graduation_month,
-          referral_source: referral ?? "",
+          referral_source: referral_source ?? "",
         },
       ],
       { onConflict: "id" }          // PK/UNIQUE 列名
@@ -159,4 +160,3 @@ export async function POST(req: Request) {
   /* 7) 成功レスポンス -------------------------------------------------- */
   return NextResponse.json({ ok: true, id: userId });
 }
-

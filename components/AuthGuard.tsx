@@ -24,6 +24,7 @@ export default function AuthGuard() {
       "/features", 
       "/onboarding/profile",
       "/refer",
+      "/support",
       "/media",
       "/companies",
       "/whitepapers", 

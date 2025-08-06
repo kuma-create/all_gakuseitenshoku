@@ -226,6 +226,35 @@ export type Database = {
         }
         Relationships: []
       }
+      career_calendars: {
+        Row: {
+          plan_json: Json | null
+          school_year: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          plan_json?: Json | null
+          school_year?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          plan_json?: Json | null
+          school_year?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_calendars_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_questions: {
         Row: {
           challenge_id: string
@@ -1959,6 +1988,103 @@ export type Database = {
         }
         Relationships: []
       }
+      mentor_bookings: {
+        Row: {
+          id: string
+          question: string | null
+          slot_id: string | null
+          status: string | null
+          student_id: string | null
+        }
+        Insert: {
+          id?: string
+          question?: string | null
+          slot_id?: string | null
+          status?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          id?: string
+          question?: string | null
+          slot_id?: string | null
+          status?: string | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_bookings_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "mentor_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentor_bookings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentor_slots: {
+        Row: {
+          end: string | null
+          id: string
+          is_booked: boolean | null
+          mentor_id: string | null
+          start: string | null
+        }
+        Insert: {
+          end?: string | null
+          id?: string
+          is_booked?: boolean | null
+          mentor_id?: string | null
+          start?: string | null
+        }
+        Update: {
+          end?: string | null
+          id?: string
+          is_booked?: boolean | null
+          mentor_id?: string | null
+          start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_slots_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentors: {
+        Row: {
+          id: string
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           answered_at: string | null
@@ -3018,7 +3144,7 @@ export type Database = {
           status: string
           subject: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           category: string
@@ -3028,7 +3154,7 @@ export type Database = {
           status?: string
           subject: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           category?: string
@@ -3038,7 +3164,7 @@ export type Database = {
           status?: string
           subject?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -3101,6 +3227,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_signups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_subscriptions: {
+        Row: {
+          created_at: string | null
+          current_period_end: string | null
+          id: string
+          is_active: boolean | null
+          plan: string
+          stripe_customer_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_period_end?: string | null
+          id?: string
+          is_active?: boolean | null
+          plan: string
+          stripe_customer_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_period_end?: string | null
+          id?: string
+          is_active?: boolean | null
+          plan?: string
+          stripe_customer_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "company_member_emails"

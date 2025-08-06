@@ -243,7 +243,7 @@ export default function ScoutPage() {
           /* ---------- 職務経歴書入力率 ---------- */
           // ---------- work_experiences ---------- //
           // ソース: ① resumes.work_experiences と ② resumes.form_data.work_experiences
-          // 両方をマージして評価する。必須 4 項目 (company, position, description, achievements)
+          // 両方をマージして評価する。必須 3 項目 (company, position, description)
           let worksRaw: unknown[] = []
 
           if (resume) {
@@ -267,12 +267,11 @@ export default function ScoutPage() {
           const works = worksRaw.filter(Boolean) as any[]  // null/undefined guard
           let totalReq = 0, totalFilled = 0
           works.forEach((w) => {
-            totalReq += 4
+            totalReq += 3
             if (filled(w.company))                  totalFilled++
             // position (typo guard: positon)
             if (filled(w.position ?? w.positon))    totalFilled++
             if (filled(w.description))              totalFilled++
-            if (filled(w.achievements))             totalFilled++
           })
           const workPct = totalReq ? Math.round((totalFilled / totalReq) * 100) : 0
           /* ---------- 総合入力率 ---------- */
@@ -284,9 +283,9 @@ export default function ScoutPage() {
           // 基本情報 50% / 自己 PR 20% / 希望条件 15% / 職経歴書 15%
           const completionPct = Math.round(
             basicPct * 0.50 +
-            prPct    * 0.20 +
-            prefPct  * 0.30 +
-            resumeOverall * 0.
+            prPct    * 0.30 +
+            prefPct  * 0.20 +
+            resumeOverall * 0
           )
           const normalized: Student = {
             ...row,
