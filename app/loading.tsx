@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { AnimatedLogo } from '@/components/animated-logo';
+import Image from 'next/image';
 
 export default function GlobalLoading() {
   // Fade‑out state
@@ -24,11 +24,23 @@ export default function GlobalLoading() {
           fadeOut && 'opacity-0 pointer-events-none'
         )}
       >
-        <AnimatedLogo />
+        <Image
+          src="/logo2.png"
+          alt="Loading logo"
+          width={160}
+          height={160}
+          priority
+          className="w-32 sm:w-40 lg:w-48 h-auto drop-shadow-lg animate-[float_6s_ease-in-out_infinite]"
+        />
       </div>
 
       {/* ---- Animations (global) --------------------------------------------- */}
       <style jsx global>{`
+        /* Floating animation for logo */
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-25px); }
+        }
         /* Animated hero gradient background */
         @keyframes heroBg {
           0%,
