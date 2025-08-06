@@ -55,7 +55,20 @@ type CompanyRow = {
   website: string | null
   description: string | null
 }
-type SelectionWithCompany = SelectionRow & { company?: CompanyRow | null }
+type SelectionWithCompany = SelectionRow & {
+  company?: CompanyRow | null
+  /** raw nested relation rows pulled from Supabase */
+  requirements?: { requirement: string }[]
+  skills?: { skill: string }[]
+  work_hours?: { hours: string | null }[]
+  benefits?: { benefit: string }[]
+  /** flattened arrays for easy consumption by variant UIs */
+  requirementsList?: string[]
+  skillsList?: string[]
+  workHoursList?: (string | null)[]
+  benefitsList?: string[]
+  salary_range?: string | null
+}
 
 /* ---------- メイン ---------- */
 export default function JobDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -90,6 +103,16 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
         const { data: selRows, error: selErr } = await supabase
           .from("selections_view")
           .select(`
+            id,
+            title,
+            description,
+            location,
+            work_type,
+            salary_range,
+            benefits,
+            selection_type,
+            created_at,
+            company_id,
             *,
             company:companies(
               id,
@@ -109,7 +132,11 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
               work_days_per_week,
               remuneration_type,
               hourly_wage,
-              commission_rate
+              commission_rate,
+              travel_expense,
+              nearest_station,
+              benefits,
+              working_hours
             ),
             fulltime:fulltime_details!job_id(*),
             event:event_details!job_id(*)
@@ -123,6 +150,58 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
         }
 
         const sel = selRows[0] as unknown as SelectionWithCompany
+
+        /* ---- fetch requirements / skills / hours / benefits ---- */
+        const [
+          { data: reqRows,  error: reqErr },
+          { data: sklRows,  error: sklErr },
+          { data: hrsRows,  error: hrsErr },
+          { data: benRows,  error: benErr },
+        ] = await Promise.all([
+          // @ts-expect-error job_requirements not in generated types yet
+          supabase.from("job_requirements").select("requirement").eq("job_id", id),
+          // @ts-expect-error job_skills not in generated types yet
+          supabase.from("job_skills").select("skill").eq("job_id", id),
+          // @ts-expect-error job_work_hours not in generated types yet
+          supabase.from("job_work_hours").select("hours").eq("job_id", id),
+          // @ts-expect-error job_benefits not in generated types yet
+          supabase.from("job_benefits").select("benefit").eq("job_id", id),
+        ]);
+
+        if (reqErr || sklErr || hrsErr || benErr) {
+          console.warn("detail fetch error", reqErr, sklErr, hrsErr, benErr);
+        }
+
+        const requirementsList =
+          Array.isArray(reqRows) ? reqRows.map((r: any) => (r as any).requirement) : [];
+        const skillsList =
+          Array.isArray(sklRows) ? sklRows.map((s: any) => (s as any).skill) : [];
+        const workHoursList =
+          Array.isArray(hrsRows) ? hrsRows.map((h: any) => (h as any).hours) : [];
+        const benefitsList =
+          Array.isArray(benRows) ? benRows.map((b: any) => (b as any).benefit) : [];
+
+        /* attach flattened arrays */
+        (sel as any).requirementsList = requirementsList;
+        /* ---- fallback: use jobs.requirements text column ---- */
+        const rawReq = (sel as any).requirements;
+        if (
+          (!(sel as any).requirementsList ||
+            (sel as any).requirementsList.length === 0) &&
+          typeof rawReq === "string"
+        ) {
+          const clean = rawReq.trim();
+          if (clean !== "") {
+            const tokens = clean
+              .split(/\r?\n|・|,/)
+              .map((t: string) => t.trim())
+              .filter(Boolean);
+            (sel as any).requirementsList = tokens;
+          }
+        }
+        (sel as any).skillsList       = skillsList;
+        (sel as any).workHoursList    = workHoursList;
+        (sel as any).benefitsList     = benefitsList;
 
         /* tags */
         const { data: tagRows } = await supabase
@@ -266,9 +345,7 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
           job.selection_type === "event" ? "イベント" : "ポジション"
         }「${job.title}」の詳細ページです。勤務地：${
           job.location ?? "未定"
-        }。給与：${job.salary_min ?? "非公開"}〜${
-          job.salary_max ?? "非公開"
-        }。`
+        }。給与：${job.salary_range ?? "非公開"}。`
       : "学生向け求人詳細ページ。";
 
   // --- choose variant component ---

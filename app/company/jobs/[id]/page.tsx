@@ -68,6 +68,7 @@ type FormData = {
   capacity: string
   venue: string
   format: "onsite" | "online" | "hybrid"
+  schedule: string 
 }
 
 import { useState, useEffect, useRef } from "react"
@@ -203,6 +204,7 @@ const fetchJob = async (id: string) => {
     capacity  : event.capacity ? String(event.capacity) : "",
     venue     : event.venue ?? "",
     format    : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
+    schedule  : event.schedule ?? "", 
 
 
     /* 共通プレビュー */
@@ -213,7 +215,7 @@ const fetchJob = async (id: string) => {
     views         : data.views ?? 0,
     companyId     : data.company_id,
     createdAt     : data.created_at,
-    updatedAt     : data.updated_at,
+    // updatedAt     : data.updated_at, // removed, as updated_at is not selected
   }
 }
 
@@ -318,6 +320,7 @@ export default function JobEditPage() {
     capacity: "",
     venue: "",
     format: "onsite",
+    schedule: "",
   })
 
   useEffect(() => {
@@ -358,6 +361,7 @@ export default function JobEditPage() {
           capacity  : jobData.capacity,
           venue     : jobData.venue,
           format    : jobData.format,
+          schedule  : jobData.schedule, 
         } as FormData)
       } catch (error: any) {
         // --- 詳細ログを出力 ---
@@ -446,6 +450,9 @@ export default function JobEditPage() {
     }
     if (job.selectionType === "fulltime" && !formData.salary.trim())
       newErrors.salary = "給与は必須です";
+    if (job.selectionType === "fulltime" && !formData.workingHours.trim()) {
+      newErrors.workingHours = "勤務時間は必須です";
+    }
 
     if (job.selectionType === "internship_short") {
       if (!formData.startDate.trim()) newErrors.startDate = "開始日は必須です";
@@ -572,6 +579,7 @@ export default function JobEditPage() {
             capacity   : formData.capacity ? Number(formData.capacity) : null,
             venue      : formData.venue || null,
             format     : formData.format,
+            schedule   : formData.schedule || null, 
 
           }
           break
@@ -1030,8 +1038,8 @@ export default function JobEditPage() {
               {/* 勤務日・勤務時間 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="workingDays" className="flex items-center">
-                    勤務日 <span className="text-red-500 ml-1">*</span>
+                  <Label htmlFor="workingDays" className="flex items-center gap-1">
+                    勤務日<span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="workingDays"
@@ -1044,15 +1052,20 @@ export default function JobEditPage() {
                   {errors.workingDays && <p className="text-sm text-red-500 mt-1">{errors.workingDays}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="workingHours">勤務時間</Label>
+                  <Label htmlFor="workingHours" className="flex items-center gap-1">
+                    勤務時間<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="workingHours"
                     name="workingHours"
                     value={formData.workingHours}
                     onChange={handleInputChange}
-                    className="mt-1"
+                    className={`mt-1 ${errors.workingHours ? "border-red-500" : ""}`}
                     placeholder="例: 9:00〜18:00（休憩1時間）"
                   />
+                  {errors.workingHours && (
+                    <p className="text-sm text-red-500 mt-1">{errors.workingHours}</p>
+                  )}
                 </div>
               </div>
 
