@@ -5,6 +5,11 @@
 
 import { useState, useEffect, useRef, HTMLInputTypeAttribute } from "react"
 import { flushSync } from "react-dom";
+// Detect Safari so we can gracefully degrade unsupported input types
+const isSafari =
+  typeof navigator !== "undefined" &&
+  /Safari/.test(navigator.userAgent) &&
+  !/Chrome/.test(navigator.userAgent);
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
   GraduationCap, Code, ChevronUp, Info, Loader2,
@@ -699,23 +704,25 @@ export default function StudentProfilePage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FieldInput
                       id="admission_month"
-                      type="month"
+                      type={isSafari ? "text" : "month"}
                       label="入学年月"
                       value={profile.admission_month?.slice(0, 7) ?? ''}
                       min="2018-01"
                       max="2030-12"
                       onChange={(v) => updateMark({ admission_month: v })}
                       onBlur={handleBlur}
+                      placeholder="YYYY-MM"
                     />
                     <FieldInput
                       id="graduation_month"
-                      type="month"
+                      type={isSafari ? "text" : "month"}
                       label="卒業予定月"
                       value={profile.graduation_month?.slice(0, 7) ?? ''}
                       min="2018-01"
                       max="2030-12"
                       onChange={(v) => updateMark({ graduation_month: v })}
                       onBlur={handleBlur}
+                      placeholder="YYYY-MM"
                     />
                   </div>
                   <FieldTextarea
