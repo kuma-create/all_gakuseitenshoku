@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getArticles } from '@/lib/getArticles'           // 既存のロジックを再利用
 
+const CACHE_SECONDS = 3600; // 1 hour edge‑cache
 
 export const revalidate = 3600  // ISR：1時間キャッシュ（任意）
 // 動的処理を含むため静的プリレンダを無効化
@@ -38,9 +39,24 @@ export async function GET(req: Request) {
       return categoryMatch && searchMatch
     })
 
-    return NextResponse.json({ articles: filtered })
+    return NextResponse.json(
+      { articles: filtered },
+      {
+        headers: {
+          'Cache-Control': `s-maxage=${CACHE_SECONDS}, stale-while-revalidate`
+        }
+      }
+    )
   } catch (err) {
     console.error(err)
-    return NextResponse.json({ message: 'failed' }, { status: 500 })
+    return NextResponse.json(
+      { message: 'failed' },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': `s-maxage=${CACHE_SECONDS}, stale-while-revalidate`
+        }
+      }
+    )
   }
 }
