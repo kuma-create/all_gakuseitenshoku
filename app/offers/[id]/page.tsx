@@ -133,6 +133,7 @@ type ScoutWithRelations = {
 /* ------------------------------------------------------------------ */
 export default function OfferDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params.id;
   const [offer, setOffer] = useState<OfferDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -150,21 +151,29 @@ export default function OfferDetailPage() {
           throw new Error("URL が不正です（id が取得できません）")
         }
 
-        /* ① 学生氏名を取得 ----------------------- */
+        /* ① 学生氏名を取得 & 未ログインなら /login へ -------- */
         const {
           data: { user },
-        } = await supabase.auth.getUser()
+        } = await supabase.auth.getUser();
 
-        let fullName = ""
-        if (user?.id) {
-          const { data: profile } = await supabase
-            .from("student_profiles")
-            .select("full_name")
-            .eq("user_id", user.id)
-            .single()
-          fullName = profile?.full_name ?? ""
+        if (!user) {
+          // 未ログイン → /login?next=現在のURL へ転送
+          router.replace(
+            `/login?next=${encodeURIComponent(
+              window.location.pathname + window.location.search,
+            )}`,
+          );
+          return; // これ以上処理しない
         }
-        /* --------------------------------------- */
+
+        let fullName = "";
+        const { data: profile } = await supabase
+          .from("student_profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .single();
+        fullName = profile?.full_name ?? "";
+        /* ------------------------------------------------ */
 
         /* ② scouts, companies, jobs を取得 ------- */
         const { data, error } = await supabase
