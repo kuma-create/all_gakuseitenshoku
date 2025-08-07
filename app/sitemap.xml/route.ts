@@ -71,7 +71,7 @@ export async function GET() {
       supabase
         .from("intern_long_details")
         .select("id, updated_at, created_at")
-        .eq("published", true)
+        // Intern listings are controlled via jobs table; no published flag here
         .order("created_at", { ascending: false })
         .limit(MAX_URLS)
         .returns<InternLite[]>(),
