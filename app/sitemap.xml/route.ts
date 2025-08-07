@@ -6,16 +6,19 @@ import { formatISO } from "date-fns";
 type JobLite = {
   id: string;
   updated_at: string | null;
+  created_at: string | null;
 };
 
 type MediaLite = {
   slug: string;
   updated_at: string | null;
+  created_at: string | null;
 };
 
 type InternLite = {
   id: string;
   updated_at: string | null;
+  created_at: string | null;
 };
 
 /**
@@ -23,8 +26,10 @@ type InternLite = {
  * Override by setting NEXT_PUBLIC_SITE_URL when running on preview/other domains.
  */
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp";
+const MAX_URLS = 50000; // 1‑file limit per sitemap spec
+const BUILD_TIME = formatISO(new Date());
 
-type StaticRoute = { path: string; changefreq?: string; priority?: string };
+type StaticRoute = { path: string; changefreq?: string; priority?: string; lastmod?: string };
 
 // このルートは動的にレンダリングする
 export const dynamic = "force-dynamic";
@@ -37,10 +42,10 @@ export async function GET() {
   );
   /* ---------- 1. Static URLs ---------- */
   const staticPages: StaticRoute[] = [
-    { path: "/", changefreq: "daily", priority: "1.0" },
-    { path: "/media", changefreq: "daily", priority: "0.8" },
-    { path: "/internships", changefreq: "daily", priority: "0.8" },
-    { path: "/jobs", changefreq: "daily", priority: "0.8" },
+    { path: "/", changefreq: "daily", priority: "1.0", lastmod: BUILD_TIME },
+    { path: "/media", changefreq: "daily", priority: "0.8", lastmod: BUILD_TIME },
+    { path: "/internships", changefreq: "daily", priority: "0.8", lastmod: BUILD_TIME },
+    { path: "/jobs", changefreq: "daily", priority: "0.8", lastmod: BUILD_TIME },
   ];
 
   /* ---------- 2. Dynamic URLs ---------- */
@@ -48,35 +53,45 @@ export async function GET() {
     await Promise.all([
       supabase
         .from("jobs")
-        .select("id, updated_at")
+        .select("id, updated_at, created_at")
         .eq("published", true)
         .order("updated_at", { ascending: false })
-        .limit(1000)
+        .limit(MAX_URLS)
         .returns<JobLite[]>(),
 
       supabase
         .from("media_posts")
-        .select("slug, updated_at")
+        .select("slug, updated_at, created_at")
         .eq("status", "published")
         .order("updated_at", { ascending: false })
-        .limit(1000)
+        .limit(MAX_URLS)
         .returns<MediaLite[]>(),
 
       supabase
         .from("intern_long_details")
-        .select("id, updated_at")
+        .select("id, updated_at, created_at")
         .eq("published", true)
         .order("updated_at", { ascending: false })
-        .limit(1000)
+        .limit(MAX_URLS)
         .returns<InternLite[]>(),
     ]);
 
+  // --- DEBUG: report how many URLs we are about to emit ---
+  const countsComment = `<!-- sitemap counts: static=${staticPages.length} jobs=${
+    jobs?.length ?? 0
+  } media=${media?.length ?? 0} internships=${internships?.length ?? 0} -->`;
+
   const urlFragments: string[] = [];
+
+  // Helper for lastmod
+  const toLastMod = (u: string | null, c: string | null) =>
+    formatISO(new Date(u ?? c ?? BUILD_TIME));
 
   // Static pages
   for (const p of staticPages) {
     urlFragments.push(`<url>
   <loc>${BASE_URL}${p.path}</loc>
+  ${p.lastmod ? `<lastmod>${p.lastmod}</lastmod>` : ""}
   ${p.changefreq ? `<changefreq>${p.changefreq}</changefreq>` : ""}
   ${p.priority ? `<priority>${p.priority}</priority>` : ""}
 </url>`);
@@ -86,7 +101,7 @@ export async function GET() {
   (jobs ?? []).forEach((j) =>
     urlFragments.push(`<url>
   <loc>${BASE_URL}/jobs/${j.id}</loc>
-  <lastmod>${formatISO(new Date(j.updated_at!))}</lastmod>
+  <lastmod>${toLastMod(j.updated_at, j.created_at)}</lastmod>
   <changefreq>weekly</changefreq>
   <priority>0.8</priority>
 </url>`),
@@ -96,7 +111,7 @@ export async function GET() {
   (media ?? []).forEach((m) =>
     urlFragments.push(`<url>
   <loc>${BASE_URL}/media/${m.slug}</loc>
-  <lastmod>${formatISO(new Date(m.updated_at!))}</lastmod>
+  <lastmod>${toLastMod(m.updated_at, m.created_at)}</lastmod>
   <changefreq>weekly</changefreq>
   <priority>0.7</priority>
 </url>`),
@@ -106,7 +121,7 @@ export async function GET() {
   (internships ?? []).forEach((i) =>
     urlFragments.push(`<url>
   <loc>${BASE_URL}/internships/${i.id}</loc>
-  <lastmod>${formatISO(new Date(i.updated_at!))}</lastmod>
+  <lastmod>${toLastMod(i.updated_at, i.created_at)}</lastmod>
   <changefreq>weekly</changefreq>
   <priority>0.7</priority>
 </url>`),
@@ -114,6 +129,7 @@ export async function GET() {
 
   /* ---------- 3. Build XML ---------- */
   const body = `<?xml version="1.0" encoding="UTF-8"?>
+${countsComment}
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urlFragments.join("\n")}
 </urlset>`;
