@@ -131,6 +131,7 @@ async function getLatestInternJobs(): Promise<SimpleJob[]> {
     .from("jobs")
     .select("id, title, company:companies(name, logo)")
     .eq("selection_type", "intern_long")
+    .eq("published", true)
     .order("created_at", { ascending: false })
     .limit(8);
   return (data ?? []) as unknown as SimpleJob[];
