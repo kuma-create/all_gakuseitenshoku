@@ -33,6 +33,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation";
 
 import ArticleDetailDrawer from "@/components/article-detail-drawer"
+import DecorativeBlob from "@/components/DecorativeBlob";
 import { supabase } from "@/lib/supabase/client"
 import {
   Card,
@@ -322,16 +323,16 @@ export default function Home() {
   // Controls the AI advisor modal
   const [showAdvisor, setShowAdvisor] = useState(false);
 return (
-    <div className="min-h-screen bg-white">
+    <div className="w-[100vw] max-w-none min-h-screen bg-white overflow-x-hidden">
 
       {/* Desktop and Mobile Headers removed */}
 
       {/* Hero Section -------------------------------------------------- */}
-      <section className="relative isolate flex items-center pt-20 pb-24 sm:pb-20 md:pb-16 bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white overflow-hidden min-h-[75vh] animate-hero-bg">
+      <section className="w-full relative isolate flex items-center pt-20 pb-24 sm:pb-20 md:pb-16 bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white overflow-visible md:overflow-hidden min-h-[75vh] animate-hero-bg">
         {/* Decorative gradient blobs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -top-32 -left-40 w-[580px] h-[580px] rounded-full bg-white/10 blur-3xl animate-[blob_35s_ease-in-out_infinite]"></div>
-          <div className="absolute bottom-0 right-0 w-[460px] h-[460px] rounded-full bg-white/10 blur-3xl animate-[blob_40s_ease-in-out_infinite]"></div>
+          <DecorativeBlob position="br" size="md" />
         </div>
 
         <div className="max-w-7xl mx-auto flex flex-col-reverse md:flex-row items-center justify-between gap-8 px-6 md:px-10">
@@ -942,11 +943,11 @@ return (
       )}
 
       {/* CV Registration CTA */}
-      <section className="relative flex items-center justify-center min-h-[60vh] bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white px-4">
+      <section className="w-full relative flex items-center justify-center min-h-[60vh] bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white px-4">
         {/* Decorative gradient blobs */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -top-32 -left-40 w-[580px] h-[580px] rounded-full bg-white/10 blur-3xl animate-[blob_35s_ease-in-out_infinite]"></div>
-          <div className="absolute bottom-0 right-0 w-[460px] h-[460px] rounded-full bg-white/10 blur-3xl animate-[blob_40s_ease-in-out_infinite]"></div>
+          <DecorativeBlob position="br" size="md" />
         </div>
         <div className="text-center max-w-xl">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-8 leading-tight">
@@ -965,7 +966,7 @@ return (
 
       {/* Floating AI Advisor Button */}
       <div
-        className={`fixed ${bannerClosed ? 'bottom-4' : 'bottom-36'} right-4 z-60`}
+        className={`fixed ${bannerClosed ? 'bottom-2' : 'bottom-12'} right-4 z-60`}
       >
         <button
           onClick={() => setShowAdvisor(true)}
