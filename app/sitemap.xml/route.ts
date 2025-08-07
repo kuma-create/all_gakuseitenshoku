@@ -56,7 +56,7 @@ export async function GET() {
         .from("jobs")
         .select("id, created_at")
         .eq("published", true)
-        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(MAX_URLS)
         .returns<JobLite[]>(),
 
@@ -72,7 +72,7 @@ export async function GET() {
         .from("intern_long_details")
         .select("id, updated_at, created_at")
         .eq("published", true)
-        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(MAX_URLS)
         .returns<InternLite[]>(),
     ]);
