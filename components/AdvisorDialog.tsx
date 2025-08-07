@@ -14,7 +14,14 @@ export default function AdvisorDialog({ open, onOpenChange }: { open: boolean; o
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-6 space-y-6"
+        className="
+  w-[95vw] sm:w-[90vw] md:w-[80vw] lg:w-[70vw] xl:w-[60vw]
+  sm:max-w-md md:max-w-2xl lg:max-w-3xl xl:max-w-4xl
+  max-h-[90vh] sm:max-h-[85vh] md:max-h-[80vh]
+  overflow-y-auto
+  p-4 sm:p-6
+  space-y-6
+"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
