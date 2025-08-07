@@ -415,19 +415,28 @@ export default function JobDetailPage(props: { params: Promise<{ id: string }> }
     )
   }
 
-  /* ---------- SEO meta & variant render ---------- */
-  // --- dynamic meta tags ---
+  /* ---------- SEO meta ---------- */
+  const brand = "学生転職";
+
   const metaTitle =
     job && company
-      ? `${job.title} | ${company.name ?? "求人詳細"} - 学生転職`
-      : "求人詳細 - 学生転職";
+      ? `${company.name ?? ""} | ${job.title}（${
+          job.selection_type === "event" ? "イベント" : "求人"
+        }） - ${brand}`
+      : `求人詳細 - ${brand}`;
+
+  const salary =
+    (job as any).salary_min && (job as any).salary_max
+      ? `${(job as any).salary_min}〜${(job as any).salary_max}`
+      : job.salary_range ?? "非公開";
+
   const metaDescription =
     job && company
-      ? `${company.name ?? ""}が募集する${
-          job.selection_type === "event" ? "イベント" : "ポジション"
-        }「${job.title}」の詳細ページです。勤務地：${
+      ? `${job.title} の募集要項ページ。勤務地：${
           job.location ?? "未定"
-        }。給与：${job.salary_range ?? "非公開"}。`
+        }、給与：${salary}。締め切り：${
+          (job as any).application_deadline ?? "未定"
+        }。${company.name ?? ""} の企業情報も掲載しています。`
       : "学生向け求人詳細ページ。";
 
   // --- choose variant component ---
