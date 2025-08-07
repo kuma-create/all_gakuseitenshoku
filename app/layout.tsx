@@ -16,6 +16,7 @@ import { MobileNavigation } from "@/components/mobile-navigation";
 import AuthGuard            from "@/components/AuthGuard";
 import Footer from "@/components/footer";
 import { AuthProvider } from "@/components/auth/client-provider";
+import DecorativeBlob from "@/components/DecorativeBlob";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -151,11 +152,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               {/* クライアント側で認可判定 */}
               <AuthGuard />
 
-              <div className="flex min-h-screen flex-col">
+              <div className="relative flex min-h-screen flex-col">
                 <Header />
                 <main className="flex-1 pb-16 md:pb-0">{children}</main>
                 <Footer />
                 <MobileNavigation />
+                <DecorativeBlob position="br" size="md" />
               </div>
             </Providers>
           </AuthProvider>
