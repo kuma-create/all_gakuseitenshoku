@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { formatISO } from "date-fns";
 
+// Note: updated_at may be null for some Job records.
 type JobLite = {
   id: string;
   updated_at: string | null;
@@ -53,7 +54,7 @@ export async function GET() {
     await Promise.all([
       supabase
         .from("jobs")
-        .select("id, updated_at, created_at")
+        .select("id, created_at")
         .eq("published", true)
         .order("updated_at", { ascending: false })
         .limit(MAX_URLS)
