@@ -156,37 +156,48 @@ async function fetchRelated(
 
 
 /* ---------- Metadata ---------- */
-export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const params = await props.params;
+export async function generateMetadata(
+  { params }: { params: { slug: string } }
+): Promise<Metadata> {
   const post = await fetchPost(params.slug);
   if (!post) return {};
 
+  const brand = "GAKUTEN Media";
+  const title = `${post.title} | ${brand}`;
+  const description =
+    post.excerpt ??
+    "学生のキャリア・就活に役立つ記事をお届けする GAKUTEN Media";
+
   const keywords =
     post.media_posts_tags
-      .map(t => t.media_tags?.name)
+      .map((t) => t.media_tags?.name)
       .filter(Boolean)
       .join(", ") || undefined;
 
+  const ogImage = post.cover_image_url || "/ogp-media.png";
+
   return {
-    title: post.title,
-    description: post.excerpt ?? undefined,
+    title,
+    description,
     keywords,
-    alternates: { canonical: `https://gakuten.co.jp/media/${post.slug}` },
+    alternates: {
+      canonical: `https://gakuten.co.jp/media/${post.slug}`,
+    },
     openGraph: {
       type: "article",
       locale: "ja_JP",
-      title: post.title,
-      description: post.excerpt ?? "",
+      title,
+      description,
       url: `https://gakuten.co.jp/media/${post.slug}`,
-      images: post.cover_image_url ? [{ url: post.cover_image_url }] : [],
+      images: [{ url: ogImage }],
       publishedTime: post.published_at ?? undefined,
       modifiedTime: post.updated_at ?? post.published_at ?? undefined,
     },
     twitter: {
       card: "summary_large_image",
-      title: post.title,
-      description: post.excerpt ?? "",
-      images: post.cover_image_url ? [post.cover_image_url] : [],
+      title,
+      description,
+      images: [ogImage],
       site: "@gakuten_media",
     },
   };
