@@ -16,12 +16,6 @@ type MediaLite = {
   created_at: string | null;
 };
 
-type InternLite = {
-  id: string;
-  updated_at: string | null;
-  created_at: string | null;
-};
-
 /**
  * Absolute base URL for your site (defaults to https://gakuten.co.jp).
  * Override by setting NEXT_PUBLIC_SITE_URL when running on preview/other domains.
@@ -50,7 +44,7 @@ export async function GET() {
   ];
 
   /* ---------- 2. Dynamic URLs ---------- */
-  const [{ data: jobs }, { data: media }, { data: internships }] =
+  const [{ data: jobs }, { data: media }] =
     await Promise.all([
       supabase
         .from("jobs")
@@ -67,20 +61,12 @@ export async function GET() {
         .order("updated_at", { ascending: false })
         .limit(MAX_URLS)
         .returns<MediaLite[]>(),
-
-      supabase
-        .from("intern_long_details")
-        .select("id, updated_at, created_at")
-        .eq("published", true)
-        .order("created_at", { ascending: false })
-        .limit(MAX_URLS)
-        .returns<InternLite[]>(),
     ]);
 
   // --- DEBUG: report how many URLs we are about to emit ---
   const countsComment = `<!-- sitemap counts: static=${staticPages.length} jobs=${
     jobs?.length ?? 0
-  } media=${media?.length ?? 0} internships=${internships?.length ?? 0} -->`;
+  } media=${media?.length ?? 0} -->`;
 
   const urlFragments: string[] = [];
 
@@ -113,16 +99,6 @@ export async function GET() {
     urlFragments.push(`<url>
   <loc>${BASE_URL}/media/${m.slug}</loc>
   <lastmod>${toLastMod(m.updated_at, m.created_at)}</lastmod>
-  <changefreq>weekly</changefreq>
-  <priority>0.7</priority>
-</url>`),
-  );
-
-  // Internships
-  (internships ?? []).forEach((i) =>
-    urlFragments.push(`<url>
-  <loc>${BASE_URL}/internships/${i.id}</loc>
-  <lastmod>${toLastMod(i.updated_at, i.created_at)}</lastmod>
   <changefreq>weekly</changefreq>
   <priority>0.7</priority>
 </url>`),
