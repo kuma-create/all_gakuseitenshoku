@@ -1,5 +1,9 @@
 // For fetch types (no code change needed for Node fetch)
 // import type { RequestInit, Response } from 'node-fetch' // if needed for types
+
+/** HTML フォールバック画像取得のタイムアウト（ms） */
+const HTML_FETCH_TIMEOUT_MS = 3000;
+
 import Parser from 'rss-parser'
 
 
@@ -198,28 +202,35 @@ export async function getArticles(): Promise<Article[]> {
             // 1) RSS 内の画像
             let image = extractImageUrl(item)
 
-            // 2) fallback: fetch HTML and grab <meta property="og:image">
+            // 2) fallback: fetch HTML and grab <meta property="og:image"> (3s timeout)
             if (!image) {
               try {
-                const html = await fetch(item.link!, { cache: 'force-cache' }).then((r) =>
-                  r.text(),
-                )
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), HTML_FETCH_TIMEOUT_MS);
+
+                const html = await fetch(item.link!, {
+                  signal: controller.signal,
+                  cache: 'force-cache',
+                }).then((r) => r.text());
+
+                clearTimeout(timeoutId);
+
                 // 2‑A) og:image
                 const og = html.match(
                   /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
-                )
+                );
                 if (og?.[1]) {
-                  image = og[1]
+                  image = og[1];
                 } else {
                   // 2‑B) ページ本文中の最初の <img> src
                   const firstImg = html.match(
                     /<img[^>]+src\s*=\s*(?:"([^"]+)"|'([^']+)'|([^ >]+))/i,
-                  )
-                  if (firstImg) image = firstImg[1] || firstImg[2] || firstImg[3]
-                  if (image?.startsWith('//')) image = `https:${image}`
+                  );
+                  if (firstImg) image = firstImg[1] || firstImg[2] || firstImg[3];
+                  if (image?.startsWith('//')) image = `https:${image}`;
                 }
               } catch {
-                /* ignore network errors */
+                /* ignore network errors or aborted requests */
               }
             }
 
