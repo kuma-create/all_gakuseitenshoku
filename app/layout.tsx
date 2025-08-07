@@ -25,16 +25,16 @@ export const metadata: Metadata = {
     "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
   description:
     "学生転職は学生時代の職歴を評価し、企業からスカウトが届く逆求人型就活サービスです。職務経歴書テンプレートや就活グランプリで市場価値を高め、ハイキャリアのスタートを切りましょう。",
-  metadataBase: new URL("https://culture.gakuten.co.jp"),
+  metadataBase: new URL("https://gakuten.co.jp"),
   alternates: {
-    canonical: "https://culture.gakuten.co.jp/",
+    canonical: "https://gakuten.co.jp/",
   },
   openGraph: {
     title:
       "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
     description:
       "職歴を活かしてハイレベルな就活を。学生転職は学生向けのスカウト型オファーサービスです。",
-    url: "https://culture.gakuten.co.jp/",
+    url: "https://gakuten.co.jp/",
     siteName: "学生転職",
     locale: "ja_JP",
     type: "website",
