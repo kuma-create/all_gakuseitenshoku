@@ -322,6 +322,8 @@ export default function Home() {
   const [bannerClosed, setBannerClosed] = useState(false);
   // Controls the AI advisor modal
   const [showAdvisor, setShowAdvisor] = useState(false);
+  // Feature flag for floating advisor button/modal
+  const SHOW_FLOATING_ADVISOR = false;
 return (
     <div className="w-[100vw] max-w-none min-h-screen bg-white overflow-x-hidden">
 
@@ -964,24 +966,24 @@ return (
       </section>
 
 
-      {/* Floating AI Advisor Button */}
-      <div
-        className={`fixed ${bannerClosed ? 'bottom-2' : 'bottom-12'} right-4 z-60`}
-      >
-        <button
-          onClick={() => setShowAdvisor(true)}
-          className="block focus:outline-none"
-          aria-label="Open AI Advisor"
-        >
-          <Image
-            src="/logo2.png"
-            alt="AI Advisor"
-            width={56}
-            height={56}
-            className="rounded-full shadow-lg hover:scale-105 transition-transform"
-          />
-        </button>
-      </div>
+      {/* Floating AI Advisor Button (temporarily hidden) */}
+      {SHOW_FLOATING_ADVISOR && (
+        <div className={`fixed ${bannerClosed ? 'bottom-2' : 'bottom-12'} right-4 z-60`}>
+          <button
+            onClick={() => setShowAdvisor(true)}
+            className="block focus:outline-none"
+            aria-label="Open AI Advisor"
+          >
+            <Image
+              src="/logo2.png"
+              alt="AI Advisor"
+              width={56}
+              height={56}
+              className="rounded-full shadow-lg hover:scale-105 transition-transform"
+            />
+          </button>
+        </div>
+      )}
 
       {/* Mobile App Banner – fixed at bottom 
       {!bannerClosed && (
@@ -990,12 +992,14 @@ return (
         </div>
       )}*/}
 
-      {/* AI Advisor Modal */}
-      <Dialog open={showAdvisor} onOpenChange={setShowAdvisor}>
-        <DialogContent className="max-w-3xl p-0">
-          <GptCareerAdvisorCard />
-        </DialogContent>
-      </Dialog>
+      {/* AI Advisor Modal (hidden with flag) */}
+      {SHOW_FLOATING_ADVISOR && (
+        <Dialog open={showAdvisor} onOpenChange={setShowAdvisor}>
+          <DialogContent className="max-w-3xl p-0">
+            <GptCareerAdvisorCard />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
