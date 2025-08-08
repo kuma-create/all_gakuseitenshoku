@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CareerRadarChart } from '@/components/charts/CareerRadarChart';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { calculateDemoCareerScore, CareerScore, saveScoreHistory, getScoreHistory } from '@/utils/careerScore';
+import { CareerScore } from '@/utils/careerScore';
 import { CareerScoreInfo } from '@/components/CareerScoreInfo';
 import { OnboardingGuide } from '@/components/OnboardingGuide';
 
@@ -41,6 +41,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
   const [completedOnboardingSteps, setCompletedOnboardingSteps] = useState<number[]>([]);
   const [isFirstTime, setIsFirstTime] = useState(false);
+  const [analysisCompletion, setAnalysisCompletion] = useState(0);
 
   const router = useRouter();
   const navigateFn = React.useCallback((route: string) => {
@@ -68,28 +69,95 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     ]);
 
     // キャリアスコア計算
-    const score = calculateDemoCareerScore();
-    setCareerScore(score);
-    
+    // const score = calculateDemoCareerScore();
+    // setCareerScore(score);
     // スコア履歴の取得（実際のアプリではユーザーIDを使用）
-    const history = getScoreHistory('demo-user');
-    setScoreHistory(history);
-    
+    // const history = getScoreHistory('demo-user');
+    // setScoreHistory(history);
     // スコア履歴の保存
-    saveScoreHistory(score, 'demo-user');
-    
+    // saveScoreHistory(score, 'demo-user');
+
     // 初回利用チェック
     const hasVisited = localStorage.getItem('ipo-has-visited');
     if (!hasVisited) {
       setIsFirstTime(true);
       localStorage.setItem('ipo-has-visited', 'true');
     }
-    
+
     // オンボーディング進捗の取得
     const savedProgress = localStorage.getItem('ipo-onboarding-progress');
     if (savedProgress) {
       setCompletedOnboardingSteps(JSON.parse(savedProgress));
     }
+
+    // --- Supabaseからデータ取得例 ---
+    // 実際のアプリでは下記のようにデータを取得
+    // （ダミー用のasync即時関数で囲む）
+    (async () => {
+      try {
+        // 1) supabase client取得
+        // @ts-ignore
+        const { createClient } = await import('@supabase/supabase-js');
+        // 必要に応じてenvなどからURL/KEY取得
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!supabaseUrl || !supabaseKey) return;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        // 2) 認証ユーザー取得
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        // 3) キャリアスコア履歴
+        const { data: historyRows, error: historyErr } = await supabase
+          .from('ipo_career_score')
+          .select('scored_at, overall')
+          .eq('user_id', user.id)
+          .order('scored_at', { ascending: true });
+        if (historyErr) throw historyErr;
+        setScoreHistory((historyRows ?? []).map((r: any) => ({
+          date: (r.scored_at ?? '').slice(0, 10),
+          overall: r.overall ?? 0,
+        })));
+
+        // 4) 自己分析完了度（5要素の平均％）
+        const { data: progRow, error: progErr } = await supabase
+          .from('ipo_analysis_progress')
+          .select('ai_chat, life_chart, future_vision, strength_analysis, experience_reflection')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (progErr) throw progErr;
+        if (progRow) {
+          const a = progRow.ai_chat ?? 0;
+          const b = progRow.life_chart ?? 0;
+          const c = progRow.future_vision ?? 0;
+          const d = progRow.strength_analysis ?? 0;
+          const e = progRow.experience_reflection ?? 0;
+          const avg = Math.round((a + b + c + d + e) / 5);
+          setAnalysisCompletion(avg);
+        } else {
+          setAnalysisCompletion(0);
+        }
+        // 5) キャリアスコア最新
+        const { data: scoreRow } = await supabase
+          .from('ipo_career_score')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('scored_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (scoreRow) {
+          // 必要に応じて型変換
+          setCareerScore({
+            overall: scoreRow.overall ?? 0,
+            breakdown: scoreRow.breakdown ?? {},
+            trend: scoreRow.trend ?? undefined,
+            insights: scoreRow.insights ?? undefined,
+          });
+        }
+      } catch (e) {
+        // fallback: 0%
+        setAnalysisCompletion(0);
+      }
+    })();
   }, []);
   
   const handleOnboardingStepComplete = (stepId: number) => {
@@ -232,7 +300,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                   <p className="text-sm font-medium text-gray-600">キャリアスコア</p>
                   <div className="flex items-center space-x-2">
                     <p className="text-2xl font-bold text-gray-900">
-                      {careerScore?.overall || 75}
+                      {careerScore?.overall ?? 0}
                     </p>
                     {getTrendIcon()}
                     {scoreChange && (
@@ -244,7 +312,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 </div>
                 <TrendingUp className="w-8 h-8 text-blue-500" />
               </div>
-              <ProgressBar progress={careerScore?.overall || 75} className="mt-4" />
+              <ProgressBar progress={careerScore?.overall ?? 0} className="mt-4" />
             </CardContent>
           </Card>
 
@@ -253,11 +321,11 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">自己分析完了度</p>
-                  <p className="text-2xl font-bold text-gray-900">75%</p>
+                  <p className="text-2xl font-bold text-gray-900">{analysisCompletion}%</p>
                 </div>
                 <TrendingUp className="w-8 h-8 text-sky-500" />
               </div>
-              <ProgressBar progress={75} className="mt-4" />
+              <ProgressBar progress={analysisCompletion} className="mt-4" />
             </CardContent>
           </Card>
 
@@ -315,7 +383,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                       <span>詳細を見る</span>
                     </Button>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{careerScore?.overall || 75}</div>
+                      <div className="text-2xl font-bold text-blue-600">{careerScore?.overall ?? 0}</div>
                       <div className="text-sm text-gray-500">総合スコア</div>
                     </div>
                   </div>

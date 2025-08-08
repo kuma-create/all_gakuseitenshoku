@@ -494,6 +494,13 @@ export type Database = {
             foreignKeyName: "challenges_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "student_profiles"
             referencedColumns: ["user_id"]
           },
@@ -1611,6 +1618,258 @@ export type Database = {
           },
         ]
       }
+      ipo_ai_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: number
+          meta: Json
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: number
+          meta?: Json
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: number
+          meta?: Json
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_ai_chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_analysis_progress: {
+        Row: {
+          ai_chat: number
+          experience_reflection: number
+          future_vision: number
+          life_chart: number
+          strength_analysis: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_chat?: number
+          experience_reflection?: number
+          future_vision?: number
+          life_chart?: number
+          strength_analysis?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_chat?: number
+          experience_reflection?: number
+          future_vision?: number
+          life_chart?: number
+          strength_analysis?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_analysis_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_experiences: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          ended_on: string | null
+          id: number
+          impact: string | null
+          learning: string | null
+          months: number | null
+          skills: string[] | null
+          started_on: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          ended_on?: string | null
+          id?: number
+          impact?: string | null
+          learning?: string | null
+          months?: number | null
+          skills?: string[] | null
+          started_on?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          ended_on?: string | null
+          id?: number
+          impact?: string | null
+          learning?: string | null
+          months?: number | null
+          skills?: string[] | null
+          started_on?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_experiences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_future_vision: {
+        Row: {
+          action_plan: Json
+          long_goal: string | null
+          short_goal: string | null
+          target_industry: string | null
+          target_role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_plan?: Json
+          long_goal?: string | null
+          short_goal?: string | null
+          target_industry?: string | null
+          target_role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_plan?: Json
+          long_goal?: string | null
+          short_goal?: string | null
+          target_industry?: string | null
+          target_role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_future_vision_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_life_chart_events: {
+        Row: {
+          category: string
+          created_at: string
+          id: number
+          impact: number
+          month: number
+          note: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: number
+          impact?: number
+          month?: number
+          note?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: number
+          impact?: number
+          month?: number
+          note?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_life_chart_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_strengths: {
+        Row: {
+          created_at: string
+          id: number
+          kind: string
+          label: string
+          score: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          kind: string
+          label: string
+          score?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          kind?: string
+          label?: string
+          score?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_strengths_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_embeddings: {
         Row: {
           content: string
@@ -1817,6 +2076,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      kv_store_42a03002: {
+        Row: {
+          key: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          value?: Json
+        }
+        Relationships: []
       }
       media_authors: {
         Row: {
@@ -2389,6 +2663,13 @@ export type Database = {
             foreignKeyName: "resumes_user_id_profile_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resumes_user_id_profile_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "student_profiles"
             referencedColumns: ["user_id"]
           },
@@ -2713,6 +2994,7 @@ export type Database = {
           birth_date: string | null
           city: string | null
           created_at: string | null
+          current_period_end: string | null
           department: string | null
           desired_industries: string[] | null
           desired_locations: string[] | null
@@ -2738,6 +3020,7 @@ export type Database = {
           motive: string | null
           phase_status: string | null
           phone: string | null
+          plan: string | null
           postal_code: string | null
           pr_body: string | null
           pr_text: string | null
@@ -2756,6 +3039,8 @@ export type Database = {
           strength1: string | null
           strength2: string | null
           strength3: string | null
+          sub_status: string | null
+          trial_start: string | null
           university: string | null
           updated_at: string
           user_id: string | null
@@ -2772,6 +3057,7 @@ export type Database = {
           birth_date?: string | null
           city?: string | null
           created_at?: string | null
+          current_period_end?: string | null
           department?: string | null
           desired_industries?: string[] | null
           desired_locations?: string[] | null
@@ -2797,6 +3083,7 @@ export type Database = {
           motive?: string | null
           phase_status?: string | null
           phone?: string | null
+          plan?: string | null
           postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
@@ -2815,6 +3102,8 @@ export type Database = {
           strength1?: string | null
           strength2?: string | null
           strength3?: string | null
+          sub_status?: string | null
+          trial_start?: string | null
           university?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2831,6 +3120,7 @@ export type Database = {
           birth_date?: string | null
           city?: string | null
           created_at?: string | null
+          current_period_end?: string | null
           department?: string | null
           desired_industries?: string[] | null
           desired_locations?: string[] | null
@@ -2856,6 +3146,7 @@ export type Database = {
           motive?: string | null
           phase_status?: string | null
           phone?: string | null
+          plan?: string | null
           postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
@@ -2874,6 +3165,8 @@ export type Database = {
           strength1?: string | null
           strength2?: string | null
           strength3?: string | null
+          sub_status?: string | null
+          trial_start?: string | null
           university?: string | null
           updated_at?: string
           user_id?: string | null
@@ -3536,31 +3829,56 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          current_period_end: string | null
+          id: string | null
+          plan: string | null
+          sub_status: string | null
+        }
+        Insert: {
+          current_period_end?: string | null
+          id?: string | null
+          plan?: string | null
+          sub_status?: string | null
+        }
+        Update: {
+          current_period_end?: string | null
+          id?: string | null
+          plan?: string | null
+          sub_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_user_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       selections_view: {
         Row: {
-          allowance: string | null
           application_deadline: string | null
-          capacity: number | null
+          benefits: string | null
           company_id: string | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
           duration_weeks: number | null
           end_date: string | null
-          event_date: string | null
-          format: string | null
           id: string | null
-          is_online: boolean | null
           location: string | null
-          published: boolean | null
+          requirements: string | null
           salary_max: number | null
           salary_min: number | null
+          salary_range: string | null
           selection_type: Database["public"]["Enums"]["selection_type"] | null
-          start_date: string | null
           title: string | null
-          venue: string | null
           views: number | null
           work_days_per_week: number | null
+          work_type: string | null
           working_days: string | null
         }
         Relationships: [
@@ -3653,6 +3971,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "applicants_view"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "resumes_user_id_profile_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "resumes_user_id_profile_fkey"

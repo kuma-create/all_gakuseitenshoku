@@ -40,6 +40,7 @@ import { SimpleExperienceReflection } from '@/components/analysis/SimpleExperien
 import { AnalysisOverview } from '@/components/analysis/AnalysisOverview';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase/client';
 
 interface AnalysisPageProps {
   navigate: (route: Route) => void;
@@ -147,19 +148,13 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [progress, setProgress] = useState<AnalysisProgress>({
-    aiChat: 25,
-    lifeChart: 60,
-    futureVision: 10,
-    strengthAnalysis: 80,
-    experienceReflection: 40,
+    aiChat: 0,
+    lifeChart: 0,
+    futureVision: 0,
+    strengthAnalysis: 0,
+    experienceReflection: 0,
   });
-  const [userId] = useState(() => {
-    const stored = localStorage.getItem('ipo-user-id');
-    if (stored) return stored;
-    const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem('ipo-user-id', newId);
-    return newId;
-  });
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -173,12 +168,67 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Resolve Supabase auth user and load saved progress
+  useEffect(() => {
+    const init = async () => {
+      try {
+        setLoading(true);
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr) throw userErr;
+        if (!user) {
+          setUserId(null);
+          setLoading(false);
+          setError('ログインが必要です');
+          return;
+        }
+        setUserId(user.id);
+        // Fetch progress row
+        const { data, error: fetchErr } = await supabase
+          .from('ipo_analysis_progress')
+          .select('ai_chat, life_chart, future_vision, strength_analysis, experience_reflection')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (fetchErr) throw fetchErr;
+        if (data) {
+          setProgress({
+            aiChat: data.ai_chat ?? 0,
+            lifeChart: data.life_chart ?? 0,
+            futureVision: data.future_vision ?? 0,
+            strengthAnalysis: data.strength_analysis ?? 0,
+            experienceReflection: data.experience_reflection ?? 0,
+          });
+        }
+        setLoading(false);
+      } catch (e: any) {
+        console.error(e);
+        setError('データ取得に失敗しました');
+        setLoading(false);
+      }
+    };
+    init();
+  }, []);
+
   const updateProgress = async (updates: Partial<AnalysisProgress>) => {
     try {
       const newProgress = { ...progress, ...updates };
       setProgress(newProgress);
+      if (!userId) return;
+      const payload = {
+        user_id: userId,
+        ai_chat: newProgress.aiChat,
+        life_chart: newProgress.lifeChart,
+        future_vision: newProgress.futureVision,
+        strength_analysis: newProgress.strengthAnalysis,
+        experience_reflection: newProgress.experienceReflection,
+        updated_at: new Date().toISOString(),
+      };
+      const { error: upsertErr } = await supabase
+        .from('ipo_analysis_progress')
+        .upsert(payload, { onConflict: 'user_id' });
+      if (upsertErr) throw upsertErr;
     } catch (error) {
       console.error('Error updating progress:', error);
+      setError('進捗の保存に失敗しました');
     }
   };
 
@@ -201,15 +251,15 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       case 'overview':
         return <AnalysisOverview progress={progress} onNavigateToTool={setActiveTab} />;
       case 'aiChat':
-        return <AIChat userId={userId} onProgressUpdate={(progress: number) => updateProgress({ aiChat: progress })} />;
+        return <AIChat userId={userId ?? ''} onProgressUpdate={(progress: number) => updateProgress({ aiChat: progress })} />;
       case 'lifeChart':
-        return <LifeChart userId={userId} onProgressUpdate={(progress: number) => updateProgress({ lifeChart: progress })} />;
+        return <LifeChart userId={userId ?? ''} onProgressUpdate={(progress: number) => updateProgress({ lifeChart: progress })} />;
       case 'futureVision':
         return <FutureVision onProgressUpdate={(progress: number) => updateProgress({ futureVision: progress })} />;
       case 'strengthAnalysis':
-        return <StrengthAnalysis userId={userId} onProgressUpdate={(progress: number) => updateProgress({ strengthAnalysis: progress })} />;
+        return <StrengthAnalysis userId={userId ?? ''} onProgressUpdate={(progress: number) => updateProgress({ strengthAnalysis: progress })} />;
       case 'experienceReflection':
-        return <SimpleExperienceReflection userId={userId} onProgressUpdate={(progress: number) => updateProgress({ experienceReflection: progress })} />;
+        return <SimpleExperienceReflection userId={userId ?? ''} onProgressUpdate={(progress: number) => updateProgress({ experienceReflection: progress })} />;
       default:
         return <AnalysisOverview progress={progress} onNavigateToTool={setActiveTab} />;
     }
@@ -370,6 +420,19 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           <Button onClick={() => window.location.reload()}>
             ページを更新
           </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!userId && !loading) {
+    return (
+      <div className="bg-background min-h-screen flex items-center justify-center p-4">
+        <Card className="p-8 max-w-md text-center">
+          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h3 className="font-bold text-foreground mb-2">ログインが必要です</h3>
+          <p className="text-muted-foreground mb-4">自己分析データを保存・同期するにはログインしてください。</p>
+          <Button onClick={() => navigate('/login')}>ログインへ</Button>
         </Card>
       </div>
     );

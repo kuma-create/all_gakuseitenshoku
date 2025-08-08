@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import { 
   ArrowRight, 
@@ -31,8 +31,10 @@ import {
   Globe,
   Phone,
   Mail,
-  Send
+  Send,
+  Loader2
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Route, User } from '../App';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -45,6 +47,8 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ navigate, user }: LandingPageProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   // Enhanced smartphone preview component with detailed UI for each feature
   const SmartphonePreview: React.FC<{ 
     icon: React.ElementType; 
@@ -264,6 +268,16 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
   }, []);
 
   useEffect(() => {
+    // Prefetch likely next pages to reduce click latency
+    try {
+      router.prefetch('/ipo/analysis');
+      router.prefetch('/ipo/dashboard');
+    } catch (_) {
+      // no-op if router isn't available in some envs
+    }
+  }, [router]);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
     }, 5000);
@@ -399,37 +413,40 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
 
   const faqs = [
     {
-      question: '本当に無料で使えますか？追加料金はありませんか？',
-      answer: 'はい、基本機能（AI分析月3回、ケース問題50問、基本カレンダー機能、業界情報基本版）は無料でご利用いただけます。クレジットカードの登録は不要です。より高度な機能をご希望の場合のみ、月額500円のPremiumプランをご検討ください。'
+      question: '本当に全機能が無料ですか？追加料金はありませんか？',
+      answer: 'はい。IPO大学の機能（AI自己分析・ケース問題・キャリアスコア・スマートカレンダー・業界/企業図鑑・適職診断など）はすべて無料でご利用いただけます。クレジットカード登録は不要で、機能制限や隠れ課金もありません。'
+    },
+    {
+      question: '今後、有料化されたりしませんか？',
+      answer: 'コア機能は恒久的に無料で提供します。将来的に企業スポンサーによる特集やイベント連携などのB2B収益化を行いますが、学生ユーザーの主要機能に料金が発生することは想定していません。'
     },
     {
       question: 'AIの分析はどれくらい正確ですか？根拠はありますか？',
-      answer: '弊社のAIは心理学のBig5理論などの知見を参考に開発しています。分析結果の根拠や注意点も画面上で明示し、自己判断を補助する位置づけで提供しています。'
+      answer: '分析は心理学のBig5理論などの知見を参考に開発しています。画面上に根拠や注意点を明示し、最終判断はご自身で行えるように設計しています。AIの結果は“補助輪”としてご活用ください。'
     },
     {
       question: '個人情報やデータは安全に管理されますか？',
-      answer: 'はい、業界標準のセキュリティ対策で保護しています。通信はSSLで暗号化し、AWS上の環境で適切に管理しています。個人情報保護法に準拠し、第三者への情報提供は行いません。退会時にはデータを削除します。'
+      answer: '通信はSSLで暗号化し、RLS（行レベルセキュリティ）を有効化したDB上で適切に管理しています。個人情報保護法に準拠し、第三者への提供は行いません。退会時にはデータを削除します。'
     },
     {
-      question: '地方大学でも効果はありますか？情報格差はありませんか？',
-      answer: 'むしろ地方大学の学生にこそご活用いただきたいサービスです。オンラインで場所に依存せず同じ質の情報・学習体験を得られるため、地域による情報格差の縮小に役立ちます。'
+      question: '学生転職との連携は無料ですか？',
+      answer: 'はい。プロフィール・職歴・PRの同期は無料でご利用いただけます。1クリックで最新情報を反映し、重複入力を削減します。'
     },
     {
-      question: 'Premiumプランの解約はいつでもできますか？',
-      answer: 'はい、いつでも簡単に解約いただけます。解約後も、それまでに作成した分析データやレポートはすべて保持され、無料版の範囲で継続してご利用いただけます。解約手数料等も一切ありません。'
-    },
-    {
-      question: '他の就活サービスとの具体的な違いは何ですか？',
-      answer: 'IPO大学は「企業紹介」ではなく「自分の価値最大化」に特化している点が大きな違いです。AIによる科学的な自己分析、ケース問題（拡張版コンテンツ）、データに基づく進捗管理など、就活力そのものを向上させることを目的としています。'
+      question: '地方大学でも効果はありますか？',
+      answer: 'オンライン前提の学習設計のため、地域差なくご活用いただけます。自己分析・ケース問題・面接想定問答を自分のペースで学べます。'
     }
   ];
 
   const handleGetStarted = () => {
-    if (user) {
-      navigate('/ipo/dashboard');
-    } else {
-      navigate('/ipo/analysis');
-    }
+    if (isPending) return;
+    startTransition(() => {
+      if (user) {
+        navigate('/ipo/dashboard');
+      } else {
+        navigate('/ipo/analysis');
+      }
+    });
   };
 
   // Mock jobs (hero preview) — images use seeded placeholders
@@ -472,7 +489,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
               height={600}
               sizes="(max-width: 768px) 90vw, (max-width: 1280px) 60vw, 720px"
               className="relative w-full h-auto object-contain max-h-[360px] md:max-h-[420px] transform rotate-0 transition-transform duration-500 ease-out"
-              priority
+              loading="eager"
             />
           </div>
         </div>
@@ -596,9 +613,18 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                 onClick={handleGetStarted}
                 size="lg"
                 className="text-lg px-8 py-4 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                disabled={isPending}
               >
-                今すぐ無料で始める
-                <ArrowRight className="ml-2 w-5 h-5" />
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 w-5 h-5 animate-spin" /> 読み込み中...
+                  </>
+                ) : (
+                  <>
+                    今すぐ無料で始める
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </>
+                )}
               </Button>
             </div>
           </motion.div>
@@ -841,14 +867,11 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                             <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
                           ))}
                         </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="bg-blue-50 px-2 py-1 rounded text-blue-700">
-                            {testimonials[currentTestimonial].usage}
-                          </div>
-                          <div className="bg-green-50 px-2 py-1 rounded text-green-700">
+                        {testimonials[currentTestimonial].improvement && (
+                          <div className="text-sm bg-green-50 px-2 py-1 rounded text-green-700 inline-flex">
                             {testimonials[currentTestimonial].improvement}
                           </div>
-                        </div>
+                        )}
                       </div>
                       
                       <div className="lg:col-span-2">
@@ -961,7 +984,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
               今すぐ始めて、就活を変えよう
             </h2>
             <p className="text-xl mb-12 opacity-90">
-              無料で始められます。クレジットカード不要。
+              無料で今すぐ試そう
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
@@ -969,23 +992,28 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                 onClick={handleGetStarted}
                 size="lg"
                 className="text-lg px-8 py-4 bg-white text-sky-600 hover:bg-gray-50 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+                disabled={isPending}
               >
-                無料で始める
-                <ArrowRight className="ml-2 w-5 h-5" />
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 w-5 h-5 animate-spin" /> 読み込み中...
+                  </>
+                ) : (
+                  <>
+                    無料で始める
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </>
+                )}
               </Button>
               
               <div className="flex items-center space-x-4 text-sm opacity-75">
                 <div className="flex items-center">
                   <Check className="w-4 h-4 mr-1" />
-                  無料プラン充実
+                  全機能ずっと無料
                 </div>
                 <div className="flex items-center">
                   <Check className="w-4 h-4 mr-1" />
                   1分で登録完了
-                </div>
-                <div className="flex items-center">
-                  <Check className="w-4 h-4 mr-1" />
-                  いつでも解約可能
                 </div>
               </div>
             </div>

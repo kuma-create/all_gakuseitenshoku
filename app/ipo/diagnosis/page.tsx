@@ -15,6 +15,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CareerRadarChart } from '@/components/charts/CareerRadarChart';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { createClient } from '@/lib/supabase/client';
+
+const supabase = createClient();
+
+// ---- Supabase row types (align these names/columns to your schema) ----
+type DiagnosisRowType = 'personality' | 'values' | 'career' | 'skills';
+
+interface DiagnosisQuestionRow {
+  id: number;
+  text: string;
+  category: string;
+  type: DiagnosisRowType;
+  sort_order?: number | null;
+}
+
+interface DiagnosisSessionRow {
+  id: string;
+  type: DiagnosisRowType;
+  created_at?: string;
+}
+
 
 type DiagnosisType = 'personality' | 'values' | 'career' | 'skills';
 
@@ -89,8 +110,76 @@ export default function DiagnosisPage() {
   const [animationStep, setAnimationStep] = useState(0);
   const router = useRouter();
 
-  const questions = generateQuestions(selectedDiagnosis);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const progress = selectedDiagnosis ? ((currentQuestion + 1) / questions.length) * 100 : 0;
+
+  // Fetch questions from Supabase when a diagnosis type is chosen
+  useEffect(() => {
+    let isMounted = true;
+
+    async function run() {
+      setLoadError(null);
+      setQuestions([]);
+
+      if (!selectedDiagnosis) return;
+
+      // Try to fetch from Supabase
+      const { data, error } = await supabase
+        .from('diagnosis_questions')
+        .select('id,text,category,type,sort_order')
+        .eq('type', selectedDiagnosis)
+        .order('sort_order', { ascending: true });
+
+      if (error) {
+        // Fall back to local mock if table missing or other errors
+        console.warn('[diagnosis] Falling back to local questions:', error.message);
+        if (!isMounted) return;
+        setQuestions(generateQuestions(selectedDiagnosis));
+        setLoadError('サーバーからの取得に失敗したため、ローカルの質問で表示しています。');
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        // Also fall back if no rows
+        if (!isMounted) return;
+        setQuestions(generateQuestions(selectedDiagnosis));
+        setLoadError('質問が未登録のため、ローカルの質問で表示しています。');
+        return;
+      }
+
+      if (!isMounted) return;
+      // Map DB rows to local Question type
+      const mapped: Question[] = data.map((q) => ({
+        id: q.id,
+        text: q.text,
+        category: q.category,
+        type: q.type as DiagnosisType,
+      }));
+      setQuestions(mapped);
+
+      // Create a session row up-front
+      const { data: sessionIns, error: sessionErr } = await supabase
+        .from('diagnosis_sessions')
+        .insert({ type: selectedDiagnosis })
+        .select('id')
+        .single();
+
+      if (sessionErr) {
+        console.warn('[diagnosis] failed to create session:', sessionErr.message);
+        setSessionId(null);
+      } else {
+        setSessionId(sessionIns?.id ?? null);
+      }
+    }
+
+    run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDiagnosis]);
 
   // Generate questions based on diagnosis type
   function generateQuestions(type: DiagnosisType | null): Question[] {
@@ -155,21 +244,60 @@ export default function DiagnosisPage() {
     return (baseQuestions[type] || []).map(q => ({ ...q, type }));
   }
 
-  const handleAnswer = (value: number) => {
-    setAnswers(prev => ({ ...prev, [questions[currentQuestion].id]: value }));
-    
+  const handleAnswer = async (value: number) => {
+    const q = questions[currentQuestion];
+    setAnswers((prev) => ({ ...prev, [q.id]: value }));
+
+    // Persist the single answer if we already have a session
+    if (sessionId) {
+      const { error: ansErr } = await supabase
+        .from('diagnosis_answers')
+        .upsert({
+          session_id: sessionId,
+          question_id: q.id,
+          value,
+        });
+      if (ansErr) {
+        console.warn('[diagnosis] answer upsert failed:', ansErr.message);
+      }
+    }
+
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
+      setCurrentQuestion((prev) => prev + 1);
     } else {
       // Start processing
       setIsProcessing(true);
-      
+
       // Simulate processing with animation steps
       setTimeout(() => setAnimationStep(1), 500);
       setTimeout(() => setAnimationStep(2), 1500);
       setTimeout(() => setAnimationStep(3), 2500);
-      setTimeout(() => {
+      setTimeout(async () => {
         const calculatedResults = calculateResults();
+
+        // Save results to Supabase if possible
+        try {
+          if (sessionId) {
+            const payload = {
+              session_id: sessionId,
+              type: calculatedResults.type,
+              scores: calculatedResults.scores,
+              strengths: calculatedResults.strengths,
+              growth_areas: calculatedResults.growthAreas,
+              recommendations: calculatedResults.recommendations,
+              insights: calculatedResults.insights,
+              source: 'client_calculated',
+            };
+
+            const { error: resErr } = await supabase.from('diagnosis_results').upsert(payload);
+            if (resErr) {
+              console.warn('[diagnosis] results upsert failed:', resErr.message);
+            }
+          }
+        } catch (e) {
+          console.warn('[diagnosis] results save exception:', (e as Error).message);
+        }
+
         setResults(calculatedResults);
         setShowResults(true);
         setIsProcessing(false);
@@ -386,6 +514,11 @@ export default function DiagnosisPage() {
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               AIが分析する包括的な自己診断で、あなたの強みと最適なキャリアパスを発見しましょう
             </p>
+            {loadError && (
+              <p className="mt-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 inline-block px-3 py-1 rounded">
+                {loadError}
+              </p>
+            )}
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-8">
@@ -806,9 +939,20 @@ export default function DiagnosisPage() {
               <RotateCcw className="w-4 h-4" />
               <span>別の診断を受ける</span>
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => router.push('/ipo/dashboard')} 
+            <Button
+              variant="outline"
+              onClick={async () => {
+                // Ensure we have a session and results saved, then route
+                if (!sessionId && selectedDiagnosis) {
+                  const { data: sessionIns, error: sessionErr } = await supabase
+                    .from('diagnosis_sessions')
+                    .insert({ type: selectedDiagnosis })
+                    .select('id')
+                    .single();
+                  if (!sessionErr) setSessionId(sessionIns?.id ?? null);
+                }
+                router.push('/ipo/dashboard');
+              }}
               className="flex-1 flex items-center justify-center space-x-2 h-12"
             >
               <Download className="w-4 h-4" />
@@ -844,7 +988,7 @@ export default function DiagnosisPage() {
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-blue-600">
-                {currentQuestion + 1}/{questions.length}
+                {questions.length > 0 ? `${currentQuestion + 1}/${questions.length}` : '-/-'}
               </div>
               <div className="text-sm text-gray-600">質問</div>
             </div>
@@ -859,6 +1003,15 @@ export default function DiagnosisPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Loading fallback */}
+        {questions.length === 0 && (
+          <Card className="mb-6">
+            <CardContent className="p-6 text-center text-gray-600">
+              質問を読み込んでいます…
+            </CardContent>
+          </Card>
+        )}
 
         {/* Question Card */}
         <motion.div
