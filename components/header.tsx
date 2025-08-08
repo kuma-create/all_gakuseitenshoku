@@ -132,21 +132,15 @@ function NotificationBell({ userId }: { userId: string }) {
 }
 
 export default function Header() {
-  const pathname              = usePathname();
-  const router                = useRouter();
+  const pathname = usePathname();
+  const router = useRouter();
   const {
     ready, isLoggedIn, session, userType, user, logout,
   } = useAuth();
-  // Helper for logout that redirects to "/"
-  const handleLogout = async () => {
-    await logout();
-    router.push("/");
-  };
-  /* ロール判定 */
-  const isCompanySide = userType === "company" || userType === "company_admin";
 
-  /* ---------- Avatar 取得（student のみ） ---------- */
+  // --- Hooks must not be conditional. Always declare before any early return. ---
   const [avatar, setAvatar] = useState<string | null>(null);
+
   useEffect(() => {
     if (!ready || !isLoggedIn || userType !== "student" || !user) {
       setAvatar(null);
@@ -162,11 +156,26 @@ export default function Header() {
     })();
   }, [ready, isLoggedIn, userType, user?.id]);
 
+  // Helper for logout that redirects to "/"
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
+  /* ロール判定 */
+  const isCompanySide = userType === "company" || userType === "company_admin";
+
   /* ---------- メインメニュー ---------- */
   const main: NavItem[] =
     isCompanySide ? companyMain
     : userType === "admin" ? adminMain
     : studentMain;
+
+  // --- IPO専用分岐（/ipoページではヘッダーを描画しない） ---
+  const isIpo = pathname.startsWith("/ipo");
+  if (isIpo) {
+    return null;
+  }
 
   /* ---------- UI ---------- */
   return (
