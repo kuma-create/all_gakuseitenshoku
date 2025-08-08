@@ -158,37 +158,6 @@ const hasAuthCookie =
     role = "guest";
   }
 
-  /* ---------- IPO配下の有料ゲート（14日トライアル or premium） ---------- */
-  if (pathname.startsWith('/ipo')) {
-    // /ipo/upgrade は公開（ループ回避）
-    if (pathname === '/ipo/upgrade' || pathname.startsWith('/ipo/upgrade')) {
-      // pass through
-    } else {
-      // 未ログインは /login へ（next 付き）
-      if (!session) {
-        const login = new URL('/login', req.url);
-        login.searchParams.set('next', pathname);
-        return NextResponse.redirect(login, { status: 302 });
-      }
-
-      // student_profiles からプランとトライアル開始日を取得
-      const { data: sp } = await supabase
-        .from('student_profiles')
-        .select('plan, trial_start')
-        .eq('user_id', session.user.id)
-        .single();
-
-      const inTrial = sp?.trial_start
-        ? dayjs().diff(dayjs(sp.trial_start), 'day') <= 14
-        : false;
-      const isPremium = (sp?.plan === 'premium') || inTrial;
-
-      if (!isPremium) {
-        return NextResponse.redirect(new URL('/ipo/upgrade', req.url), { status: 302 });
-      }
-    }
-  }
-
   const isCompanyRole = role === "company_admin" || role === "company";
 
   /* ---------- ① 静的アセットは即通過 ---------- */

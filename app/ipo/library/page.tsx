@@ -65,6 +65,12 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiService } from '@/utils/api';
+import { createClient } from '@/lib/supabase/client';
+const supabase = createClient();
+
+const makeIcon = (type: 'industry' | 'occupation') => {
+  return type === 'industry' ? <Building className="w-6 h-6" /> : <Briefcase className="w-6 h-6" />;
+};
 
 
 interface LibraryItem {
@@ -164,7 +170,10 @@ export default function LibraryPage() {
     router.push(route);
   }, [router]);
 
-  const libraryItems: LibraryItem[] = [
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
+
+  // Fallback items used when Supabase is empty or unavailable
+  const FALLBACK_ITEMS: LibraryItem[] = [
     {
       id: '1',
       name: 'IT・ソフトウェア',
@@ -510,21 +519,109 @@ export default function LibraryPage() {
     }
   ];
 
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ipo_library_items')
+          .select('id,name,type,description,tags,popularity,trend,trend_score,details');
+
+        if (error) {
+          console.warn('[library] Using fallback due to fetch error:', error.message);
+          if (isMounted) setLibraryItems(FALLBACK_ITEMS);
+          return;
+        }
+        if (!data || data.length === 0) {
+          if (isMounted) setLibraryItems(FALLBACK_ITEMS);
+          return;
+        }
+
+        const mapped: LibraryItem[] = data.map((row: any) => ({
+          id: String(row.id),
+          name: row.name,
+          type: (row.type === 'industry' || row.type === 'occupation') ? row.type : 'industry',
+          icon: makeIcon((row.type === 'industry' || row.type === 'occupation') ? row.type : 'industry'),
+          description: row.description ?? '',
+          tags: Array.isArray(row.tags) ? row.tags : [],
+          popularity: Number(row.popularity ?? 0),
+          trend: (row.trend === 'up' || row.trend === 'stable' || row.trend === 'down') ? row.trend : 'stable',
+          trendScore: Number(row.trend_score ?? 0),
+          details: row.details ?? {
+            overview: '',
+            keySkills: [],
+            careerPath: [],
+            averageSalary: '',
+            salaryRange: { min: 0, max: 0, median: 0 },
+            workStyle: [],
+            companies: [],
+            marketTrend: { growth: 0, demand: 0, future: '' },
+            education: { required: [], preferred: [], certifications: [] },
+            workEnvironment: { remote: 0, flexibility: '', overtime: '', culture: [] },
+            regions: [],
+            relatedFields: [],
+            dayInLife: [],
+            challenges: [],
+            rewards: [],
+            interviews: [],
+          },
+        }));
+
+        if (isMounted) setLibraryItems(mapped);
+      } catch (e: any) {
+        console.warn('[library] Exception; using fallback:', e?.message);
+        if (isMounted) setLibraryItems(FALLBACK_ITEMS);
+      }
+    })();
+
+    return () => { isMounted = false; };
+  }, []);
+
+  // Helper to save user data to Supabase
+  const saveUserDataSupabase = async (payload: UserData) => {
+    try {
+      const { error } = await supabase
+        .from('ipo_library_user_data')
+        .upsert({ user_id: userId, favorites: payload.favorites, views: payload.views, search_history: payload.searchHistory });
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.warn('[library] saveUserDataSupabase failed:', (e as Error).message);
+      return false;
+    }
+  };
+
   // Load user data
   useEffect(() => {
     const loadUserData = async () => {
       try {
         setLoading(true);
         
-        // Try to load from API first, fall back to localStorage
+        // Try Supabase first
         try {
-          const data = (await apiService.getUserData(userId)) as Partial<UserData> | null;
-          const normalized: UserData = {
-            favorites: Array.isArray(data?.favorites) ? (data!.favorites as string[]) : [],
-            views: (data?.views && typeof data.views === 'object') ? (data.views as Record<string, number>) : {},
-            searchHistory: Array.isArray(data?.searchHistory) ? (data!.searchHistory as string[]) : [],
-          };
-          setUserData(normalized);
+          const { data: sbData, error: sbErr } = await supabase
+            .from('ipo_library_user_data')
+            .select('favorites,views,search_history')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!sbErr && sbData) {
+            const normalized: UserData = {
+              favorites: Array.isArray(sbData.favorites) ? sbData.favorites as string[] : [],
+              views: (sbData.views && typeof sbData.views === 'object') ? sbData.views as Record<string, number> : {},
+              searchHistory: Array.isArray(sbData.search_history) ? sbData.search_history as string[] : [],
+            };
+            setUserData(normalized);
+          } else {
+            // Fallback to existing API service
+            const data = (await apiService.getUserData(userId)) as Partial<UserData> | null;
+            const normalized: UserData = {
+              favorites: Array.isArray(data?.favorites) ? (data!.favorites as string[]) : [],
+              views: (data?.views && typeof data.views === 'object') ? (data.views as Record<string, number>) : {},
+              searchHistory: Array.isArray(data?.searchHistory) ? (data!.searchHistory as string[]) : [],
+            };
+            setUserData(normalized);
+          }
         } catch (apiError) {
           console.warn('API not available, using localStorage:', apiError);
           // Fallback to localStorage
@@ -580,7 +677,7 @@ export default function LibraryPage() {
     });
 
     return items;
-  }, [searchQuery, selectedFilter, sortBy]);
+  }, [searchQuery, selectedFilter, sortBy, libraryItems]);
 
   const toggleFavorite = async (itemId: string) => {
     try {
@@ -593,12 +690,16 @@ export default function LibraryPage() {
       const newUserData = { ...userData, favorites: newFavorites };
       setUserData(newUserData);
       
-      // Try to save to API, fallback to localStorage
-      try {
-        await apiService.updateUserData(userId, newUserData);
-      } catch (apiError) {
-        console.warn('API save failed, using localStorage:', apiError);
-        localStorage.setItem(`ipo-library-data-${userId}`, JSON.stringify(newUserData));
+      // Try to save to Supabase first
+      const savedToSb = await saveUserDataSupabase(newUserData);
+      if (!savedToSb) {
+        // Fall back to API/localStorage (existing logic below)
+        try {
+          await apiService.updateUserData(userId, newUserData);
+        } catch (apiError) {
+          console.warn('API save failed, using localStorage:', apiError);
+          localStorage.setItem(`ipo-library-data-${userId}`, JSON.stringify(newUserData));
+        }
       }
     } catch (error) {
       console.error('Failed to update favorite:', error);
@@ -613,12 +714,16 @@ export default function LibraryPage() {
       const newUserData = { ...userData, views: newViews };
       setUserData(newUserData);
       
-      // Try to save to API, fallback to localStorage
-      try {
-        await apiService.updateUserData(userId, newUserData);
-      } catch (apiError) {
-        console.warn('API save failed, using localStorage:', apiError);
-        localStorage.setItem(`ipo-library-data-${userId}`, JSON.stringify(newUserData));
+      // Try to save to Supabase first
+      const savedToSb = await saveUserDataSupabase(newUserData);
+      if (!savedToSb) {
+        // Fall back to API/localStorage (existing logic below)
+        try {
+          await apiService.updateUserData(userId, newUserData);
+        } catch (apiError) {
+          console.warn('API save failed, using localStorage:', apiError);
+          localStorage.setItem(`ipo-library-data-${userId}`, JSON.stringify(newUserData));
+        }
       }
     } catch (error) {
       console.error('Failed to record view:', error);

@@ -5,6 +5,7 @@ import {
   Plus, Search, Filter, Bell, Users, Star, CheckCircle, AlertCircle,
   Zap, Briefcase, Coffee, BookOpen, Target, MessageSquare
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,28 @@ interface CalendarEvent {
 }
 
 const EVENT_CATEGORIES = {
+// Supabase row types (minimum needed)
+type DbEvent = {
+  id: string | number;
+  title: string;
+  type: 'deadline' | 'interview' | 'corporate_event' | 'seminar' | 'practice' | 'task' | 'networking';
+  category: 'explanation' | 'gd_practice' | 'interview_practice' | 'industry_seminar' | 'career_talk' | 'networking' | 'workshop' | 'personal';
+  date: string; // ISO date
+  time?: string | null;
+  end_time?: string | null;
+  location?: string | null;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  is_public: boolean;
+  max_participants?: number | null;
+  organizer: string;
+  tags?: string[] | null;
+  registration_deadline?: string | null;
+  requirements?: string[] | null;
+  benefits?: string[] | null;
+  target_audience?: string | null;
+  registration_status?: 'open' | 'closed' | 'waitlist' | null;
+};
   explanation: {
     label: '企業説明会',
     icon: Briefcase,
@@ -101,141 +124,101 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showEventDetail, setShowEventDetail] = useState(false);
 
-  const [events, setEvents] = useState<CalendarEvent[]>([
-    {
-      id: '1',
-      title: 'A社 一次面接',
-      type: 'interview',
-      category: 'personal',
-      date: '2025-01-10',
-      time: '14:00',
-      endTime: '15:00',
-      location: '東京オフィス',
-      description: '人事面接、30分程度。履歴書とESを持参',
-      priority: 'high',
-      isPublic: false,
-      currentParticipants: 1,
-      organizer: '田中太郎',
-      tags: ['面接', 'A社'],
-      isRegistered: true,
-      registrationStatus: 'open'
-    },
-    {
-      id: '2',
-      title: 'IT業界大手3社合同説明会',
-      type: 'corporate_event',
-      category: 'explanation',
-      date: '2025-01-12',
-      time: '13:00',
-      endTime: '17:00',
-      location: '東京国際フォーラム',
-      description: 'Google、Microsoft、Amazonによる合同企業説明会。各社30分のプレゼンテーションと個別質疑応答の時間があります。',
-      priority: 'high',
-      isPublic: true,
-      maxParticipants: 200,
-      currentParticipants: 156,
-      organizer: 'IPO University',
-      tags: ['IT', '大手企業', '説明会'],
-      registrationDeadline: '2025-01-10',
-      requirements: ['学生証', '履歴書'],
-      benefits: ['企業資料配布', 'QRコード交換', '軽食提供'],
-      targetAudience: '25卒・26卒の学生',
-      isRegistered: false,
-      registrationStatus: 'open'
-    },
-    {
-      id: '3',
-      title: 'グループディスカッション実践練習会',
-      type: 'practice',
-      category: 'gd_practice',
-      date: '2025-01-14',
-      time: '19:00',
-      endTime: '21:00',
-      location: 'IPO University ラウンジ',
-      description: '実際の選考で出題されるテーマを使ったGD練習。経験豊富なメンターからのフィードバック付き。少人数制で丁寧に指導します。',
-      priority: 'medium',
-      isPublic: true,
-      maxParticipants: 12,
-      currentParticipants: 8,
-      organizer: 'キャリアサポートチーム',
-      tags: ['GD', '練習', 'フィードバック'],
-      registrationDeadline: '2025-01-13',
-      requirements: ['事前課題（30分）'],
-      benefits: ['個別フィードバック', '練習資料配布', 'ネットワーキング'],
-      targetAudience: 'GD初心者・経験者問わず',
-      isRegistered: true,
-      registrationStatus: 'open'
-    },
-    {
-      id: '4',
-      title: 'コンサルティング業界セミナー',
-      type: 'seminar',
-      category: 'industry_seminar',
-      date: '2025-01-15',
-      time: '18:30',
-      endTime: '20:30',
-      location: 'オンライン（Zoom）',
-      description: 'マッキンゼー、BCG、ベインの元コンサルタントが語るコンサル業界の実態と選考対策。ケース面接の基本も学べます。',
-      priority: 'high',
-      isPublic: true,
-      maxParticipants: 100,
-      currentParticipants: 89,
-      organizer: 'キャリアエキスパート',
-      tags: ['コンサル', '業界研究', 'ケース面接'],
-      registrationDeadline: '2025-01-14',
-      requirements: ['事前質問提出'],
-      benefits: ['録画視聴権', '資料ダウンロード', 'Q&A参加'],
-      targetAudience: 'コンサル志望者',
-      isRegistered: false,
-      registrationStatus: 'open'
-    },
-    {
-      id: '5',
-      title: '模擬面接練習セッション',
-      type: 'practice',
-      category: 'interview_practice',
-      date: '2025-01-16',
-      time: '20:00',
-      endTime: '21:30',
-      location: 'IPO University 面接ルーム',
-      description: '1対1の模擬面接で実戦形式の練習。面接官役は現役人事経験者が担当し、詳細なフィードバックを提供します。',
-      priority: 'medium',
-      isPublic: true,
-      maxParticipants: 6,
-      currentParticipants: 4,
-      organizer: 'HR Professional',
-      tags: ['面接', '練習', '人事'],
-      registrationDeadline: '2025-01-15',
-      requirements: ['履歴書', 'ES'],
-      benefits: ['録画データ', '評価シート', '改善提案'],
-      targetAudience: '面接に不安がある学生',
-      isRegistered: false,
-      registrationStatus: 'open'
-    },
-    {
-      id: '6',
-      title: 'スタートアップCEOとのキャリアトーク',
-      type: 'seminar',
-      category: 'career_talk',
-      date: '2025-01-18',
-      time: '19:30',
-      endTime: '21:00',
-      location: 'WeWork 渋谷',
-      description: '急成長スタートアップの代表取締役が語る、新しい働き方とキャリア形成。質疑応答とネットワーキングタイム付き。',
-      priority: 'medium',
-      isPublic: true,
-      maxParticipants: 30,
-      currentParticipants: 22,
-      organizer: 'Startup Network',
-      tags: ['スタートアップ', 'CEO', 'キャリア'],
-      registrationDeadline: '2025-01-17',
-      requirements: [],
-      benefits: ['名刺交換', '軽食', '特別資料'],
-      targetAudience: 'スタートアップ志望者',
-      isRegistered: true,
-      registrationStatus: 'open'
-    }
-  ]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+
+  const mapRowToEvent = (row: DbEvent, isRegistered: boolean, currentParticipants: number): CalendarEvent => ({
+    id: String(row.id),
+    title: row.title,
+    type: row.type,
+    category: row.category,
+    date: row.date,
+    time: row.time ?? undefined,
+    endTime: row.end_time ?? undefined,
+    location: row.location ?? undefined,
+    description: row.description,
+    priority: row.priority,
+    isPublic: row.is_public,
+    maxParticipants: row.max_participants ?? undefined,
+    currentParticipants,
+    organizer: row.organizer,
+    tags: row.tags ?? [],
+    registrationDeadline: row.registration_deadline ?? undefined,
+    requirements: row.requirements ?? undefined,
+    benefits: row.benefits ?? undefined,
+    targetAudience: row.target_audience ?? undefined,
+    isRegistered,
+    registrationStatus: (row.registration_status ?? 'open') as CalendarEvent['registrationStatus'],
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        // Resolve auth user
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr) throw userErr;
+        setAuthUserId(user?.id ?? null);
+
+        // Fetch events: public + personal(自分の) をまとめて
+        const { data: rows, error: evErr } = await supabase
+          .from('ipo_calendar_events')
+          .select('*')
+          .or(user ? `is_public.eq.true,user_id.eq.${user.id}` : 'is_public.eq.true')
+          .order('date', { ascending: true });
+        if (evErr) throw evErr;
+
+        const eventIds = (rows ?? []).map(r => String((r as DbEvent).id));
+        // registrations of current user
+        let myRegs = new Set<string>();
+        if (user && eventIds.length) {
+          const { data: regs, error: regErr } = await supabase
+            .from('ipo_event_registrations')
+            .select('event_id')
+            .eq('user_id', user.id)
+            .in('event_id', eventIds);
+          if (regErr) throw regErr;
+          myRegs = new Set((regs ?? []).map(r => String(r.event_id)));
+        }
+
+        // aggregate counts per event
+        const countsMap = new Map<string, number>();
+        if (eventIds.length) {
+          const { data: countRows, error: countErr } = await supabase
+            .from('ipo_event_registrations')
+            .select('event_id, count', { count: 'exact', head: false })
+            .in('event_id', eventIds);
+          if (countErr) throw countErr;
+          // countRows contains rows; count is provided on response, not per row; fallback to manual aggregate
+          // Fallback: manual aggregate from rows if present
+          if (countRows && Array.isArray(countRows)) {
+            for (const r of countRows as any[]) {
+              const id = String(r.event_id);
+              countsMap.set(id, (countsMap.get(id) ?? 0) + 1);
+            }
+          }
+        }
+
+        const mapped = (rows ?? []).map((r: any) => {
+          const id = String(r.id);
+          const isReg = myRegs.has(id);
+          const cnt = countsMap.get(id) ?? 0;
+          return mapRowToEvent(r as DbEvent, isReg, cnt);
+        });
+
+        setEvents(mapped);
+        setError(null);
+      } catch (e: any) {
+        console.error(e);
+        setError('イベントの読み込みに失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   // Filter events based on search and category
   const filteredEvents = events.filter(event => {
@@ -262,25 +245,51 @@ export default function CalendarPage() {
     return eventDate >= weekStart && eventDate <= weekEnd;
   });
 
-  const handleEventRegistration = (eventId: string) => {
-    setEvents(prev => prev.map(event => {
-      if (event.id === eventId) {
-        if (event.isRegistered) {
-          return {
-            ...event,
-            isRegistered: false,
-            currentParticipants: Math.max(0, event.currentParticipants - 1)
-          };
-        } else if (event.maxParticipants && event.currentParticipants < event.maxParticipants) {
-          return {
-            ...event,
-            isRegistered: true,
-            currentParticipants: event.currentParticipants + 1
-          };
-        }
+  const handleEventRegistration = async (eventId: string) => {
+    if (!authUserId) {
+      setError('参加するにはログインが必要です');
+      return;
+    }
+    const target = events.find(e => e.id === eventId);
+    if (!target) return;
+
+    try {
+      // capacity check
+      if (!target.isRegistered && target.maxParticipants && target.currentParticipants >= target.maxParticipants) {
+        setError('定員に達しています');
+        return;
       }
-      return event;
-    }));
+
+      if (target.isRegistered) {
+        // cancel registration
+        const { error: delErr } = await supabase
+          .from('ipo_event_registrations')
+          .delete()
+          .eq('user_id', authUserId)
+          .eq('event_id', eventId);
+        if (delErr) throw delErr;
+
+        setEvents(prev => prev.map(ev => ev.id === eventId
+          ? { ...ev, isRegistered: false, currentParticipants: Math.max(0, ev.currentParticipants - 1) }
+          : ev
+        ));
+      } else {
+        // register
+        const { error: insErr } = await supabase
+          .from('ipo_event_registrations')
+          .insert({ user_id: authUserId, event_id: eventId });
+        if (insErr) throw insErr;
+
+        setEvents(prev => prev.map(ev => ev.id === eventId
+          ? { ...ev, isRegistered: true, currentParticipants: ev.currentParticipants + 1 }
+          : ev
+        ));
+      }
+      setError(null);
+    } catch (e: any) {
+      console.error(e);
+      setError('参加処理に失敗しました');
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -597,6 +606,20 @@ export default function CalendarPage() {
 
   return (
     <div className="bg-background min-h-screen">
+      {loading && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card>
+            <CardContent className="p-8 text-center">読み込み中...</CardContent>
+          </Card>
+        </div>
+      )}
+      {error && !loading && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <Card>
+            <CardContent className="p-4 text-red-600">{error}</CardContent>
+          </Card>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div

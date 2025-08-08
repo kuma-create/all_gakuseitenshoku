@@ -27,6 +27,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
+import { createClient } from '@/lib/supabase/client';
+const supabase = createClient();
+
 interface SelectionPageProps {
   navigate: (route: Route) => void;
 }
@@ -184,6 +187,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form states
   type CompanyFormState = {
@@ -246,10 +250,148 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Initialize with mock data
-  useEffect(() => {
-    loadMockData();
+  const fetchCompaniesFromSupabase = useCallback(async () => {
+    setLoadError(null);
+    try {
+      // 1) Fetch companies
+      const { data: companiesRows, error: companiesErr } = await supabase
+        .from('ipo_selection_companies')
+        .select(`
+          id,
+          name,
+          industry,
+          size,
+          location,
+          applied_date,
+          status,
+          current_stage,
+          priority,
+          notes,
+          last_update,
+          overall_rating,
+          tags,
+          job_title,
+          job_salary,
+          job_benefits,
+          job_requirements,
+          job_description
+        `)
+        .order('last_update', { ascending: false });
+
+      if (companiesErr) throw companiesErr;
+
+      if (!companiesRows || companiesRows.length === 0) {
+        setCompanies([]);
+        return;
+      }
+
+      const ids = companiesRows.map((c: any) => c.id);
+
+      // 2) Fetch related stages
+      const { data: stagesRows, error: stagesErr } = await supabase
+        .from('ipo_selection_stages')
+        .select(`
+          id,
+          company_id,
+          name,
+          status,
+          date,
+          time,
+          location,
+          feedback,
+          interviewer,
+          notes,
+          rating,
+          preparation,
+          completed_at
+        `)
+        .in('company_id', ids);
+
+      if (stagesErr) throw stagesErr;
+
+      // 3) Fetch related contacts
+      const { data: contactsRows, error: contactsErr } = await supabase
+        .from('ipo_selection_contacts')
+        .select(`
+          id,
+          company_id,
+          name,
+          role,
+          email,
+          phone
+        `)
+        .in('company_id', ids);
+
+      if (contactsErr) throw contactsErr;
+
+      // 4) Map to Company[]
+      const mapped: Company[] = companiesRows.map((row: any) => {
+        const companyStages = (stagesRows || []).filter((s: any) => s.company_id === row.id).map((s: any) => ({
+          id: String(s.id),
+          name: s.name,
+          status: (s.status ?? 'pending') as SelectionStage['status'],
+          date: s.date ?? undefined,
+          time: s.time ?? undefined,
+          location: s.location ?? undefined,
+          feedback: s.feedback ?? undefined,
+          interviewer: s.interviewer ?? undefined,
+          notes: s.notes ?? undefined,
+          documents: undefined,
+          preparation: Array.isArray(s.preparation) ? s.preparation as string[] : undefined,
+          rating: s.rating ?? undefined,
+          completedAt: s.completed_at ?? undefined,
+        })) as SelectionStage[];
+
+        const companyContacts = (contactsRows || []).filter((c: any) => c.company_id === row.id).map((c: any) => ({
+          name: c.name,
+          role: c.role,
+          email: c.email ?? undefined,
+          phone: c.phone ?? undefined,
+        }));
+
+        return {
+          id: String(row.id),
+          name: row.name,
+          industry: row.industry ?? '',
+          size: (row.size ?? 'large') as Company['size'],
+          location: row.location ?? '',
+          appliedDate: row.applied_date ?? '',
+          status: (row.status ?? 'applied') as Company['status'],
+          currentStage: Number(row.current_stage ?? 0),
+          stages: companyStages,
+          priority: (row.priority ?? 'medium') as Company['priority'],
+          notes: row.notes ?? '',
+          contacts: companyContacts,
+          jobDetails: {
+            title: row.job_title ?? '',
+            salary: row.job_salary ?? undefined,
+            benefits: Array.isArray(row.job_benefits) ? row.job_benefits as string[] : undefined,
+            requirements: Array.isArray(row.job_requirements) ? row.job_requirements as string[] : undefined,
+            description: row.job_description ?? undefined,
+          },
+          lastUpdate: row.last_update ?? '',
+          overallRating: row.overall_rating ?? undefined,
+          tags: Array.isArray(row.tags) ? row.tags as string[] : [],
+        } as Company;
+      });
+
+      setCompanies(mapped);
+    } catch (e: any) {
+      console.warn('[selection] Supabase fetch failed, keeping local state:', e?.message);
+      setLoadError('サーバーからの取得に失敗しました（ローカルデータで表示中）');
+    }
   }, []);
+
+  // Initialize: try Supabase first, then fallback to mock
+  useEffect(() => {
+    (async () => {
+      await fetchCompaniesFromSupabase();
+      if (!companies || companies.length === 0) {
+        // Fallback to mock if DB is empty
+        loadMockData();
+      }
+    })();
+  }, [fetchCompaniesFromSupabase]);
 
   const loadMockData = useCallback(() => {
     const mockCompanies: Company[] = [
@@ -591,54 +733,124 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   }, []);
 
   // Company CRUD operations
-  const handleAddCompany = useCallback(() => {
+  const handleAddCompany = useCallback(async () => {
     if (!companyForm.name.trim() || !companyForm.jobTitle.trim()) {
       alert('企業名と職種は必須です。');
       return;
     }
 
-    const newCompany: Company = {
-      id: Date.now().toString(),
-      name: companyForm.name,
-      industry: companyForm.industry,
-      size: companyForm.size,
-      location: companyForm.location,
-      appliedDate: new Date().toISOString().split('T')[0],
-      status: 'applied',
-      currentStage: 0,
-      priority: companyForm.priority,
-      notes: companyForm.notes,
-      lastUpdate: new Date().toISOString().split('T')[0],
-      tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
-      stages: [
-        {
-          id: `${Date.now()}-1`,
-          name: 'エントリー',
-          status: 'passed',
-          date: new Date().toISOString().split('T')[0],
-          completedAt: new Date().toISOString().split('T')[0],
-          feedback: 'エントリー完了',
-          rating: 5
-        }
-      ],
-      contacts: [],
-      jobDetails: {
-        title: companyForm.jobTitle,
-        salary: companyForm.salary,
-        description: companyForm.description
-      }
-    };
+    const nowDate = new Date().toISOString().split('T')[0];
 
-    setCompanies(prev => [...prev, newCompany]);
-    setShowAddCompanyDialog(false);
-    resetCompanyForm();
+    try {
+      // Insert into Supabase
+      const { data: inserted, error } = await supabase
+        .from('ipo_selection_companies')
+        .insert({
+          name: companyForm.name,
+          industry: companyForm.industry || null,
+          size: companyForm.size,
+          location: companyForm.location || null,
+          applied_date: nowDate,
+          status: 'applied',
+          current_stage: 0,
+          priority: companyForm.priority,
+          notes: companyForm.notes || null,
+          last_update: nowDate,
+          overall_rating: null,
+          tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
+          job_title: companyForm.jobTitle,
+          job_salary: companyForm.salary || null,
+          job_description: companyForm.description || null,
+        })
+        .select('id')
+        .single();
+
+      const newId = inserted?.id ? String(inserted.id) : Date.now().toString();
+
+      const newCompany: Company = {
+        id: newId,
+        name: companyForm.name,
+        industry: companyForm.industry,
+        size: companyForm.size,
+        location: companyForm.location,
+        appliedDate: nowDate,
+        status: 'applied',
+        currentStage: 0,
+        priority: companyForm.priority,
+        notes: companyForm.notes,
+        lastUpdate: nowDate,
+        overallRating: undefined,
+        tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
+        stages: [
+          {
+            id: `${newId}-entry`,
+            name: 'エントリー',
+            status: 'passed',
+            date: nowDate,
+            completedAt: nowDate,
+            feedback: 'エントリー完了',
+            rating: 5
+          }
+        ],
+        contacts: [],
+        jobDetails: {
+          title: companyForm.jobTitle,
+          salary: companyForm.salary,
+          description: companyForm.description
+        }
+      };
+
+      setCompanies(prev => [...prev, newCompany]);
+      setShowAddCompanyDialog(false);
+      resetCompanyForm();
+    } catch (e: any) {
+      console.warn('[selection] insert failed, adding locally:', e?.message);
+      // Fallback to local add
+      const newCompany: Company = {
+        id: Date.now().toString(),
+        name: companyForm.name,
+        industry: companyForm.industry,
+        size: companyForm.size,
+        location: companyForm.location,
+        appliedDate: nowDate,
+        status: 'applied',
+        currentStage: 0,
+        priority: companyForm.priority,
+        notes: companyForm.notes,
+        lastUpdate: nowDate,
+        overallRating: undefined,
+        tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
+        stages: [
+          {
+            id: `${Date.now()}-1`,
+            name: 'エントリー',
+            status: 'passed',
+            date: nowDate,
+            completedAt: nowDate,
+            feedback: 'エントリー完了',
+            rating: 5
+          }
+        ],
+        contacts: [],
+        jobDetails: {
+          title: companyForm.jobTitle,
+          salary: companyForm.salary,
+          description: companyForm.description
+        }
+      };
+      setCompanies(prev => [...prev, newCompany]);
+      setShowAddCompanyDialog(false);
+      resetCompanyForm();
+    }
   }, [companyForm, resetCompanyForm]);
 
-  const handleEditCompany = useCallback(() => {
+  const handleEditCompany = useCallback(async () => {
     if (!selectedCompany || !companyForm.name.trim() || !companyForm.jobTitle.trim()) {
       alert('企業名と職種は必須です。');
       return;
     }
+
+    const nowDate = new Date().toISOString().split('T')[0];
 
     const updatedCompany: Company = {
       ...selectedCompany,
@@ -655,8 +867,29 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         salary: companyForm.salary,
         description: companyForm.description
       },
-      lastUpdate: new Date().toISOString().split('T')[0]
+      lastUpdate: nowDate
     };
+
+    try {
+      await supabase
+        .from('ipo_selection_companies')
+        .update({
+          name: updatedCompany.name,
+          industry: updatedCompany.industry,
+          size: updatedCompany.size,
+          location: updatedCompany.location,
+          priority: updatedCompany.priority,
+          notes: updatedCompany.notes,
+          last_update: nowDate,
+          tags: updatedCompany.tags,
+          job_title: updatedCompany.jobDetails.title,
+          job_salary: updatedCompany.jobDetails.salary || null,
+          job_description: updatedCompany.jobDetails.description || null,
+        })
+        .eq('id', selectedCompany.id);
+    } catch (e: any) {
+      console.warn('[selection] update failed (local state still updated):', e?.message);
+    }
 
     setCompanies(prev => prev.map(c => c.id === selectedCompany.id ? updatedCompany : c));
     setSelectedCompany(updatedCompany);
@@ -664,8 +897,15 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     resetCompanyForm();
   }, [selectedCompany, companyForm, resetCompanyForm]);
 
-  const handleDeleteCompany = useCallback((companyId: string) => {
+  const handleDeleteCompany = useCallback(async (companyId: string) => {
     if (confirm('この企業を削除しますか？')) {
+      try {
+        await supabase.from('ipo_selection_companies').delete().eq('id', companyId);
+        await supabase.from('ipo_selection_stages').delete().eq('company_id', companyId);
+        await supabase.from('ipo_selection_contacts').delete().eq('company_id', companyId);
+      } catch (e: any) {
+        console.warn('[selection] delete failed (removing locally):', e?.message);
+      }
       setCompanies(prev => prev.filter(c => c.id !== companyId));
       if (selectedCompany?.id === companyId) {
         setSelectedCompany(null);
@@ -675,12 +915,42 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   }, [selectedCompany]);
 
   // Stage operations
-  const handleAddStage = useCallback((companyId: string, stageName: string) => {
+  const handleAddStage = useCallback(async (companyId: string, stageName: string) => {
     const company = companies.find(c => c.id === companyId);
     if (!company) return;
 
+    const nowDate = new Date().toISOString().split('T')[0];
+    let newStageId = `${companyId}-${Date.now()}`;
+
+    try {
+      const { data: inserted, error } = await supabase
+        .from('ipo_selection_stages')
+        .insert({
+          company_id: companyId,
+          name: stageName,
+          status: 'pending',
+          date: null,
+          time: null,
+          location: null,
+          feedback: null,
+          interviewer: null,
+          notes: null,
+          rating: null,
+          preparation: [],
+          completed_at: null
+        })
+        .select('id')
+        .single();
+
+      if (!error && inserted?.id) {
+        newStageId = String(inserted.id);
+      }
+    } catch (e: any) {
+      console.warn('[selection] add stage failed (adding locally):', e?.message);
+    }
+
     const newStage: SelectionStage = {
-      id: `${companyId}-${Date.now()}`,
+      id: newStageId,
       name: stageName,
       status: 'pending'
     };
@@ -688,7 +958,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     const updatedCompany = {
       ...company,
       stages: [...company.stages, newStage],
-      lastUpdate: new Date().toISOString().split('T')[0]
+      lastUpdate: nowDate
     };
 
     setCompanies(prev => prev.map(c => c.id === companyId ? updatedCompany : c));
@@ -697,7 +967,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     }
   }, [companies, selectedCompany]);
 
-  const handleUpdateStage = useCallback(() => {
+  const handleUpdateStage = useCallback(async () => {
     if (!selectedStage || !selectedCompany) return;
 
     const updatedStages = selectedCompany.stages.map(stage => 
@@ -726,16 +996,44 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
       lastUpdate: new Date().toISOString().split('T')[0]
     };
 
+    try {
+      await supabase
+        .from('ipo_selection_stages')
+        .update({
+          name: stageForm.name,
+          status: stageForm.status,
+          date: stageForm.date || null,
+          time: stageForm.time || null,
+          location: stageForm.location || null,
+          feedback: stageForm.feedback || null,
+          interviewer: stageForm.interviewer || null,
+          notes: stageForm.notes || null,
+          rating: stageForm.rating || null,
+          completed_at: (stageForm.status === 'passed' || stageForm.status === 'failed') 
+            ? new Date().toISOString().split('T')[0]
+            : null,
+        })
+        .eq('id', selectedStage.id);
+    } catch (e: any) {
+      console.warn('[selection] stage update failed (local state updated):', e?.message);
+    }
+
     setCompanies(prev => prev.map(c => c.id === selectedCompany.id ? updatedCompany : c));
     setSelectedCompany(updatedCompany);
     setShowStageDialog(false);
     resetStageForm();
   }, [selectedStage, selectedCompany, stageForm, resetStageForm]);
 
-  const handleDeleteStage = useCallback((stageId: string) => {
+  const handleDeleteStage = useCallback(async (stageId: string) => {
     if (!selectedCompany) return;
     
     if (confirm('この選考段階を削除しますか？')) {
+      try {
+        await supabase.from('ipo_selection_stages').delete().eq('id', stageId);
+      } catch (e: any) {
+        console.warn('[selection] stage delete failed (removing locally):', e?.message);
+      }
+
       const updatedStages = selectedCompany.stages.filter(s => s.id !== stageId);
       const updatedCompany = {
         ...selectedCompany,
@@ -1054,6 +1352,11 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                 <p className="text-xs text-gray-600 hidden sm:block">
                   企業の選考状況を一元管理
                 </p>
+                {loadError && (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mt-1 inline-block">
+                    {loadError}
+                  </p>
+                )}
               </div>
             </div>
             

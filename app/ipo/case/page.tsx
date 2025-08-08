@@ -1,8 +1,11 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Play, Clock, Award, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+import { supabase } from '@/lib/supabase/client';
 
 
 interface Problem {
@@ -21,14 +24,60 @@ export default function CasePage() {
   const [userAnswer, setUserAnswer] = useState('');
   const [showResult, setShowResult] = useState(false);
 
-  const problems: Problem[] = [
-    { id: '1', title: '言語理解：同義語選択', difficulty: 'easy', type: 'webtest', time: 5, category: '言語', solved: true },
-    { id: '2', title: '計算問題：損益計算', difficulty: 'medium', type: 'webtest', time: 3, category: '数的', solved: false },
-    { id: '3', title: '論理推理：条件整理', difficulty: 'hard', type: 'webtest', time: 8, category: '論理', solved: false },
-    { id: '4', title: 'コンビニの売上向上策', difficulty: 'medium', type: 'case', time: 20, category: '戦略', solved: true },
-    { id: '5', title: '新サービスの市場規模推定', difficulty: 'hard', type: 'case', time: 30, category: '市場分析', solved: false },
-    { id: '6', title: 'オンライン教育の収益モデル', difficulty: 'easy', type: 'case', time: 15, category: 'ビジネスモデル', solved: false },
-  ];
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        // 1) 認証ユーザー
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr) throw userErr;
+        setAuthUserId(user?.id ?? null);
+
+        // 2) 問題リスト取得（公開問題＋自分の作成した問題を含む想定）
+        const { data: rows, error: probErr } = await supabase
+          .from('ipo_problems')
+          .select('id, title, difficulty, type, time, category')
+          .order('created_at', { ascending: true });
+        if (probErr) throw probErr;
+
+        // 3) 自分が正解済みの問題ID集合
+        let solvedSet = new Set<string>();
+        if (user && rows && rows.length) {
+          const ids = rows.map(r => String(r.id));
+          const { data: subs, error: subErr } = await supabase
+            .from('ipo_problem_submissions')
+            .select('problem_id, is_correct')
+            .eq('user_id', user.id)
+            .in('problem_id', ids);
+          if (subErr) throw subErr;
+          solvedSet = new Set((subs ?? []).filter(s => s.is_correct).map(s => String(s.problem_id)));
+        }
+
+        const mapped: Problem[] = (rows ?? []).map((r: any) => ({
+          id: String(r.id),
+          title: r.title,
+          difficulty: r.difficulty,
+          type: r.type,
+          time: r.time ?? 0,
+          category: r.category ?? 'その他',
+          solved: solvedSet.has(String(r.id)),
+        }));
+        setProblems(mapped);
+        setError(null);
+      } catch (e: any) {
+        console.error(e);
+        setError('問題の読み込みに失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const filteredProblems = problems.filter(p => p.type === activeTab);
   const difficultyColors = {
@@ -49,9 +98,33 @@ export default function CasePage() {
     setShowResult(false);
   };
 
-  const handleSubmitAnswer = () => {
-    if (!userAnswer.trim()) return;
-    setShowResult(true);
+  const handleSubmitAnswer = async () => {
+    if (!userAnswer.trim() || !selectedProblem) return;
+    // 仮スコア（現状はモック採点）
+    const score = Math.floor(Math.random() * 30) + 70;
+    const is_correct = score >= 80; // 80点以上を正解扱い
+    try {
+      if (!authUserId) {
+        setShowResult(true);
+        return;
+      }
+      await supabase.from('ipo_problem_submissions').insert({
+        user_id: authUserId,
+        problem_id: selectedProblem.id,
+        answer_text: userAnswer,
+        score,
+        is_correct,
+        meta: { source: 'case_page' }
+      });
+      if (is_correct) {
+        setProblems(prev => prev.map(p => p.id === selectedProblem.id ? { ...p, solved: true } : p));
+      }
+    } catch (e) {
+      console.error(e);
+      setError('解答の保存に失敗しました');
+    } finally {
+      setShowResult(true);
+    }
   };
 
   const mockFeedback = {
@@ -65,6 +138,7 @@ export default function CasePage() {
     return (
       <div className="bg-background">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
           <div className="flex items-center justify-between mb-6">
             <div>
               <button
@@ -236,6 +310,8 @@ export default function CasePage() {
   return (
     <div className="bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {loading && <div className="mb-4 text-sm text-muted-foreground">読み込み中...</div>}
+        {error && !loading && <div className="mb-4 text-sm text-red-600">{error}</div>}
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-foreground mb-2">ケースグランプリ</h1>
