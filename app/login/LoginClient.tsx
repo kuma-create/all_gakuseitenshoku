@@ -179,6 +179,7 @@ export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
+  const redirect = searchParams.get("redirect");
 
   const {
     session,
@@ -211,7 +212,9 @@ export default function LoginClient() {
       // DB から本当のロールを取得 (metadata に無い場合も考慮)
       const realRole = await fetchUserRole(user.id);
 
-      const dest = nextPath
+      const dest = redirect
+        ? redirect
+        : nextPath
         ? nextPath
         : realRole === "company" || realRole === "company_admin"
         ? "/company-dashboard"
@@ -224,7 +227,7 @@ export default function LoginClient() {
 
     redirectIfLoggedIn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, isLoggedIn, user, nextPath]);
+  }, [ready, isLoggedIn, user, nextPath, redirect]);
 
   /* ----- submit ----- */
   const handleLogin = async (e: FormEvent) => {
@@ -273,15 +276,17 @@ export default function LoginClient() {
         ? await fetchUserRole(authUser.id)
         : "student";
 
-      router.replace(
-        nextPath
-          ? nextPath
-          : realRole === "company" || realRole === "company_admin"
-          ? "/company-dashboard"
-          : realRole === "admin"
-          ? "/admin"
-          : "/student-dashboard"
-      );
+      const dest = redirect
+        ? redirect
+        : nextPath
+        ? nextPath
+        : realRole === "company" || realRole === "company_admin"
+        ? "/company-dashboard"
+        : realRole === "admin"
+        ? "/admin"
+        : "/student-dashboard";
+
+      router.replace(dest);
     }
   };
 
@@ -364,8 +369,12 @@ export default function LoginClient() {
         <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400">
           アカウントをお持ちでない方は
           <Link
-            href={`/signup${
-              nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""
+            href={`${
+              redirect
+                ? `/signup?redirect=${encodeURIComponent(redirect)}`
+                : nextPath
+                ? `/signup?next=${encodeURIComponent(nextPath)}`
+                : "/signup"
             }`}
             prefetch={false}
             className="ml-1 font-medium text-red-600 hover:underline"

@@ -7,6 +7,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient }          from "@supabase/auth-helpers-nextjs";
 import type { Database }                   from "@/lib/supabase/types";
+import dayjs                           from "dayjs";
 
 /* ---------- Supabase cookie name (v2) ---------- */
 // Supabase v2 stores auth in a single cookie: sb-<projectRef>-auth-token
@@ -27,6 +28,7 @@ const PUBLIC_PREFIXES = [
   "/",                       // トップページ
   "/app",                    // ← 追加: アプリのトップも公開扱い
   "/login",                  // 共通ログイン
+  "/ipo/upgrade",            // 有料誘導（/ipoの例外）
   "/signup",                 // 新規登録
   "/auth/student/register",  // 学生登録フロー
   "/auth/reset",             // パスワードリセット
@@ -55,7 +57,6 @@ const PUBLIC_PREFIXES = [
   "/offers",                 // スカウト /offers(/...)
   "/applications",           // 応募履歴 /applications(/...)
   "/chat",
-  "/ipo",
   "/resume",
   "/companies",
 ];
@@ -155,6 +156,37 @@ const hasAuthCookie =
     if (!role) role = "student";
   } else {
     role = "guest";
+  }
+
+  /* ---------- IPO配下の有料ゲート（14日トライアル or premium） ---------- */
+  if (pathname.startsWith('/ipo')) {
+    // /ipo/upgrade は公開（ループ回避）
+    if (pathname === '/ipo/upgrade' || pathname.startsWith('/ipo/upgrade')) {
+      // pass through
+    } else {
+      // 未ログインは /login へ（next 付き）
+      if (!session) {
+        const login = new URL('/login', req.url);
+        login.searchParams.set('next', pathname);
+        return NextResponse.redirect(login, { status: 302 });
+      }
+
+      // student_profiles からプランとトライアル開始日を取得
+      const { data: sp } = await supabase
+        .from('student_profiles')
+        .select('plan, trial_start')
+        .eq('user_id', session.user.id)
+        .single();
+
+      const inTrial = sp?.trial_start
+        ? dayjs().diff(dayjs(sp.trial_start), 'day') <= 14
+        : false;
+      const isPremium = (sp?.plan === 'premium') || inTrial;
+
+      if (!isPremium) {
+        return NextResponse.redirect(new URL('/ipo/upgrade', req.url), { status: 302 });
+      }
+    }
   }
 
   const isCompanyRole = role === "company_admin" || role === "company";
