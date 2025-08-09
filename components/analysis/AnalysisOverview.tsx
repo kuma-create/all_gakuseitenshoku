@@ -78,28 +78,30 @@ export function AnalysisOverview({ progress, onNavigateToTool }: AnalysisOvervie
     }
   ];
 
+  const actionableTools = tools.filter(tool => tool.id !== 'aiChat');
+
   const overallProgress = Math.round(
     Object.values(progress).reduce((sum, value) => sum + value, 0) / Object.keys(progress).length
   );
 
-  const completedTools = tools.filter(tool => progress[tool.id as keyof typeof progress] >= 100).length;
-  const inProgressTools = tools.filter(tool => {
+  const completedTools = actionableTools.filter(tool => progress[tool.id as keyof typeof progress] >= 100).length;
+  const inProgressTools = actionableTools.filter(tool => {
     const toolProgress = progress[tool.id as keyof typeof progress];
     return toolProgress > 0 && toolProgress < 100;
   }).length;
 
   const getNextRecommendedTool = () => {
-    const unfinishedTools = tools.filter(tool => progress[tool.id as keyof typeof progress] < 100);
+    const unfinishedTools = actionableTools.filter(tool => progress[tool.id as keyof typeof progress] < 100);
     const inProgress = unfinishedTools.filter(tool => progress[tool.id as keyof typeof progress] > 0);
-    
+
     if (inProgress.length > 0) {
       return inProgress[0];
     }
-    
+
     // Recommend easier tools first
     const easyTools = unfinishedTools.filter(tool => tool.difficulty === '簡単');
     if (easyTools.length > 0) return easyTools[0];
-    
+
     return unfinishedTools[0] || null;
   };
 
@@ -222,7 +224,7 @@ export function AnalysisOverview({ progress, onNavigateToTool }: AnalysisOvervie
               <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Target className="w-6 h-6 text-white" />
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-purple-700 mb-1">{5 - completedTools}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-purple-700 mb-1">{actionableTools.length - completedTools}</div>
               <div className="text-sm text-purple-600">残りのツール</div>
             </motion.div>
           </div>
@@ -289,7 +291,7 @@ export function AnalysisOverview({ progress, onNavigateToTool }: AnalysisOvervie
 
       {/* Tools Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {tools.map((tool, index) => {
+        {actionableTools.map((tool, index) => {
           const colors = getColorClasses(tool.color);
           const isCompleted = progress[tool.id as keyof typeof progress] >= 100;
           const isInProgress = progress[tool.id as keyof typeof progress] > 0 && progress[tool.id as keyof typeof progress] < 100;
@@ -414,6 +416,17 @@ export function AnalysisOverview({ progress, onNavigateToTool }: AnalysisOvervie
           );
         })}
       </div>
+      {/* Floating AI相談ボタン */}
+      <motion.button
+        onClick={() => onNavigateToTool('aiChat')}
+        className="fixed bottom-6 right-6 z-50 bg-primary text-white px-4 py-3 rounded-full shadow-lg flex items-center space-x-2 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <Brain className="w-5 h-5" />
+        <span className="font-semibold">AIに相談する</span>
+      </motion.button>
     </div>
   );
 }

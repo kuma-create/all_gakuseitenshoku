@@ -1,18 +1,41 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Save, RefreshCw, Bot, User, Lightbulb, BookOpen, Heart, Brain, Target, Zap, MessageSquare, Download, X, Play, Pause, Settings, Star, HelpCircle, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Lightbulb, Heart, Brain, Target, HelpCircle } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Avatar } from '../ui/avatar';
 import { Badge } from '../ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Progress } from '../ui/progress';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiService } from '../../utils/api';
 
 interface AIChatProps {
   userId: string;
   onProgressUpdate: (progress: number) => void;
+  /** 親の自己分析ノートへ反映するためのコールバック */
+  onApplyToManual?: (
+    update: Partial<{
+      prTitle: string;
+      about: string;
+      prText: string;
+      selfAnalysis: string;
+      strengths: string[];
+    }>
+  ) => void;
+  /** セクション単位の実進捗（0~1）: 自己分析ノート, ライフチャート, 強み弱み, 経験の整理, 将来ビジョン */
+  sectionProgress?: Partial<{
+    selfNote: number;         // 自己分析ノート
+    lifeChart: number;        // ライフチャート
+    strengthsWeaknesses: number; // 強み弱み
+    experience: number;       // 経験の整理
+    futureVision: number;     // 将来のビジョン
+  }>;
+  /** セクションごとの重み（省略時はすべて1.0） */
+  weights?: Partial<{
+    selfNote: number;
+    lifeChart: number;
+    strengthsWeaknesses: number;
+    experience: number;
+    futureVision: number;
+  }>;
 }
 
 interface Message {
@@ -71,14 +94,15 @@ const chatModes = [
   }
 ];
 
-export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
+export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgress, weights }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [chatMode, setChatMode] = useState('empathetic');
-  const [showSettings, setShowSettings] = useState(false);
+  const [interactionMode, setInteractionMode] = useState<'free' | 'fill'>('free');
+  const [progressPercent, setProgressPercent] = useState(0);
   const [stats, setStats] = useState<ChatStats>({
     messagesCount: 0,
     insightsGenerated: 0,
@@ -88,31 +112,41 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
     deepThoughts: 0
   });
   const [sessionStartTime] = useState(Date.now());
-  const [isMobile, setIsMobile] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const quickPrompts = [
-    { icon: Heart, text: '自分の強みがわからない', category: '自己理解', difficulty: 'easy' },
-    { icon: Target, text: 'やりたいことが見つからない', category: '目標設定', difficulty: 'medium' },
-    { icon: Brain, text: '将来に不安を感じている', category: '将来設計', difficulty: 'medium' },
-    { icon: Lightbulb, text: '自分に自信が持てない', category: 'メンタル', difficulty: 'easy' },
-    { icon: BookOpen, text: 'キャリア選択で迷っている', category: 'キャリア', difficulty: 'hard' },
-    { icon: MessageSquare, text: '人間関係で悩んでいる', category: '人間関係', difficulty: 'medium' },
-    { icon: Star, text: '価値観を整理したい', category: '価値観', difficulty: 'hard' },
-    { icon: Zap, text: '最近の出来事を振り返りたい', category: '経験反省', difficulty: 'easy' }
-  ];
+  // --- 真の空欄補充率を計算（0~100） ---
+  const computeSectionPercent = (): number | null => {
+    const sp = sectionProgress || {};
+    const entries: Array<[keyof NonNullable<typeof sp>, number]> = Object.entries(sp)
+      .filter(([, v]) => typeof v === 'number') as any;
+    if (entries.length === 0) return null; // まだ親から渡されていない
 
-  // Check mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    // デフォルトは全セクション=1.0の等重み
+    const w = {
+      selfNote: 1,
+      lifeChart: 1,
+      strengthsWeaknesses: 1,
+      experience: 1,
+      futureVision: 1,
+      ...(weights || {})
+    } as Record<string, number>;
+
+    let weighted = 0;
+    let totalW = 0;
+    for (const [k, v] of entries) {
+      const val = Math.max(0, Math.min(1, Number(v)));
+      const ww = Math.max(0, Number(w[String(k)] ?? 1));
+      weighted += val * ww;
+      totalW += ww;
+    }
+    if (totalW === 0) return 0;
+    return Math.round((weighted / totalW) * 100);
+  };
+
+
 
   useEffect(() => {
     initializeChat();
@@ -132,9 +166,17 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
   }, [messages]);
 
   useEffect(() => {
-    const progress = Math.min(100, messages.length * 3 + stats.insightsGenerated * 5 + stats.deepThoughts * 10);
-    onProgressUpdate(progress);
-  }, [messages, stats.insightsGenerated, stats.deepThoughts]);
+    const sectionPercent = computeSectionPercent();
+    if (sectionPercent !== null) {
+      setProgressPercent(sectionPercent);
+      onProgressUpdate?.(sectionPercent);
+      return;
+    }
+    // フォールバック: 会話ベース進行度
+    const fallback = Math.min(100, messages.length * 3 + stats.insightsGenerated * 5 + stats.deepThoughts * 10);
+    setProgressPercent(fallback);
+    onProgressUpdate?.(fallback);
+  }, [sectionProgress, weights, messages, stats.insightsGenerated, stats.deepThoughts]);
 
   const initializeChat = async () => {
     try {
@@ -282,39 +324,49 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
   };
 
   // OpenAI連携用（サーバー経由）
-  // 期待するサーバー側のAPI: POST /api/chat
-  // body: { messages: Array<{ role: 'system'|'user'|'assistant', content: string }>, mode: string }
+  // 期待するサーバー側のAPI: POST /api/aichat
+  // body: { messages: Array<{ role: 'system'|'user'|'assistant', content: string }>, mode: string, threadId?: string }
   // response: { content: string, category?: string, insights?: string[], questions?: string[] }
   const fetchAIResponse = async (messageList: Message[], mode: string): Promise<Message | null> => {
     try {
-      // クライアントからは直接OpenAIキーを使わず、サーバー経由で呼び出す前提
       const payload = {
         messages: messageList.map(m => ({
           role: m.type === 'user' ? 'user' : m.type === 'ai' ? 'assistant' : 'system',
-          content: m.content
+          content: m.content,
         })),
-        mode
+        mode,
+        threadId,
       };
 
-      // 既存の apiService がある前提で利用。なければ fetch に置き換え可。
-      const res = await apiService.request('/api/chat', {
+      // 直接 fetch を使用（apiService.request は private のため使用不可）
+      const resp = await fetch('/api/aichat', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' }
       });
 
-      if (!res || !res.content) return null;
+      if (!resp.ok) {
+        console.warn('fetchAIResponse: non-OK status', resp.status);
+        return null;
+      }
+
+      // レスポンス形を柔軟に扱う（ {content,...} または {success:true, data:{...}} を許容）
+      const json: any = await resp.json();
+      const data = json?.content ? json : json?.data ? json.data : null;
+      if (!data || !data.content) return null;
+
+      if (data.threadId && data.threadId !== threadId) setThreadId(data.threadId);
 
       const categories = ['自己理解', '価値観', '経験分析', '将来設計', '感情整理', '人間関係', 'キャリア', '成長', '挑戦'];
       return {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: res.content,
+        content: data.content,
         timestamp: new Date(),
-        category: res.category || categories[Math.floor(Math.random() * categories.length)],
+        category: data.category || categories[Math.floor(Math.random() * categories.length)],
         emoji: '🤖',
-        insights: res.insights,
-        questions: res.questions
+        insights: data.insights,
+        questions: data.questions,
       };
     } catch (e) {
       console.warn('fetchAIResponse failed, fallback to mock:', e);
@@ -373,26 +425,33 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy': return 'bg-green-100 text-green-700 border-green-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'hard': return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
 
   const getCurrentMode = () => {
     return chatModes.find(mode => mode.id === chatMode) || chatModes[0];
   };
 
   const currentMode = getCurrentMode();
+
+  // ---- Helpers for applying AI output into manual fields ----
+  const pickTitleFrom = (text: string) => (text || '').split(/\n|。/)[0]?.slice(0, 40) || '';
+  const pickStrengthsFrom = (text: string): string[] => {
+    const lines = (text || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+    const bullets = lines
+      .filter(l => /^[\-・*●■◆◇▪️•]/.test(l))
+      .map(l => l.replace(/^[\-・*●■◆◇▪️•]\s*/, ''));
+    const uniq: string[] = [];
+    for (const b of bullets) {
+      if (uniq.length >= 3) break;
+      if (!uniq.includes(b)) uniq.push(b.slice(0, 40));
+    }
+    if (uniq.length === 0) {
+      for (const l of lines) {
+        if (uniq.length >= 3) break;
+        if (l.length <= 28) uniq.push(l);
+      }
+    }
+    return uniq.slice(0, 3);
+  };
 
   if (loading) {
     return (
@@ -405,185 +464,43 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
     );
   }
 
+  const placeholderText = interactionMode === 'fill'
+    ? '自己PRやプロフィールの空欄を一緒に埋めましょう。質問や回答を入力してください…'
+    : '何でも気軽に話してください…';
+
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Header with Enhanced Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Card className="mb-6 p-4 md:p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-3">
-              <div className={`p-3 bg-gradient-to-br ${currentMode.color} rounded-xl flex-shrink-0`}>
-                <currentMode.icon className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-bold text-foreground">AI対話分析</h2>
-                <p className="text-sm text-muted-foreground">
-                  {currentMode.name} • {currentMode.description}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">セッション時間</div>
-                <div className="text-lg font-bold text-foreground">{formatTime(stats.sessionDuration)}</div>
-              </div>
-              <div className={`w-3 h-3 rounded-full ${ 
-                stats.emotionalState === 'positive' ? 'bg-green-500' : 
-                stats.emotionalState === 'negative' ? 'bg-red-500' :
-                stats.emotionalState === 'mixed' ? 'bg-yellow-500' : 'bg-gray-400'
-              }`} title={`感情状態: ${stats.emotionalState}`}></div>
-              <Dialog open={showSettings} onOpenChange={setShowSettings}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>対話設定</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-medium mb-3">AIの対話スタイル</h3>
-                      <div className="grid grid-cols-1 gap-2">
-                        {chatModes.map((mode) => (
-                          <button
-                            key={mode.id}
-                            onClick={() => setChatMode(mode.id)}
-                            className={`p-3 rounded-lg text-left transition-all border-2 ${
-                              chatMode === mode.id 
-                                ? 'border-blue-500 bg-blue-50' 
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-8 h-8 bg-gradient-to-r ${mode.color} rounded-lg flex items-center justify-center`}>
-                                <mode.icon className="w-4 h-4 text-white" />
-                              </div>
-                              <div>
-                                <div className="font-medium">{mode.name}</div>
-                                <div className="text-sm text-gray-600">{mode.description}</div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-          
-          {/* Enhanced Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-4">
-            <motion.div 
-              className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg"
-              whileHover={{ scale: 1.02 }}
-            >
-              <MessageSquare className="w-4 h-4 md:w-5 md:h-5 text-blue-600 mx-auto mb-1" />
-              <div className="text-lg font-bold text-blue-700">{stats.messagesCount}</div>
-              <div className="text-xs text-blue-600">メッセージ</div>
-            </motion.div>
-            <motion.div 
-              className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg"
-              whileHover={{ scale: 1.02 }}
-            >
-              <Lightbulb className="w-4 h-4 md:w-5 md:h-5 text-green-600 mx-auto mb-1" />
-              <div className="text-lg font-bold text-green-700">{stats.insightsGenerated}</div>
-              <div className="text-xs text-green-600">気づき</div>
-            </motion.div>
-            <motion.div 
-              className="text-center p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg"
-              whileHover={{ scale: 1.02 }}
-            >
-              <Brain className="w-4 h-4 md:w-5 md:h-5 text-purple-600 mx-auto mb-1" />
-              <div className="text-lg font-bold text-purple-700">{stats.topicsDiscussed.length}</div>
-              <div className="text-xs text-purple-600">話題</div>
-            </motion.div>
-            <motion.div 
-              className="text-center p-3 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg"
-              whileHover={{ scale: 1.02 }}
-            >
-              <Star className="w-4 h-4 md:w-5 md:h-5 text-orange-600 mx-auto mb-1" />
-              <div className="text-lg font-bold text-orange-700">{stats.deepThoughts}</div>
-              <div className="text-xs text-orange-600">深い思考</div>
-            </motion.div>
-            <motion.div 
-              className="text-center p-3 bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg"
-              whileHover={{ scale: 1.02 }}
-            >
-              <Heart className="w-4 h-4 md:w-5 md:h-5 text-pink-600 mx-auto mb-1" />
-              <div className="text-lg font-bold text-pink-700">
-                {stats.emotionalState === 'positive' ? '😊' : 
-                 stats.emotionalState === 'negative' ? '😔' :
-                 stats.emotionalState === 'mixed' ? '🤔' : '😐'}
-              </div>
-              <div className="text-xs text-pink-600">感情</div>
-            </motion.div>
-          </div>
 
-          {/* Progress Bar */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">対話の深さ</span>
-              <span className="text-sm text-muted-foreground">{Math.min(100, messages.length * 3 + stats.insightsGenerated * 5 + stats.deepThoughts * 10)}%</span>
+      {/* Top Bar: 空欄補充率 + モード切替 */}
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border rounded-2xl p-4 mb-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <div className="flex-1">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="font-medium">自己分析の空欄補充率</span>
+              <span className="tabular-nums">{progressPercent}%</span>
             </div>
-            <Progress value={Math.min(100, messages.length * 3 + stats.insightsGenerated * 5 + stats.deepThoughts * 10)} className="h-2" />
+            <Progress value={progressPercent} className="h-2" />
           </div>
-
-          {/* Quick Prompts */}
-          <div className="mb-4">
-            <h3 className="text-sm font-medium text-foreground mb-3 flex items-center space-x-2">
-              <Zap className="w-4 h-4 text-orange-500" />
-              <span>クイックスタート</span>
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {quickPrompts.slice(0, isMobile ? 4 : 6).map((prompt, index) => (
-                <motion.button
-                  key={index}
-                  onClick={() => handleQuickPrompt(prompt.text)}
-                  className="flex items-center space-x-2 p-3 bg-muted text-muted-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-all duration-200 text-left text-sm group"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={isTyping}
-                >
-                  <prompt.icon className="w-4 h-4 flex-shrink-0 group-hover:text-primary transition-colors" />
-                  <span className="truncate flex-1">{prompt.text}</span>
-                  <div className="flex items-center space-x-1 flex-shrink-0">
-                    <Badge variant="outline" className="text-xs">{prompt.category}</Badge>
-                    <Badge className={`text-xs ${getDifficultyColor(prompt.difficulty)}`}>
-                      {prompt.difficulty === 'easy' ? '簡単' : prompt.difficulty === 'medium' ? '普通' : '難しい'}
-                    </Badge>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={interactionMode === 'free' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInteractionMode('free')}
+            >
+              壁打ちモード
+            </Button>
+            <Button
+              variant={interactionMode === 'fill' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInteractionMode('fill')}
+            >
+              空欄を埋めるモード
+            </Button>
           </div>
-
-          {/* Topics Discussed */}
-          {stats.topicsDiscussed.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-foreground mb-2">話し合ったトピック</h3>
-              <div className="flex flex-wrap gap-1">
-                {stats.topicsDiscussed.map((topic, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {topic}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </Card>
-      </motion.div>
-
-      {/* Chat Messages */}
+        </div>
+      </div>
       <div className="bg-card rounded-2xl shadow-sm border border-border mb-4 overflow-hidden">
-        <div className="p-4 md:p-6 space-y-4 max-h-[60vh] md:max-h-96 overflow-y-auto">
+        <div className="p-4 md:p-6 space-y-4 min-h-[40vh] max-h-[72vh] md:max-h-[75vh] overflow-y-auto">
           <AnimatePresence>
             {messages.map((message, index) => (
               <motion.div 
@@ -651,7 +568,37 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
                         ))}
                       </div>
                     )}
-                    
+
+                    {message.type === 'ai' && onApplyToManual && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          onClick={() => onApplyToManual?.({ prTitle: pickTitleFrom(message.content) })}
+                        >PRタイトルに反映</button>
+                        <button
+                          type="button"
+                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          onClick={() => onApplyToManual?.({ about: message.content })}
+                        >自己紹介に反映</button>
+                        <button
+                          type="button"
+                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          onClick={() => onApplyToManual?.({ prText: message.content })}
+                        >自己PRに反映</button>
+                        <button
+                          type="button"
+                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          onClick={() => onApplyToManual?.({ selfAnalysis: message.content })}
+                        >自己分析に追記</button>
+                        <button
+                          type="button"
+                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          onClick={() => onApplyToManual?.({ strengths: pickStrengthsFrom(message.content) })}
+                        >強みに追加</button>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/20">
                       <div className="flex items-center space-x-2">
                         {message.category && (
@@ -680,7 +627,7 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
                 <div className={`w-10 h-10 bg-gradient-to-br ${currentMode.color} rounded-full flex items-center justify-center`}>
                   <Bot className="w-5 h-5 text-white" />
                 </div>
-                <div className="bg-muted rounded-2xl p-4">
+                <div className="bg-muted rounded-2xl p-4 border border-border/40">
                   <div className="flex space-x-1">
                     {[0, 1, 2].map((i) => (
                       <motion.div
@@ -719,7 +666,7 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
                   e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
                 }}
                 onKeyPress={handleKeyPress}
-                placeholder="何でも気軽に話してください..."
+                placeholder={placeholderText}
                 className="w-full px-4 py-3 bg-input-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder-muted-foreground resize-none min-h-[44px] max-h-[120px]"
                 rows={1}
                 disabled={isTyping}
@@ -742,7 +689,7 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
             <div className="flex items-center space-x-3">
               <span>Enterで送信 • Shift+Enterで改行</span>
               <Badge variant="outline" className="text-xs">
-                {currentMode.name}モード
+                {interactionMode === 'free' ? '壁打ちモード' : '空欄を埋めるモード'}
               </Badge>
             </div>
             <div className="flex items-center space-x-1">
