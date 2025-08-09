@@ -45,7 +45,7 @@ type ChallengeCard = Pick<
 type SessionRow =
   Database["public"]["Tables"]["challenge_sessions"]["Row"];
 
-export default function GrandPrixCategoryPage() {
+export default function CaseCategoryPage() {
   const router = useRouter();
   const { category } = useParams<{ category: string }>();
   // UI の URL パラメータ → DB に保存しているカテゴリー名へのマッピング
@@ -162,7 +162,7 @@ export default function GrandPrixCategoryPage() {
         {/* 戻る */}
         <div className="mb-6 flex items-center gap-2">
           <Link
-            href="/grandprix"
+            href="/ipo/case"
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -240,7 +240,7 @@ export default function GrandPrixCategoryPage() {
 
                     <CardFooter>
                       <Link
-                        href={`/grandprix/${category}/challenge/${c.id}/confirm`}
+                        href={`/ipo/case/${category}/challenge/${c.id}/confirm`}
                         className="w-full"
                       >
                         <Button className="w-full bg-emerald-500 hover:bg-emerald-600">

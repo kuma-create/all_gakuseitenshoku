@@ -338,7 +338,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
     {
       icon: Calendar,
       title: "スマートカレンダー",
-      description: "ES締切・面接日程を一元管理。企業別の準備TODOを自動生成し、Googleカレンダーとの同期でスケジュール漏れを防止。",
+      description: "ES締切・面接日程を一元管理。企業別の準備チェックリストを自動生成し、Googleカレンダーとの同期でスケジュール漏れを防止。",
       gradient: "from-blue-500 to-indigo-600",
     },
     {
@@ -352,6 +352,13 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
       title: "適職診断システム",
       description: "心理学のBig5理論に基づく科学的な性格診断。職種適性・チーム適性・キャリア志向を分析し、最適な業界・職種をマッチング。",
       gradient: "from-purple-500 to-pink-600",
+    }
+    ,{
+      icon: FileText,
+      title: "ピアレビュー（相互添削）",
+      description: "学生同士でES・自己PRをレビューし合い、具体的な改善提案を得られる機能。評価基準テンプレと良い例・悪い例の提示で学習効率を最大化。",
+      gradient: "from-gray-400 to-gray-500",
+      comingSoon: true
     }
   ];
 
@@ -742,7 +749,12 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                 whileHover={{ y: -8 }}
                 className="group cursor-pointer transform-gpu will-change-transform h-full"
               >
-                <Card className="h-full border-0 shadow-xl bg-white hover:shadow-2xl transition-all duration-500 overflow-hidden">
+                <Card className={`relative h-full border-0 shadow-xl bg-white transition-all duration-500 overflow-hidden ${feature.comingSoon ? 'opacity-60 pointer-events-none' : 'hover:shadow-2xl'}`}>
+                  {feature.comingSoon && (
+                    <span className="absolute top-3 right-3 text-[10px] tracking-wide font-semibold px-2 py-1 rounded-md bg-gray-900 text-white">
+                      COMING&nbsp;SOON
+                    </span>
+                  )}
                   <CardContent className="p-6 h-full flex flex-col">
                     {/* Icon */}
                     <div className={`w-12 h-12 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300 mb-6`}>

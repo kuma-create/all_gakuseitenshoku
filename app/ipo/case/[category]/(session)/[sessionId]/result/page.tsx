@@ -1,8 +1,8 @@
 "use client"
 
 /* ------------------------------------------------------------------
-   Grand Prix – 結果ページ (Web テスト用)
-   /grandprix/[category]/(session)/[sessionId]/result/page.tsx
+   Case – 結果ページ (Web テスト/ケース/ビジスコア 用)
+   /ipo/case/[category]/(session)/[sessionId]/result/page.tsx
 ------------------------------------------------------------------- */
 
 import { useParams, useRouter } from "next/navigation"

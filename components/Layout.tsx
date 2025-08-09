@@ -12,7 +12,7 @@ import {
   FileText
 } from 'lucide-react';
 import { Route, User as UserType } from '../App';
-import { Avatar } from './ui/Avatar';
+import { Avatar } from '@/components/ui/avatar';
 import {
   Sidebar,
   SidebarContent,
@@ -112,6 +112,12 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
               <span className="font-bold text-sidebar-foreground">IPO University</span>
               <span className="text-xs text-sidebar-foreground/70">キャリア開発プラットフォーム</span>
             </div>
+            {user && (
+              <div className="flex items-center mt-2 space-x-2">
+                <Avatar name={user.name} size="xs" />
+                <span className="text-xs text-sidebar-foreground/80">{user.name}（自分）</span>
+              </div>
+            )}
           </div>
         </SidebarHeader>
         

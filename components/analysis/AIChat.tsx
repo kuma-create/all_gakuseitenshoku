@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Save, RefreshCw, Bot, User, Lightbulb, BookOpen, Heart, Brain, Target, Zap, MessageSquare, Download, X, Play, Pause, Settings, Star, HelpCircle, AlertCircle } from 'lucide-react';
 import { Card } from '../ui/card';
@@ -183,20 +184,30 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
     }
 
     try {
-      setTimeout(async () => {
-        const aiResponse = generateAIResponse(inputText, messages.length, chatMode);
-        const updatedMessages = [...newMessages, aiResponse];
-        setMessages(updatedMessages);
+      // まずはOpenAI連携（サーバー経由）を試行。失敗した場合はモックにフォールバック。
+      const aiResponse = await fetchAIResponse(newMessages, chatMode).catch(() => null);
+
+      if (aiResponse) {
+        const updated = [...newMessages, aiResponse];
+        setMessages(updated);
         setIsTyping(false);
-        updateStats(updatedMessages);
-      }, 1000 + Math.random() * 1500);
+        updateStats(updated);
+        return;
+      }
+
+      // フォールバック：モック応答
+      const mock = generateMockResponse(inputText, messages.length, chatMode);
+      const updatedMessages = [...newMessages, mock];
+      setMessages(updatedMessages);
+      setIsTyping(false);
+      updateStats(updatedMessages);
     } catch (error) {
       console.error('Error sending message:', error);
       setIsTyping(false);
     }
   };
 
-  const generateAIResponse = (input: string, messageCount: number, mode: string): Message => {
+  const generateMockResponse = (input: string, messageCount: number, mode: string): Message => {
     const responses = {
       empathetic: [
         'そのお気持ち、とてもよく分かります。そう感じるのは自然なことですね。もう少し詳しく教えていただけますか？',
@@ -268,6 +279,47 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
       insights: messageCount > 2 ? [insights[Math.floor(Math.random() * insights.length)]] : undefined,
       questions: messageCount > 1 ? [questions[Math.floor(Math.random() * questions.length)]] : undefined
     };
+  };
+
+  // OpenAI連携用（サーバー経由）
+  // 期待するサーバー側のAPI: POST /api/chat
+  // body: { messages: Array<{ role: 'system'|'user'|'assistant', content: string }>, mode: string }
+  // response: { content: string, category?: string, insights?: string[], questions?: string[] }
+  const fetchAIResponse = async (messageList: Message[], mode: string): Promise<Message | null> => {
+    try {
+      // クライアントからは直接OpenAIキーを使わず、サーバー経由で呼び出す前提
+      const payload = {
+        messages: messageList.map(m => ({
+          role: m.type === 'user' ? 'user' : m.type === 'ai' ? 'assistant' : 'system',
+          content: m.content
+        })),
+        mode
+      };
+
+      // 既存の apiService がある前提で利用。なければ fetch に置き換え可。
+      const res = await apiService.request('/api/chat', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!res || !res.content) return null;
+
+      const categories = ['自己理解', '価値観', '経験分析', '将来設計', '感情整理', '人間関係', 'キャリア', '成長', '挑戦'];
+      return {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        content: res.content,
+        timestamp: new Date(),
+        category: res.category || categories[Math.floor(Math.random() * categories.length)],
+        emoji: '🤖',
+        insights: res.insights,
+        questions: res.questions
+      };
+    } catch (e) {
+      console.warn('fetchAIResponse failed, fallback to mock:', e);
+      return null;
+    }
   };
 
   const updateStats = (messageList: Message[]) => {
@@ -479,9 +531,9 @@ export function AIChat({ userId, onProgressUpdate }: AIChatProps) {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">対話の深さ</span>
-              <span className="text-sm text-muted-foreground">{Math.min(100, messages.length * 3 + stats.insightsGenerated * 5)}%</span>
+              <span className="text-sm text-muted-foreground">{Math.min(100, messages.length * 3 + stats.insightsGenerated * 5 + stats.deepThoughts * 10)}%</span>
             </div>
-            <Progress value={Math.min(100, messages.length * 3 + stats.insightsGenerated * 5)} className="h-2" />
+            <Progress value={Math.min(100, messages.length * 3 + stats.insightsGenerated * 5 + stats.deepThoughts * 10)} className="h-2" />
           </div>
 
           {/* Quick Prompts */}

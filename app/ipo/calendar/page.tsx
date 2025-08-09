@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, startTransition } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, MapPin, User, ChevronLeft, ChevronRight,
   Plus, Search, Filter, Bell, Users, Star, CheckCircle, AlertCircle,
@@ -42,7 +42,6 @@ interface CalendarEvent {
   registrationStatus?: 'open' | 'closed' | 'waitlist';
 }
 
-const EVENT_CATEGORIES = {
 // Supabase row types (minimum needed)
 type DbEvent = {
   id: string | number;
@@ -65,6 +64,12 @@ type DbEvent = {
   target_audience?: string | null;
   registration_status?: 'open' | 'closed' | 'waitlist' | null;
 };
+
+// registration rows (ipo_event_registrations)
+type RegistrationRow = { event_id: number; user_id: string };
+
+
+const EVENT_CATEGORIES = {
   explanation: {
     label: '企業説明会',
     icon: Briefcase,
@@ -129,6 +134,26 @@ export default function CalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
 
+  // Run a callback when the main thread is idle (fallback to setTimeout)
+  const runIdle = (cb: () => void) => {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      // @ts-ignore - TS lib may not include requestIdleCallback
+      (window as any).requestIdleCallback(cb);
+    } else {
+      setTimeout(cb, 0);
+    }
+  };
+
+  const handleTabChange = useCallback((value: string) => {
+    startTransition(() => {
+      setActiveTab(value as typeof activeTab);
+    });
+    // Avoid blocking paint; scroll after the transition
+    if (typeof window !== 'undefined') {
+      runIdle(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    }
+  }, [activeTab]);
+
   const mapRowToEvent = (row: DbEvent, isRegistered: boolean, currentParticipants: number): CalendarEvent => ({
     id: String(row.id),
     title: row.title,
@@ -167,18 +192,23 @@ export default function CalendarPage() {
           .from('ipo_calendar_events')
           .select('*')
           .or(user ? `is_public.eq.true,user_id.eq.${user.id}` : 'is_public.eq.true')
-          .order('date', { ascending: true });
+          .order('date', { ascending: true })
+          .returns<DbEvent[]>();
         if (evErr) throw evErr;
 
         const eventIds = (rows ?? []).map(r => String((r as DbEvent).id));
+        const eventIdsNum = (rows ?? [])
+          .map(r => Number((r as DbEvent).id))
+          .filter((n) => Number.isFinite(n));
         // registrations of current user
         let myRegs = new Set<string>();
         if (user && eventIds.length) {
           const { data: regs, error: regErr } = await supabase
             .from('ipo_event_registrations')
-            .select('event_id')
+            .select('event_id,user_id')
             .eq('user_id', user.id)
-            .in('event_id', eventIds);
+            .in('event_id', eventIdsNum as number[])
+            .returns<RegistrationRow[]>();
           if (regErr) throw regErr;
           myRegs = new Set((regs ?? []).map(r => String(r.event_id)));
         }
@@ -186,15 +216,14 @@ export default function CalendarPage() {
         // aggregate counts per event
         const countsMap = new Map<string, number>();
         if (eventIds.length) {
-          const { data: countRows, error: countErr } = await supabase
+          const { data: allRegs, error: countErr } = await supabase
             .from('ipo_event_registrations')
-            .select('event_id, count', { count: 'exact', head: false })
-            .in('event_id', eventIds);
+            .select('event_id')
+            .in('event_id', eventIdsNum as number[])
+            .returns<RegistrationRow[]>();
           if (countErr) throw countErr;
-          // countRows contains rows; count is provided on response, not per row; fallback to manual aggregate
-          // Fallback: manual aggregate from rows if present
-          if (countRows && Array.isArray(countRows)) {
-            for (const r of countRows as any[]) {
+          if (allRegs) {
+            for (const r of allRegs) {
               const id = String(r.event_id);
               countsMap.set(id, (countsMap.get(id) ?? 0) + 1);
             }
@@ -253,6 +282,13 @@ export default function CalendarPage() {
     const target = events.find(e => e.id === eventId);
     if (!target) return;
 
+    // DB は bigint 想定なので数値化
+    const eventIdNum = Number(eventId);
+    if (!Number.isFinite(eventIdNum)) {
+      setError('不正なイベントIDです');
+      return;
+    }
+
     try {
       // capacity check
       if (!target.isRegistered && target.maxParticipants && target.currentParticipants >= target.maxParticipants) {
@@ -266,7 +302,7 @@ export default function CalendarPage() {
           .from('ipo_event_registrations')
           .delete()
           .eq('user_id', authUserId)
-          .eq('event_id', eventId);
+          .eq('event_id', eventIdNum);
         if (delErr) throw delErr;
 
         setEvents(prev => prev.map(ev => ev.id === eventId
@@ -277,7 +313,7 @@ export default function CalendarPage() {
         // register
         const { error: insErr } = await supabase
           .from('ipo_event_registrations')
-          .insert({ user_id: authUserId, event_id: eventId });
+          .insert({ user_id: authUserId, event_id: eventIdNum });
         if (insErr) throw insErr;
 
         setEvents(prev => prev.map(ev => ev.id === eventId
@@ -324,8 +360,10 @@ export default function CalendarPage() {
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden"
           onClick={() => {
-            setSelectedEvent(event);
-            setShowEventDetail(true);
+            startTransition(() => {
+              setSelectedEvent(event);
+              setShowEventDetail(true);
+            });
           }}
         >
           <CardContent className="p-0">
@@ -719,7 +757,7 @@ export default function CalendarPage() {
         </motion.div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="events">イベント一覧</TabsTrigger>
             <TabsTrigger value="week">週表示</TabsTrigger>

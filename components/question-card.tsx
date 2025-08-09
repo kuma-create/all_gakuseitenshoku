@@ -1,11 +1,12 @@
 /* ------------------------------------------------------------------
-   components/question-card.tsx
-   - 必要最低限の null / undefined ガードを追加
-   - レイアウト・UIUX は従来のまま
+   components/question-card.tsx – v2
+   - 4択/自由記述を自動判定（choices>=2 or correct_choice(1-4)で択一）
+   - choices の形式差異を吸収（string配列 / {text}配列 / choice1..4 のどれでも）
+   - 1-based の選択値を保存
 ------------------------------------------------------------------- */
 "use client"
 
-import { useCallback, useState, useEffect } from "react"
+import { useCallback, useState, useEffect, useMemo } from "react"
 import type { Database } from "@/lib/supabase/types"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
@@ -38,11 +39,34 @@ interface Props {
   onAnswered?: (questionId: string, choice: number | string | null) => void
 }
 
-/**
- * <QuestionCard>
- * - 択一式 / 自由記述を自動判定して描画
- * - 入力と同時に /api/save-answer へ POST
- */
+/* ---------- 選択肢の正規化 ---------- */
+function normalizeChoices(q: any): string[] {
+  // 最優先: choices(json配列)
+  const raw = q?.choices
+  if (Array.isArray(raw)) {
+    return raw
+      .map((c: any) => {
+        if (typeof c === "string") return c
+        if (c && typeof c === "object") {
+          if (typeof c.text === "string") return c.text
+          if (typeof c.label === "string") return c.label
+          if (typeof c.value === "string") return c.value
+        }
+        return c != null ? String(c) : ""
+      })
+      .filter((s: string) => s.trim().length > 0)
+  }
+
+  // 次点: choice1..4 / choice_1..4
+  const c1 = q?.choice1 ?? q?.choice_1 ?? null
+  const c2 = q?.choice2 ?? q?.choice_2 ?? null
+  const c3 = q?.choice3 ?? q?.choice_3 ?? null
+  const c4 = q?.choice4 ?? q?.choice_4 ?? null
+  return [c1, c2, c3, c4]
+    .map((v) => (typeof v === "string" ? v : v != null ? String(v) : ""))
+    .filter((s) => s.trim().length > 0)
+}
+
 export function QuestionCard({
   question,
   sessionId,
@@ -61,11 +85,10 @@ export function QuestionCard({
 
   /* Question が切り替わったら state をリセット */
   useEffect(() => {
-    setChoice(
-      initialAnswer?.choice != null ? String(initialAnswer.choice) : "",
-    );
-    setText(initialAnswer?.text ?? "");
-  }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    setChoice(initialAnswer?.choice != null ? String(initialAnswer.choice) : "")
+    setText(initialAnswer?.text ?? "")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.id])
 
   /* ---------- 保存処理 ---------- */
   const save = useCallback(
@@ -93,20 +116,15 @@ export function QuestionCard({
     [question.id, sessionId, toast, onSaved],
   )
 
-  /* ---------- 択一式 ---------- */
-  const cat = question.category?.toString?.() ?? "";
-  if (["web_lang", "web-lang", "web_math", "web-math"].includes(cat)) {
-    /* choice 配列が null / オブジェクト形式 / 素の文字列など混在しても落ちないように整形 */
-    const rawChoices = question.choices as any
-    const choices: { id: number | string; text: string }[] = Array.isArray(rawChoices)
-      ? rawChoices.map((c: any, idx: number) => {
-          /* c がオブジェクトなら id/text をそのまま、プリミティブなら index・値を利用 */
-          if (c && typeof c === "object" && "id" in c && "text" in c) {
-            return { id: (c as any).id ?? idx, text: (c as any).text ?? "" }
-          }
-          return { id: idx, text: String(c ?? "") }
-        })
-      : []
+  /* ---------- 択一式 or 自由記述を自動判定 ---------- */
+  const choices = useMemo(() => normalizeChoices(question), [question])
+  const hasCorrect = Number.isInteger(question?.correct_choice) &&
+    question!.correct_choice! >= 1 && question!.correct_choice! <= 4
+  const isMCQ = hasCorrect || choices.length >= 2
+
+  if (isMCQ) {
+    // 1-based の value を採用
+    const normalized = choices.map((label, idx) => ({ value: idx + 1, label }))
 
     return (
       <div className="space-y-4">
@@ -116,23 +134,20 @@ export function QuestionCard({
           name={`q-${question.id}`}
           value={choice}
           onValueChange={(val) => {
-            if (val === "") return;       // 空選択は無視
+            if (val === "") return
             setChoice(val)
-            const num = Number.isNaN(Number(val)) ? undefined : Number(val)
-            save({ choice: num })
-            onAnswered?.(question.id, num ?? null)
+            const num = Number(val)
+            save({ choice: Number.isNaN(num) ? undefined : num })
+            onAnswered?.(question.id, Number.isNaN(num) ? null : num)
           }}
         >
-          {choices.map((c) => {
-            const itemId = `q-${question.id}-${c.id}`
+          {normalized.map((c) => {
+            const itemId = `q-${question.id}-${c.value}`
             return (
-              <div key={c.id} className="flex items-center space-x-2">
-                <RadioGroupItem id={itemId} value={String(c.id)} />
-                <Label
-                  htmlFor={itemId}
-                  className="text-sm leading-relaxed"
-                >
-                  {c.text}
+              <div key={c.value} className="flex items-center space-x-2">
+                <RadioGroupItem id={itemId} value={String(c.value)} />
+                <Label htmlFor={itemId} className="text-sm leading-relaxed">
+                  {c.label}
                 </Label>
               </div>
             )
@@ -151,18 +166,13 @@ export function QuestionCard({
         onChange={(e) => {
           const v = e.target.value
           setText(v)
-          onAnswered?.(question.id, v)            //  ← 即時反映
+          onAnswered?.(question.id, v)
         }}
         rows={6}
         placeholder="自由記述欄"
       />
       <div className="text-right">
-        <Button
-          size="sm"
-          onClick={() => save({ text })}
-          disabled={saving}
-          variant="secondary"
-        >
+        <Button size="sm" onClick={() => save({ text })} disabled={saving} variant="secondary">
           {saving ? "Saving…" : "Save"}
         </Button>
       </div>
