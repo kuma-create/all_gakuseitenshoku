@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, startTransition } from 'react';
 import { 
   ArrowLeft, 
   Brain, 
@@ -192,9 +192,50 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     prText: '',
     strengths: ['', '', ''],
   });
+
+  // 自己分析ノート（manual）から充足率を推定（0~1）
+  const computeSelfNoteProgress = (m: typeof manual): number => {
+    const lenSafe = (s?: string) => (typeof s === 'string' ? s.trim().length : 0);
+    const titleDone = lenSafe(m.prTitle) > 0 ? 1 : 0;                // 15%
+    const aboutRatio = Math.min(1, lenSafe(m.about) / 200);          // 20%
+    const prRatio = Math.min(1, lenSafe(m.prText) / 800);            // 35%
+    const selfAnalysisRatio = Math.min(1, lenSafe(m.selfAnalysis) / 600); // 15%
+    const strengthCount = (m.strengths || []).filter((s) => lenSafe(s) > 0).length;
+    const strengthRatio = Math.min(1, strengthCount / 3);            // 15%
+
+    const weighted =
+      0.15 * titleDone +
+      0.20 * aboutRatio +
+      0.35 * prRatio +
+      0.15 * selfAnalysisRatio +
+      0.15 * strengthRatio;
+
+    return Math.max(0, Math.min(1, Number.isFinite(weighted) ? weighted : 0));
+  };
   // --- autosave control for manual note ---
   const manualFirstRenderRef = useRef(true);
   const manualSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---- AIChat → 自己分析ノート反映用（トップレベルで定義：Hooks順保持） ----
+  const applyManualUpdate = useCallback((upd: Partial<{ prTitle: string; about: string; prText: string; selfAnalysis: string; strengths: string[] }>) => {
+    setManual(prev => {
+      const next = { ...prev } as typeof prev;
+      if (typeof upd.prTitle === 'string') next.prTitle = upd.prTitle;
+      if (typeof upd.about === 'string') next.about = upd.about;
+      if (typeof upd.prText === 'string') next.prText = upd.prText;
+      if (typeof upd.selfAnalysis === 'string') next.selfAnalysis = (prev.selfAnalysis ? prev.selfAnalysis + '\n' : '') + upd.selfAnalysis;
+      if (Array.isArray(upd.strengths) && upd.strengths.length) {
+        const merged = [...prev.strengths];
+        for (const s of upd.strengths) {
+          if (!s) continue;
+          const idx = merged.findIndex(x => !x);
+          if (idx !== -1) merged[idx] = s;
+        }
+        next.strengths = merged.slice(0, 3);
+      }
+      return next;
+    });
+  }, [setManual]);
 
   // --- Debounce timer for progress upserts ---
   const upsertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -597,6 +638,37 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     upsertProgress(next);
   }, [progress, upsertProgress]);
 
+  // AIChatに渡す実充足率（0~1）
+  const sectionProgress = useMemo(() => ({
+    selfNote: computeSelfNoteProgress(manual),
+    lifeChart: Math.max(0, Math.min(1, (progress.lifeChart || 0) / 100)),
+    strengthsWeaknesses: Math.max(0, Math.min(1, (progress.strengthAnalysis || 0) / 100)),
+    experience: Math.max(0, Math.min(1, (progress.experienceReflection || 0) / 100)),
+    futureVision: Math.max(0, Math.min(1, (progress.futureVision || 0) / 100)),
+  }), [manual, progress.lifeChart, progress.strengthAnalysis, progress.experienceReflection, progress.futureVision]);
+
+  // 概要ページ用：5セクション平均（0..1 → %）。AIChatの進捗値は使わず、selfNoteを代表させる
+  const overviewPercentFromSections = useMemo(() => {
+    const vals = [
+      sectionProgress.selfNote ?? 0,
+      sectionProgress.lifeChart ?? 0,
+      sectionProgress.strengthsWeaknesses ?? 0,
+      sectionProgress.experience ?? 0,
+      sectionProgress.futureVision ?? 0,
+    ];
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return Math.round(avg * 100);
+  }, [sectionProgress]);
+
+  // AnalysisOverview に渡すときは、aiChat を selfNote% に読み替えたオブジェクトを渡す
+  const progressForOverview = useMemo(() => ({
+    aiChat: Math.round((sectionProgress.selfNote ?? 0) * 100),
+    lifeChart: progress.lifeChart,
+    futureVision: progress.futureVision,
+    strengthAnalysis: progress.strengthAnalysis,
+    experienceReflection: progress.experienceReflection,
+  }), [sectionProgress.selfNote, progress.lifeChart, progress.futureVision, progress.strengthAnalysis, progress.experienceReflection]);
+
   const handleTabChange = useCallback((value: string) => {
     // Prioritize UI state switch; defer non-urgent work
     startTransition(() => {
@@ -620,9 +692,16 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <AnalysisOverview progress={progress} onNavigateToTool={setActiveTab} />;
+        return <AnalysisOverview progress={progressForOverview} onNavigateToTool={setActiveTab} />;
       case 'aiChat':
-        return <AIChat userId={userId ?? ''} onProgressUpdate={(p: number) => setToolProgress('aiChat', p)} />;
+        return (
+          <AIChat
+            userId={userId ?? ''}
+            onProgressUpdate={(p: number) => setToolProgress('aiChat', p)}
+            onApplyToManual={applyManualUpdate}
+            sectionProgress={sectionProgress}
+          />
+        );
       case 'manual':
   return (
     <div className="space-y-4">
@@ -843,7 +922,7 @@ function TipBox() {
               <div className="flex items-center space-x-3 text-sm text-gray-600">
                 <div className="flex items-center space-x-1">
                   <BarChart3 className="w-4 h-4" />
-                  <span>総合進捗 {overallProgress}%</span>
+                  <span>総合進捗 {overviewPercentFromSections}%</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <Award className="w-4 h-4" />
@@ -956,97 +1035,22 @@ function TipBox() {
 
   return (
     <div className="bg-background min-h-screen pb-20 md:pb-0">
-      {/* Header */}
+      {/* Header (minimal) */}
       <div className="bg-card border-b border-border sticky top-0 z-40 backdrop-blur-sm bg-card/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 md:space-x-4 min-w-0 flex-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/ipo/dashboard')}
-                className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0"
-                aria-label="ダッシュボードに戻る"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl md:text-2xl font-bold text-foreground truncate">
-                  自己分析プラットフォーム
-                </h1>
-                <p className="text-sm text-muted-foreground hidden md:block">
-                  多角的なアプローチで自分自身を深く理解しましょう
-                </p>
-              </div>
-            </div>
-            
-            {/* Desktop Progress */}
-            <div className="hidden md:flex items-center space-x-4">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">総合進捗</div>
-                <div className="text-lg font-bold text-foreground">{overallProgress}%</div>
-              </div>
-              <div className="w-16 h-16 relative">
-                <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
-                  <circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    className="text-muted opacity-20"
-                  />
-                  <motion.circle
-                    cx="32"
-                    cy="32"
-                    r="28"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    strokeDasharray={`${2 * Math.PI * 28}`}
-                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - overallProgress / 100)}`}
-                    className="text-primary transition-all duration-1000 ease-out"
-                    initial={{ strokeDashoffset: `${2 * Math.PI * 28}` }}
-                    animate={{ strokeDashoffset: `${2 * Math.PI * 28 * (1 - overallProgress / 100)}` }}
-                    transition={{ duration: 1, ease: "easeInOut", delay: 0.5 }}
-                  />
-                </svg>
-                <Brain className="w-6 h-6 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-primary" />
-              </div>
-            </div>
-
-            {/* Mobile Progress */}
-            <div className="flex md:hidden items-center space-x-3">
-              <div className="text-right">
-                <div className="text-xs text-muted-foreground">進捗</div>
-                <div className="text-sm font-bold text-foreground">{overallProgress}%</div>
-              </div>
-              <div className="w-10 h-10 relative">
-                <svg className="w-10 h-10 -rotate-90" viewBox="0 0 40 40">
-                  <circle
-                    cx="20"
-                    cy="20"
-                    r="16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    className="text-muted opacity-20"
-                  />
-                  <circle
-                    cx="20"
-                    cy="20"
-                    r="16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeDasharray={`${2 * Math.PI * 16}`}
-                    strokeDashoffset={`${2 * Math.PI * 16 * (1 - overallProgress / 100)}`}
-                    className="text-primary transition-all duration-1000 ease-out"
-                  />
-                </svg>
-                <Brain className="w-4 h-4 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-primary" />
-              </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/ipo/dashboard')}
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0"
+              aria-label="ダッシュボードに戻る"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">自己分析</h1>
+              <p className="text-xs text-muted-foreground hidden md:block">AIと対話しながら自己分析を進めましょう</p>
             </div>
           </div>
         </div>
@@ -1056,7 +1060,7 @@ function TipBox() {
       {!isMobile && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="w-full">
-            <div className="sticky top-[120px] z-40 bg-background/80 backdrop-blur-sm pt-2 pb-3 mb-6">
+            <div className="sticky top-[64px] z-40 bg-background/80 backdrop-blur-sm pt-2 pb-3 mb-6">
               <div
                 className="w-full h-12 p-1 bg-muted/40 rounded-xl border flex items-center gap-2 overflow-x-auto"
                 role="tablist"
