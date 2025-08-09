@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Target, Calendar, Lightbulb, Save, Eye } from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Target, Calendar, Lightbulb, Save, Eye, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Card } from '../ui/card';
+import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
+import { supabase } from '@/lib/supabase/client';
 
 interface FutureVisionProps {
   onProgressUpdate: (progress: number) => void;
@@ -21,70 +22,23 @@ interface VisionData {
   learnings: string;
 }
 
+type Timeframe = '5年後' | '10年後' | '20年後';
+
+const EMPTY_VISION: Record<Timeframe, VisionData> = {
+  '5年後': { timeframe: '5年後', career: '', lifestyle: '', relationships: '', skills: '', values: '', achievements: '', challenges: '', learnings: '' },
+  '10年後': { timeframe: '10年後', career: '', lifestyle: '', relationships: '', skills: '', values: '', achievements: '', challenges: '', learnings: '' },
+  '20年後': { timeframe: '20年後', career: '', lifestyle: '', relationships: '', skills: '', values: '', achievements: '', challenges: '', learnings: '' },
+};
+
 export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
-  const [visions, setVisions] = useState<Record<string, VisionData>>({
-    '5年後': {
-      timeframe: '5年後',
-      career: '',
-      lifestyle: '',
-      relationships: '',
-      skills: '',
-      values: '',
-      achievements: '',
-      challenges: '',
-      learnings: ''
-    },
-    '10年後': {
-      timeframe: '10年後',
-      career: '',
-      lifestyle: '',
-      relationships: '',
-      skills: '',
-      values: '',
-      achievements: '',
-      challenges: '',
-      learnings: ''
-    },
-    '20年後': {
-      timeframe: '20年後',
-      career: '',
-      lifestyle: '',
-      relationships: '',
-      skills: '',
-      values: '',
-      achievements: '',
-      challenges: '',
-      learnings: ''
-    }
-  });
+  const [visions, setVisions] = useState<Record<Timeframe, VisionData>>(EMPTY_VISION);
+  const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('5年後');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [activeTimeframe, setActiveTimeframe] = useState<'5年後' | '10年後' | '20年後'>('5年後');
-
-  const updateVision = (field: keyof Omit<VisionData, 'timeframe'>, value: string) => {
-    setVisions(prev => ({
-      ...prev,
-      [activeTimeframe]: {
-        ...prev[activeTimeframe],
-        [field]: value
-      }
-    }));
-
-    // Calculate progress
-    const allVisions = Object.values(visions);
-    const totalFields = allVisions.length * 8; // 8 fields per vision
-    const filledFields = allVisions.reduce((count, vision) => {
-      return count + Object.values(vision).filter(v => v && v !== vision.timeframe).length;
-    }, 0);
-    
-    const progress = Math.round((filledFields / totalFields) * 100);
-    onProgressUpdate(progress);
-  };
-
-  const getCompletionRate = (vision: VisionData) => {
-    const fields = Object.values(vision).filter(v => v && v !== vision.timeframe);
-    return Math.round((fields.length / 8) * 100);
-  };
-
+  // --------- helpers ---------
   const prompts = {
     career: '理想のキャリア、職業、ポジション、働き方について詳しく書いてください',
     lifestyle: 'どんな場所でどんな生活をしていたいか、ライフスタイルを描いてください',
@@ -93,8 +47,8 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
     values: '大切にしたい価値観、信念、人生の軸は何ですか',
     achievements: '達成したい目標、成し遂げたいことを具体的に書いてください',
     challenges: '乗り越えたい課題、挑戦してみたいことは何ですか',
-    learnings: '学び続けたいこと、成長したい分野を教えてください'
-  };
+    learnings: '学び続けたいこと、成長したい分野を教えてください',
+  } as const;
 
   const fieldLabels = {
     career: 'キャリア・仕事',
@@ -104,9 +58,112 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
     values: '価値観',
     achievements: '目標・成果',
     challenges: '挑戦・課題',
-    learnings: '学習・成長'
+    learnings: '学習・成長',
+  } as const;
+
+  const allFieldsCount = 3 * 8; // 3 timeframes x 8 fields
+
+  const overallCompletion = useMemo(() => {
+    const filled = Object.values(visions).reduce((sum, v) => {
+      const n = Object.entries(v).filter(([k, val]) => k !== 'timeframe' && Boolean(val)).length;
+      return sum + n;
+    }, 0);
+    return Math.round((filled / allFieldsCount) * 100);
+  }, [visions]);
+
+  // propagate completion to parent
+  useEffect(() => {
+    onProgressUpdate(overallCompletion);
+  }, [overallCompletion, onProgressUpdate]);
+
+  const getCompletionRate = (vision: VisionData) => {
+    const n = Object.entries(vision).filter(([k, val]) => k !== 'timeframe' && Boolean(val)).length;
+    return Math.round((n / 8) * 100);
   };
 
+  // --------- load current user & data ---------
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id ?? null;
+      setUserId(uid);
+      if (!uid) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('ipo_future_vision')
+        .select('timeframe, career, lifestyle, relationships, skills, values, achievements, challenges, learnings')
+        .eq('user_id', uid);
+
+      if (!error && data && data.length > 0) {
+        const merged = { ...EMPTY_VISION } as Record<Timeframe, VisionData>;
+        for (const row of data as any[]) {
+          const { timeframe: _tf, ...rest } = row as { timeframe: Timeframe } & Partial<VisionData>;
+          const tf = _tf as Timeframe;
+          if (tf && merged[tf]) {
+            // Spread DB fields but always finalize with the canonical timeframe key
+            merged[tf] = { ...merged[tf], ...rest, timeframe: tf } as VisionData;
+          }
+        }
+        setVisions(merged);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  // --------- save (debounced) ---------
+  const saveOne = async (tf: Timeframe, v: VisionData) => {
+    if (!userId) return;
+    setSaving('saving');
+    const payload = {
+      user_id: userId,
+      timeframe: tf,
+      career: v.career ?? '',
+      lifestyle: v.lifestyle ?? '',
+      relationships: v.relationships ?? '',
+      skills: v.skills ?? '',
+      values: v.values ?? '',
+      achievements: v.achievements ?? '',
+      challenges: v.challenges ?? '',
+      learnings: v.learnings ?? '',
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('ipo_future_vision').upsert(payload, { onConflict: 'user_id,timeframe' });
+    if (error) {
+      console.error('save future_visions error', error);
+      setSaving('error');
+    } else {
+      setSaving('saved');
+      setTimeout(() => setSaving('idle'), 1500);
+    }
+  };
+
+  const saveAll = async () => {
+    for (const tf of Object.keys(visions) as Timeframe[]) {
+      await saveOne(tf, visions[tf]);
+    }
+  };
+
+  const scheduleSave = (tf: Timeframe) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void saveOne(tf, visions[tf]);
+    }, 800);
+  };
+
+  const updateVision = (field: keyof Omit<VisionData, 'timeframe'>, value: string) => {
+    setVisions((prev) => {
+      const next = { ...prev, [activeTimeframe]: { ...prev[activeTimeframe], [field]: value } } as Record<Timeframe, VisionData>;
+      return next;
+    });
+    scheduleSave(activeTimeframe);
+  };
+
+  // --------- UI ---------
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <Card className="p-6">
@@ -117,14 +174,21 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
           </div>
           <div className="flex items-center space-x-3">
             <Badge variant="outline">
-              完了率: {Math.round(Object.values(visions).reduce((sum, v) => sum + getCompletionRate(v), 0) / 3)}%
+              完了率: {overallCompletion}%
             </Badge>
-            <Button className="flex items-center space-x-2">
-              <Save className="w-4 h-4" />
-              <span>保存</span>
+            <Button className="flex items-center space-x-2" onClick={saveAll} disabled={!userId || loading}>
+              {saving === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span>{saving === 'saving' ? '保存中...' : saving === 'saved' ? '保存済み' : '保存'}</span>
             </Button>
           </div>
         </div>
+
+        {!userId && (
+          <div className="flex items-center gap-2 text-yellow-600 text-sm mb-2">
+            <AlertCircle className="w-4 h-4" />
+            <span>ログインユーザーが確認できません。保存するにはログインしてください。</span>
+          </div>
+        )}
 
         {/* Progress Overview */}
         <div className="grid grid-cols-3 gap-4 mb-6">
@@ -137,7 +201,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
         </div>
       </Card>
 
-      <Tabs value={activeTimeframe} onValueChange={(value) => setActiveTimeframe(value as any)}>
+      <Tabs value={activeTimeframe} onValueChange={(value) => setActiveTimeframe(value as Timeframe)}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="5年後" className="flex items-center space-x-2">
             <Target className="w-4 h-4" />
@@ -154,7 +218,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
         </TabsList>
 
         {Object.entries(visions).map(([timeframe, vision]) => (
-          <TabsContent key={timeframe} value={timeframe} className="mt-6">
+          <TabsContent key={timeframe} value={timeframe as Timeframe} className="mt-6">
             <div className="space-y-6">
               <Card className="p-6">
                 <h3 className="font-bold text-foreground mb-4">{timeframe}のビジョン</h3>
@@ -163,13 +227,15 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
                     <div key={field} className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <label className="font-medium text-foreground">{label}</label>
-                        <Lightbulb 
-                          className="w-4 h-4 text-muted-foreground cursor-help" 
+                        <span
+                          className="inline-flex items-center"
                           title={prompts[field as keyof typeof prompts]}
-                        />
+                        >
+                          <Lightbulb className="w-4 h-4 text-muted-foreground cursor-help" />
+                        </span>
                       </div>
                       <textarea
-                        value={vision[field as keyof Omit<VisionData, 'timeframe'>]}
+                        value={vision[field as keyof Omit<VisionData, 'timeframe'>] as string}
                         onChange={(e) => updateVision(field as keyof Omit<VisionData, 'timeframe'>, e.target.value)}
                         placeholder={prompts[field as keyof typeof prompts]}
                         rows={4}

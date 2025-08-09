@@ -12,6 +12,7 @@ import { Slider } from '../ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase/client';
 
 interface StrengthAnalysisProps {
   userId: string;
@@ -19,7 +20,7 @@ interface StrengthAnalysisProps {
 }
 
 interface Strength {
-  id: string;
+  id: string | number;
   name: string;
   category: 'technical' | 'soft' | 'leadership' | 'communication' | 'problem-solving' | 'creativity';
   level: number; // 1-5
@@ -37,7 +38,7 @@ interface Strength {
 }
 
 interface Weakness {
-  id: string;
+  id: string | number;
   name: string;
   category: 'technical' | 'soft' | 'experience' | 'knowledge';
   impact: number; // 1-5
@@ -191,6 +192,7 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
   });
 
   useEffect(() => {
+    if (!userId) return;
     loadAnalysisData();
   }, [userId]);
 
@@ -200,155 +202,119 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
     onProgressUpdate(progress);
   }, [strengths, weaknesses]);
 
-  const loadAnalysisData = () => {
-    // Mock data
-    const mockStrengths: Strength[] = [
-      {
-        id: '1',
-        name: 'リーダーシップ',
-        category: 'leadership',
-        level: 4,
-        description: 'チームを牽引し、目標達成に向けてメンバーを導く能力',
-        developmentPlan: '大規模プロジェクトでのリーダー経験を積む',
-        jobRelevance: {
-          industries: ['コンサルティング', '金融・銀行', 'IT・ソフトウェア'],
-          positions: ['プロジェクトマネージャー', '企画職', '営業職'],
-          keywords: ['チーム管理', 'プロジェクト推進', '目標達成']
-        },
-        validated: true,
-        selfAssessment: 4,
-        feedbackScore: 4,
-        evidence: [
-          {
-            id: '1-1',
-            title: 'サークル代表としての組織運営',
-            description: '100名規模のテニスサークルで代表を務め、活動の活性化を実現',
-            context: 'メンバーの参加率低下と新入生の定着率悪化が課題',
-            outcome: '参加率を30%から80%に向上、新入生定着率90%達成',
-            skills: ['リーダーシップ', 'チームビルディング', '課題解決'],
-            quantifiedResult: '参加率150%向上、定着率40%改善',
-            source: 'self'
-          },
-          {
-            id: '1-2',
-            title: 'インターンでのチームリーダー',
-            description: '新規事業提案プロジェクトでチームリーダーを担当',
-            context: '多様なバックグラウンドを持つ5名のチーム',
-            outcome: '最終プレゼンで2位入賞、提案が実際に検討段階に進行',
-            skills: ['リーダーシップ', '調整力', 'プレゼンテーション'],
-            quantifiedResult: '5チーム中2位の成績',
-            source: 'achievement'
-          }
-        ]
-      },
-      {
-        id: '2',
-        name: '問題解決能力',
-        category: 'problem-solving',
-        level: 4,
-        description: '複雑な問題を構造化し、効果的な解決策を見つけ出す能力',
-        developmentPlan: 'より高度な分析手法を学習し、データドリブンな問題解決を強化',
-        jobRelevance: {
-          industries: ['コンサルティング', 'IT・ソフトウェア', '金融・銀行'],
-          positions: ['コンサルタント', 'アナリスト', '企画職'],
-          keywords: ['論理的思考', '分析力', '課題解決']
-        },
-        validated: true,
-        selfAssessment: 4,
-        feedbackScore: 4,
-        evidence: [
-          {
-            id: '2-1',
-            title: '研究プロジェクトでの課題解決',
-            description: 'ゼミの研究で複雑なデータ分析問題を解決',
-            context: '従来手法では解決困難な統計問題',
-            outcome: '新しいアプローチで問題を解決、学会発表に採択',
-            skills: ['分析力', '創造性', '継続力'],
-            quantifiedResult: '学会発表採択、研究効率30%向上',
-            source: 'achievement'
-          }
-        ]
-      }
-    ];
+  const loadAnalysisData = async () => {
+    // strengths
+    const { data: sData, error: sErr } = await supabase
+      .from('ipo_strengths')
+      .select('id,label,kind,score,updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
 
-    const mockWeaknesses: Weakness[] = [
-      {
-        id: '1',
-        name: '英語力',
-        category: 'technical',
-        impact: 4,
-        description: '国際的な環境での業務に必要な英語コミュニケーション能力が不足',
-        improvementPlan: [
-          {
-            id: '1-1',
-            action: 'TOEIC900点達成',
-            timeline: '6ヶ月',
-            resources: ['オンライン英会話', 'TOEIC対策講座', '英語学習アプリ'],
-            success_metrics: ['TOEIC Score 900+', '英語でのプレゼンテーション実施'],
-            priority: 'high',
-            status: 'in_progress'
-          },
-          {
-            id: '1-2',
-            action: 'ビジネス英語の実践',
-            timeline: '3ヶ月',
-            resources: ['国際インターンシップ', '英語ディスカッションクラブ'],
-            success_metrics: ['英語でのミーティング参加', 'ビジネス文書作成'],
-            priority: 'medium',
-            status: 'not_started'
-          }
-        ],
-        progressTracking: {
-          milestones: [
-            {
-              id: '1-m1',
-              title: 'TOEIC700点達成',
-              description: '基礎的なビジネス英語力の習得',
-              deadline: '2025-03-01',
-              completed: true,
-              evidence: 'TOEIC Score: 720点'
-            },
-            {
-              id: '1-m2',
-              title: 'TOEIC800点達成',
-              description: '中級レベルのビジネス英語力',
-              deadline: '2025-05-01',
-              completed: false
-            }
-          ],
-          currentProgress: 60
-        },
-        jobImpact: {
-          affectedRoles: ['グローバル企業での勤務', '外資系企業', '海外展開企業'],
-          mitigationStrategies: ['国内ポジションからキャリアスタート', '英語サポート体制のある企業選択']
-        }
-      }
-    ];
+    if (sErr) {
+      console.error('load strengths error:', sErr);
+    }
 
-    setStrengths(mockStrengths);
-    setWeaknesses(mockWeaknesses);
+    const strengthsFromDb: Strength[] = (sData || []).map((row: any) => ({
+      id: row.id,
+      name: row.label,                    // label → name
+      category: row.kind,                 // kind → category
+      level: row.score ?? 0,              // score → level
+      evidence: [],
+      description: '',
+      developmentPlan: '',
+      jobRelevance: { industries: [], positions: [], keywords: [] },
+      validated: false,
+      selfAssessment: row.score ?? 0,
+      feedbackScore: undefined,
+    }));
+
+    // weaknesses
+    const { data: wData, error: wErr } = await supabase
+      .from('ipo_weaknesses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (wErr) {
+      console.error('load weaknesses error:', wErr);
+    }
+
+    const weaknessesFromDb: Weakness[] = (wData || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      impact: row.impact,
+      improvementPlan: row.improvement_plan || [],
+      description: row.description || '',
+      progressTracking: row.progress_tracking || { milestones: [], currentProgress: 0 },
+      jobImpact: row.job_impact || { affectedRoles: [], mitigationStrategies: [] },
+    }));
+
+    setStrengths(strengthsFromDb);
+    setWeaknesses(weaknessesFromDb);
   };
 
-  const handleSaveStrength = () => {
+  const handleSaveStrength = async () => {
     if (!newStrength.name) return;
 
-    const strength: Strength = {
-      id: editingStrength?.id || Date.now().toString(),
-      name: newStrength.name!,
-      category: newStrength.category as any || 'soft',
-      level: newStrength.level || 3,
-      evidence: newStrength.evidence || [],
-      description: newStrength.description || '',
-      developmentPlan: newStrength.developmentPlan || '',
-      jobRelevance: newStrength.jobRelevance || { industries: [], positions: [], keywords: [] },
-      validated: newStrength.validated || false,
-      selfAssessment: newStrength.selfAssessment || 3
+    const payload = {
+      user_id: userId,
+      kind: (newStrength.category as any) || 'soft',
+      label: newStrength.name || '',
+      score: newStrength.level ?? 3,
     };
 
-    if (editingStrength) {
-      setStrengths(prev => prev.map(s => s.id === editingStrength.id ? strength : s));
+    if (editingStrength?.id) {
+      const { data, error } = await supabase
+        .from('ipo_strengths')
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('id', typeof editingStrength.id === 'number' ? editingStrength.id : Number(editingStrength.id))
+        .select()
+        .single();
+
+      if (error) {
+        console.error('update strength error:', error);
+      } else if (data) {
+        const updated: Strength = {
+          id: data.id,
+          name: data.label,
+          category: data.kind,
+          level: data.score ?? 0,
+          evidence: [],
+          description: '',
+          developmentPlan: '',
+          jobRelevance: { industries: [], positions: [], keywords: [] },
+          validated: false,
+          selfAssessment: data.score ?? 0,
+          feedbackScore: undefined,
+        };
+        setStrengths(prev => prev.map(s => String(s.id) === String(editingStrength.id) ? updated : s));
+      }
     } else {
-      setStrengths(prev => [...prev, strength]);
+      const { data, error } = await supabase
+        .from('ipo_strengths')
+        .insert({ ...payload })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('insert strength error:', error);
+      } else if (data) {
+        const created: Strength = {
+          id: data.id,
+          name: data.label,
+          category: data.kind,
+          level: data.score ?? 0,
+          evidence: [],
+          description: '',
+          developmentPlan: '',
+          jobRelevance: { industries: [], positions: [], keywords: [] },
+          validated: false,
+          selfAssessment: data.score ?? 0,
+          feedbackScore: undefined,
+        };
+        setStrengths(prev => [created, ...prev]);
+      }
     }
 
     resetStrengthForm();

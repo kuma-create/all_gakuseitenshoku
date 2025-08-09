@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit3, Trash2, Save, Download, Star, Calendar, TrendingUp, CheckCircle, X, Eye, EyeOff, Filter } from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import { Card } from '../ui/card';
+import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -9,11 +9,64 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Label } from '../ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { ExperienceReflectionProps, Experience } from './types/experienceTypes';
 import { categoryConfig, skillSuggestions, commonESQuestions, industryOptions, positionOptions } from './constants/experienceConstants';
-import { calculateCompleteness, generateESAnswer, getMockExperiences } from './utils/experienceUtils';
+import { calculateCompleteness, generateESAnswer } from './utils/experienceUtils';
+
+import { supabase } from '@/lib/supabase/client';
+
+// --- DB <-> UI mappers ---
+const fromRow = (row: any): Experience => ({
+  id: row.id,
+  title: row.title ?? '',
+  category: row.category ?? 'extracurricular',
+  period: row.period ?? { start: '', end: '', duration: '' },
+  organization: row.organization ?? '',
+  role: row.role ?? '',
+  teamSize: row.team_size ?? undefined,
+  description: row.description ?? '',
+  challenges: row.challenges ?? [],
+  achievements: row.achievements ?? [],
+  skills: row.skills ?? [],
+  learnings: row.learnings ?? [],
+  starFramework: row.star_framework ?? { situation: '', task: '', action: '', result: '' },
+  quantifiedResults: row.quantified_results ?? [],
+  jobHuntRelevance: row.job_hunt_relevance ?? {
+    priority: 'medium',
+    targetIndustries: [],
+    targetPositions: [],
+    keywords: [],
+    esUsage: false,
+    interviewUsage: false,
+  },
+  reflectionDepth: row.reflection_depth ?? 3,
+  completeness: row.completeness ?? 0,
+  isPrivate: row.is_private ?? false,
+});
+
+const toRow = (exp: Partial<Experience>, userId: string) => ({
+  id: exp.id,
+  user_id: userId,
+  title: exp.title,
+  category: exp.category,
+  period: exp.period,                 // JSONB
+  organization: exp.organization,
+  role: exp.role,
+  team_size: exp.teamSize,
+  description: exp.description,
+  challenges: exp.challenges,         // JSONB
+  achievements: exp.achievements,     // JSONB
+  skills: exp.skills,                 // JSONB
+  learnings: exp.learnings,           // JSONB
+  star_framework: exp.starFramework,  // JSONB
+  quantified_results: exp.quantifiedResults, // JSONB
+  job_hunt_relevance: exp.jobHuntRelevance,  // JSONB
+  reflection_depth: exp.reflectionDepth,
+  completeness: exp.completeness,
+  is_private: exp.isPrivate,
+});
 
 export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceReflectionProps) {
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -51,6 +104,7 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
   });
 
   useEffect(() => {
+    if (!userId) return;
     loadExperiences();
   }, [userId]);
 
@@ -63,19 +117,29 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
     onProgressUpdate(progress);
   }, [experiences]);
 
-  const loadExperiences = () => {
-    setExperiences(getMockExperiences());
+  const loadExperiences = async () => {
+    const { data, error } = await supabase
+      .from('ipo_experiences')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('loadExperiences error', error);
+      setExperiences([]);
+      return;
+    }
+    setExperiences((data ?? []).map(fromRow));
   };
 
-  const handleSaveExperience = () => {
+  const handleSaveExperience = async () => {
     if (!newExperience.title) return;
 
     const completeness = calculateCompleteness(newExperience);
-    
-    const experience: Experience = {
-      id: editingExperience?.id || Date.now().toString(),
+
+    const experience: Partial<Experience> = {
       title: newExperience.title!,
-      category: newExperience.category as any || 'extracurricular',
+      category: (newExperience.category as any) || 'extracurricular',
       period: newExperience.period || { start: '', end: '', duration: '' },
       organization: newExperience.organization || '',
       role: newExperience.role || '',
@@ -93,17 +157,40 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
         targetPositions: [],
         keywords: [],
         esUsage: false,
-        interviewUsage: false
+        interviewUsage: false,
       },
       reflectionDepth: newExperience.reflectionDepth || 3,
       completeness,
-      isPrivate: newExperience.isPrivate || false
+      isPrivate: newExperience.isPrivate || false,
     };
+    if (editingExperience?.id) {
+      experience.id = editingExperience.id;
+    }
 
-    if (editingExperience) {
-      setExperiences(prev => prev.map(e => e.id === editingExperience.id ? experience : e));
-    } else {
-      setExperiences(prev => [...prev, experience]);
+    // Persist to Supabase
+    const payload = toRow(experience, userId) as any;
+
+    try {
+      if (editingExperience && editingExperience.id) {
+        // update/upsert existing row by id
+        const { error } = await supabase
+          .from('ipo_experiences')
+          .upsert(payload, { onConflict: 'id' })
+          .select();
+        if (error) throw error;
+      } else {
+        // new insert: let DB generate id
+        delete payload.id;
+        const { error } = await supabase
+          .from('ipo_experiences')
+          .insert(payload)
+          .select();
+        if (error) throw error;
+      }
+
+      await loadExperiences();
+    } catch (e) {
+      console.error('save experience error', e);
     }
 
     resetForm();
@@ -383,7 +470,10 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                           </div>
                         </div>
                         <div className="text-sm text-gray-500">
-                          最終更新: {new Date().toLocaleDateString()}
+                          最終更新: {(() => {
+                            const anyExp: any = experience as any;
+                            return anyExp.updated_at ? new Date(anyExp.updated_at).toLocaleDateString() : new Date().toLocaleDateString();
+                          })()}
                         </div>
                       </div>
                     </div>
