@@ -1,5 +1,6 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Brain, CheckCircle, TrendingUp, Star, Target, Heart, 
@@ -113,9 +114,32 @@ export default function DiagnosisPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const progress = selectedDiagnosis ? ((currentQuestion + 1) / questions.length) * 100 : 0;
+  const progress = selectedDiagnosis && questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
+
+  // Run a callback when the main thread is idle (fallback to setTimeout)
+  const runIdle = (cb: () => void) => {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      // @ts-ignore
+      (window as any).requestIdleCallback(cb);
+    } else {
+      setTimeout(cb, 0);
+    }
+  };
+
+  // Prefetch routes used right after diagnosis
+  useEffect(() => {
+    runIdle(() => {
+      router.prefetch('/ipo/library');
+      router.prefetch('/ipo/dashboard');
+    });
+  }, [router]);
 
   // Fetch questions from Supabase when a diagnosis type is chosen
+  const handleSelectDiagnosis = useCallback((d: DiagnosisType) => {
+    startTransition(() => {
+      setSelectedDiagnosis(d);
+    });
+  }, []);
   useEffect(() => {
     let isMounted = true;
 
@@ -130,22 +154,19 @@ export default function DiagnosisPage() {
         .from('diagnosis_questions')
         .select('id,text,category,type,sort_order')
         .eq('type', selectedDiagnosis)
-        .order('sort_order', { ascending: true });
+        .order('sort_order', { ascending: true })
+        .returns<DiagnosisQuestionRow[]>();
 
       if (error) {
-        // Fall back to local mock if table missing or other errors
-        console.warn('[diagnosis] Falling back to local questions:', error.message);
+        console.warn('[diagnosis] failed to load questions:', error.message);
         if (!isMounted) return;
-        setQuestions(generateQuestions(selectedDiagnosis));
-        setLoadError('サーバーからの取得に失敗したため、ローカルの質問で表示しています。');
+        setLoadError('質問の取得に失敗しました。管理者にお問い合わせください。');
         return;
       }
 
       if (!data || data.length === 0) {
-        // Also fall back if no rows
         if (!isMounted) return;
-        setQuestions(generateQuestions(selectedDiagnosis));
-        setLoadError('質問が未登録のため、ローカルの質問で表示しています。');
+        setLoadError('この診断タイプの質問が登録されていません。');
         return;
       }
 
@@ -164,7 +185,7 @@ export default function DiagnosisPage() {
         .from('diagnosis_sessions')
         .insert({ type: selectedDiagnosis })
         .select('id')
-        .single();
+        .single<DiagnosisSessionRow>();
 
       if (sessionErr) {
         console.warn('[diagnosis] failed to create session:', sessionErr.message);
@@ -181,253 +202,163 @@ export default function DiagnosisPage() {
     };
   }, [selectedDiagnosis]);
 
-  // Generate questions based on diagnosis type
-  function generateQuestions(type: DiagnosisType | null): Question[] {
-    if (!type) return [];
-    
-    const baseQuestions = {
-      personality: [
-        { id: 1, text: '新しいアイデアや創造的な活動に興味がある', category: 'openness' },
-        { id: 2, text: '計画を立てて物事を進めるのが得意だ', category: 'conscientiousness' },
-        { id: 3, text: '人と話すのが好きで、社交的だ', category: 'extraversion' },
-        { id: 4, text: '他人に親切で、協力的だ', category: 'agreeableness' },
-        { id: 5, text: 'ストレスを感じやすく、心配になることが多い', category: 'neuroticism' },
-        { id: 6, text: '芸術や美しいものに感動することが多い', category: 'openness' },
-        { id: 7, text: '責任感が強く、約束は必ず守る', category: 'conscientiousness' },
-        { id: 8, text: 'パーティーや集まりでは積極的に参加する', category: 'extraversion' },
-        { id: 9, text: '困っている人を見ると助けたくなる', category: 'agreeableness' },
-        { id: 10, text: '将来について不安になることがある', category: 'neuroticism' },
-        { id: 11, text: '抽象的な概念について考えるのが好きだ', category: 'openness' },
-        { id: 12, text: '細かいところまで注意を払って作業する', category: 'conscientiousness' },
-        { id: 13, text: '初対面の人とでもすぐに打ち解けられる', category: 'extraversion' },
-        { id: 14, text: 'チームワークを大切にして仕事をする', category: 'agreeableness' },
-        { id: 15, text: '批判されると落ち込みやすい', category: 'neuroticism' }
-      ],
-      values: [
-        { id: 1, text: '仕事で社会に貢献することが重要だ', category: 'social_impact' },
-        { id: 2, text: '高い収入を得ることを優先したい', category: 'financial_security' },
-        { id: 3, text: '自分の時間を大切にしたい', category: 'work_life_balance' },
-        { id: 4, text: 'チャレンジングな仕事に取り組みたい', category: 'growth' },
-        { id: 5, text: '安定した環境で働きたい', category: 'stability' },
-        { id: 6, text: '創造性を活かせる仕事がしたい', category: 'creativity' },
-        { id: 7, text: 'リーダーシップを発揮したい', category: 'leadership' },
-        { id: 8, text: 'チームで協力することが好きだ', category: 'collaboration' },
-        { id: 9, text: '専門知識を深めたい', category: 'expertise' },
-        { id: 10, text: '多様な経験を積みたい', category: 'variety' }
-      ],
-      career: [
-        { id: 1, text: 'データを分析して洞察を得るのが得意だ', category: 'analytical' },
-        { id: 2, text: '人とコミュニケーションを取るのが得意だ', category: 'interpersonal' },
-        { id: 3, text: '新しい技術を学ぶことに興味がある', category: 'technical' },
-        { id: 4, text: 'クリエイティブな解決策を考えるのが得意だ', category: 'creative' },
-        { id: 5, text: 'チームを率いて目標を達成するのが得意だ', category: 'leadership' },
-        { id: 6, text: '細かい作業に集中することができる', category: 'detail_oriented' },
-        { id: 7, text: '変化の激しい環境でも適応できる', category: 'adaptability' },
-        { id: 8, text: '論理的に物事を考えるのが得意だ', category: 'logical' },
-        { id: 9, text: 'お客様のニーズを理解するのが得意だ', category: 'customer_focus' },
-        { id: 10, text: '新しいアイデアを提案するのが得意だ', category: 'innovation' }
-      ],
-      skills: [
-        { id: 1, text: 'プログラミング言語を使って開発ができる', category: 'technical' },
-        { id: 2, text: 'プレゼンテーションが得意だ', category: 'communication' },
-        { id: 3, text: 'プロジェクトを管理するスキルがある', category: 'management' },
-        { id: 4, text: 'デザインツールを使えるスキルがある', category: 'design' },
-        { id: 5, text: '外国語でコミュニケーションができる', category: 'language' },
-        { id: 6, text: 'データ分析ツールを使えるスキルがある', category: 'analytics' },
-        { id: 7, text: '営業活動の経験がある', category: 'sales' },
-        { id: 8, text: 'マーケティングの知識がある', category: 'marketing' },
-        { id: 9, text: '財務・会計の知識がある', category: 'finance' },
-        { id: 10, text: '法務・コンプライアンスの知識がある', category: 'legal' }
-      ]
-    };
 
-    return (baseQuestions[type] || []).map(q => ({ ...q, type }));
-  }
-
-  const handleAnswer = async (value: number) => {
+  const handleAnswer = useCallback(async (value: number) => {
     const q = questions[currentQuestion];
-    setAnswers((prev) => ({ ...prev, [q.id]: value }));
 
-    // Persist the single answer if we already have a session
+    // Optimistic UI update first
+    startTransition(() => {
+      setAnswers((prev) => ({ ...prev, [q.id]: value }));
+    });
+
+    // Persist the single answer in the background; never block UI
     if (sessionId) {
-      const { error: ansErr } = await supabase
-        .from('diagnosis_answers')
-        .upsert({
-          session_id: sessionId,
-          question_id: q.id,
-          value,
-        });
-      if (ansErr) {
-        console.warn('[diagnosis] answer upsert failed:', ansErr.message);
-      }
+      runIdle(async () => {
+        const { error: ansErr } = await supabase
+          .from('diagnosis_answers')
+          .upsert({ session_id: sessionId, question_id: q.id, value })
+          .select('*');
+        if (ansErr) console.warn('[diagnosis] answer upsert failed:', ansErr.message);
+      });
     }
 
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion((prev) => prev + 1);
-    } else {
-      // Start processing
+    const isLast = currentQuestion >= questions.length - 1;
+    if (!isLast) {
+      startTransition(() => {
+        setCurrentQuestion((prev) => prev + 1);
+      });
+      return;
+    }
+
+    // Last question: start processing animation immediately
+    startTransition(() => {
       setIsProcessing(true);
+      setAnimationStep(0);
+    });
+    setTimeout(() => setAnimationStep(1), 500);
+    setTimeout(() => setAnimationStep(2), 1500);
+    setTimeout(() => setAnimationStep(3), 2500);
 
-      // Simulate processing with animation steps
-      setTimeout(() => setAnimationStep(1), 500);
-      setTimeout(() => setAnimationStep(2), 1500);
-      setTimeout(() => setAnimationStep(3), 2500);
-      setTimeout(async () => {
-        const calculatedResults = calculateResults();
+    // Run the heavy calculation/fetch off the critical path
+    runIdle(() => {
+      void calculateAndFetchResults();
+    });
+  }, [questions, currentQuestion, sessionId]);
 
-        // Save results to Supabase if possible
-        try {
-          if (sessionId) {
-            const payload = {
-              session_id: sessionId,
-              type: calculatedResults.type,
-              scores: calculatedResults.scores,
-              strengths: calculatedResults.strengths,
-              growth_areas: calculatedResults.growthAreas,
-              recommendations: calculatedResults.recommendations,
-              insights: calculatedResults.insights,
-              source: 'client_calculated',
-            };
 
-            const { error: resErr } = await supabase.from('diagnosis_results').upsert(payload);
-            if (resErr) {
-              console.warn('[diagnosis] results upsert failed:', resErr.message);
-            }
+  const calculateAndFetchResults = async () => {
+    if (!selectedDiagnosis) {
+      setLoadError('診断タイプが未選択です。');
+      return;
+    }
+    try {
+      // Ensure session exists
+      let sid = sessionId;
+      if (!sid) {
+        const { data: sessionIns, error: sessionErr } = await supabase
+          .from('diagnosis_sessions')
+          .insert({ type: selectedDiagnosis })
+          .select('id')
+          .single<DiagnosisSessionRow>();
+        if (sessionErr) throw sessionErr;
+        sid = sessionIns?.id ?? null;
+        setSessionId(sid);
+      }
+      if (!sid) {
+        setLoadError('セッション作成に失敗しました。');
+        return;
+      }
+
+      // --- Server-side calculation (RPC) ---
+      // Supabase's rpc does NOT throw; it returns { data, error }.
+      const { data: rpcData, error: rpcError, status: rpcStatus, statusText: rpcStatusText } =
+        await supabase.rpc('calculate_diagnosis', { p_session_id: sid });
+
+      if (rpcError) {
+        console.warn('[diagnosis] RPC calculate_diagnosis failed:', {
+          code: rpcError.code,
+          message: rpcError.message,
+          details: rpcError.details,
+          hint: (rpcError as any).hint,
+          status: rpcStatus,
+          statusText: rpcStatusText,
+        });
+        // Continue; we will still try to fetch results (and we also retry below)
+      }
+
+      // --- Fetch latest results with small retries ---
+      const fetchOnce = async () => {
+        return await supabase
+          .from('diagnosis_results')
+          .select('type,scores,strengths,growth_areas,recommendations,insights,created_at')
+          .eq('session_id', sid)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+      };
+
+      let resRow: any = null;
+      let lastErr: any = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { data, error } = await fetchOnce();
+        if (error) {
+          lastErr = error;
+          // If table/columns mismatch we break early; otherwise just retry
+          if (error.code && !['PGRST116', 'PGRST106', '406'].includes(String(error.code))) {
+            break;
           }
-        } catch (e) {
-          console.warn('[diagnosis] results save exception:', (e as Error).message);
         }
+        if (data) {
+          resRow = data;
+          break;
+        }
+        // Wait 300ms before next attempt to give RPC time to insert the result
+        await new Promise((r) => setTimeout(r, 300));
+      }
 
-        setResults(calculatedResults);
-        setShowResults(true);
-        setIsProcessing(false);
-      }, 3500);
+      if (!resRow) {
+        if (lastErr) {
+          console.warn('[diagnosis] result fetch failed:', {
+            code: lastErr.code,
+            message: lastErr.message,
+            details: lastErr.details,
+            hint: (lastErr as any).hint,
+          });
+        }
+        setLoadError('結果がまだ生成されていません。（サーバー集計が遅延中）数秒後にもう一度お試しください。');
+        return;
+      }
+
+      const mapped: DiagnosisResult = {
+        type: (resRow as any).type as DiagnosisType,
+        scores: (resRow as any).scores ?? {},
+        strengths: (resRow as any).strengths ?? [],
+        growthAreas: (resRow as any).growth_areas ?? [],
+        recommendations: (resRow as any).recommendations ?? [],
+        insights: (resRow as any).insights ?? [],
+      };
+
+      setResults(mapped);
+      setShowResults(true);
+    } catch (e) {
+      console.warn('[diagnosis] calculate/fetch exception:', (e as Error).message);
+      setLoadError('結果の生成に失敗しました。');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const calculateResults = (): DiagnosisResult => {
-    if (!selectedDiagnosis) throw new Error('No diagnosis type selected');
-
-    // Mock sophisticated calculation
-    const mockResults: Record<DiagnosisType, DiagnosisResult> = {
-      personality: {
-        type: 'personality',
-        scores: {
-          openness: Math.floor(Math.random() * 30) + 60,
-          conscientiousness: Math.floor(Math.random() * 30) + 65,
-          extraversion: Math.floor(Math.random() * 30) + 55,
-          agreeableness: Math.floor(Math.random() * 30) + 70,
-          neuroticism: Math.floor(Math.random() * 40) + 30
-        },
-        strengths: ['創造的思考', '責任感', '協調性'],
-        growthAreas: ['ストレス耐性', '自信'],
-        recommendations: getJobRecommendations(),
-        insights: [
-          'あなたは新しいアイデアに対してオープンで、チームワークを大切にする傾向があります。',
-          '責任感が強く、約束や期限を守ることを重視します。',
-          '時にはストレスを感じやすいため、リラックスする時間を作ることが大切です。'
-        ]
-      },
-      values: {
-        type: 'values',
-        scores: {
-          social_impact: Math.floor(Math.random() * 30) + 70,
-          financial_security: Math.floor(Math.random() * 30) + 60,
-          work_life_balance: Math.floor(Math.random() * 30) + 80,
-          growth: Math.floor(Math.random() * 30) + 65,
-          stability: Math.floor(Math.random() * 30) + 55
-        },
-        strengths: ['社会貢献意識', 'ワークライフバランス重視'],
-        growthAreas: ['キャリアアップ意識'],
-        recommendations: getJobRecommendations(),
-        insights: [
-          'あなたは社会に貢献できる仕事に強い価値を見出します。',
-          'ワークライフバランスを重視し、私生活も大切にしたいと考えています。',
-          '安定性よりも成長機会を求める傾向があります。'
-        ]
-      },
-      career: {
-        type: 'career',
-        scores: {
-          analytical: Math.floor(Math.random() * 30) + 70,
-          interpersonal: Math.floor(Math.random() * 30) + 75,
-          technical: Math.floor(Math.random() * 30) + 60,
-          creative: Math.floor(Math.random() * 30) + 65,
-          leadership: Math.floor(Math.random() * 30) + 68
-        },
-        strengths: ['分析力', '対人スキル', 'リーダーシップ'],
-        growthAreas: ['技術スキル', 'クリエイティビティ'],
-        recommendations: getJobRecommendations(),
-        insights: [
-          'データを分析して洞察を得ることが得意で、論理的な思考力があります。',
-          '人との関わりを重視し、コミュニケーション能力に長けています。',
-          'リーダーシップの素質があり、チームを引っ張る力があります。'
-        ]
-      },
-      skills: {
-        type: 'skills',
-        scores: {
-          technical: Math.floor(Math.random() * 30) + 50,
-          communication: Math.floor(Math.random() * 30) + 75,
-          management: Math.floor(Math.random() * 30) + 60,
-          design: Math.floor(Math.random() * 30) + 45,
-          analytics: Math.floor(Math.random() * 30) + 70
-        },
-        strengths: ['コミュニケーション', 'データ分析'],
-        growthAreas: ['技術スキル', 'デザインスキル'],
-        recommendations: getJobRecommendations(),
-        insights: [
-          'コミュニケーション能力が高く、チームでの協働が得意です。',
-          'データ分析のスキルがあり、数値に基づいた意思決定ができます。',
-          '技術スキルを伸ばすことで、より幅広い職種に挑戦できます。'
-        ]
-      }
-    };
-
-    return mockResults[selectedDiagnosis];
-  };
-
-  const getJobRecommendations = (): JobRecommendation[] => {
-    return [
-      {
-        title: 'プロダクトマネージャー',
-        match: 92,
-        description: 'ユーザーニーズを分析し、開発チームと協力して価値のあるプロダクトを創出する役割',
-        reasons: ['高い分析力', '優秀なコミュニケーション能力', 'リーダーシップ素質'],
-        averageSalary: '600-1000万円',
-        growthRate: '年平均15%成長',
-        requiredSkills: ['データ分析', '企画力', 'プロジェクト管理']
-      },
-      {
-        title: 'ビジネスコンサルタント',
-        match: 87,
-        description: '企業の課題を分析し、戦略的な解決策を提案・実行支援する専門職',
-        reasons: ['論理的思考力', '問題解決能力', '対人影響力'],
-        averageSalary: '700-1200万円',
-        growthRate: '年平均12%成長',
-        requiredSkills: ['戦略思考', 'プレゼンテーション', '業界知識']
-      },
-      {
-        title: 'UI/UXデザイナー',
-        match: 81,
-        description: 'ユーザー体験を向上させる直感的なインターフェースデザインを手がける職種',
-        reasons: ['創造性', 'ユーザー共感力', '細部へのこだわり'],
-        averageSalary: '500-800万円',
-        growthRate: '年平均18%成長',
-        requiredSkills: ['デザインツール', 'ユーザーリサーチ', 'プロトタイピング']
-      }
-    ];
-  };
-
-  const resetDiagnosis = () => {
-    setSelectedDiagnosis(null);
-    setCurrentQuestion(0);
-    setAnswers({});
-    setShowResults(false);
-    setResults(null);
-    setIsProcessing(false);
-    setAnimationStep(0);
-  };
+  const resetDiagnosis = useCallback(() => {
+    startTransition(() => {
+      setSelectedDiagnosis(null);
+      setCurrentQuestion(0);
+      setAnswers({});
+      setShowResults(false);
+      setResults(null);
+      setIsProcessing(false);
+      setAnimationStep(0);
+    });
+  }, []);
 
   // Processing Animation Component
   const ProcessingAnimation = () => (
@@ -530,7 +461,7 @@ export default function DiagnosisPage() {
                   initial={{ y: 40, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: index * 0.1 }}
-                  onClick={() => setSelectedDiagnosis(key as DiagnosisType)}
+                  onClick={() => handleSelectDiagnosis(key as DiagnosisType)}
                   className="cursor-pointer group"
                 >
                   <Card className="h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group-hover:border-blue-300">
@@ -626,6 +557,32 @@ export default function DiagnosisPage() {
       Vitality: pick(['vitality', 'openness', 'technical', 'creativity', 'innovation'])
     };
   };
+
+  // ---- Helpers for nicer result rendering ----
+  const jpLabel = (key: string) => {
+    const map: Record<string, string> = {
+      communication: 'コミュニケーション',
+      logic: 'ロジック',
+      leadership: 'リーダーシップ',
+      fit: 'フィット（適応）',
+      vitality: 'バイタリティ',
+    };
+    const k = key.toLowerCase();
+    return map[k] ?? key;
+  };
+
+  const scoreOf = (cat: string) => {
+    if (!results?.scores) return 0;
+    const direct = results.scores[cat];
+    if (typeof direct === 'number') return direct;
+    const foundKey = Object.keys(results.scores).find(
+      (k) => k.toLowerCase() === cat.toLowerCase()
+    );
+    return foundKey ? (results.scores[foundKey] as number) : 0;
+  };
+
+  const strengthsSorted = (results?.strengths ?? []).slice().sort((a, b) => scoreOf(b) - scoreOf(a));
+  const growthSorted = (results?.growthAreas ?? []).slice().sort((a, b) => scoreOf(a) - scoreOf(b));
   // Results display
   if (showResults && results) {
     return (
@@ -685,18 +642,21 @@ export default function DiagnosisPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {results.strengths.map((strength, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ y: 10, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.4 + index * 0.1 }}
-                          >
-                            <Badge variant="secondary" className="mr-2 mb-2">
-                              {strength}
-                            </Badge>
-                          </motion.div>
-                        ))}
+                        {strengthsSorted.length === 0 && (
+                          <p className="text-sm text-gray-500">データが足りません</p>
+                        )}
+                        {strengthsSorted.map((strength, index) => {
+                          const s = scoreOf(strength);
+                          return (
+                            <div key={index} className="rounded-lg border p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-sm font-semibold text-gray-900">{jpLabel(strength)}</div>
+                                <div className="text-sm text-gray-600">{s}</div>
+                              </div>
+                              <Progress value={s} className="h-2" />
+                            </div>
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
@@ -710,18 +670,22 @@ export default function DiagnosisPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {results.growthAreas.map((area, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ y: 10, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.5 + index * 0.1 }}
-                          >
-                            <Badge variant="outline" className="mr-2 mb-2">
-                              {area}
-                            </Badge>
-                          </motion.div>
-                        ))}
+                        {growthSorted.length === 0 && (
+                          <p className="text-sm text-gray-500">データが足りません</p>
+                        )}
+                        {growthSorted.map((area, index) => {
+                          const s = scoreOf(area);
+                          return (
+                            <div key={index} className="rounded-lg border p-3 bg-orange-50/30">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-sm font-semibold text-gray-900">{jpLabel(area)}</div>
+                                <div className="text-sm text-gray-600">{s}</div>
+                              </div>
+                              <Progress value={s} className="h-2" />
+                            </div>
+                          );
+                        })}
+                        <p className="text-xs text-gray-500 mt-2">※ スコアが低いほど優先的に伸ばすべき領域です</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -742,7 +706,7 @@ export default function DiagnosisPage() {
                       <CardContent className="p-6">
                         <div className="text-center">
                           <div className="text-3xl font-bold text-gray-900 mb-2">{score}</div>
-                          <div className="text-gray-600 capitalize mb-4">{key.replace('_', ' ')}</div>
+                          <div className="text-gray-600 mb-4">{jpLabel(key)}</div>
                           <Progress value={score} className="h-2" />
                         </div>
                       </CardContent>
@@ -925,7 +889,7 @@ export default function DiagnosisPage() {
             className="flex flex-col sm:flex-row gap-4 mt-8"
           >
             <Button 
-              onClick={() => router.push('/ipo/library')} 
+              onClick={() => startTransition(() => router.push('/ipo/library'))} 
               className="flex-1 flex items-center justify-center space-x-2 h-12"
             >
               <BookOpen className="w-4 h-4" />
@@ -948,10 +912,10 @@ export default function DiagnosisPage() {
                     .from('diagnosis_sessions')
                     .insert({ type: selectedDiagnosis })
                     .select('id')
-                    .single();
+                    .single<DiagnosisSessionRow>();
                   if (!sessionErr) setSessionId(sessionIns?.id ?? null);
                 }
-                router.push('/ipo/dashboard');
+                startTransition(() => router.push('/ipo/dashboard'));
               }}
               className="flex-1 flex items-center justify-center space-x-2 h-12"
             >
@@ -966,7 +930,26 @@ export default function DiagnosisPage() {
 
   // Question Display
   const currentQ = questions[currentQuestion];
-  if (!currentQ) return null;
+  if (!currentQ) {
+    return (
+      <div className="bg-background min-h-screen">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card className="mb-6">
+            <CardContent className="p-6 text-center">
+              {loadError ? (
+                <div className="text-red-600">{loadError}</div>
+              ) : (
+                <div className="text-gray-600">質問が表示できません。時間をおいて再度お試しください。</div>
+              )}
+            </CardContent>
+          </Card>
+          <div className="text-center">
+            <Button variant="outline" onClick={resetDiagnosis}>診断を選び直す</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background min-h-screen">
@@ -1007,8 +990,12 @@ export default function DiagnosisPage() {
         {/* Loading fallback */}
         {questions.length === 0 && (
           <Card className="mb-6">
-            <CardContent className="p-6 text-center text-gray-600">
-              質問を読み込んでいます…
+            <CardContent className="p-6 text-center">
+              {loadError ? (
+                <div className="text-red-600">{loadError}</div>
+              ) : (
+                <div className="text-gray-600">質問を読み込んでいます…</div>
+              )}
             </CardContent>
           </Card>
         )}

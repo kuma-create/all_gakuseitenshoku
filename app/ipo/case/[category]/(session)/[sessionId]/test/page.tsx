@@ -1,8 +1,8 @@
+ "use client"
 /* ------------------------------------------------------------------
-   app/grandprix/[category]/(session)/[sessionId]/test/page.tsx
+   app/ipo/case/[category]/(session)/[sessionId]/test/page.tsx
    - started_at が NULL または期限切れの場合は今を起点に再計算
 ------------------------------------------------------------------- */
-"use client"
 
 import {
   ArrowLeft, ArrowRight, Clock, Save, Loader2,
@@ -33,6 +33,15 @@ type QuestionRow = Database["public"]["Tables"]["question_bank"]["Row"]
 interface AnswerRow extends SessionAnswerRow {
   question: QuestionRow | null
 }
+
+// Helper: MCQ (4択) 判定
+const isMCQ = (q: any) => {
+  if (!q) return false;
+  const arr = Array.isArray(q.choices) ? q.choices.filter((x: any) => typeof x === "string" ? x.trim().length > 0 : x != null) : [];
+  const hasChoices = arr.length >= 2; // 2以上なら択一扱い
+  const hasCorrect = Number.isInteger(q.correct_choice) && q.correct_choice >= 1 && q.correct_choice <= 4;
+  return hasChoices && hasCorrect;
+};
 
 export default function WebTestPage() {
   const params = useParams<{ category: string; sessionId: string }>();
@@ -72,8 +81,12 @@ export default function WebTestPage() {
 
       if (error) toast({ description: error.message })
       else {
-        setAnswers((data as AnswerRow[]).filter((r) => r.question))
-        answersRef.current = (data as AnswerRow[]).reduce<Record<string, any>>((acc, r) => {
+        // Helper: MCQ (4択) 判定
+        // const isMCQ = ... (already defined above)
+        const rows = (data as AnswerRow[]).filter((r) => r.question);
+        const filtered = category === "webtest" ? rows.filter((r) => isMCQ(r.question)) : rows;
+        setAnswers(filtered);
+        answersRef.current = filtered.reduce<Record<string, any>>((acc, r) => {
           if (r.question_id) acc[r.question_id] = r.answer_raw;
           return acc;
         }, {});
@@ -112,8 +125,11 @@ export default function WebTestPage() {
               updated_at:     new Date().toISOString(),
               question:       row.question,
             })) as any;
-            setAnswers(fallbackAnswers);
-            answersRef.current = fallbackAnswers.reduce<Record<string, any>>((acc, r) => {
+            const fbFiltered = category === "webtest"
+              ? fallbackAnswers.filter((r) => isMCQ(r.question))
+              : fallbackAnswers;
+            setAnswers(fbFiltered);
+            answersRef.current = fbFiltered.reduce<Record<string, any>>((acc, r) => {
               if (r.question_id) acc[r.question_id] = r.answer_raw;
               return acc;
             }, {});
@@ -333,7 +349,7 @@ export default function WebTestPage() {
         console.log("[handleSubmit] submission saved:", { challengeId, studentId, answerMap });
         toast({ description: "提出が完了しました。採点結果を表示します。" });
         setSubmitted(true);
-        router.replace(`/grandprix/${category}/${sessionId}/result`);
+        router.replace(`/ipo/case/${category}/${sessionId}/result`);
         return;
       }
 

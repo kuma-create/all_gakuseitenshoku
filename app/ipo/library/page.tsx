@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Search, 
@@ -21,7 +21,6 @@ import {
   Award,
   Briefcase,
   GraduationCap,
-  Eye,
   Calendar,
   ChevronRight,
   Loader2,
@@ -63,8 +62,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { Avatar } from '@/components/ui/avatar';
-import { motion, AnimatePresence } from 'framer-motion';
-import { apiService } from '@/utils/api';
+import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 const supabase = createClient();
 
@@ -78,6 +76,7 @@ interface LibraryItem {
   name: string;
   type: 'industry' | 'occupation';
   icon: React.ReactNode;
+  imageUrl?: string;
   description: string;
   tags: string[];
   popularity: number;
@@ -145,403 +144,109 @@ interface LibraryItem {
 
 interface UserData {
   favorites: string[];
-  views: Record<string, number>;
   searchHistory: string[];
 }
 
 export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'industry' | 'occupation'>('all');
-  const [sortBy, setSortBy] = useState<'popularity' | 'trend' | 'salary' | 'name'>('popularity');
+  const [sortBy, setSortBy] = useState<'trend' | 'salary' | 'name'>('trend');
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
   const [selectedTab, setSelectedTab] = useState('overview');
-  const [userData, setUserData] = useState<UserData>({ favorites: [], views: {}, searchHistory: [] });
+  const [userData, setUserData] = useState<UserData>({ favorites: [], searchHistory: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [userId] = useState(() => {
-    const stored = localStorage.getItem('ipo-user-id');
-    if (stored) return stored;
-    const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem('ipo-user-id', newId);
-    return newId;
-  });
+  // Grid専用のローディング（ユーザーデータとは独立）
+  const [itemsLoading, setItemsLoading] = useState(true);
+  // Prefer Supabase auth user id. Fallback to localStorage (read-only mode).
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!mounted) return;
+        if (data?.user?.id) {
+          setUserId(data.user.id);
+          setIsAuthed(true);
+        } else {
+          const stored = typeof window !== 'undefined' ? localStorage.getItem('ipo-user-id') : null;
+          if (stored) {
+            setUserId(stored);
+          } else {
+            const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            if (typeof window !== 'undefined') localStorage.setItem('ipo-user-id', newId);
+            setUserId(newId);
+          }
+          setIsAuthed(false);
+        }
+      } catch {
+        // fallback to local id
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('ipo-user-id') : null;
+        if (stored) {
+          setUserId(stored);
+        } else {
+          const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          if (typeof window !== 'undefined') localStorage.setItem('ipo-user-id', newId);
+          setUserId(newId);
+        }
+        setIsAuthed(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   const router = useRouter();
   const navigateFn = React.useCallback((route: string) => {
     router.push(route);
   }, [router]);
 
-  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
 
-  // Fallback items used when Supabase is empty or unavailable
-  const FALLBACK_ITEMS: LibraryItem[] = [
-    {
-      id: '1',
-      name: 'IT・ソフトウェア',
-      type: 'industry',
-      icon: <Code className="w-6 h-6" />,
-      description: 'システム開発からAI・機械学習まで、テクノロジーで社会を変革する業界',
-      tags: ['成長性', 'リモートワーク', '高収入', 'グローバル'],
-      popularity: 95,
-      trend: 'up',
-      trendScore: 8.7,
-      details: {
-        overview: 'IT・ソフトウェア業界は急速な技術革新により継続的に成長している分野です。クラウド、AI、IoT、ブロックチェーンなどの最新技術を活用し、様々な業界のデジタル変革（DX）を支援します。コロナ禍を経てリモートワークが普及し、働き方の柔軟性が高い業界として注目されています。近年では、SaaS企業の急速な成長、AI技術の社会実装、Web3.0やメタバースなど新領域の発展により、エンジニアの需要は過去最高水準に達しています。',
-        keySkills: ['プログラミング', '論理的思考', '問題解決能力', '新技術習得意欲', 'コミュニケーション', 'プロジェクト管理', 'データベース設計', 'セキュリティ'],
-        careerPath: [
-          {
-            level: 'エントリー',
-            title: 'ジュニアエンジニア',
-            experience: '0-2年',
-            salary: '300-500万円',
-            description: '基本的なプログラミングスキルを習得し、チームの指導の下で開発業務を担当'
-          },
-          {
-            level: 'ミドル',
-            title: 'シニアエンジニア',
-            experience: '3-7年',
-            salary: '500-800万円',
-            description: '独立して複雑な機能開発を担当し、ジュニアメンバーの指導も行う'
-          },
-          {
-            level: 'シニア',
-            title: 'テックリード・アーキテクト',
-            experience: '8-12年',
-            salary: '800-1200万円',
-            description: 'システム全体の設計を担当し、技術的な意思決定をリード'
-          },
-          {
-            level: 'エキスパート',
-            title: 'CTO・エンジニアリングマネージャー',
-            experience: '13年以上',
-            salary: '1200-2000万円',
-            description: '組織全体の技術戦略を策定し、エンジニア組織を統括'
-          }
-        ],
-        averageSalary: '400-1000万円',
-        salaryRange: {
-          min: 300,
-          max: 2000,
-          median: 650
-        },
-        workStyle: ['フレックス勤務', 'リモートワーク可', '私服OK', '学習支援制度', '副業OK'],
-        companies: [
-          { name: 'Google Japan', type: '外資系', size: '大企業', logo: '🔍' },
-          { name: 'サイバーエージェント', type: '日系', size: '大企業', logo: '🎯' },
-          { name: 'メルカリ', type: 'スタートアップ', size: '中企業', logo: '🛒' },
-          { name: 'LINE', type: '日系', size: '大企業', logo: '💬' },
-          { name: '楽天', type: '日系', size: '大企業', logo: '🛍️' },
-          { name: 'freee', type: 'スタートアップ', size: '中企業', logo: '📊' },
-          { name: 'SmartNews', type: 'スタートアップ', size: '中企業', logo: '📰' },
-          { name: 'チームラボ', type: '日系', size: '中企業', logo: '🎨' }
-        ],
-        marketTrend: {
-          growth: 95,
-          demand: 92,
-          future: '2030年まで年率8-12%の成長が予想され、特にAI・機械学習、クラウド、セキュリティ分野の需要が急拡大'
-        },
-        education: {
-          required: ['基本的なプログラミング知識', 'コンピュータサイエンスの基礎'],
-          preferred: ['情報系学位', '実務経験', 'ポートフォリオ'],
-          certifications: ['基本情報技術者', 'AWS認定', 'Google Cloud認定', 'Microsoft Azure認定', 'Oracle認定']
-        },
-        workEnvironment: {
-          remote: 85,
-          flexibility: 'フレックスタイム制度充実',
-          overtime: '月20-40時間程度',
-          culture: ['技術志向', '学習重視', 'フラット', 'イノベーション']
-        },
-        regions: [
-          { name: '東京', jobCount: 15420, averageSalary: 680 },
-          { name: '大阪', jobCount: 3240, averageSalary: 580 },
-          { name: '愛知', jobCount: 2100, averageSalary: 550 },
-          { name: '福岡', jobCount: 1560, averageSalary: 480 },
-          { name: '札幌', jobCount: 890, averageSalary: 450 }
-        ],
-        relatedFields: ['データサイエンス', 'プロダクトマネジメント', 'デザイン', 'コンサルティング'],
-        dayInLife: [
-          '9:00 - スタンドアップミーティング',
-          '9:30 - コードレビュー・設計検討',
-          '10:30 - プログラミング・開発作業',
-          '12:00 - ランチ',
-          '13:00 - 開発作業続行',
-          '15:00 - チームミーティング',
-          '16:00 - テスト・デバッグ',
-          '17:30 - ドキュメント作成',
-          '18:00 - 技術勉強・情報収集'
-        ],
-        challenges: ['技術の変化が激しく継続学習が必要', '長時間集中する必要がある', 'バグやトラブル対応', '仕様変更への対応'],
-        rewards: ['新しい技術に触れられる', '論理的思考力が身につく', '高収入', '働き方の自由度が高い', '社会にインパクトを与えられる'],
-        interviews: [
-          {
-            name: '田中 雄太',
-            role: 'シニアエンジニア',
-            company: 'メルカリ',
-            quote: '毎日新しい技術に触れられて、自分の成長を実感できる仕事です。',
-            advice: 'まずは一つの言語を深く学んで、そこから広げていくのがおすすめです。'
-          },
-          {
-            name: '佐藤 美紀',
-            role: 'テックリード',
-            company: 'freee',
-            quote: 'チームで一つのプロダクトを作り上げる達成感は何物にも代えがたいです。',
-            advice: 'コミュニケーション能力も同じくらい重要。技術だけでなく人との関わりも大切にしてください。'
-          }
-        ]
-      }
-    },
-    {
-      id: '2',
-      name: 'コンサルティング',
-      type: 'industry',
-      icon: <BarChart3 className="w-6 h-6" />,
-      description: '企業の経営課題解決をサポートし、戦略立案から実行まで伴走する業界',
-      tags: ['高収入', '成長機会', 'グローバル', '論理思考'],
-      popularity: 88,
-      trend: 'up',
-      trendScore: 7.9,
-      details: {
-        overview: 'クライアント企業の経営課題を特定し、解決策を提案・実行する専門性の高い業界です。戦略、オペレーション、IT、人事など多様な領域での支援を行い、企業の成長と変革を支援します。近年はDXコンサルティングの需要が急増しています。',
-        keySkills: ['論理的思考', 'プレゼンテーション', 'プロジェクト管理', '業界知識', 'リーダーシップ', 'データ分析', '問題解決', 'コミュニケーション'],
-        careerPath: [
-          {
-            level: 'エントリー',
-            title: 'アナリスト',
-            experience: '0-2年',
-            salary: '500-700万円',
-            description: 'データ収集・分析、資料作成などのサポート業務を担当'
-          },
-          {
-            level: 'ミドル',
-            title: 'コンサルタント',
-            experience: '3-5年',
-            salary: '700-1000万円',
-            description: 'プロジェクトの一部を独立して担当し、クライアントとの調整も行う'
-          },
-          {
-            level: 'シニア',
-            title: 'シニアコンサルタント',
-            experience: '6-10年',
-            salary: '1000-1500万円',
-            description: 'プロジェクト全体をリードし、チームマネジメントも担当'
-          },
-          {
-            level: 'エキスパート',
-            title: 'パートナー',
-            experience: '11年以上',
-            salary: '1500-3000万円',
-            description: '顧客開拓、事業戦略策定、組織運営の責任者'
-          }
-        ],
-        averageSalary: '500-1500万円',
-        salaryRange: {
-          min: 500,
-          max: 3000,
-          median: 1000
-        },
-        workStyle: ['成果主義', '出張多め', 'メンター制度', '海外駐在機会', '研修充実'],
-        companies: [
-          { name: 'マッキンゼー', type: '外資系', size: '大企業', logo: '🏛️' },
-          { name: 'BCG', type: '外資系', size: '大企業', logo: '🌟' },
-          { name: 'ベイン', type: '外資系', size: '大企業', logo: '⚡' },
-          { name: 'デロイト', type: '外資系', size: '大企業', logo: '🔷' },
-          { name: 'アクセンチュア', type: '外資系', size: '大企業', logo: '🚀' },
-          { name: 'PwC', type: '外資系', size: '大企業', logo: '🌐' },
-          { name: 'KPMG', type: '外資系', size: '大企業', logo: '📈' },
-          { name: 'EY', type: '外資系', size: '大企業', logo: '🎯' }
-        ],
-        marketTrend: {
-          growth: 85,
-          demand: 88,
-          future: 'DX推進、ESG経営、グローバル展開支援の需要が拡大。特にテクノロジー関連コンサルティングの成長が著しい'
-        },
-        education: {
-          required: ['大学卒業', '論理的思考力', 'プレゼンテーション能力'],
-          preferred: ['MBA', '海外経験', '業界経験', '語学力'],
-          certifications: ['PMP', '中小企業診断士', 'MBA', 'CPA', 'データサイエンス関連資格']
-        },
-        workEnvironment: {
-          remote: 40,
-          flexibility: 'プロジェクトベース',
-          overtime: '月60-80時間程度',
-          culture: ['成果主義', '学習重視', 'グローバル', '競争的']
-        },
-        regions: [
-          { name: '東京', jobCount: 8940, averageSalary: 1200 },
-          { name: '大阪', jobCount: 1230, averageSalary: 980 },
-          { name: '愛知', jobCount: 560, averageSalary: 920 },
-          { name: '福岡', jobCount: 340, averageSalary: 850 }
-        ],
-        relatedFields: ['戦略企画', 'プロジェクトマネジメント', '投資銀行', 'シンクタンク'],
-        dayInLife: [
-          '8:00 - メール確認・1日の計画',
-          '9:00 - チームミーティング',
-          '10:00 - 資料作成・データ分析',
-          '12:00 - ランチミーティング',
-          '14:00 - クライアント打ち合わせ',
-          '16:00 - 提案書作成',
-          '18:00 - チーム内レビュー',
-          '19:30 - 個人作業・調査',
-          '21:00 - 翌日準備'
-        ],
-        challenges: ['激務でワークライフバランスが難しい', '高いレベルのアウトプットが求められる', '常に新しい知識の習得が必要', 'プレッシャーが大きい'],
-        rewards: ['高収入', '急速な成長機会', '多様な業界・企業を知れる', 'グローバルな環境', '論理的思考力が身につく'],
-        interviews: [
-          {
-            name: '山田 健太',
-            role: 'コンサルタント',
-            company: 'デロイト',
-            quote: '毎日が学びの連続で、自分の可能性を広げられる環境です。',
-            advice: '論理的思考力とコミュニケーション能力を磨くことが最も重要です。'
-          },
-          {
-            name: '井上 さくら',
-            role: 'シニアコンサルタント',
-            company: 'アクセンチュア',
-            quote: 'クライアントの成功を支援できることにやりがいを感じています。',
-            advice: '業界を問わず様々なことに興味を持ち、常に学び続ける姿勢が大切です。'
-          }
-        ]
-      }
-    },
-    {
-      id: '3',
-      name: 'プロダクトマネージャー',
-      type: 'occupation',
-      icon: <Target className="w-6 h-6" />,
-      description: 'プロダクトの企画から開発、マーケティングまでを総合的にマネジメント',
-      tags: ['戦略思考', 'チーム連携', '市場分析', 'リーダーシップ'],
-      popularity: 82,
-      trend: 'up',
-      trendScore: 8.3,
-      details: {
-        overview: 'プロダクトのビジョン策定から開発プロセス、市場投入まで、プロダクトライフサイクル全体を管理する職種です。ユーザーニーズの把握、競合分析、機能優先度の決定、開発チームとの連携など、プロダクト成功のための総合的な責任を担います。',
-        keySkills: ['戦略思考', 'データ分析', 'UI/UX理解', 'プロジェクト管理', '市場調査', 'コミュニケーション', 'ビジネス企画', 'テクノロジー理解'],
-        careerPath: [
-          {
-            level: 'エントリー',
-            title: 'アソシエイトPM',
-            experience: '0-2年',
-            salary: '450-650万円',
-            description: 'プロダクト分析、競合調査、開発サポートなどの基本業務を担当'
-          },
-          {
-            level: 'ミドル',
-            title: 'プロダクトマネージャー',
-            experience: '3-6年',
-            salary: '650-900万円',
-            description: '特定機能やプロダクトの責任者として、企画から実装までを統括'
-          },
-          {
-            level: 'シニア',
-            title: 'シニアPM',
-            experience: '7-10年',
-            salary: '900-1300万円',
-            description: '複数プロダクトの責任者、またはPMチームのリード'
-          },
-          {
-            level: 'エキスパート',
-            title: 'プロダクトディレクター',
-            experience: '11年以上',
-            salary: '1300-2000万円',
-            description: 'プロダクト戦略全体の責任者、組織のプロダクト方針を決定'
-          }
-        ],
-        averageSalary: '600-1200万円',
-        salaryRange: {
-          min: 450,
-          max: 2000,
-          median: 850
-        },
-        workStyle: ['クロスファンクション', 'データドリブン', '意思決定権限', '学習重視', 'ユーザー中心'],
-        companies: [
-          { name: 'メルカリ', type: 'スタートアップ', size: '中企業', logo: '🛒' },
-          { name: 'SmartNews', type: 'スタートアップ', size: '中企業', logo: '📰' },
-          { name: 'freee', type: 'スタートアップ', size: '中企業', logo: '📊' },
-          { name: 'サイボウズ', type: '日系', size: '中企業', logo: '👥' },
-          { name: 'クックパッド', type: '日系', size: '中企業', logo: '🍳' },
-          { name: 'LINE', type: '日系', size: '大企業', logo: '💬' },
-          { name: 'Google', type: '外資系', size: '大企業', logo: '🔍' },
-          { name: 'Microsoft', type: '外資系', size: '大企業', logo: '🪟' }
-        ],
-        marketTrend: {
-          growth: 92,
-          demand: 89,
-          future: 'デジタル化の進展により、あらゆる業界でプロダクトマネジメント人材の需要が急拡大'
-        },
-        education: {
-          required: ['大学卒業', 'ビジネス企画経験', 'データ分析能力'],
-          preferred: ['MBA', 'エンジニア経験', 'デザイン経験', 'マーケティング経験'],
-          certifications: ['PMP', 'Google Analytics認定', 'Salesforce認定', 'Scrum Master認定']
-        },
-        workEnvironment: {
-          remote: 70,
-          flexibility: 'フレックス制度充実',
-          overtime: '月30-50時間程度',
-          culture: ['データ重視', 'ユーザー中心', 'アジャイル', 'イノベーション']
-        },
-        regions: [
-          { name: '東京', jobCount: 4560, averageSalary: 920 },
-          { name: '大阪', jobCount: 670, averageSalary: 780 },
-          { name: '愛知', jobCount: 320, averageSalary: 740 },
-          { name: '福岡', jobCount: 280, averageSalary: 680 }
-        ],
-        relatedFields: ['マーケティング', 'ビジネス企画', 'UI/UXデザイン', 'データ分析'],
-        dayInLife: [
-          '9:00 - メトリクス確認・分析',
-          '9:30 - スタンドアップミーティング',
-          '10:00 - ユーザーインタビュー',
-          '11:30 - 機能仕様検討',
-          '13:00 - ランチ',
-          '14:00 - 開発チームミーティング',
-          '15:30 - 競合分析・市場調査',
-          '17:00 - ステークホルダー報告',
-          '18:30 - 戦略検討・企画作成'
-        ],
-        challenges: ['多部門との調整が必要', '不確実性の中での意思決定', '技術とビジネス両方の理解が必要', 'KPI達成のプレッシャー'],
-        rewards: ['プロダクトの成長を直接実感', '多様なスキルが身につく', '戦略的思考力が向上', 'ユーザーへのインパクト', 'キャリアの選択肢が広い'],
-        interviews: [
-          {
-            name: '高橋 大輔',
-            role: 'プロダクトマネージャー',
-            company: 'freee',
-            quote: 'ユーザーの課題を解決するプロダクトを作れることが最大のやりがいです。',
-            advice: 'ユーザーの声を直接聞く機会を大切にし、データと感情の両方を理解することが重要です。'
-          },
-          {
-            name: '加藤 理恵',
-            role: 'シニアPM',
-            company: 'SmartNews',
-            quote: 'グローバルなユーザーに価値を届けるスケールの大きさが魅力です。',
-            advice: '技術的な知識も重要ですが、それ以上にユーザーへの共感力を磨いてください。'
-          }
-        ]
-      }
-    }
-  ];
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
 
   useEffect(() => {
     let isMounted = true;
+    setItemsLoading(true);
     (async () => {
       try {
+        // Local row type to decouple from possibly stale generated Supabase types
+        type IpoLibraryItemRow = {
+          id: string | number;
+          name: string;
+          type: 'industry' | 'occupation' | string;
+          description: string | null;
+          tags: string[] | null;
+          popularity: number | null;
+          trend: 'up' | 'stable' | 'down' | null;
+          trend_score: number | null;
+          image_url?: string | null; // カード用のサムネ (任意)
+          details: any | null;       // details 内に image_url がある場合も考慮
+        };
+
         const { data, error } = await supabase
           .from('ipo_library_items')
-          .select('id,name,type,description,tags,popularity,trend,trend_score,details');
+          .select('*');
+        const rows = (data as unknown as IpoLibraryItemRow[]) ?? [];
 
         if (error) {
-          console.warn('[library] Using fallback due to fetch error:', error.message);
-          if (isMounted) setLibraryItems(FALLBACK_ITEMS);
+          console.warn('[library] Fetch error:', error.message);
+          if (isMounted) setLibraryItems([]);
+          if (isMounted) setItemsLoading(false);
           return;
         }
-        if (!data || data.length === 0) {
-          if (isMounted) setLibraryItems(FALLBACK_ITEMS);
+        if (!rows || rows.length === 0) {
+          if (isMounted) setLibraryItems([]);
+          if (isMounted) setItemsLoading(false);
           return;
         }
 
-        const mapped: LibraryItem[] = data.map((row: any) => ({
+        const mapped: LibraryItem[] = rows.map((row: IpoLibraryItemRow) => ({
           id: String(row.id),
           name: row.name,
           type: (row.type === 'industry' || row.type === 'occupation') ? row.type : 'industry',
           icon: makeIcon((row.type === 'industry' || row.type === 'occupation') ? row.type : 'industry'),
+          imageUrl: (row as any).image_url ?? (row as any)?.details?.image_url ?? undefined,
           description: row.description ?? '',
           tags: Array.isArray(row.tags) ? row.tags : [],
           popularity: Number(row.popularity ?? 0),
@@ -568,9 +273,11 @@ export default function LibraryPage() {
         }));
 
         if (isMounted) setLibraryItems(mapped);
+        if (isMounted) setItemsLoading(false);
       } catch (e: any) {
-        console.warn('[library] Exception; using fallback:', e?.message);
-        if (isMounted) setLibraryItems(FALLBACK_ITEMS);
+        console.warn('[library] Exception:', e?.message);
+        if (isMounted) setLibraryItems([]);
+        if (isMounted) setItemsLoading(false);
       }
     })();
 
@@ -579,10 +286,14 @@ export default function LibraryPage() {
 
   // Helper to save user data to Supabase
   const saveUserDataSupabase = async (payload: UserData) => {
+    // Only persist when Supabase session exists (RLS policy will require auth)
+    if (!isAuthed || !userId || userId.startsWith('user_')) {
+      return false;
+    }
     try {
       const { error } = await supabase
         .from('ipo_library_user_data')
-        .upsert({ user_id: userId, favorites: payload.favorites, views: payload.views, search_history: payload.searchHistory });
+        .upsert({ user_id: userId, favorites: payload.favorites, search_history: payload.searchHistory });
       if (error) throw error;
       return true;
     } catch (e) {
@@ -593,61 +304,40 @@ export default function LibraryPage() {
 
   // Load user data
   useEffect(() => {
+    // Skip querying when未ログイン or ローカルID（uuid列にtextをぶつけない）
+    if (!userId || !isAuthed || userId.startsWith('user_')) {
+      setUserData({ favorites: [], searchHistory: [] });
+      setLoading(false);
+      return;
+    }
     const loadUserData = async () => {
       try {
         setLoading(true);
-        
-        // Try Supabase first
-        try {
-          const { data: sbData, error: sbErr } = await supabase
-            .from('ipo_library_user_data')
-            .select('favorites,views,search_history')
-            .eq('user_id', userId)
-            .maybeSingle();
+        const { data: sbData, error: sbErr } = await supabase
+          .from('ipo_library_user_data')
+          .select('favorites,search_history')
+          .eq('user_id', userId!)
+          .maybeSingle();
 
-          if (!sbErr && sbData) {
-            const normalized: UserData = {
-              favorites: Array.isArray(sbData.favorites) ? sbData.favorites as string[] : [],
-              views: (sbData.views && typeof sbData.views === 'object') ? sbData.views as Record<string, number> : {},
-              searchHistory: Array.isArray(sbData.search_history) ? sbData.search_history as string[] : [],
-            };
-            setUserData(normalized);
-          } else {
-            // Fallback to existing API service
-            const data = (await apiService.getUserData(userId)) as Partial<UserData> | null;
-            const normalized: UserData = {
-              favorites: Array.isArray(data?.favorites) ? (data!.favorites as string[]) : [],
-              views: (data?.views && typeof data.views === 'object') ? (data.views as Record<string, number>) : {},
-              searchHistory: Array.isArray(data?.searchHistory) ? (data!.searchHistory as string[]) : [],
-            };
-            setUserData(normalized);
-          }
-        } catch (apiError) {
-          console.warn('API not available, using localStorage:', apiError);
-          // Fallback to localStorage
-          const storedData = localStorage.getItem(`ipo-library-data-${userId}`);
-          if (storedData) {
-            const parsed = JSON.parse(storedData) as Partial<UserData>;
-            const normalizedFromStorage: UserData = {
-              favorites: Array.isArray(parsed?.favorites) ? (parsed!.favorites as string[]) : [],
-              views: (parsed?.views && typeof parsed.views === 'object') ? (parsed.views as Record<string, number>) : {},
-              searchHistory: Array.isArray(parsed?.searchHistory) ? (parsed!.searchHistory as string[]) : [],
-            };
-            setUserData(normalizedFromStorage);
-          } else {
-            setUserData({ favorites: [], views: {}, searchHistory: [] });
-          }
+        if (!sbErr && sbData) {
+          const normalized: UserData = {
+            favorites: Array.isArray(sbData.favorites) ? (sbData.favorites as string[]) : [],
+            searchHistory: Array.isArray(sbData.search_history) ? (sbData.search_history as string[]) : [],
+          };
+          setUserData(normalized);
+        } else {
+          setUserData({ favorites: [], searchHistory: [] });
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
-        setUserData({ favorites: [], views: {}, searchHistory: [] });
+        setUserData({ favorites: [], searchHistory: [] });
       } finally {
         setLoading(false);
       }
     };
 
     loadUserData();
-  }, [userId]);
+  }, [userId, isAuthed]);
 
   // Filter and sort items
   const filteredAndSortedItems = useMemo(() => {
@@ -663,8 +353,6 @@ export default function LibraryPage() {
 
     items.sort((a, b) => {
       switch (sortBy) {
-        case 'popularity':
-          return b.popularity - a.popularity;
         case 'trend':
           return b.trendScore - a.trendScore;
         case 'salary':
@@ -679,62 +367,29 @@ export default function LibraryPage() {
     return items;
   }, [searchQuery, selectedFilter, sortBy, libraryItems]);
 
-  const toggleFavorite = async (itemId: string) => {
+  const toggleFavorite = useCallback(async (itemId: string) => {
     try {
       setSaving(true);
       const isFavorite = userData.favorites.includes(itemId);
       const newFavorites = isFavorite 
         ? userData.favorites.filter(id => id !== itemId)
         : [...userData.favorites, itemId];
-      
       const newUserData = { ...userData, favorites: newFavorites };
       setUserData(newUserData);
-      
-      // Try to save to Supabase first
-      const savedToSb = await saveUserDataSupabase(newUserData);
-      if (!savedToSb) {
-        // Fall back to API/localStorage (existing logic below)
-        try {
-          await apiService.updateUserData(userId, newUserData);
-        } catch (apiError) {
-          console.warn('API save failed, using localStorage:', apiError);
-          localStorage.setItem(`ipo-library-data-${userId}`, JSON.stringify(newUserData));
-        }
-      }
+      await saveUserDataSupabase(newUserData);
     } catch (error) {
       console.error('Failed to update favorite:', error);
     } finally {
       setSaving(false);
     }
-  };
+  }, [userData]);
 
-  const recordView = async (itemId: string) => {
-    try {
-      const newViews = { ...userData.views, [itemId]: (userData.views[itemId] || 0) + 1 };
-      const newUserData = { ...userData, views: newViews };
-      setUserData(newUserData);
-      
-      // Try to save to Supabase first
-      const savedToSb = await saveUserDataSupabase(newUserData);
-      if (!savedToSb) {
-        // Fall back to API/localStorage (existing logic below)
-        try {
-          await apiService.updateUserData(userId, newUserData);
-        } catch (apiError) {
-          console.warn('API save failed, using localStorage:', apiError);
-          localStorage.setItem(`ipo-library-data-${userId}`, JSON.stringify(newUserData));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to record view:', error);
-    }
-  };
-
-  const handleItemClick = (item: LibraryItem) => {
-    setSelectedItem(item);
-    setSelectedTab('overview');
-    recordView(item.id);
-  };
+  const handleItemClick = useCallback((item: LibraryItem) => {
+    startTransition(() => {
+      setSelectedItem(item);
+      setSelectedTab('overview');
+    });
+  }, []);
 
   const getTrendIcon = (trend: 'up' | 'stable' | 'down') => {
     switch (trend) {
@@ -745,6 +400,11 @@ export default function LibraryPage() {
       case 'stable':
         return <Minus className="w-4 h-4 text-gray-500" />;
     }
+  };
+
+  const truncateText = (text: string, max: number = 120) => {
+    if (!text) return '';
+    return text.length > max ? text.slice(0, max) + '…' : text;
   };
 
   const renderDetailView = () => {
@@ -780,6 +440,7 @@ export default function LibraryPage() {
             >
               <Heart className={`w-4 h-4 mr-2 ${userData.favorites.includes(selectedItem.id) ? 'fill-red-500 text-red-500' : ''}`} />
               {userData.favorites.includes(selectedItem.id) ? 'お気に入り済み' : 'お気に入り'}
+              {!isAuthed && <span className="ml-2 text-xs text-gray-500">(ログインで保存)</span>}
             </Button>
           </div>
         </div>
@@ -810,11 +471,6 @@ export default function LibraryPage() {
                     ))}
                   </div>
                 </div>
-              </div>
-              
-              <div className="text-right">
-                <div className="text-2xl font-bold">#{selectedItem.popularity}</div>
-                <div className="text-sm opacity-80">人気度</div>
               </div>
             </div>
           </div>
@@ -1350,7 +1006,6 @@ export default function LibraryPage() {
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="popularity">人気順</option>
                 <option value="trend">トレンド順</option>
                 <option value="salary">年収順</option>
                 <option value="name">名前順</option>
@@ -1360,7 +1015,7 @@ export default function LibraryPage() {
         </div>
 
         {/* Items Grid */}
-        {loading ? (
+        {itemsLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
           </div>
@@ -1377,7 +1032,21 @@ export default function LibraryPage() {
                   <CardContent className="p-6" onClick={() => handleItemClick(item)}>
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-12 h-12 rounded-lg object-cover"
+                            onError={(e) => {
+                              // フォールバック: 画像読み込み失敗時はアイコン表示
+                              const target = e.currentTarget as HTMLImageElement;
+                              target.style.display = 'none';
+                              const sibling = target.nextElementSibling as HTMLElement | null;
+                              if (sibling) sibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors" style={{ display: item.imageUrl ? 'none' as const : 'flex' }}>
                           {item.icon}
                         </div>
                         <div>
@@ -1397,15 +1066,16 @@ export default function LibraryPage() {
                             e.stopPropagation();
                             toggleFavorite(item.id);
                           }}
-                          disabled={saving}
-                          className="p-1 hover:bg-gray-100 rounded"
+                          disabled={saving || !isAuthed}
+                          title={isAuthed ? 'お気に入りに追加' : 'ログインすると保存できます'}
+                          className="p-1 hover:bg-gray-100 rounded disabled:opacity-50"
                         >
                           <Heart className={`w-4 h-4 ${userData.favorites.includes(item.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
                         </button>
                       </div>
                     </div>
                     
-                    <p className="text-gray-600 mb-4 leading-relaxed">{item.description}</p>
+                    <p className="text-gray-600 mb-4 leading-relaxed">{truncateText(item.description, 120)}</p>
                     
                     <div className="flex flex-wrap gap-2 mb-4">
                       {item.tags.slice(0, 3).map((tag, index) => (
@@ -1416,18 +1086,8 @@ export default function LibraryPage() {
                       )}
                     </div>
                     
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-1">
-                          <Eye className="w-4 h-4" />
-                          <span>{userData.views[item.id] || 0}回閲覧</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-4 h-4" />
-                          <span>人気度{item.popularity}</span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 group-hover:text-blue-600 transition-colors" />
+                    <div className="flex items-center justify-end text-sm text-gray-500">
+                        <ChevronRight className="w-4 h-4 group-hover:text-blue-600 transition-colors" />
                     </div>
                   </CardContent>
                 </Card>
@@ -1436,7 +1096,7 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {filteredAndSortedItems.length === 0 && !loading && (
+        {filteredAndSortedItems.length === 0 && !itemsLoading && (
           <div className="text-center py-12">
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">検索結果が見つかりません</h3>

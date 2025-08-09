@@ -78,7 +78,7 @@ type ChallengeDetail = Pick<
 >;
 
 /**
- * /grandprix/webtest/[id]/confirm
+ * /ipo/case/[category]/challenge/[challengeId]/confirm
  * - id = challengeId
  * - 静的 UI を残しつつ、Supabase から大会情報を取得し
  *   「テストを開始する」クリックで /api/start-session を呼び出す
@@ -128,7 +128,7 @@ export default function WebTestConfirmPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
   
-      router.push(`/grandprix/${category}/${json.sessionId}/test`);
+      router.push(`/ipo/case/${category}/${json.sessionId}/test`);
     } catch (e: any) {
       toast({ description: e.message });
     } finally {
@@ -154,7 +154,7 @@ export default function WebTestConfirmPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center gap-2">
           <Link
-            href={`/grandprix/${category}`}
+            href={`/ipo/case/${category}`}
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -249,7 +249,7 @@ export default function WebTestConfirmPage() {
                 <span>上記の注意事項を読み、理解しました。途中で中断できないことに同意します。</span>
               </label>
               <div className="flex w-full flex-col gap-3 sm:flex-row">
-                <Link href={`/grandprix/${category}`} className="flex-1">
+                <Link href={`/ipo/case/${category}`} className="flex-1">
                   <Button variant="outline" className="w-full">
                     キャンセル
                   </Button>

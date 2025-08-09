@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, Users, Target, Calendar, Star, Plus, CheckCircle2, ArrowUp, ArrowDown, Minus, HelpCircle, BookOpen, Rocket, Gift } from 'lucide-react';
+import { TrendingUp, Users, Target, Calendar, Star, Plus, ArrowUp, ArrowDown, Minus, HelpCircle, BookOpen, Rocket, Gift } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,15 +23,8 @@ interface PeerReview {
   date: string;
 }
 
-interface TodoItem {
-  id: string;
-  task: string;
-  completed: boolean;
-  category: 'analysis' | 'case' | 'network' | 'application';
-}
 
 export function DashboardPage({ navigate }: DashboardPageProps) {
-  const [todos, setTodos] = useState<TodoItem[]>([]);
   const [peerReviews, setPeerReviews] = useState<PeerReview[]>([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [newReview, setNewReview] = useState({ reviewer: '', rating: 5, comment: '' });
@@ -44,6 +37,25 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [analysisCompletion, setAnalysisCompletion] = useState(0);
 
   const router = useRouter();
+  // Run a callback when the main thread is idle (fallback to setTimeout)
+  const runIdle = (cb: () => void) => {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      // @ts-ignore
+      (window as any).requestIdleCallback(cb);
+    } else {
+      setTimeout(cb, 0);
+    }
+  };
+
+  // Prefetch common routes to make client navigation snappier
+  useEffect(() => {
+    runIdle(() => {
+      router.prefetch('/ipo/analysis');
+      router.prefetch('/ipo/case');
+      router.prefetch('/ipo/calendar');
+    });
+  }, [router]);
+
   const navigateFn = React.useCallback((route: string) => {
     if (navigate) {
       navigate(route);
@@ -53,21 +65,6 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   }, [navigate, router]);
 
   useEffect(() => {
-    // Mock data loading
-    setTodos([
-      { id: '1', task: '自己PRを200字で書き直してみる', completed: false, category: 'analysis' },
-      { id: '2', task: 'コンサル業界のケース問題を1問解く', completed: true, category: 'case' },
-      { id: '3', task: 'LinkedIn プロフィールを更新する', completed: false, category: 'network' },
-      { id: '4', task: '志望企業の最新ニュースをチェック', completed: false, category: 'application' },
-      { id: '5', task: 'STAR法で面接回答を準備する', completed: false, category: 'analysis' }
-    ]);
-
-    setPeerReviews([
-      { id: '1', reviewer: '佐藤花子', rating: 4, comment: '論理的で分かりやすい自己PRでした。もう少し具体的なエピソードがあると良いと思います！', date: '2025-01-08' },
-      { id: '2', reviewer: '田中一郎', rating: 5, comment: '素晴らしい構成です。特に結論→理由→具体例の流れが完璧でした。', date: '2025-01-07' },
-      { id: '3', reviewer: '山田太郎', rating: 3, comment: '内容は良いのですが、もう少し簡潔にまとめられると良いかもしれません。', date: '2025-01-06' }
-    ]);
-
     // キャリアスコア計算
     // const score = calculateDemoCareerScore();
     // setCareerScore(score);
@@ -106,7 +103,27 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         // 2) 認証ユーザー取得
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        // 3) キャリアスコア履歴
+
+
+        // 4) Peerレビュー一覧
+        const { data: reviewRows, error: reviewErr } = await supabase
+          .from('ipo_peer_reviews')
+          .select('id, reviewer, rating, comment, reviewed_at')
+          .eq('user_id', user.id)
+          .order('reviewed_at', { ascending: false });
+        if (reviewErr) {
+          console.warn('Failed to load peer reviews', reviewErr);
+        } else if (reviewRows) {
+          setPeerReviews(reviewRows.map((r: any) => ({
+            id: String(r.id),
+            reviewer: r.reviewer ?? '匿名',
+            rating: Number(r.rating ?? 0),
+            comment: r.comment ?? '',
+            date: (r.reviewed_at ?? '').slice(0, 10),
+          })));
+        }
+
+        // 5) キャリアスコア履歴
         const { data: historyRows, error: historyErr } = await supabase
           .from('ipo_career_score')
           .select('scored_at, overall')
@@ -118,7 +135,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           overall: r.overall ?? 0,
         })));
 
-        // 4) 自己分析完了度（5要素の平均％）
+        // 6) 自己分析完了度（5要素の平均％）
         const { data: progRow, error: progErr } = await supabase
           .from('ipo_analysis_progress')
           .select('ai_chat, life_chart, future_vision, strength_analysis, experience_reflection')
@@ -136,7 +153,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         } else {
           setAnalysisCompletion(0);
         }
-        // 5) キャリアスコア最新
+        // 7) キャリアスコア最新
         const { data: scoreRow } = await supabase
           .from('ipo_career_score')
           .select('*')
@@ -145,12 +162,12 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           .limit(1)
           .maybeSingle();
         if (scoreRow) {
-          // 必要に応じて型変換
           setCareerScore({
             overall: scoreRow.overall ?? 0,
-            breakdown: scoreRow.breakdown ?? {},
-            trend: scoreRow.trend ?? undefined,
-            insights: scoreRow.insights ?? undefined,
+            breakdown: (scoreRow.breakdown ?? {}) as CareerScore['breakdown'],
+            trend: (scoreRow.trend ?? undefined) as CareerScore['trend'],
+            insights: (scoreRow.insights ?? undefined) as CareerScore['insights'],
+            lastUpdated: (scoreRow.scored_at ?? new Date().toISOString()),
           });
         }
       } catch (e) {
@@ -167,12 +184,12 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   };
 
   // キャリアスコアデータ（計算されたものを使用、フォールバック付き）
-  const careerScoreData = careerScore?.breakdown || {
-    Communication: 85,
-    Logic: 72,
-    Leadership: 68,
-    Fit: 90,
-    Vitality: 78
+  const careerScoreData = careerScore?.breakdown ?? {
+    Communication: 0,
+    Logic: 0,
+    Leadership: 0,
+    Fit: 0,
+    Vitality: 0,
   };
   
   // 前回からの変化を計算
@@ -193,13 +210,8 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     }
   };
 
-  const toggleTodo = (id: string) => {
-    setTodos(prev => prev.map(todo => 
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ));
-  };
 
-  const handleAddReview = () => {
+  const handleAddReview = useCallback(() => {
     if (!newReview.reviewer.trim() || !newReview.comment.trim()) return;
 
     const review: PeerReview = {
@@ -210,13 +222,13 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
       date: new Date().toISOString().split('T')[0]
     };
 
-    setPeerReviews(prev => [review, ...prev]);
-    setNewReview({ reviewer: '', rating: 5, comment: '' });
-    setShowReviewModal(false);
-  };
+    startTransition(() => {
+      setPeerReviews(prev => [review, ...prev]);
+      setNewReview({ reviewer: '', rating: 5, comment: '' });
+      setShowReviewModal(false);
+    });
+  }, [newReview]);
 
-  const completedTodos = todos.filter(todo => todo.completed).length;
-  const completionRate = Math.round((completedTodos / todos.length) * 100);
 
   return (
     <div className="bg-background">
@@ -232,7 +244,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               {completedOnboardingSteps.length < 6 && (
                 <Button
                   variant="outline"
-                  onClick={() => setShowOnboardingGuide(true)}
+                  onClick={() => startTransition(() => setShowOnboardingGuide(true))}
                   className="flex items-center space-x-2 border-orange-200 text-orange-700 hover:bg-orange-50"
                 >
                   <BookOpen className="w-4 h-4" />
@@ -268,8 +280,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                     <div className="flex items-center space-x-3">
                       <Button 
                         onClick={() => {
-                          setShowOnboardingGuide(true);
-                          setIsFirstTime(false);
+                          startTransition(() => {
+                            setShowOnboardingGuide(true);
+                            setIsFirstTime(false);
+                          });
                         }}
                         className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                       >
@@ -278,7 +292,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                       </Button>
                       <Button 
                         variant="outline" 
-                        onClick={() => setIsFirstTime(false)}
+                        onClick={() => startTransition(() => setIsFirstTime(false))}
                         className="text-gray-600"
                       >
                         後で確認する
@@ -292,7 +306,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         )}
 
         {/* Header Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -329,32 +343,23 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">今日のTODO進捗</p>
-                  <p className="text-2xl font-bold text-gray-900">{completionRate}%</p>
-                </div>
-                <Target className="w-8 h-8 text-orange-500" />
-              </div>
-              <ProgressBar progress={completionRate} color="orange" />
-            </CardContent>
-          </Card>
 
-          <Card>
+          <Card className="opacity-60 pointer-events-none relative">
+            <span className="absolute top-3 right-3 text-[10px] tracking-wide font-semibold px-2 py-1 rounded-md bg-gray-900 text-white">
+              COMING&nbsp;SOON
+            </span>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Peerレビュー</p>
-                  <p className="text-2xl font-bold text-gray-900">{peerReviews.length}件</p>
+                  <p className="text-2xl font-bold text-gray-900">- 件</p>
                 </div>
                 <Users className="w-8 h-8 text-purple-500" />
               </div>
               <div className="flex items-center mt-2">
                 <Star className="w-4 h-4 text-yellow-500 fill-current" />
                 <span className="text-sm text-gray-600 ml-1">
-                  平均 {(peerReviews.reduce((acc, review) => acc + review.rating, 0) / peerReviews.length).toFixed(1)}
+                  平均 -
                 </span>
               </div>
             </CardContent>
@@ -441,14 +446,17 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             </Card>
 
             {/* Peer Reviews */}
-            <Card>
+            <Card className="opacity-60 pointer-events-none relative">
+              <span className="absolute top-3 right-3 text-[10px] tracking-wide font-semibold px-2 py-1 rounded-md bg-gray-900 text-white">
+                COMING&nbsp;SOON
+              </span>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Peerレビュー</h2>
                     <p className="text-gray-600">同世代からのフィードバック</p>
                   </div>
-                  <Button onClick={() => setShowReviewModal(true)} className="flex items-center space-x-2">
+                  <Button onClick={() => startTransition(() => setShowReviewModal(true))} className="flex items-center space-x-2">
                     <Plus className="w-4 h-4" />
                     <span>レビューを書く</span>
                   </Button>
@@ -484,50 +492,6 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
 
           {/* Sidebar */}
           <div className="space-y-8">
-            {/* Today's TODO */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-5 h-5 text-orange-500" />
-                  <h2 className="text-lg font-bold text-gray-900">Today's TODO (AI)</h2>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {todos.map((todo) => (
-                    <div key={todo.id} className="flex items-start space-x-3">
-                      <button
-                        onClick={() => toggleTodo(todo.id)}
-                        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          todo.completed
-                            ? 'bg-green-500 border-green-500 text-white'
-                            : 'border-gray-300 hover:border-green-500'
-                        }`}
-                      >
-                        {todo.completed && <CheckCircle2 className="w-3 h-3" />}
-                      </button>
-                      <div className="flex-1">
-                        <p className={`text-sm leading-relaxed ${
-                          todo.completed ? 'text-gray-500 line-through' : 'text-gray-700'
-                        }`}>
-                          {todo.task}
-                        </p>
-                        <span className={`inline-block text-xs px-2 py-1 rounded-full mt-1 ${
-                          todo.category === 'analysis' ? 'bg-blue-100 text-blue-700' :
-                          todo.category === 'case' ? 'bg-purple-100 text-purple-700' :
-                          todo.category === 'network' ? 'bg-green-100 text-green-700' :
-                          'bg-orange-100 text-orange-700'
-                        }`}>
-                          {todo.category === 'analysis' ? '分析' :
-                           todo.category === 'case' ? 'ケース' :
-                           todo.category === 'network' ? 'ネットワーク' : '応募'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Quick Actions */}
             <Card>
