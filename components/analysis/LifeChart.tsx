@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/lib/supabase/client';
 import { Plus, Edit3, Trash2, TrendingUp, TrendingDown, Calendar, Star, Award, Users, BookOpen, Heart, Target, Save, Download, Eye, EyeOff, ChevronRight, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -51,6 +52,31 @@ interface Insight {
   evidence: string[];
   jobHuntApplication: string;
 }
+
+// Supabase upsert payload shape (keep fields optional except those required by insert)
+type UpsertLifeEvent = {
+  id?: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  date: string;         // YYYY-MM-DD
+  age?: number;
+  category: LifeEvent['category'];
+  emotional_level?: number;
+  impact_level?: number;
+  skills?: string[];
+  learnings?: string[];
+  values?: string[];
+  is_private?: boolean;
+  star_situation?: string;
+  star_task?: string;
+  star_action?: string;
+  star_result?: string;
+  job_relevant?: boolean;
+  job_industries?: string[];
+  job_job_types?: string[];
+  job_keywords?: string[];
+};
 
 const categoryConfig = {
   academic: { label: '学業・勉強', icon: BookOpen, color: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
@@ -127,10 +153,11 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // データロードは初回のみ実行
+  // データロード: userIdが変わるたびに実行
   useEffect(() => {
+    if (!userId) return;
     loadLifeEvents();
-  }, []); // userIdを依存配列から削除
+  }, [userId]);
 
   // 進捗更新は events と insights が変更された時のみ
   const updateProgress = useCallback((events: LifeEvent[], insights: Insight[]) => {
@@ -144,119 +171,58 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     }
   }, [events.length, insights.length, updateProgress]); // events.length のみに変更
 
-  const loadLifeEvents = useCallback(() => {
-    // Mock data for demonstration
-    const mockEvents: LifeEvent[] = [
-      {
-        id: '1',
-        title: '大学受験',
-        description: '第一志望の大学に合格。受験勉強を通じて計画性と継続力を身につけた。',
-        date: '2021-03-15',
-        age: 18,
-        category: 'academic',
-        emotionalLevel: 4,
-        impactLevel: 5,
-        skills: ['計画立案', '継続力', 'ストレス耐性'],
-        learnings: ['目標に向かって努力する大切さ', '計画的に取り組むことの重要性'],
-        values: ['成長', '挑戦'],
-        isPrivate: false,
-        starFramework: {
-          situation: '高校3年時、第一志望の難関大学合格を目指していた',
-          task: '限られた時間で効率的に学力を向上させる必要があった',
-          action: '年間学習計画を立て、毎日12時間の勉強を継続。苦手科目は個別指導も活用',
-          result: '模試での偏差値が15ポイント向上し、第一志望に合格'
-        },
-        jobHuntRelevance: {
-          relevant: true,
-          industries: ['コンサルティング', '金融・銀行'],
-          jobTypes: ['企画職', '営業職'],
-          keywords: ['計画性', '継続力', '目標達成']
-        }
-      },
-      {
-        id: '2',
-        title: 'サークル代表就任',
-        description: '100名規模のサークルで代表に就任。メンバーのモチベーション向上と活動の活性化を実現。',
-        date: '2022-04-01',
-        age: 19,
-        category: 'achievement',
-        emotionalLevel: 3,
-        impactLevel: 4,
-        skills: ['リーダーシップ', 'チームワーク', 'コミュニケーション'],
-        learnings: ['多様な価値観を持つ人々をまとめる難しさ', 'リーダーとしての責任の重さ'],
-        values: ['協調', '責任感', 'チームワーク'],
-        isPrivate: false,
-        starFramework: {
-          situation: '100名規模のテニスサークルでメンバーの参加率が低下していた',
-          task: '代表として組織の活性化とメンバーのモチベーション向上を図る',
-          action: 'アンケート調査を実施し、新入生歓迎イベントや技術向上プログラムを企画・実行',
-          result: '参加率が30%から80%に向上し、新入生の定着率も大幅に改善'
-        },
-        jobHuntRelevance: {
-          relevant: true,
-          industries: ['全業界'],
-          jobTypes: ['営業職', '企画職', 'マネジメント職'],
-          keywords: ['リーダーシップ', '組織運営', 'チームビルディング']
-        }
-      }
-    ];
+  const mapDbToLifeEvent = (row: any): LifeEvent => ({
+    id: row.id,
+    title: row.title ?? '',
+    description: row.description ?? '',
+    date: row.date,                 // 'YYYY-MM-DD'
+    age: row.age ?? 18,
+    category: row.category as LifeEvent['category'],
+    emotionalLevel: row.emotional_level ?? 0,
+    impactLevel: row.impact_level ?? 3,
+    skills: row.skills ?? [],
+    learnings: row.learnings ?? [],
+    values: row.values ?? [],
+    isPrivate: row.is_private ?? false,
+    starFramework: {
+      situation: row.star_situation ?? '',
+      task: row.star_task ?? '',
+      action: row.star_action ?? '',
+      result: row.star_result ?? '',
+    },
+    jobHuntRelevance: {
+      relevant: row.job_relevant ?? false,
+      industries: row.job_industries ?? [],
+      jobTypes: row.job_job_types ?? [],
+      keywords: row.job_keywords ?? [],
+    },
+  });
 
-    setEvents(mockEvents);
-    
-    // インサイトも同時に生成
-    const mockInsights: Insight[] = [
-      {
-        type: 'pattern',
-        title: '継続的な挑戦志向',
-        description: 'ライフチャートを通じて、常に新しいことに挑戦し続けるパターンが見えます。',
-        evidence: ['大学受験での高い目標設定', 'サークル代表への立候補'],
-        jobHuntApplication: '新規事業や成長企業で力を発揮できる可能性が高い'
-      }
-    ];
-    
-    setInsights(mockInsights);
-  }, []);
+  const loadLifeEvents = useCallback(async () => {
+    if (!userId) return;
+    const { data, error } = await (supabase as any)
+      .from('ipo_life_chart_events') // relax TS: generated types don't include this table
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: true });
 
-  const handleSaveEvent = useCallback(() => {
-    if (!newEvent.title || !newEvent.date) return;
+    if (error) {
+      console.error('loadLifeEvents error:', error);
+      return;
+    }
 
-    const event: LifeEvent = {
-      id: editingEvent?.id || Date.now().toString(),
-      title: newEvent.title!,
-      description: newEvent.description || '',
-      date: newEvent.date!,
-      age: newEvent.age || 18,
-      category: newEvent.category as any || 'personal',
-      emotionalLevel: newEvent.emotionalLevel || 0,
-      impactLevel: newEvent.impactLevel || 3,
-      skills: newEvent.skills || [],
-      learnings: newEvent.learnings || [],
-      values: newEvent.values || [],
-      isPrivate: newEvent.isPrivate || false,
-      starFramework: newEvent.starFramework || {
-        situation: '',
-        task: '',
-        action: '',
-        result: ''
-      },
-      jobHuntRelevance: newEvent.jobHuntRelevance || {
-        relevant: false,
-        industries: [],
-        jobTypes: [],
-        keywords: []
-      }
-    };
+    const items: LifeEvent[] = (data ?? []).map(mapDbToLifeEvent);
+    setEvents(items);
 
-    setEvents(prev => {
-      if (editingEvent) {
-        return prev.map(e => e.id === editingEvent.id ? event : e);
-      } else {
-        return [...prev, event];
-      }
-    });
-
-    resetForm();
-  }, [newEvent, editingEvent]);
+    // （任意）簡易インサイト：イベント数に応じてプレースホルダを生成
+    setInsights(items.length ? [{
+      type: 'pattern',
+      title: '記録の傾向',
+      description: '最近の出来事が多く記録されています。過去の出来事も追加すると一貫した成長を示せます。',
+      evidence: items.slice(-3).map((e: LifeEvent) => e.title),
+      jobHuntApplication: '時系列の一貫性は面接での説得力向上に役立ちます。'
+    }] : []);
+  }, [userId]);
 
   const resetForm = useCallback(() => {
     setNewEvent(initialFormState);
@@ -264,17 +230,112 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     setShowEventDialog(false);
   }, []);
 
+  const handleSaveEvent = useCallback(async () => {
+    if (!newEvent.title || !newEvent.date || !userId) return;
+
+    const payload: UpsertLifeEvent = {
+      ...(editingEvent ? { id: editingEvent.id } : {}),
+      user_id: userId,
+      title: newEvent.title!,
+      description: newEvent.description || '',
+      date: newEvent.date!,            // 'YYYY-MM-DD'
+      age: newEvent.age ?? 18,
+      category: (newEvent.category as LifeEvent['category']) ?? 'personal',
+      emotional_level: newEvent.emotionalLevel ?? 0,
+      impact_level: newEvent.impactLevel ?? 3,
+      skills: newEvent.skills ?? [],
+      learnings: newEvent.learnings ?? [],
+      values: newEvent.values ?? [],
+      is_private: newEvent.isPrivate ?? false,
+      star_situation: newEvent.starFramework?.situation ?? '',
+      star_task: newEvent.starFramework?.task ?? '',
+      star_action: newEvent.starFramework?.action ?? '',
+      star_result: newEvent.starFramework?.result ?? '',
+      job_relevant: newEvent.jobHuntRelevance?.relevant ?? false,
+      job_industries: newEvent.jobHuntRelevance?.industries ?? [],
+      job_job_types: newEvent.jobHuntRelevance?.jobTypes ?? [],
+      job_keywords: newEvent.jobHuntRelevance?.keywords ?? [],
+    };
+
+    // Optimistic UI: if creating, generate a temp id to render immediately
+    const tempId = editingEvent?.id || `tmp-${Date.now()}`;
+    const nextEvent: LifeEvent = {
+      id: tempId,
+      title: payload.title,
+      description: payload.description ?? '',
+      date: payload.date,
+      age: payload.age ?? 18,
+      category: payload.category as LifeEvent['category'],
+      emotionalLevel: payload.emotional_level ?? 0,
+      impactLevel: payload.impact_level ?? 3,
+      skills: payload.skills ?? [],
+      learnings: payload.learnings ?? [],
+      values: payload.values ?? [],
+      isPrivate: payload.is_private ?? false,
+      starFramework: {
+        situation: payload.star_situation ?? '',
+        task: payload.star_task ?? '',
+        action: payload.star_action ?? '',
+        result: payload.star_result ?? '',
+      },
+      jobHuntRelevance: {
+        relevant: payload.job_relevant ?? false,
+        industries: payload.job_industries ?? [],
+        jobTypes: payload.job_job_types ?? [],
+        keywords: payload.job_keywords ?? [],
+      },
+    };
+
+    setEvents(prev => {
+      if (editingEvent) {
+        return prev.map(e => e.id === editingEvent.id ? nextEvent : e);
+      }
+      return [...prev, nextEvent];
+    });
+
+    const { data, error } = await (supabase as any)
+      .from('ipo_life_chart_events') // relax TS for this table
+      .upsert([payload] as any, { onConflict: 'id' }) // payload is runtime-safe; TS-only cast
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('upsert life_events error:', error);
+      // rollback optimistic add if it failed on create
+      if (!editingEvent) {
+        setEvents(prev => prev.filter(e => e.id !== tempId));
+      }
+    } else if (data) {
+      // replace temp item with actual DB row (id from uuid)
+      const saved = mapDbToLifeEvent(data);
+      setEvents(prev => prev.map(e => (e.id === tempId || e.id === editingEvent?.id) ? saved : e));
+    }
+
+    resetForm();
+  }, [newEvent, editingEvent, userId, resetForm]);
+
+
   const handleEditEvent = useCallback((event: LifeEvent) => {
     setNewEvent(event);
     setEditingEvent(event);
     setShowEventDialog(true);
   }, []);
 
-  const handleDeleteEvent = useCallback((eventId: string) => {
-    if (confirm('このライフイベントを削除しますか？')) {
-      setEvents(prev => prev.filter(e => e.id !== eventId));
+  const handleDeleteEvent = useCallback(async (eventId: string) => {
+    if (!confirm('このライフイベントを削除しますか？')) return;
+    const prev = events;
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+    const { error } = await supabase
+      .from('ipo_life_chart_events')
+      .delete()
+      .eq('id' as any, eventId as any) // TS fix: table types expect number but actual id is uuid/string
+      .eq('user_id', userId);
+    if (error) {
+      console.error('delete life_events error:', error);
+      // rollback
+      setEvents(prev);
     }
-  }, []);
+  }, [events, userId]);
 
   // 表示用のイベントをメモ化
   const displayEvents = useMemo(() => {
@@ -325,6 +386,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   const renderChartView = () => {
     const maxAge = Math.max(...displayEvents.map(e => e.age), currentAge);
     const minAge = Math.min(...displayEvents.map(e => e.age), 15);
+    const span = Math.max(1, maxAge - minAge);
 
     return (
       <div className="space-y-6">
@@ -375,7 +437,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
               {/* Events */}
               <div className="absolute left-12 right-0 top-4 bottom-8">
                 {displayEvents.map((event, index) => {
-                  const x = ((event.age - minAge) / (maxAge - minAge)) * 100;
+                  const x = ((event.age - minAge) / span) * 100;
                   const y = ((5 - event.emotionalLevel) / 10) * 100;
                   const config = categoryConfig[event.category];
 

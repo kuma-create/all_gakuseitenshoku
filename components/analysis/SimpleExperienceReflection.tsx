@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { supabase } from '@/lib/supabase/client';
 import { Plus, Edit3, Save, Download, Star, Calendar, TrendingUp, CheckCircle, X, Sparkles, ChevronRight, ChevronDown, Brain, FileText } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -42,10 +43,6 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
     onProgressUpdateRef.current = onProgressUpdate;
   }, [onProgressUpdate]);
 
-  // 初回データロード
-  useEffect(() => {
-    loadExperiences();
-  }, []); // 依存配列を空に
 
   // 進捗更新の最適化 - useRefで安定した参照を使用
   const updateProgress = useCallback((experiences: SimpleExperience[]) => {
@@ -65,55 +62,44 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
     updateProgress(experiences);
   }, [experiencesLength, highCompletenessCount, updateProgress]);
 
-  const loadExperiences = useCallback(() => {
-    // Mock data
-    const mockExperiences: SimpleExperience[] = [
-      {
-        id: '1',
-        title: 'テニスサークル代表',
-        description: '100名規模のテニスサークルで代表を務め、参加率向上に取り組みました。メンバーの声を聞きながら、新入生歓迎イベントと技術向上プログラムを企画・実行しました。',
-        category: 'club',
-        period: '2022年4月〜2023年3月',
-        isJobHuntRelevant: true,
-        details: {
-          role: '代表',
-          organization: '東京大学テニスサークル',
-          teamSize: '100名',
-          challenge: '参加率が30%まで低下し、新入生の離脱率が60%に達していた',
-          action: 'アンケート調査を実施し、新入生歓迎イベントと技術向上プログラムを企画・導入',
-          result: '参加率80%、新入生定着率90%を達成し、学生活動表彰を受賞',
-          skills: ['リーダーシップ', 'チームワーク', '企画力', '問題解決'],
-          learnings: ['メンバーの多様な価値観を理解することの大切さ', 'データに基づく意思決定の重要性']
-        },
-        completeness: 95,
-        lastUpdated: '2024-01-15',
-        isPrivate: false
-      },
-      {
-        id: '2',
-        title: 'IT企業インターンシップ',
-        description: 'スタートアップ企業で2週間のインターンシップに参加。新規事業提案プロジェクトで市場調査から事業計画まで担当しました。',
-        category: 'work',
-        period: '2023年8月（2週間）',
-        isJobHuntRelevant: true,
-        details: {
-          role: 'インターン生',
-          organization: '株式会社テックスタート',
-          teamSize: '5名',
-          challenge: '2週間で新規事業の市場調査から収益モデル設計まで完成させる',
-          action: 'チーム内で役割分担し、効率的な調査手法と毎日の進捗共有を実施',
-          result: '5チーム中2位の評価を獲得し、提案が実際の検討段階に進んだ',
-          skills: ['分析力', 'チームワーク', 'プレゼンテーション', '企画力'],
-          learnings: ['ビジネスの現場でのスピード感', '顧客視点の重要性']
-        },
-        completeness: 85,
-        lastUpdated: '2024-01-10',
-        isPrivate: false
-      }
-    ];
-    
-    setExperiences(mockExperiences);
-  }, []);
+  const loadExperiences = useCallback(async () => {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from('ipo_experiences')
+      .select('*')
+      .eq('user_id', userId)
+      .order('last_updated', { ascending: false, nullsFirst: false });
+
+    if (error) {
+      console.error('Failed to load experiences:', error);
+      setExperiences([]);
+      return;
+    }
+
+    // Ensure data conforms to SimpleExperience[]
+    const rows = (data || []).map((row: any) => ({
+      id: String(row.id),
+      title: row.title ?? '',
+      description: row.description ?? '',
+      category: row.category ?? 'club',
+      period: row.period ?? row.period_text ?? '',
+      isJobHuntRelevant: (row.is_job_hunt_relevant ?? row.isJobHuntRelevant) ?? true,
+      details: row.details ?? {},
+      completeness: row.completeness ?? 0,
+      lastUpdated:
+        row.last_updated
+        ?? (row.updated_at ? row.updated_at.split('T')[0] : '')
+        ?? (row.lastUpdated ? String(row.lastUpdated) : ''),
+      isPrivate: (row.is_private ?? row.isPrivate) ?? false,
+    }));
+
+    setExperiences(rows);
+  }, [userId]);
+
+  // 初回データロード
+  useEffect(() => {
+    loadExperiences();
+  }, [loadExperiences]);
 
   const calculateCompleteness = useCallback((experience: Partial<SimpleExperience>): number => {
     let score = 0;
@@ -128,35 +114,6 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
     return Math.min(100, score);
   }, []);
 
-  const handleSave = useCallback(() => {
-    if (!formData.title || !formData.description) return;
-
-    const completeness = calculateCompleteness(formData);
-    
-    const experience: SimpleExperience = {
-      id: editingExperience?.id || Date.now().toString(),
-      title: formData.title!,
-      description: formData.description!,
-      category: formData.category || 'club',
-      period: formData.period || '',
-      isJobHuntRelevant: formData.isJobHuntRelevant ?? true,
-      details: formData.details || {},
-      completeness,
-      lastUpdated: new Date().toISOString().split('T')[0],
-      isPrivate: formData.isPrivate || false
-    };
-
-    setExperiences(prev => {
-      if (editingExperience) {
-        return prev.map(e => e.id === editingExperience.id ? experience : e);
-      } else {
-        return [...prev, experience];
-      }
-    });
-
-    resetForm();
-  }, [formData, editingExperience, calculateCompleteness]);
-
   const resetForm = useCallback(() => {
     setFormData(initialFormData);
     setEditingExperience(null);
@@ -164,6 +121,43 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
     setShowAdvanced(false);
     setShowDialog(false);
   }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!formData.title || !formData.description) return;
+
+    const completeness = calculateCompleteness(formData);
+
+    const payload = {
+      id: editingExperience?.id, // upsert by id when editing
+      user_id: userId,
+      title: formData.title!,
+      description: formData.description!,
+      category: formData.category || 'club',
+      period: formData.period || '',
+      is_job_hunt_relevant: formData.isJobHuntRelevant ?? true,
+      details: formData.details || {},
+      completeness,
+      last_updated: new Date().toISOString().split('T')[0],
+      is_private: formData.isPrivate || false,
+    } as any;
+
+    // Remove undefined id when creating
+    if (!editingExperience) delete payload.id;
+
+    const { error } = await supabase
+      .from('ipo_experiences')
+      .upsert(payload, { onConflict: 'id' })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to save experience:', error);
+      return;
+    }
+
+    await loadExperiences();
+    resetForm();
+  }, [formData, editingExperience, userId, calculateCompleteness, loadExperiences, resetForm]);
 
   const handleTemplateSelect = useCallback((template: ExperienceTemplate) => {
     setSelectedTemplate(template);

@@ -1223,6 +1223,7 @@ export type Database = {
         Row: {
           category: string
           id: number
+          is_active: boolean
           sort_order: number | null
           text: string
           type: string
@@ -1230,6 +1231,7 @@ export type Database = {
         Insert: {
           category: string
           id?: number
+          is_active?: boolean
           sort_order?: number | null
           text: string
           type: string
@@ -1237,6 +1239,7 @@ export type Database = {
         Update: {
           category?: string
           id?: number
+          is_active?: boolean
           sort_order?: number | null
           text?: string
           type?: string
@@ -1784,6 +1787,59 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ipo_ai_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          thread_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          thread_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_ai_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ipo_ai_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_ai_threads: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       ipo_analysis_progress: {
         Row: {
@@ -4092,6 +4148,56 @@ export type Database = {
         }
         Relationships: []
       }
+      weaknesses: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          impact: number
+          improvement_plan: Json
+          job_impact: Json
+          name: string
+          progress_tracking: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact: number
+          improvement_plan?: Json
+          job_impact?: Json
+          name: string
+          progress_tracking?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact?: number
+          improvement_plan?: Json
+          job_impact?: Json
+          name?: string
+          progress_tracking?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weaknesses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webtest_questions: {
         Row: {
           challenge_id: string | null
@@ -4624,7 +4730,7 @@ export type Database = {
       }
       calculate_diagnosis: {
         Args: { p_session_id: string }
-        Returns: undefined
+        Returns: string
       }
       calculate_profile_completion: {
         Args: { p_user_id: string }
