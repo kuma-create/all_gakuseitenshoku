@@ -9,7 +9,7 @@ import { CareerRadarChart } from '@/components/charts/CareerRadarChart';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { CareerScore } from '@/utils/careerScore';
 import { CareerScoreInfo } from '@/components/CareerScoreInfo';
-import { OnboardingGuide } from '@/components/OnboardingGuide';
+import OnboardingGuide from '@/components/OnboardingGuide';
 
 interface DashboardPageProps {
   navigate?: (route: string) => void;
