@@ -159,6 +159,21 @@ const strengthSuggestions = [
   '責任感', 'ストレス耐性', '柔軟性', '向上心', '分析力', '企画力', '営業力', '語学力'
 ];
 
+// Helper to coerce DB values to Strength['category'] literal type
+const STRENGTH_CATEGORIES = [
+  'technical',
+  'soft',
+  'leadership',
+  'communication',
+  'problem-solving',
+  'creativity',
+] as const;
+type StrengthCategoryLiteral = typeof STRENGTH_CATEGORIES[number];
+const asStrengthCategory = (v: any): StrengthCategoryLiteral =>
+  (STRENGTH_CATEGORIES as readonly string[]).includes(String(v))
+    ? (v as StrengthCategoryLiteral)
+    : 'soft';
+
 export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisProps) {
   const [strengths, setStrengths] = useState<Strength[]>([]);
   const [weaknesses, setWeaknesses] = useState<Weakness[]>([]);
@@ -217,7 +232,7 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
     const strengthsFromDb: Strength[] = (sData || []).map((row: any) => ({
       id: row.id,
       name: row.label,                    // label → name
-      category: row.kind,                 // kind → category
+      category: asStrengthCategory(row.kind), // kind → category, coerced
       level: row.score ?? 0,              // score → level
       evidence: [],
       description: '',
@@ -278,7 +293,7 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
         const updated: Strength = {
           id: data.id,
           name: data.label,
-          category: data.kind,
+          category: asStrengthCategory(data.kind),
           level: data.score ?? 0,
           evidence: [],
           description: '',
@@ -303,7 +318,7 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
         const created: Strength = {
           id: data.id,
           name: data.label,
-          category: data.kind,
+          category: asStrengthCategory(data.kind),
           level: data.score ?? 0,
           evidence: [],
           description: '',

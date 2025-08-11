@@ -2422,6 +2422,56 @@ export type Database = {
           },
         ]
       }
+      ipo_weaknesses: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: number
+          impact: number
+          improvement_plan: Json
+          job_impact: Json
+          name: string
+          progress_tracking: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string
+          id?: number
+          impact: number
+          improvement_plan?: Json
+          job_impact?: Json
+          name: string
+          progress_tracking?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: number
+          impact?: number
+          improvement_plan?: Json
+          job_impact?: Json
+          name?: string
+          progress_tracking?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_weaknesses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_embeddings: {
         Row: {
           content: string
