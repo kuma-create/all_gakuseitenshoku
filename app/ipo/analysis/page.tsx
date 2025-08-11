@@ -45,7 +45,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { AIChat } from '@/components/analysis/AIChat';
 import { LifeChart } from '@/components/analysis/LifeChart';
 import { FutureVision } from '@/components/analysis/FutureVision';
-import { StrengthAnalysis } from '@/components/analysis/StrengthAnalysis';
 import { SimpleExperienceReflection } from '@/components/analysis/SimpleExperienceReflection';
 import { AnalysisOverview } from '@/components/analysis/AnalysisOverview';
 import { motion } from 'framer-motion';
@@ -143,20 +142,7 @@ const analysisTools = [
     estimatedTime: '20-40分',
     difficulty: '普通'
   },
-  {
-    id: 'strengthAnalysis',
-    title: '強み・弱み分析',
-    subtitle: '能力診断',
-    description: '客観的な視点で自分の特性を分析',
-    icon: Star,
-    color: 'from-yellow-500 to-orange-500',
-    bgColor: 'bg-yellow-50',
-    textColor: 'text-yellow-700',
-    longDescription: '多角的な質問で強みと改善点を明確にします。',
-    benefits: ['強みの発見', '成長領域の特定', '具体的改善策'],
-    estimatedTime: '20-35分',
-    difficulty: '普通'
-  },
+
   {
     id: 'experienceReflection',
     title: '経験の整理',
@@ -184,7 +170,6 @@ const analysisTools = [
     benefits: ['目標の明確化', 'アクションプラン', 'モチベーション向上'],
     estimatedTime: '25-45分',
     difficulty: '普通',
-    badge: 'HOT'
   }
 ];
 
@@ -230,6 +215,8 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const [manualText, setManualText] = useState<string>('');
   const [manualTags, setManualTags] = useState<string[]>([]);
   const [, setNoteSaving] = useState(false);
+  // Desktop tool search/filter
+  const [navQuery, setNavQuery] = useState('');
   // 構造化ノート（自己分析 / 自己PR）
   const [manual, setManual] = useState({
     selfAnalysis: '',
@@ -766,20 +753,22 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       // 強み・弱みは専用テーブルから取得
       try {
         const { data: sRows, error: sErr } = await supabase
-          .from('ipo_strengths')
-          .select('id,label,score')
-          .eq('user_id', uid);
+          .from('ipo_traits')
+          .select('id,title,note')
+          .eq('user_id', uid)
+          .eq('kind', 'strength');
         if (!sErr && Array.isArray(sRows)) {
-          next.strengthItems = sRows.map((r: any) => ({ id: String(r.id ?? crypto.randomUUID()), title: String(r.label || ''), note: '' }));
+          next.strengthItems = sRows.map((r: any) => ({ id: String(r.id ?? crypto.randomUUID()), title: String(r.title || ''), note: String(r.note || '') }));
         }
       } catch {}
       try {
         const { data: wRows, error: wErr } = await supabase
-          .from('ipo_weaknesses')
-          .select('id,label,score')
-          .eq('user_id', uid);
+          .from('ipo_traits')
+          .select('id,title,note')
+          .eq('user_id', uid)
+          .eq('kind', 'weakness');
         if (!wErr && Array.isArray(wRows)) {
-          next.weaknessItems = wRows.map((r: any) => ({ id: String(r.id ?? crypto.randomUUID()), title: String(r.label || ''), note: '' }));
+          next.weaknessItems = wRows.map((r: any) => ({ id: String(r.id ?? crypto.randomUUID()), title: String(r.title || ''), note: String(r.note || '') }));
         }
       } catch {}
 
@@ -862,30 +851,109 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
       if (existing) await doUpdate(); else await doInsert();
 
-      // ---- 強み・弱みは ipo_* テーブルに全入れ替え保存 ----
+      // ---- 強み・弱みは ipo_traits テーブルに同報保存（安全版） ----
       try {
-        await supabase.from('ipo_strengths').delete().eq('user_id', userId);
-        const sPayload = (manual.strengthItems || [])
-          .filter(it => (it.title || '').trim())
-          .map(it => ({ user_id: userId, label: it.title.trim(), kind: 'strength' as const }));
+        // --- strengths ---
+        const sPayload =
+          (manual.strengthItems || [])
+            .filter((it) => (it.title || '').trim())
+            .map((it) => ({ user_id: userId, kind: 'strength', title: it.title.trim(), note: (it.note || '').trim() || null }));
+
         if (sPayload.length) {
-          const { error: sInsErr } = await supabase.from('ipo_strengths').insert(sPayload as any);
-          if (sInsErr) throw sInsErr;
+          const { error: sUpErr } = await supabase
+            .from('ipo_traits')
+            .upsert(
+              sPayload.map((r) => ({ ...r, updated_at: new Date().toISOString() })) as any,
+              { onConflict: 'user_id,kind,title' }
+            );
+          if (sUpErr) throw sUpErr;
+        }
+
+        // 古いレコード掃除（まず既存を取得し、差分だけ削除）
+        try {
+          const keepS = sPayload.map((r) => r.title);
+          const { data: existingS, error: sSelErr } = await supabase
+            .from('ipo_traits')
+            .select('title')
+            .eq('user_id', userId)
+            .eq('kind', 'strength');
+          if (!sSelErr && Array.isArray(existingS)) {
+            const toDelete = existingS
+              .map((r: any) => String(r.title))
+              .filter((lbl) => !keepS.includes(lbl));
+            if (toDelete.length) {
+              const { error: sDelErr } = await supabase
+                .from('ipo_traits')
+                .delete()
+                .eq('user_id', userId)
+                .eq('kind', 'strength')
+                .in('title', toDelete);
+              if (sDelErr && sDelErr.code !== 'PGRST116') {
+                console.warn('ipo_traits (strength) cleanup skipped due to RLS/policy:', sDelErr);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('ipo_traits (strength) cleanup skipped:', e);
         }
       } catch (e) {
-        console.warn('ipo_strengths upsert skipped:', e);
+        console.error('ipo_traits (strength) save error:', e);
+        // strengths 側は UI を止めない（弱み保存のほうで詳細表示）
       }
+
       try {
-        await supabase.from('ipo_weaknesses').delete().eq('user_id', userId);
-        const wPayload = (manual.weaknessItems || [])
-          .filter(it => (it.title || '').trim())
-          .map(it => ({ user_id: userId, label: it.title.trim(), kind: 'weakness' as const }));
+        // --- weaknesses ---
+        const wPayload =
+          (manual.weaknessItems || [])
+            .filter((it) => (it.title || '').trim())
+            .map((it) => ({ user_id: userId, kind: 'weakness', title: it.title.trim(), note: (it.note || '').trim() || null }));
+
         if (wPayload.length) {
-          const { error: wInsErr } = await supabase.from('ipo_weaknesses').insert(wPayload as any);
-          if (wInsErr) throw wInsErr;
+          const { error: wUpErr } = await supabase
+            .from('ipo_traits')
+            .upsert(
+              wPayload.map((r) => ({ ...r, updated_at: new Date().toISOString() })) as any,
+              { onConflict: 'user_id,kind,title' }
+            );
+          if (wUpErr) {
+            console.error('ipo_traits (weakness) upsert error:', wUpErr);
+            const code = (wUpErr as any)?.code || 'unknown';
+            const msg = (wUpErr as any)?.message || JSON.stringify(wUpErr);
+            setError(`弱みの保存に失敗しました（${code}: ${msg}）`);
+            throw wUpErr;
+          }
+        }
+
+        try {
+          const keepW = wPayload.map((r) => r.title);
+          const { data: existingW, error: wSelErr } = await supabase
+            .from('ipo_traits')
+            .select('title')
+            .eq('user_id', userId)
+            .eq('kind', 'weakness');
+          if (!wSelErr && Array.isArray(existingW)) {
+            const toDelete = existingW
+              .map((r: any) => String(r.title))
+              .filter((lbl) => !keepW.includes(lbl));
+            if (toDelete.length) {
+              const { error: wDelErr } = await supabase
+                .from('ipo_traits')
+                .delete()
+                .eq('user_id', userId)
+                .eq('kind', 'weakness')
+                .in('title', toDelete);
+              if (wDelErr && wDelErr.code !== 'PGRST116') {
+                console.warn('ipo_traits (weakness) cleanup skipped due to RLS/policy:', wDelErr);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('ipo_traits (weakness) cleanup skipped:', e);
         }
       } catch (e) {
-        console.warn('ipo_weaknesses upsert skipped:', e);
+        console.error('ipo_traits (weakness) save error:', e);
+        setError('弱みの保存でエラーが発生しました（テーブルのRLS/カラム定義を確認してください）');
+        // rethrow せず UI 継続
       }
 
       // 履歴書テーブルにも traits を同期（任意、エラーは握りつぶす）
@@ -1300,7 +1368,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
                         <div className="space-y-1">
                           <div className="flex items-center space-x-2">
-                            <Checkbox id={`current-${exp.id}`} className="h-3.5 w-3.5" checked={exp.isCurrent} onCheckedChange={(checked) => handleWorkExperienceChange(exp.id, 'isCurrent', checked)} />
+                            <Checkbox id={`current-${exp.id}`} className="h-3.5 w-3.5" checked={exp.isCurrent} onCheckedChange={(checked) => handleWorkExperienceChange(exp.id, 'isCurrent', Boolean(checked))} />
                             <Label htmlFor={`current-${exp.id}`} className="text-xs">現在も在籍中</Label>
                           </div>
                         </div>
@@ -1403,8 +1471,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         return <LifeChart userId={userId ?? ''} onProgressUpdate={(p: number) => setToolProgress('lifeChart', p)} />;
       case 'futureVision':
         return <FutureVision onProgressUpdate={(p: number) => setToolProgress('futureVision', p)} />;
-      case 'strengthAnalysis':
-        return <StrengthAnalysis userId={userId ?? ''} onProgressUpdate={(p: number) => setToolProgress('strengthAnalysis', p)} />;
+
       case 'experienceReflection':
         return <SimpleExperienceReflection userId={userId ?? ''} onProgressUpdate={(p: number) => setToolProgress('experienceReflection', p)} />;
       default:
@@ -1414,129 +1481,40 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
   const currentTool = getCurrentTool();
 
-  // Mobile Bottom Sheet Navigation
-  const MobileBottomNav = () => (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-4 py-2 safe-area-pb">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3 flex-1 min-w-0">
-          <div className={`w-10 h-10 bg-gradient-to-r ${currentTool.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-            <currentTool.icon className="w-5 h-5 text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-gray-900 truncate">{currentTool.title}</h3>
-            <p className="text-xs text-gray-500 truncate">{currentTool.subtitle}</p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowMobileMenu(true)}
-          className="flex-shrink-0 ml-3"
-        >
-          <Menu className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
+  // Per-tool progress for card grid
+  const getToolProgressPct = useCallback((toolId: string): number => {
+    switch (toolId) {
+      case 'overview':
+        return overviewPercentFromSections;
+      case 'manual':
+      case 'aiChat':
+        return Math.round((sectionProgress.selfNote ?? 0) * 100);
+      case 'lifeChart':
+        return progress.lifeChart || 0;
+      case 'futureVision':
+        return progress.futureVision || 0;
+      case 'strengthAnalysis':
+        return progress.strengthAnalysis || 0;
+      case 'experienceReflection':
+        return progress.experienceReflection || 0;
+      case 'resume': {
+        try {
+          return calcWorkCompletion(workExperiences);
+        } catch { return 0; }
+      }
+      default:
+        return 0;
+    }
+  }, [overviewPercentFromSections, sectionProgress.selfNote, progress.lifeChart, progress.futureVision, progress.strengthAnalysis, progress.experienceReflection, workExperiences, calcWorkCompletion]);
 
-  // Mobile Menu Sheet (no AnimatePresence to avoid Presence loops)
-  const MobileMenuSheet = () => {
-    if (!showMobileMenu) return null;
-    return (
-      <>
-        <div
-          className="fixed inset-0 bg-black/50 z-50 md:hidden"
-          onClick={() => setShowMobileMenu(false)}
-        />
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl max-h[80vh] overflow-y-auto md:hidden transition-transform duration-200"
-        >
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">分析ツール</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowMobileMenu(false)}
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-            <div className="mt-3">
-              <div className="flex items-center space-x-3 text-sm text-gray-600">
-                <div className="flex items-center space-x-1">
-                  <BarChart3 className="w-4 h-4" />
-                  <span>総合進捗 {overviewPercentFromSections}%</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Award className="w-4 h-4" />
-                  <span>{Object.values(progress).filter(p => p >= 100).length}/{analysisTools.length} 完了</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            {analysisTools.map((tool) => {
-              const isActive = activeTab === tool.id;
-              const toolProgress = (progress as any)[tool.id] || 0;
-              const IconComponent = tool.icon;
-              
-              return (
-                <button
-                  key={tool.id}
-                  onClick={() => handleTabChange(tool.id)}
-                  className={`w-full p-4 rounded-xl text-left transition-all ${
-                    isActive 
-                      ? 'bg-blue-50 border-2 border-blue-200' 
-                      : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-start space-x-4">
-                    <div className={`w-12 h-12 bg-gradient-to-r ${tool.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                      <IconComponent className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className={`font-semibold truncate ${isActive ? 'text-blue-700' : 'text-gray-900'}`}>
-                          {tool.title}
-                        </h3>
-                        <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                          {tool.badge && (
-                            <Badge className="text-xs px-2 py-1 bg-blue-100 text-blue-700">
-                              {tool.badge}
-                            </Badge>
-                          )}
-                          <Badge className={`text-xs ${
-                            tool.difficulty === '簡単' ? 'bg-green-100 text-green-700' :
-                            tool.difficulty === '普通' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
-                            {tool.difficulty}
-                          </Badge>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{tool.description}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 text-xs text-gray-500">
-                          <Clock className="w-3 h-3" />
-                          <span>{tool.estimatedTime}</span>
-                        </div>
-                        <div className="text-xs font-medium text-blue-600">
-                          {toolProgress >= 100 ? '完了' : `${toolProgress}%`}
-                        </div>
-                      </div>
-                      <Progress value={toolProgress} className="mt-2 h-1" />
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </>
+  const filteredTools = useMemo(() => {
+    const q = navQuery.trim().toLowerCase();
+    if (!q) return analysisTools;
+    return analysisTools.filter(t =>
+      [t.title, t.subtitle, t.description].some((v) => (v || '').toLowerCase().includes(q))
     );
-  };
+  }, [navQuery]);
+
 
   if (loading) {
     return (
@@ -1603,13 +1581,74 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       {/* Desktop Navigation + Content (render only on non-mobile to avoid double mounting) */}
       {!isMobile && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="w-full">
-            <div className="sticky top-[64px] z-40 bg-background/80 backdrop-blur-sm pt-2 pb-3 mb-6">
-              <div
-                className="w-full h-12 p-1 bg-muted/40 rounded-xl border flex items-center gap-2 overflow-x-auto"
-                role="tablist"
-                aria-label="分析ツールナビゲーション"
-              >
+          <div className="w-full grid grid-cols-12 gap-6">
+            {/* Left Sidebar */}
+            <aside className="hidden md:block col-span-4 lg:col-span-3">
+              <div className="sticky top-[64px] space-y-3">
+                {/* Search */}
+                <div className="bg-muted/30 rounded-xl border p-3">
+                  <Input
+                    value={navQuery}
+                    onChange={(e) => setNavQuery(e.target.value)}
+                    placeholder="ツール検索"
+                    className="h-9"
+                    aria-label="ツール検索"
+                  />
+                </div>
+
+                {/* Vertical menu */}
+                <nav aria-label="分析ツールメニュー" className="bg-muted/30 rounded-xl border p-2">
+                  <ul className="flex flex-col">
+                    {filteredTools.map((tool) => {
+                      const isActive = activeTab === tool.id;
+                      const Icon = tool.icon;
+                      return (
+                        <li key={tool.id}>
+                          <button
+                            onClick={() => handleTabChange(tool.id)}
+                            aria-current={isActive ? 'page' : undefined}
+                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
+                              isActive ? 'bg-background border border-border text-foreground' : 'hover:bg-white/60 text-muted-foreground'
+                            }`}
+                          >
+                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-r ${tool.color}`}>
+                              <Icon className="h-4 w-4 text-white" />
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{tool.title}</div>
+                              <div className="text-xs text-muted-foreground truncate">{tool.subtitle}</div>
+                            </div>
+                            {tool.badge && (
+                              <Badge className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none bg-sky-100 text-sky-700">
+                                {tool.badge}
+                              </Badge>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {filteredTools.length === 0 && (
+                    <div className="text-sm text-muted-foreground p-3 text-center">該当するツールが見つかりません</div>
+                  )}
+                </nav>
+              </div>
+            </aside>
+
+            {/* Right content */}
+            <div className="col-span-12 md:col-span-8 lg:col-span-9">
+              {renderContent()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Content (render only on mobile to avoid double mounting) */}
+      {isMobile && (
+        <div className="px-4 sm:px-6 lg:px-8 pt-3">
+          <div className="sticky top-[56px] z-40 bg-background/80 backdrop-blur-sm pb-2">
+            <div className="relative" aria-label="分析タブ">
+              <div className="w-full h-11 px-1 bg-muted/40 rounded-xl border flex items-center gap-2 overflow-x-auto snap-x snap-mandatory">
                 {analysisTools.map((tool) => {
                   const isActive = activeTab === tool.id;
                   return (
@@ -1619,45 +1658,20 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                       role="tab"
                       aria-selected={isActive}
                       onClick={() => handleTabChange(tool.id)}
-                      className={
-                        `flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ` +
-                        (isActive
-                          ? 'bg-background shadow-sm text-foreground border border-border'
-                          : 'text-muted-foreground hover:text-foreground')
-                      }
+                      className={`snap-start flex items-center gap-2 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors ${
+                        isActive ? 'bg-background text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
                       <tool.icon className="w-4 h-4" />
-                      <span className="hidden lg:block">{tool.title}</span>
-                      <span className="lg:hidden">{tool.subtitle}</span>
-                      {tool.badge && (
-                        <Badge className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none bg-sky-100 text-sky-700">
-                          {tool.badge}
-                        </Badge>
-                      )}
+                      <span>{tool.subtitle || tool.title}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
-
-            {/* Desktop Content */}
-            <div className="mt-0">
-              {renderContent()}
-            </div>
           </div>
+          <div className="pt-3">{renderContent()}</div>
         </div>
-      )}
-
-      {/* Mobile Content (render only on mobile to avoid double mounting) */}
-      {isMobile && (
-        <>
-          <div className="px-4 py-4">
-            {renderContent()}
-          </div>
-          {/* Mobile Components */}
-          <MobileBottomNav />
-          <MobileMenuSheet />
-        </>
       )}
     </div>
   );
