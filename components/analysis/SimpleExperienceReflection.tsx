@@ -64,36 +64,43 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
 
   const loadExperiences = useCallback(async () => {
     if (!userId) return;
-    const { data, error } = await supabase
-      .from('ipo_experiences')
-      .select('*')
-      .eq('user_id', userId)
-      .order('last_updated', { ascending: false, nullsFirst: false });
+    try {
+      const { data, error } = await supabase
+        .from('ipo_experiences')
+        .select('*')
+        .eq('user_id', userId)
+        // NOTE: order by a column that actually exists in the table. Many schemas have `updated_at`, not `last_updated`.
+        .order('updated_at', { ascending: false });
 
-    if (error) {
-      console.error('Failed to load experiences:', error);
+      if (error) {
+        console.error('Failed to load experiences:', error?.message || error, error);
+        setExperiences([]);
+        return;
+      }
+
+      // Ensure data conforms to SimpleExperience[]
+      const rows = (data || []).map((row: any) => ({
+        id: String(row.id),
+        title: row.title ?? '',
+        description: row.description ?? '',
+        category: row.category ?? 'club',
+        period: row.period ?? row.period_text ?? '',
+        isJobHuntRelevant: (row.is_job_hunt_relevant ?? row.isJobHuntRelevant) ?? true,
+        details: row.details ?? {},
+        completeness: row.completeness ?? 0,
+        lastUpdated:
+          row.last_updated
+          ?? (row.updated_at ? row.updated_at.split('T')[0] : '')
+          ?? (row.lastUpdated ? String(row.lastUpdated) : ''),
+        isPrivate: (row.is_private ?? row.isPrivate) ?? false,
+      }));
+
+      setExperiences(rows);
+    } catch (e: any) {
+      console.error('Failed to load experiences (exception):', e?.message || e, e);
       setExperiences([]);
       return;
     }
-
-    // Ensure data conforms to SimpleExperience[]
-    const rows = (data || []).map((row: any) => ({
-      id: String(row.id),
-      title: row.title ?? '',
-      description: row.description ?? '',
-      category: row.category ?? 'club',
-      period: row.period ?? row.period_text ?? '',
-      isJobHuntRelevant: (row.is_job_hunt_relevant ?? row.isJobHuntRelevant) ?? true,
-      details: row.details ?? {},
-      completeness: row.completeness ?? 0,
-      lastUpdated:
-        row.last_updated
-        ?? (row.updated_at ? row.updated_at.split('T')[0] : '')
-        ?? (row.lastUpdated ? String(row.lastUpdated) : ''),
-      isPrivate: (row.is_private ?? row.isPrivate) ?? false,
-    }));
-
-    setExperiences(rows);
   }, [userId]);
 
   // 初回データロード
