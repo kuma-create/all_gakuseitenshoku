@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, TrendingUp, Target, AlertCircle, CheckCircle, Eye, Download, Plus, Edit3, Save, X, BookOpen, Users, Lightbulb, Award, Zap, Brain } from 'lucide-react';
+import { Star, TrendingUp, Target, AlertCircle, CheckCircle, Eye, Download, Plus, Edit3, Save, X, BookOpen, Users, Lightbulb, Award, Zap, Brain, Trash2 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -174,6 +174,18 @@ const asStrengthCategory = (v: any): StrengthCategoryLiteral =>
     ? (v as StrengthCategoryLiteral)
     : 'soft';
 
+// Helper for weakness categories literal type
+const WEAKNESS_CATEGORIES = ['technical','soft','experience','knowledge'] as const;
+type WeaknessCategoryLiteral = typeof WEAKNESS_CATEGORIES[number];
+const asWeaknessCategory = (v: any): WeaknessCategoryLiteral =>
+  (WEAKNESS_CATEGORIES as readonly string[]).includes(String(v))
+    ? (v as WeaknessCategoryLiteral)
+    : 'soft';
+
+// Small utility for chip-style input handling
+const parseCommaInput = (v: string) =>
+  v.split(',').map(s => s.trim()).filter(Boolean);
+
 export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisProps) {
   const [strengths, setStrengths] = useState<Strength[]>([]);
   const [weaknesses, setWeaknesses] = useState<Weakness[]>([]);
@@ -205,6 +217,23 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
     progressTracking: { milestones: [], currentProgress: 0 },
     jobImpact: { affectedRoles: [], mitigationStrategies: [] }
   });
+
+  // Local dialog tab controls
+  const [strengthDialogTab, setStrengthDialogTab] = useState<'basic'|'evidence'|'relevance'>('basic');
+  const [weaknessDialogTab, setWeaknessDialogTab] = useState<'basic'|'plan'|'progress'>('basic');
+
+  // Temp inputs for adding evidence and improvement plan items
+  const [evidenceDraft, setEvidenceDraft] = useState<Partial<Evidence>>({ title: '', description: '', context: '', outcome: '', skills: [], source: 'self' });
+  const [evidenceSkillInput, setEvidenceSkillInput] = useState('');
+
+  const [improveDraft, setImproveDraft] = useState<Partial<ActionPlan>>({ action: '', timeline: '', resources: [], success_metrics: [], priority: 'medium', status: 'not_started' });
+  const [improveResInput, setImproveResInput] = useState('');
+  const [improveMetricInput, setImproveMetricInput] = useState('');
+
+  // Simple inputs for job relevance
+  const [relIndustriesInput, setRelIndustriesInput] = useState('');
+  const [relPositionsInput, setRelPositionsInput] = useState('');
+  const [relKeywordsInput, setRelKeywordsInput] = useState('');
 
   useEffect(() => {
     if (!userId) return;
@@ -257,8 +286,8 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
     const weaknessesFromDb: Weakness[] = (wData || []).map((row: any) => ({
       id: row.id,
       name: row.name,
-      category: row.category,
-      impact: row.impact,
+      category: asWeaknessCategory(row.category),
+      impact: row.impact ?? 0,
       improvementPlan: row.improvement_plan || [],
       description: row.description || '',
       progressTracking: row.progress_tracking || { milestones: [], currentProgress: 0 },
@@ -349,6 +378,96 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
       selfAssessment: 3
     });
     setEditingStrength(null);
+  };
+
+  const handleDeleteStrength = async (id: string|number) => {
+    const { error } = await supabase.from('ipo_strengths').delete().eq('id', Number(id));
+    if (error) {
+      console.error('delete strength error:', error);
+      return;
+    }
+    setStrengths(prev => prev.filter(s => String(s.id) !== String(id)));
+  };
+
+  const handleSaveWeakness = async () => {
+    if (!newWeakness.name) return;
+    const payload = {
+      user_id: userId,
+      name: newWeakness.name || '',
+      category: (newWeakness.category as any) || 'soft',
+      impact: newWeakness.impact ?? 3,
+      description: newWeakness.description || '',
+      improvement_plan: newWeakness.improvementPlan || [],
+      progress_tracking: newWeakness.progressTracking || { milestones: [], currentProgress: 0 },
+      job_impact: newWeakness.jobImpact || { affectedRoles: [], mitigationStrategies: [] },
+    };
+
+    if (editingWeakness?.id) {
+      const { data, error } = await supabase
+        .from('ipo_weaknesses')
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('id', Number(editingWeakness.id))
+        .select().single();
+      if (error) {
+        console.error('update weakness error:', error);
+      } else if (data) {
+        const updated: Weakness = {
+          id: data.id,
+          name: data.name,
+          category: asWeaknessCategory(data.category),
+          impact: data.impact ?? 0,
+          improvementPlan: data.improvement_plan || [],
+          description: data.description || '',
+          progressTracking: data.progress_tracking || { milestones: [], currentProgress: 0 },
+          jobImpact: data.job_impact || { affectedRoles: [], mitigationStrategies: [] },
+        };
+        setWeaknesses(prev => prev.map(w => String(w.id) === String(editingWeakness.id) ? updated : w));
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('ipo_weaknesses')
+        .insert({ ...payload })
+        .select().single();
+      if (error) {
+        console.error('insert weakness error:', error);
+      } else if (data) {
+        const created: Weakness = {
+          id: data.id,
+          name: data.name,
+          category: asWeaknessCategory(data.category),
+          impact: data.impact ?? 0,
+          improvementPlan: data.improvement_plan || [],
+          description: data.description || '',
+          progressTracking: data.progress_tracking || { milestones: [], currentProgress: 0 },
+          jobImpact: data.job_impact || { affectedRoles: [], mitigationStrategies: [] },
+        };
+        setWeaknesses(prev => [created, ...prev]);
+      }
+    }
+    resetWeaknessForm();
+    setShowWeaknessDialog(false);
+  };
+
+  const handleDeleteWeakness = async (id: string|number) => {
+    const { error } = await supabase.from('ipo_weaknesses').delete().eq('id', Number(id));
+    if (error) {
+      console.error('delete weakness error:', error);
+      return;
+    }
+    setWeaknesses(prev => prev.filter(w => String(w.id) !== String(id)));
+  };
+
+  const resetWeaknessForm = () => {
+    setNewWeakness({
+      name: '',
+      category: 'soft',
+      impact: 3,
+      improvementPlan: [],
+      description: '',
+      progressTracking: { milestones: [], currentProgress: 0 },
+      jobImpact: { affectedRoles: [], mitigationStrategies: [] }
+    });
+    setEditingWeakness(null);
   };
 
   const getOverallScore = () => {
@@ -508,8 +627,7 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
                   const relevantStrengths = strengths.filter(s => 
                     s.jobRelevance.industries.includes(industry)
                   );
-                  const score = (relevantStrengths.length / strengths.length) * 100;
-                  
+                  const score = strengths.length ? (relevantStrengths.length / strengths.length) * 100 : 0;
                   return (
                     <div key={industry} className="flex items-center justify-between">
                       <span className="text-sm text-gray-700">{industry}</span>
@@ -602,6 +720,9 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
                             setShowStrengthDialog(true);
                           }}>
                             <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDeleteStrength(strength.id)}>
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -746,14 +867,129 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
           {viewMode === 'overview' && renderOverview()}
           {viewMode === 'strengths' && renderStrengthsView()}
           {viewMode === 'weaknesses' && (
-            <div className="text-center py-12">
-              <p className="text-gray-600">弱み・改善計画の詳細ビューを実装中...</p>
+            <div className="space-y-6">
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold">弱み・改善計画</h3>
+                  <Button onClick={() => { setShowWeaknessDialog(true); setEditingWeakness(null); }}>
+                    <Plus className="w-4 h-4 mr-2" /> 弱みを追加
+                  </Button>
+                </div>
+                <div className="grid gap-6">
+                  {weaknesses.map((w, idx) => {
+                    const cfg = weaknessCategories[w.category];
+                    return (
+                      <motion.div key={w.id} initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay: idx*0.05}}>
+                        <Card className="p-6">
+                          <div className="flex items-start gap-4">
+                            <div className={`w-14 h-14 bg-gradient-to-r ${cfg.color} rounded-xl flex items-center justify-center`}>
+                              <cfg.icon className="w-7 h-7 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-lg font-bold text-gray-900">{w.name}</h4>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => { setEditingWeakness(w); setNewWeakness(w); setShowWeaknessDialog(true); }}>
+                                    <Edit3 className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="destructive" size="sm" onClick={() => handleDeleteWeakness(w.id)}>
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <p className="text-gray-600 mb-4">{w.description}</p>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                  <Label className="text-sm text-gray-600">影響度</Label>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                                    <span className="text-sm">{w.impact}/5</span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-sm text-gray-600">改善進捗</Label>
+                                  <div className="mt-1">
+                                    <Progress value={w.progressTracking.currentProgress} className="h-2" />
+                                    <div className="text-xs text-gray-500 mt-1">{w.progressTracking.currentProgress}%</div>
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-sm text-gray-600">改善計画数</Label>
+                                  <div className="text-lg font-medium text-gray-900 mt-1">{w.improvementPlan.length} 件</div>
+                                </div>
+                              </div>
+
+                              {w.improvementPlan.length > 0 && (
+                                <div className="mt-4">
+                                  <Label className="text-sm text-gray-600 mb-2 block">改善計画</Label>
+                                  <ul className="space-y-2">
+                                    {w.improvementPlan.map((ap, i) => (
+                                      <li key={ap.id || i} className="p-3 bg-orange-50 rounded border border-orange-200">
+                                        <div className="flex items-center justify-between">
+                                          <div className="font-medium text-orange-900">{ap.action}</div>
+                                          <Badge className="text-xs" variant="outline">{ap.priority}</Badge>
+                                        </div>
+                                        <div className="text-xs text-orange-700 mt-1">{ap.timeline}</div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </Card>
             </div>
           )}
           {viewMode === 'framework' && (
-            <div className="text-center py-12">
-              <p className="text-gray-600">業界別評価フレームワークを実装中...</p>
-            </div>
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold">業界別評価</h3>
+                <Select value={selectedIndustry} onValueChange={(v) => setSelectedIndustry(v)}>
+                  <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(industryFrameworks).map(ind => (
+                      <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-4">
+                {(industryFrameworks[selectedIndustry] || []).map((fw, i) => (
+                  <div key={i} className="p-4 rounded-lg border bg-gray-50">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-semibold text-gray-900">{fw.name}</div>
+                        <div className="text-sm text-gray-600">{fw.description}</div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {fw.skills.map((s, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">{s}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <Badge className={`text-xs ${fw.priority==='high'?'bg-red-100 text-red-700':fw.priority==='medium'?'bg-yellow-100 text-yellow-700':'bg-green-100 text-green-700'}`}>{fw.priority}</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <Label className="text-sm text-gray-600">要求レベル: {fw.requiredLevel}/5</Label>
+                        <Progress value={fw.requiredLevel*20} className="h-2 mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-sm text-gray-600">あなたのレベル: {fw.yourLevel}/5</Label>
+                        <Progress value={fw.yourLevel*20} className="h-2 mt-1" />
+                        <div className="text-xs text-gray-500 mt-1">ギャップ: {fw.gap}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
         </motion.div>
       </AnimatePresence>
@@ -771,72 +1007,274 @@ export function StrengthAnalysis({ userId, onProgressUpdate }: StrengthAnalysisP
           </DialogHeader>
 
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="strength-name">強み名 *</Label>
-                <Input
-                  id="strength-name"
-                  value={newStrength.name}
-                  onChange={(e) => setNewStrength(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="例: リーダーシップ、問題解決能力"
-                />
-              </div>
-              <div>
-                <Label htmlFor="strength-category">カテゴリー</Label>
-                <Select value={newStrength.category} onValueChange={(value) => setNewStrength(prev => ({ ...prev, category: value as any }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(strengthCategories).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center space-x-2">
-                          <config.icon className="w-4 h-4" />
-                          <span>{config.label}</span>
-                        </div>
-                      </SelectItem>
+            <Tabs value={strengthDialogTab} onValueChange={(v)=>setStrengthDialogTab(v as any)}>
+              <TabsList className="grid grid-cols-3 w-full">
+                <TabsTrigger value="basic">基本情報</TabsTrigger>
+                <TabsTrigger value="evidence">エビデンス</TabsTrigger>
+                <TabsTrigger value="relevance">関連付け</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="basic" className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="strength-name">強み名 *</Label>
+                    <Input id="strength-name" value={newStrength.name} onChange={(e)=>setNewStrength(p=>({...p, name:e.target.value}))} placeholder="例: リーダーシップ、問題解決能力" />
+                  </div>
+                  <div>
+                    <Label htmlFor="strength-category">カテゴリー</Label>
+                    <Select value={newStrength.category} onValueChange={(value)=>setNewStrength(p=>({...p, category:value as any}))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(strengthCategories).map(([key, cfg])=> (
+                          <SelectItem key={key} value={key}>
+                            <div className="flex items-center gap-2"><cfg.icon className="w-4 h-4" /><span>{cfg.label}</span></div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="strength-description">詳細説明</Label>
+                  <Textarea id="strength-description" value={newStrength.description} onChange={(e)=>setNewStrength(p=>({...p, description:e.target.value}))} placeholder="この強みについて詳しく説明してください..." rows={3} />
+                </div>
+                <div>
+                  <Label>スキルレベル: {newStrength.level}/5</Label>
+                  <Slider value={[newStrength.level || 3]} onValueChange={(v)=>setNewStrength(p=>({...p, level:v[0]}))} min={1} max={5} step={1} className="mt-2" />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1"><span>初心者(1)</span><span>中級(3)</span><span>エキスパート(5)</span></div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="evidence" className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>タイトル</Label>
+                    <Input value={evidenceDraft.title || ''} onChange={(e)=>setEvidenceDraft(p=>({...p, title:e.target.value}))} />
+                  </div>
+                  <div>
+                    <Label>ソース</Label>
+                    <Select value={evidenceDraft.source || 'self'} onValueChange={(v)=>setEvidenceDraft(p=>({...p, source: v as Evidence['source']}))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['self','peer','mentor','achievement'].map(s=> <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>コンテクスト</Label>
+                    <Input value={evidenceDraft.context || ''} onChange={(e)=>setEvidenceDraft(p=>({...p, context:e.target.value}))} />
+                  </div>
+                  <div>
+                    <Label>アウトカム</Label>
+                    <Input value={evidenceDraft.outcome || ''} onChange={(e)=>setEvidenceDraft(p=>({...p, outcome:e.target.value}))} />
+                  </div>
+                </div>
+                <div>
+                  <Label>詳細</Label>
+                  <Textarea value={evidenceDraft.description || ''} onChange={(e)=>setEvidenceDraft(p=>({...p, description:e.target.value}))} rows={3} />
+                </div>
+                <div>
+                  <Label>スキル（カンマ区切り）</Label>
+                  <Input value={evidenceSkillInput} onChange={(e)=>setEvidenceSkillInput(e.target.value)} placeholder="例: 分析力, プレゼンテーション" />
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={()=>{
+                      const ev: Evidence = {
+                        id: crypto.randomUUID(),
+                        title: evidenceDraft.title || '無題',
+                        description: evidenceDraft.description || '',
+                        context: evidenceDraft.context || '',
+                        outcome: evidenceDraft.outcome || '',
+                        skills: parseCommaInput(evidenceSkillInput),
+                        source: (evidenceDraft.source || 'self') as Evidence['source'],
+                      };
+                      setNewStrength(p=>({...p, evidence: [...(p.evidence||[]), ev]}));
+                      setEvidenceDraft({ title:'', description:'', context:'', outcome:'', skills: [], source:'self' });
+                      setEvidenceSkillInput('');
+                    }}
+                    variant="outline"
+                  >追加</Button>
+                </div>
+                {(newStrength.evidence || []).length > 0 && (
+                  <div className="space-y-2">
+                    {(newStrength.evidence || []).map((ev, i)=> (
+                      <div key={ev.id} className="p-3 bg-blue-50 rounded border border-blue-200">
+                        <div className="font-medium text-blue-900">{ev.title}</div>
+                        <div className="text-sm text-blue-800">{ev.description}</div>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                  </div>
+                )}
+              </TabsContent>
 
-            <div>
-              <Label htmlFor="strength-description">詳細説明</Label>
-              <Textarea
-                id="strength-description"
-                value={newStrength.description}
-                onChange={(e) => setNewStrength(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="この強みについて詳しく説明してください..."
-                rows={3}
-              />
-            </div>
+              <TabsContent value="relevance" className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>関連業界（カンマ区切り）</Label>
+                    <Input value={relIndustriesInput} onChange={(e)=>setRelIndustriesInput(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>関連職種（カンマ区切り）</Label>
+                    <Input value={relPositionsInput} onChange={(e)=>setRelPositionsInput(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>キーワード（カンマ区切り）</Label>
+                    <Input value={relKeywordsInput} onChange={(e)=>setRelKeywordsInput(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={()=>{
+                    setNewStrength(p=>({
+                      ...p,
+                      jobRelevance: {
+                        industries: parseCommaInput(relIndustriesInput),
+                        positions: parseCommaInput(relPositionsInput),
+                        keywords: parseCommaInput(relKeywordsInput),
+                      }
+                    }));
+                  }}>反映</Button>
+                </div>
+              </TabsContent>
+            </Tabs>
 
-            <div>
-              <Label>スキルレベル: {newStrength.level}/5</Label>
-              <Slider
-                value={[newStrength.level || 3]}
-                onValueChange={(value) => setNewStrength(prev => ({ ...prev, level: value[0] }))}
-                min={1}
-                max={5}
-                step={1}
-                className="mt-2"
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>初心者(1)</span>
-                <span>中級(3)</span>
-                <span>エキスパート(5)</span>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button variant="outline" onClick={() => setShowStrengthDialog(false)}>
-                キャンセル
-              </Button>
+            <div className="flex justify-end gap-3 pt-6 border-t">
+              <Button variant="outline" onClick={()=>setShowStrengthDialog(false)}>キャンセル</Button>
               <Button onClick={handleSaveStrength} disabled={!newStrength.name}>
-                <Save className="w-4 h-4 mr-2" />
-                保存
+                <Save className="w-4 h-4 mr-2" /> 保存
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Weakness Dialog */}
+      <Dialog open={showWeaknessDialog} onOpenChange={setShowWeaknessDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingWeakness ? '弱みを編集' : '新しい弱みを追加'}</DialogTitle>
+            <DialogDescription>影響度と改善計画を整理しましょう</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <Tabs value={weaknessDialogTab} onValueChange={(v)=>setWeaknessDialogTab(v as any)}>
+              <TabsList className="grid grid-cols-3 w-full">
+                <TabsTrigger value="basic">基本情報</TabsTrigger>
+                <TabsTrigger value="plan">改善計画</TabsTrigger>
+                <TabsTrigger value="progress">進捗</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="basic" className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>弱み名 *</Label>
+                    <Input value={newWeakness.name} onChange={(e)=>setNewWeakness(p=>({...p, name:e.target.value}))} placeholder="例: 業界知識の不足" />
+                  </div>
+                  <div>
+                    <Label>カテゴリー</Label>
+                    <Select value={newWeakness.category} onValueChange={(v)=>setNewWeakness(p=>({...p, category: v as any}))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(weaknessCategories).map(k=> (
+                          <SelectItem key={k} value={k}>{weaknessCategories[k as keyof typeof weaknessCategories].label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label>詳細説明</Label>
+                  <Textarea value={newWeakness.description} onChange={(e)=>setNewWeakness(p=>({...p, description:e.target.value}))} rows={3} />
+                </div>
+                <div>
+                  <Label>影響度: {newWeakness.impact}/5</Label>
+                  <Slider value={[newWeakness.impact || 3]} onValueChange={(v)=>setNewWeakness(p=>({...p, impact:v[0]}))} min={1} max={5} step={1} className="mt-2" />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="plan" className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>アクション</Label>
+                    <Input value={improveDraft.action || ''} onChange={(e)=>setImproveDraft(p=>({...p, action:e.target.value}))} />
+                  </div>
+                  <div>
+                    <Label>タイムライン</Label>
+                    <Input value={improveDraft.timeline || ''} onChange={(e)=>setImproveDraft(p=>({...p, timeline:e.target.value}))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>リソース（カンマ区切り）</Label>
+                    <Input value={improveResInput} onChange={(e)=>setImproveResInput(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>成功指標（カンマ区切り）</Label>
+                    <Input value={improveMetricInput} onChange={(e)=>setImproveMetricInput(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>優先度</Label>
+                    <Select value={improveDraft.priority || 'medium'} onValueChange={(v)=>setImproveDraft(p=>({...p, priority: v as ActionPlan['priority']}))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['high','medium','low'].map(x=> <SelectItem key={x} value={x}>{x}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>ステータス</Label>
+                    <Select value={improveDraft.status || 'not_started'} onValueChange={(v)=>setImproveDraft(p=>({...p, status: v as ActionPlan['status']}))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['not_started','in_progress','completed'].map(x=> <SelectItem key={x} value={x}>{x}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={()=>{
+                    const item: ActionPlan = {
+                      id: crypto.randomUUID(),
+                      action: improveDraft.action || '未設定',
+                      timeline: improveDraft.timeline || '',
+                      resources: parseCommaInput(improveResInput),
+                      success_metrics: parseCommaInput(improveMetricInput),
+                      priority: (improveDraft.priority || 'medium') as ActionPlan['priority'],
+                      status: (improveDraft.status || 'not_started') as ActionPlan['status'],
+                    };
+                    setNewWeakness(p=>({ ...p, improvementPlan: [...(p.improvementPlan||[]), item] }));
+                    setImproveDraft({ action:'', timeline:'', resources: [], success_metrics: [], priority:'medium', status:'not_started' });
+                    setImproveResInput('');
+                    setImproveMetricInput('');
+                  }}>追加</Button>
+                </div>
+                {(newWeakness.improvementPlan || []).length > 0 && (
+                  <div className="space-y-2">
+                    {(newWeakness.improvementPlan || []).map((ap, i)=> (
+                      <div key={ap.id || i} className="p-3 bg-orange-50 rounded border border-orange-200">
+                        <div className="font-medium text-orange-900">{ap.action}</div>
+                        <div className="text-xs text-orange-700">{ap.timeline}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="progress" className="space-y-4 pt-4">
+                <div>
+                  <Label>現在の進捗: {newWeakness.progressTracking?.currentProgress || 0}%</Label>
+                  <Slider value={[newWeakness.progressTracking?.currentProgress || 0]} onValueChange={(v)=>setNewWeakness(p=>({...p, progressTracking: { ...(p.progressTracking||{milestones:[], currentProgress:0}), currentProgress: v[0] }}))} min={0} max={100} step={5} className="mt-2" />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <div className="flex justify-end gap-3 pt-6 border-t">
+              <Button variant="outline" onClick={()=>setShowWeaknessDialog(false)}>キャンセル</Button>
+              <Button onClick={handleSaveWeakness} disabled={!newWeakness.name}><Save className="w-4 h-4 mr-2"/>保存</Button>
             </div>
           </div>
         </DialogContent>

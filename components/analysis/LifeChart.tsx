@@ -142,6 +142,9 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(Object.keys(categoryConfig));
   const [currentAge, setCurrentAge] = useState(22);
   const [isMobile, setIsMobile] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const [newEvent, setNewEvent] = useState<Partial<LifeEvent>>(initialFormState);
 
@@ -200,28 +203,68 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
   const loadLifeEvents = useCallback(async () => {
     if (!userId) return;
-    const { data, error } = await (supabase as any)
-      .from('ipo_life_chart_events') // relax TS: generated types don't include this table
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: true });
+    try {
+      setLoadError(null);
+      const query = (supabase as any)
+        .from('ipo_life_chart_events')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: true });
 
-    if (error) {
-      console.error('loadLifeEvents error:', error);
-      return;
+      // Do NOT rely solely on throwOnError; capture the full response
+      const res: any = await query;
+      const { data, error, status, statusText } = res ?? {};
+
+      if (error) {
+        // Log the raw error in multiple ways so Next's console interceptor doesn't collapse it to {}
+        try { console.error('loadLifeEvents raw error:', error); } catch {}
+        try { console.error('loadLifeEvents JSON:', JSON.stringify(error)); } catch {}
+        try { console.error('loadLifeEvents own props:', Object.getOwnPropertyNames(error || {})); } catch {}
+        try { console.error('loadLifeEvents as string:', String(error)); } catch {}
+
+        const detail = {
+          message: (error as any)?.message,
+          code: (error as any)?.code,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+          status,
+          statusText
+        };
+        console.error('loadLifeEvents error (diagnostic structured):', detail);
+
+        let friendly = 'データの読み込みに失敗しました。';
+        if ((error as any)?.code === '42P01' || status === 406 || status === 404) {
+          friendly += ' テーブル `ipo_life_chart_events` が存在しない、または参照できない可能性があります。';
+        }
+        if ((error as any)?.code === '42501' || status === 401 || status === 403) {
+          friendly += ' RLS/権限の問題の可能性があります（自分の行を読めるポリシーを確認してください）。';
+        }
+        setLoadError(friendly);
+        setEvents([]);
+        setInsights([]);
+        return;
+      }
+
+      const items: LifeEvent[] = (data ?? []).map(mapDbToLifeEvent);
+      setEvents(items);
+
+      setInsights(items.length ? [{
+        type: 'pattern',
+        title: '記録の傾向',
+        description: '最近の出来事が多く記録されています。過去の出来事も追加すると一貫した成長を示せます。',
+        evidence: items.slice(-3).map((e: LifeEvent) => e.title),
+        jobHuntApplication: '時系列の一貫性は面接での説得力向上に役立ちます。'
+      }] : []);
+    } catch (err: any) {
+      // Fallback for unexpected exceptions (network, runtime, etc.)
+      try { console.error('loadLifeEvents exception (raw):', err); } catch {}
+      try { console.error('loadLifeEvents exception (JSON):', JSON.stringify(err)); } catch {}
+      try { console.error('loadLifeEvents exception own props:', Object.getOwnPropertyNames(err || {})); } catch {}
+      let friendly = 'データの読み込みで未知のエラーが発生しました。ネットワーク状況やCORS設定を確認してください。';
+      setLoadError(friendly);
+      setEvents([]);
+      setInsights([]);
     }
-
-    const items: LifeEvent[] = (data ?? []).map(mapDbToLifeEvent);
-    setEvents(items);
-
-    // （任意）簡易インサイト：イベント数に応じてプレースホルダを生成
-    setInsights(items.length ? [{
-      type: 'pattern',
-      title: '記録の傾向',
-      description: '最近の出来事が多く記録されています。過去の出来事も追加すると一貫した成長を示せます。',
-      evidence: items.slice(-3).map((e: LifeEvent) => e.title),
-      jobHuntApplication: '時系列の一貫性は面接での説得力向上に役立ちます。'
-    }] : []);
   }, [userId]);
 
   const resetForm = useCallback(() => {
@@ -293,19 +336,30 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       return [...prev, nextEvent];
     });
 
-    const { data, error } = await (supabase as any)
-      .from('ipo_life_chart_events') // relax TS for this table
-      .upsert([payload] as any, { onConflict: 'id' }) // payload is runtime-safe; TS-only cast
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error('upsert life_events error:', error);
-      // rollback optimistic add if it failed on create
+    let data;
+    try {
+      const res = await (supabase as any)
+        .from('ipo_life_chart_events')
+        .upsert([payload] as any, { onConflict: 'id' })
+        .select('*')
+        .single()
+        .throwOnError();
+      data = res.data ?? res; // supabase-js v2 returns `data` key; be tolerant
+    } catch (err: any) {
+      console.error('upsert life_events error (diagnostic):', {
+        message: err?.message,
+        code: err?.code,
+        details: err?.details,
+        hint: err?.hint
+      });
       if (!editingEvent) {
         setEvents(prev => prev.filter(e => e.id !== tempId));
       }
-    } else if (data) {
+      resetForm();
+      return;
+    }
+
+    if (data) {
       // replace temp item with actual DB row (id from uuid)
       const saved = mapDbToLifeEvent(data);
       setEvents(prev => prev.map(e => (e.id === tempId || e.id === editingEvent?.id) ? saved : e));
@@ -383,6 +437,188 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     setNewEvent(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  const generateInsightsAI = useCallback(async () => {
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      // Build a compact payload safe for API usage
+      const payload = {
+        userId,
+        events: events.map(e => ({
+          id: e.id,
+          title: e.title,
+          description: e.description,
+          date: e.date,
+          age: e.age,
+          category: e.category,
+          emotionalLevel: e.emotionalLevel,
+          impactLevel: e.impactLevel,
+          skills: e.skills,
+          learnings: e.learnings,
+          values: e.values,
+          jobHuntRelevance: e.jobHuntRelevance
+        }))
+      };
+
+      const res = await fetch('/api/ai/life-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`API Error (${res.status}): ${text || res.statusText}`);
+      }
+
+      const json = await res.json();
+      const nextInsights = (json?.insights ?? []) as Insight[];
+
+      if (!Array.isArray(nextInsights)) {
+        throw new Error('API response does not contain an insights array');
+      }
+
+      setInsights(nextInsights);
+      // Update overall progress now that insights changed
+      updateProgress(events, nextInsights);
+    } catch (err: any) {
+      console.error('generateInsightsAI error:', err);
+      setAiError(err?.message || 'AI分析に失敗しました。時間をおいて再実行してください。');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [userId, events, updateProgress]);
+
+  const generateHeuristicInsights = useCallback((): Insight[] => {
+    if (!events.length) return [];
+    // Strengths from frequent skills
+    const skillFreq = new Map<string, number>();
+    events.forEach(e => (e.skills || []).forEach(s => skillFreq.set(s, (skillFreq.get(s) || 0) + 1)));
+    const topSkills = [...skillFreq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
+
+    // Values from frequent values
+    const valueFreq = new Map<string, number>();
+    events.forEach(e => (e.values || []).forEach(v => valueFreq.set(v, (valueFreq.get(v) || 0) + 1)));
+    const topValues = [...valueFreq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
+
+    // Pattern: categories distribution
+    const catFreq = new Map<string, number>();
+    events.forEach(e => catFreq.set(e.category, (catFreq.get(e.category) || 0) + 1));
+    const dominantCategory = [...catFreq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+    const recent = [...events].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 3);
+
+    const insights: Insight[] = [];
+    if (topSkills.length) {
+      insights.push({
+        type: 'strength',
+        title: '強みの傾向',
+        description: `あなたは ${topSkills.join('・')} を繰り返し発揮しています。これらを面接のキーワードにしましょう。`,
+        evidence: events.filter(e => e.skills?.some(s => topSkills.includes(s))).slice(0,5).map(e => e.title),
+        jobHuntApplication: 'ガクチカ/自己PRにおいて、強みを1〜2に絞ってSTARで語ると一貫性が出ます。'
+      });
+    }
+    if (topValues.length) {
+      insights.push({
+        type: 'value',
+        title: '価値観の傾向',
+        description: `大切にしている価値観は ${topValues.join('・')} の可能性があります。`,
+        evidence: events.filter(e => e.values?.some(v => topValues.includes(v))).slice(0,5).map(e => e.title),
+        jobHuntApplication: '企業選びの軸として、上記の価値観と各社のカルチャー適合を比較しましょう。'
+      });
+    }
+    if (dominantCategory) {
+      insights.push({
+        type: 'pattern',
+        title: '活動の偏り',
+        description: `記録は「${categoryConfig[dominantCategory as keyof typeof categoryConfig].label}」に偏っています。別カテゴリの経験も補完するとストーリーが豊かになります。`,
+        evidence: recent.map(e => e.title),
+        jobHuntApplication: '志望職種に関連するカテゴリの経験を追加し、職務適性の根拠を強化しましょう。'
+      });
+    }
+    // Growth: emotional trend
+    const avgEmotionFirst = events.slice(0, Math.ceil(events.length/2)).reduce((acc, e) => acc + (e.emotionalLevel || 0), 0) / Math.max(1, Math.ceil(events.length/2));
+    const avgEmotionLast = events.slice(Math.ceil(events.length/2)).reduce((acc, e) => acc + (e.emotionalLevel || 0), 0) / Math.max(1, events.length - Math.ceil(events.length/2));
+    const delta = Math.round((avgEmotionLast - avgEmotionFirst) * 10) / 10;
+    insights.push({
+      type: 'growth',
+      title: '感情トレンド',
+      description: `前半と後半で平均感情レベルの差は ${delta >= 0 ? '+' : ''}${delta} です。変化の要因を言語化できると説得力が増します。`,
+      evidence: recent.map(e => `${e.date} ${e.title}`),
+      jobHuntApplication: '成長の背景（行動・工夫）をSTARのAに落とし込んで語りましょう。'
+    });
+    return insights;
+  }, [events]);
+
+  const renderAnalysisView = () => {
+    const hasInsights = insights.length > 0;
+    const fallbackInsights = !hasInsights ? generateHeuristicInsights() : [];
+
+    return (
+      <div className="space-y-4">
+        <Card className="p-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-lg">分析・インサイト</h3>
+              <p className="text-sm text-gray-600">
+                AIでイベント全体を解析し、強み・価値観・傾向を要約します。まずはヒューリスティック分析も表示します。
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={generateInsightsAI} disabled={aiLoading || events.length === 0}>
+                {aiLoading ? '分析中…' : 'AIで分析する'}
+              </Button>
+            </div>
+          </div>
+          {aiError && (
+            <div className="mt-3 text-sm text-red-600">{aiError}</div>
+          )}
+        </Card>
+
+        {(hasInsights ? insights : fallbackInsights).map((ins, idx) => (
+          <Card key={idx} className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                {ins.type === 'strength' ? <Star className="w-5 h-5" /> :
+                 ins.type === 'value' ? <Heart className="w-5 h-5" /> :
+                 ins.type === 'growth' ? <TrendingUp className="w-5 h-5" /> :
+                 <BookOpen className="w-5 h-5" />}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-gray-900">{ins.title}</h4>
+                  <Badge variant="outline" className="text-xs">{ins.type}</Badge>
+                </div>
+                <p className="text-gray-700 mt-2">{ins.description}</p>
+                {ins.evidence?.length ? (
+                  <div className="mt-3">
+                    <div className="text-xs text-gray-500 mb-1">根拠となる出来事</div>
+                    <div className="flex flex-wrap gap-2">
+                      {ins.evidence.slice(0,8).map((evi, i) => (
+                        <Badge key={i} variant="secondary">{evi}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {ins.jobHuntApplication && (
+                  <div className="mt-4 p-3 rounded-md bg-green-50 text-green-800 text-sm">
+                    就活での活用: {ins.jobHuntApplication}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+
+        {!events.length && (
+          <Card className="p-6 text-center text-gray-600">
+            まずはイベントを追加してください。AI分析ボタンでサマリーが生成されます。
+          </Card>
+        )}
+      </div>
+    );
+  };
+
   const renderChartView = () => {
     const maxAge = Math.max(...displayEvents.map(e => e.age), currentAge);
     const minAge = Math.min(...displayEvents.map(e => e.age), 15);
@@ -418,7 +654,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
                 {Array.from({ length: maxAge - minAge + 1 }, (_, i) => minAge + i).map(age => (
                   <span key={age} className="relative">
                     {age}歳
-                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-px h-72 bg-gray-200"></div>
+                    {/* <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-px h-72 bg-gray-200"></div> */}
                   </span>
                 ))}
               </div>
@@ -719,6 +955,13 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
         </div>
       </Card>
 
+      {/* Error Banner */}
+      {loadError && (
+        <Card className="p-4 bg-red-50 border-red-200 text-red-700">
+          <div className="text-sm whitespace-pre-line">{loadError}{'\n'}（開発者向けヒント: コンソールに診断情報を出力しています）</div>
+        </Card>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4 text-center">
@@ -765,11 +1008,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
         >
           {viewMode === 'chart' && renderChartView()}
           {viewMode === 'timeline' && renderTimelineView()}
-          {viewMode === 'analysis' && (
-            <div className="text-center py-12">
-              <p className="text-gray-600">分析・インサイト機能を実装中...</p>
-            </div>
-          )}
+          {viewMode === 'analysis' && renderAnalysisView()}
         </motion.div>
       </AnimatePresence>
 

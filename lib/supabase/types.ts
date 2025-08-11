@@ -2156,8 +2156,16 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          date: string | null
+          emotional_level: number | null
           id: number
           impact: number
+          impact_level: number | null
+          is_private: boolean | null
+          job_industries: string[] | null
+          job_job_types: string[] | null
+          job_keywords: string[] | null
+          job_relevant: boolean | null
           month: number
           note: string | null
           title: string
@@ -2168,8 +2176,16 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          date?: string | null
+          emotional_level?: number | null
           id?: number
           impact?: number
+          impact_level?: number | null
+          is_private?: boolean | null
+          job_industries?: string[] | null
+          job_job_types?: string[] | null
+          job_keywords?: string[] | null
+          job_relevant?: boolean | null
           month?: number
           note?: string | null
           title: string
@@ -2180,8 +2196,16 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          date?: string | null
+          emotional_level?: number | null
           id?: number
           impact?: number
+          impact_level?: number | null
+          is_private?: boolean | null
+          job_industries?: string[] | null
+          job_job_types?: string[] | null
+          job_keywords?: string[] | null
+          job_relevant?: boolean | null
           month?: number
           note?: string | null
           title?: string

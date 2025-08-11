@@ -56,6 +56,83 @@ const ALLOWED = {
   resumes: ['form_data','updated_at'], // JSONB
 } as const;
 
+// ---- Generic safe fetchers for other ipo_* tables (schema-agnostic) ----
+type Jsonish = Record<string, any>;
+const COMMON_TEXT_CANDIDATES = [
+  'title','name','company','company_name','stage','stage_name','category','type',
+  'overview','summary','description','content','text','note','notes','memo','vision','goal'
+];
+const COMMON_META_CANDIDATES = ['id','user_id','updated_at','created_at','tags','score','status','start_date','end_date','scheduled_at','happened_at','date'];
+
+function buildProjection(candidates: string[]) {
+  // unique, comma-joined
+  const uniq = Array.from(new Set(candidates.filter(Boolean)));
+  return uniq.join(',');
+}
+
+async function trySelect(
+  supabase: any,
+  table: string,
+  uid: string,
+  projections: string[]
+) {
+  for (const proj of projections) {
+    const q = supabase
+      .from(table)
+      .select(proj)
+      .eq('user_id', uid)
+      .limit(5);
+    const { data, error } = await q;
+    if (!error) return data as Jsonish[] | null;
+  }
+  return null;
+}
+
+async function safeReadTable(
+  supabase: any,
+  table: string,
+  uid: string,
+  extraTextCandidates: string[] = []
+) {
+  const textCandidates = COMMON_TEXT_CANDIDATES.concat(extraTextCandidates);
+  const projections = [
+    buildProjection([...COMMON_META_CANDIDATES, ...textCandidates]),
+    buildProjection(['id','updated_at']),
+    '*', // last resort; will be sanitized below
+  ];
+  return await trySelect(supabase, table, uid, projections);
+}
+
+function sanitizeRows(rows: Jsonish[] | null) {
+  if (!rows) return null;
+  return rows.map((row) => {
+    const out: Jsonish = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (v == null) continue;
+      if (typeof v === 'string') {
+        // Keep short texts only
+        if (v.length > 0 && v.length <= 1200) out[k] = v;
+        else out[k] = v.slice(0, 1200);
+      } else if (typeof v === 'number' || typeof v === 'boolean') {
+        out[k] = v;
+      } else if (Array.isArray(v)) {
+        // Keep up to 10 primitive items, truncate strings
+        out[k] = v.slice(0,10).map((it) => (typeof it === 'string' ? it.slice(0,100) : it));
+      } else if (typeof v === 'object') {
+        // Shallow sanitize nested objects
+        const o: Jsonish = {};
+        for (const [kk, vv] of Object.entries(v)) {
+          if (vv == null) continue;
+          if (typeof vv === 'string') o[kk] = vv.slice(0, 400);
+          else if (typeof vv === 'number' || typeof vv === 'boolean') o[kk] = vv;
+        }
+        if (Object.keys(o).length) out[k] = o;
+      }
+    }
+    return out;
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { messages, mode, threadId } = await req.json();
@@ -97,6 +174,47 @@ export async function POST(req: NextRequest) {
     const g = (prog as AnalysisProgressRow | null);
     const r = (resm as ResumeRow | null);
 
+    // ---- Read additional ipo_* tables (best-effort; respects RLS) ----
+    const [
+      tExperiences,
+      tFutureVision,
+      tLifeChartEvents,
+      tStrengths,
+      tWeaknesses,
+      tLibraryItems,
+      tLibraryUserData,
+      tSelectionCompanies,
+      tSelectionContacts,
+      tSelectionStages,
+      tCalendarEvents,
+    ] = await Promise.all([
+      safeReadTable(supabase, 'ipo_experiences', uid, ['role','context','impact','result']),
+      safeReadTable(supabase, 'ipo_future_vision', uid, ['vision','goal','why','how']),
+      safeReadTable(supabase, 'ipo_life_chart_events', uid, ['event','emotion']),
+      safeReadTable(supabase, 'ipo_strengths', uid, ['trait','evidence']),
+      safeReadTable(supabase, 'ipo_weaknesses', uid, ['trait','risk','improvement']),
+      safeReadTable(supabase, 'ipo_library_items', uid, ['industry','job','skills']),
+      safeReadTable(supabase, 'ipo_library_user_data', uid, ['favorites','searchHistory']),
+      safeReadTable(supabase, 'ipo_selection_companies', uid, ['company_name','priority','reason']),
+      safeReadTable(supabase, 'ipo_selection_contacts', uid, ['contact','channel','note']),
+      safeReadTable(supabase, 'ipo_selection_stages', uid, ['stage','status','next_action']),
+      safeReadTable(supabase, 'ipo_calendar_events', uid, ['title','location']),
+    ]);
+
+    const extra = {
+      experiences: sanitizeRows(tExperiences),
+      future_vision: sanitizeRows(tFutureVision),
+      life_chart_events: sanitizeRows(tLifeChartEvents),
+      strengths: sanitizeRows(tStrengths),
+      weaknesses: sanitizeRows(tWeaknesses),
+      library_items: sanitizeRows(tLibraryItems),
+      library_user_data: sanitizeRows(tLibraryUserData),
+      selection_companies: sanitizeRows(tSelectionCompanies),
+      selection_contacts: sanitizeRows(tSelectionContacts),
+      selection_stages: sanitizeRows(tSelectionStages),
+      calendar_events: sanitizeRows(tCalendarEvents),
+    };
+
     // ---- 安全な要約に変換（トークン節約 & 機微排除） ----
     const safeContext = {
       profile: p ? {
@@ -123,6 +241,7 @@ export async function POST(req: NextRequest) {
           } : null;
         } catch { return null; }
       })(),
+      ipo: extra, // <-- NEW: all ipo_* tables (sanitized)
     };
 
     const system = { role: 'system', content: buildSystemPrompt(mode || 'empathetic', JSON.stringify(safeContext)) } as const;
