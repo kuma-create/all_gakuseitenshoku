@@ -75,6 +75,9 @@ export default function EventInfo({
   const router = useRouter()
   const { toast } = useToast()
 
+  // Normalize event detail (joined as `event` or legacy `event_details`)
+  const ev = (job?.event ?? job?.event_details) || {};
+
   const handleApplyClick = async () => {
     // 1) Check login state
     const { data: { session } } = await supabase.auth.getSession()
@@ -189,26 +192,29 @@ export default function EventInfo({
                 <SummaryItem
                   icon={<MapPin size={16} />}
                   label="開催地"
-                  value={job.location ?? "オンライン"}
+                  value={
+                    ev.is_online ? "オンライン" : (ev.venue ?? job.location ?? "-")
+                  }
                 />
                 <SummaryItem
                   icon={<Calendar size={16} />}
                   label="開催日"
                   value={
-                    job.event_date
-                      ? new Date(job.event_date).toLocaleDateString("ja-JP")
+                    ev.event_date
+                      ? new Date(ev.event_date).toLocaleDateString("ja-JP")
                       : "調整中"
                   }
                 />
-                <SummaryItem
-                  icon={<Clock size={16} />}
-                  label="時間"
-                  value={job.event_time ?? "-"}
-                />
+
                 <SummaryItem
                   icon={<Building size={16} />}
                   label="形式"
-                  value={job.format ?? "未定"}
+                  value={ev.format ?? (ev.is_online ? "オンライン" : "未定")}
+                />
+                <SummaryItem
+                  icon={<Users size={16} />}
+                  label="定員"
+                  value={typeof ev.capacity === "number" ? `${ev.capacity}名` : "-"}
                 />
               </div>
             </CardContent>
