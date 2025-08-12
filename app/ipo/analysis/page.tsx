@@ -1588,16 +1588,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             {/* Left Sidebar */}
             <aside className="hidden md:block col-span-4 lg:col-span-3">
               <div className="sticky top-[64px] space-y-3">
-                {/* Search */}
-                <div className="bg-muted/30 rounded-xl border p-3">
-                  <Input
-                    value={navQuery}
-                    onChange={(e) => setNavQuery(e.target.value)}
-                    placeholder="ツール検索"
-                    className="h-9"
-                    aria-label="ツール検索"
-                  />
-                </div>
+
 
                 {/* Vertical menu */}
                 <nav aria-label="分析ツールメニュー" className="bg-muted/30 rounded-xl border p-2">

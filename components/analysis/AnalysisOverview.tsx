@@ -54,17 +54,7 @@ export function AnalysisOverview({ progress, onNavigateToTool }: AnalysisOvervie
       difficulty: '普通',
       badge: 'HOT'
     },
-    {
-      id: 'strengthAnalysis',
-      title: '強み・弱み分析',
-      description: '自分の強みと改善点を客観的に分析する',
-      icon: Star,
-      progress: progress.strengthAnalysis,
-      color: 'orange',
-      insights: ['能力の可視化', '改善点の特定', '成長戦略立案'],
-      estimatedTime: '20-35分',
-      difficulty: '普通'
-    },
+
     {
       id: 'experienceReflection',
       title: '経験の整理',
