@@ -102,6 +102,7 @@
     "remark-html": "^16.0.1",
     "rss-parser": "^3.13.0",
     "sonner": "^1.7.1",
+    "stripe": "^18.4.0",
     "swiper": "^11.2.10",
     "swr": "^2.3.3",
     "tailwind-merge": "^2.5.5",

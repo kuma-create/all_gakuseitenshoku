@@ -293,6 +293,51 @@ interface FormData {
 // ────────────────────────────────────────────────────────────────
 
 
+// 既定の初期フォーム（欠損キー対策用）
+const DEFAULT_FORM_DATA: FormData = {
+  basic: {
+    lastName: "",
+    firstName: "",
+    lastNameKana: "",
+    firstNameKana: "",
+    birthdate: "",
+    gender: "male",
+    email: "",
+    phone: "",
+    address: "",
+  },
+  education: {
+    university: "",
+    faculty: "",
+    admissionDate: "",
+    graduationDate: "",
+    status: "enrolled",
+    researchTheme: "",
+  },
+  skills: {
+    certifications: "",
+    skills: "",
+    languages: "",
+    frameworks: "",
+    tools: "",
+  },
+  pr: {
+    title: "",
+    content: "",
+    strengths: ["", "", ""],
+    motivation: "",
+  },
+  conditions: {
+    industries: [],
+    jobTypes: [],
+    locations: [],
+    workStyle: "",
+    salary: "",
+    workPreferences: [],
+    remarks: "",
+  },
+};
+
 export default function ResumePage() {
   // ─── State 定義 ────────────────────────────────────────────────
 
@@ -327,6 +372,7 @@ export default function ResumePage() {
   });
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // 既定フォーム（深いマージに使う）
   const DEFAULT_FORM: FormData = {
     basic: {
@@ -406,17 +452,14 @@ export default function ResumePage() {
         if (resumeRow) {
           // 既存レジュメあり → フォームへ反映
           if (resumeRow.form_data) {
-            const raw = resumeRow.form_data as any;
-            const merged: FormData = {
-              ...DEFAULT_FORM,
-              ...(raw || {}),
-              basic: { ...DEFAULT_FORM.basic, ...(raw?.basic || {}) },
-              education: { ...DEFAULT_FORM.education, ...(raw?.education || {}) },
-              skills: { ...DEFAULT_FORM.skills, ...(raw?.skills || {}) },
-              pr: { ...DEFAULT_FORM.pr, ...(raw?.pr || {}) },
-              conditions: { ...DEFAULT_FORM.conditions, ...(raw?.conditions || {}) },
-            };
-            setFormData(merged);
+            const incoming = resumeRow.form_data as Partial<FormData>;
+            setFormData({
+              basic: { ...DEFAULT_FORM_DATA.basic, ...(incoming.basic || {}) },
+              education: { ...DEFAULT_FORM_DATA.education, ...(incoming.education || {}) },
+              skills: { ...DEFAULT_FORM_DATA.skills, ...(incoming.skills || {}) },
+              pr: { ...DEFAULT_FORM_DATA.pr, ...(incoming.pr || {}) },
+              conditions: { ...DEFAULT_FORM_DATA.conditions, ...(incoming.conditions || {}) },
+            });
           }
 
           if (Array.isArray(resumeRow.work_experiences))
@@ -444,29 +487,34 @@ export default function ResumePage() {
             .single();
 
           if (!profileErr && profile) {
-            setFormData((prev) => ({
-              ...prev,
-              basic: {
-                ...prev.basic,
-                lastName: profile.last_name ?? prev.basic.lastName,
-                firstName: profile.first_name ?? prev.basic.firstName,
-                lastNameKana: profile.last_name_kana ?? prev.basic.lastNameKana,
-                firstNameKana: profile.first_name_kana ?? prev.basic.firstNameKana,
-                birthdate: profile.birth_date ?? prev.basic.birthdate,
-                gender: (profile.gender as any) ?? prev.basic.gender,
-                email: session?.user?.email ?? prev.basic.email,
-                phone: profile.phone ?? prev.basic.phone,
-                address: profile.address ?? prev.basic.address,
-              },
-              education: {
-                ...prev.education,
-                university: profile.university ?? prev.education.university,
-                faculty: profile.faculty ?? prev.education.faculty,
-                admissionDate: profile.admission_month ?? prev.education.admissionDate,
-                graduationDate: profile.graduation_month ?? prev.education.graduationDate,
-                researchTheme: profile.research_theme ?? prev.education.researchTheme,
-              },
-            }));
+            setFormData((prev) => {
+              const prevBasic = prev?.basic ?? DEFAULT_FORM_DATA.basic;
+              const prevEdu = prev?.education ?? DEFAULT_FORM_DATA.education;
+              return {
+                ...prev,
+                basic: {
+                  ...prevBasic,
+                  lastName: profile.last_name ?? prevBasic.lastName,
+                  firstName: profile.first_name ?? prevBasic.firstName,
+                  lastNameKana: profile.last_name_kana ?? prevBasic.lastNameKana,
+                  firstNameKana: profile.first_name_kana ?? prevBasic.firstNameKana,
+                  birthdate: profile.birth_date ?? prevBasic.birthdate,
+                  gender: (profile.gender as any) ?? prevBasic.gender,
+                  email: session?.user?.email ?? prevBasic.email,
+                  phone: profile.phone ?? prevBasic.phone,
+                  address: profile.address ?? prevBasic.address,
+                },
+                education: {
+                  ...prevEdu,
+                  university: profile.university ?? prevEdu.university,
+                  faculty: profile.faculty ?? prevEdu.faculty,
+                  admissionDate: profile.admission_month ?? prevEdu.admissionDate,
+                  graduationDate: profile.graduation_month ?? prevEdu.graduationDate,
+                  researchTheme: profile.research_theme ?? prevEdu.researchTheme,
+                  status: prevEdu.status,
+                },
+              };
+            });
           } else if (profileErr && profileErr.code !== "PGRST116") {
             console.warn("⚠️ student_profiles fetch error:", profileErr.message);
           }
@@ -669,13 +717,14 @@ export default function ResumePage() {
   const handleAIUpdateField = (name: string, args: any) => {
     if (name !== "updateField" || !args) return;
     try {
-      const { section, field, value } = args as {
-        section: SectionKey;
-        field: string;
-        value: any;
-      };
-      // `field` は string 型なので型制約を回避して any キャスト
-      handleInputChange(section as any, field as any, value);
+      const { section, field, value } = args as { section: SectionKey; field: string; value: any };
+      setFormData((prev) => {
+        const base = { ...DEFAULT_FORM_DATA, ...prev } as FormData;
+        return {
+          ...base,
+          [section]: { ...(base as any)[section], [field]: value } as any,
+        } as FormData;
+      });
     } catch (err) {
       console.error("❌ handleAIUpdateField parse error:", err);
     }
