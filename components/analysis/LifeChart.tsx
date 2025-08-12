@@ -387,10 +387,25 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     const e = src ?? newEvent;
     if (!e.title || !e.date || !userId) return;
 
-    // Derive year and month from date
+    // Derive year and month from date, and allow user-edited age to persist after reload
     const d = new Date(e.date!);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
+    let y = d.getFullYear();
+    let m = d.getMonth() + 1;
+
+    // If the user edited age, derive the event year from age so it persists after reload
+    let dateToSave = e.date!;
+    if (typeof e.age === 'number' && !Number.isNaN(e.age)) {
+      const nowYear = new Date().getFullYear();
+      const derivedYear = nowYear - (currentAge - e.age);
+      if (Number.isFinite(derivedYear)) {
+        y = derivedYear;
+        // keep month/day but replace year
+        const patched = new Date(d);
+        patched.setFullYear(y);
+        dateToSave = patched.toISOString().slice(0, 10);
+        m = patched.getMonth() + 1;
+      }
+    }
 
     // Payload for DB: match DB schema exactly
     const payload: UpsertLifeEvent = {
@@ -400,7 +415,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       year: y,
       month: m,
       note: e.description || '',
-      date: e.date!,
+      date: dateToSave,
       category: (e.category as LifeEvent['category']) ?? 'personal',
       emotional_level: e.emotionalLevel ?? 0,
       impact_level: e.impactLevel ?? 3,
@@ -418,7 +433,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       title: payload.title,
       description: e.description ?? '',
       date: payload.date,
-      age: currentAge - (new Date().getFullYear() - y),
+      age: (typeof e.age === 'number' && !Number.isNaN(e.age)) ? e.age : currentAge - (new Date().getFullYear() - y),
       category: payload.category as LifeEvent['category'],
       emotionalLevel: payload.emotional_level ?? 0,
       impactLevel: payload.impact_level ?? 3,
@@ -512,6 +527,41 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       .filter(event => selectedCategories.includes(event.category))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events, showPrivateEvents, selectedCategories]);
+
+  // Memoized axis ranges computed at top-level to avoid using hooks inside render helpers
+  const { maxAge, minAge, span } = useMemo(() => {
+    const maxA = Math.max(...displayEvents.map(e => e.age), currentAge);
+    const minA = Math.min(...displayEvents.map(e => e.age), 15);
+    const sp = Math.max(1, maxA - minA);
+    return { maxAge: maxA, minAge: minA, span: sp };
+  }, [displayEvents, currentAge]);
+
+  // Memoize event dots at top-level (Rules of Hooks compliant)
+  const eventDots = useMemo(() => {
+    return displayEvents.map((event) => {
+      const x = ((event.age - minAge) / span) * 100;
+      const y = ((5 - event.emotionalLevel) / 10) * 100;
+      const config = categoryConfig[event.category];
+      return (
+        <motion.div
+          key={event.id}
+          className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
+          style={{ left: `${x}%`, top: `${y}%` }}
+          initial={false}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.15 }}
+          onClick={() => handleEditEvent(event)}
+        >
+          <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${config.color} border-2 border-white shadow-lg`}></div>
+          <div className="absolute top-5 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div className="font-medium text-sm">{event.title}</div>
+            <div className="text-xs text-gray-500">{event.age}歳 • {config.label}</div>
+            <div className="text-xs text-gray-700 mt-1 max-w-40 truncate">{event.description}</div>
+          </div>
+        </motion.div>
+      );
+    });
+  }, [displayEvents, minAge, span, handleEditEvent]);
 
   const exportForJobHunt = useCallback(() => {
     const relevantEvents = events.filter(e => e.jobHuntRelevance.relevant);
@@ -727,37 +777,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   };
 
   const renderChartView = () => {
-    const maxAge = Math.max(...displayEvents.map(e => e.age), currentAge);
-    const minAge = Math.min(...displayEvents.map(e => e.age), 15);
-    const span = Math.max(1, maxAge - minAge);
-
-    // Memoize event dots so that typing in the dialog does not cause the animated chart to rebuild on every keystroke
-    const eventDots = useMemo(() => {
-      return displayEvents.map((event, index) => {
-        const x = ((event.age - minAge) / span) * 100;
-        const y = ((5 - event.emotionalLevel) / 10) * 100;
-        const config = categoryConfig[event.category];
-        return (
-          <motion.div
-            key={event.id}
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
-            style={{ left: `${x}%`, top: `${y}%` }}
-            initial={false} // 再レンダー時に初期アニメを再実行しない
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.15 }}
-            onClick={() => handleEditEvent(event)}
-          >
-            <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${config.color} border-2 border-white shadow-lg`}></div>
-            <div className="absolute top-5 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
-              <div className="font-medium text-sm">{event.title}</div>
-              <div className="text-xs text-gray-500">{event.age}歳 • {config.label}</div>
-              <div className="text-xs text-gray-700 mt-1 max-w-40 truncate">{event.description}</div>
-            </div>
-          </motion.div>
-        );
-      });
-    }, [displayEvents, minAge, span]);
-
+    // maxAge, minAge, span, eventDots are computed above via useMemo
     return (
       <div className="space-y-6">
         <Card className="p-6">
