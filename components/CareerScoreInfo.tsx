@@ -188,8 +188,8 @@ export function CareerScoreInfo({ isOpen, onClose }: CareerScoreInfoProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="pb-4 border-b flex-shrink-0">
+      <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col">
+        <DialogHeader className="px-6 pt-4 pb-4 border-b flex-shrink-0">
           <DialogTitle className="text-2xl flex items-center space-x-2">
             <BarChart3 className="w-6 h-6 text-blue-600" />
             <span>キャリアスコアについて</span>
@@ -199,16 +199,16 @@ export function CareerScoreInfo({ isOpen, onClose }: CareerScoreInfoProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
-              <TabsTrigger value="overview">概要</TabsTrigger>
-              <TabsTrigger value="calculation">計算方法</TabsTrigger>
-              <TabsTrigger value="dimensions">5つの軸</TabsTrigger>
-              <TabsTrigger value="improvement">改善のヒント</TabsTrigger>
+        <div className="flex-1 min-h-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-4 gap-2 px-6 py-2 flex-shrink-0">
+              <TabsTrigger value="overview" className="rounded-md">概要</TabsTrigger>
+              <TabsTrigger value="calculation" className="rounded-md">計算方法</TabsTrigger>
+              <TabsTrigger value="dimensions" className="rounded-md">5つの軸</TabsTrigger>
+              <TabsTrigger value="improvement" className="rounded-md">改善のヒント</TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-auto mt-4">
+            <div className="flex-1 overflow-y-auto mt-4 px-6 pb-6">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
@@ -314,9 +314,6 @@ export function CareerScoreInfo({ isOpen, onClose }: CareerScoreInfoProps) {
                                     </Badge>
                                   </div>
                                   <p className="text-gray-600 mb-3">{component.description}</p>
-                                  <div className="mb-3">
-                                    <Progress value={component.weight} className="h-2" />
-                                  </div>
                                   <div className="space-y-1">
                                     <h5 className="font-medium text-sm text-gray-800">評価要素:</h5>
                                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm text-gray-600">
