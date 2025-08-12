@@ -272,7 +272,6 @@ export default function InternInfo({
                   .filter(Boolean)
                   .map((r: string, i: number) => (
                     <li key={i} className="flex gap-2">
-                      <Plus size={16} className="text-red-600 mt-0.5" />
                       <span>{r}</span>
                     </li>
                   ))}
