@@ -526,12 +526,14 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
               whileTap={{ scale: 0.95 }}
             >
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-gradient-to-r from-sky-600 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-white" />
-                </div>
-                <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                  IPO大学
-                </span>
+                <Image
+                  src="/IPO大学.png"
+                  alt="IPO大学ロゴ"
+                  width={160}
+                  height={48}
+                  className="h-8 sm:h-10 md:h-12 w-auto"
+                  priority
+                />
               </div>
             </motion.div>
             
