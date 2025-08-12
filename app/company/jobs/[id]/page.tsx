@@ -151,7 +151,7 @@ const fetchJob = async (id: string) => {
       fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
       event_details:event_details!job_id (event_date, capacity, venue, format),
-      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits)
+      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits, remuneration_type, commission_rate, is_paid)
     `)
     .eq("id", id)
     .single()
@@ -198,6 +198,11 @@ const fetchJob = async (id: string) => {
         : "",
     travelExpense  : internLong.travel_expense  ?? "",
     nearestStation : internLong.nearest_station ?? "",
+    remunerationType:
+      internLong.remuneration_type === "commission" || internLong.remuneration_type === "hourly"
+        ? (internLong.remuneration_type as "hourly" | "commission")
+        : "hourly",
+    commissionRate: internLong.commission_rate ?? "",
 
     /* Event */
     eventDate : event.event_date ?? "",
@@ -356,6 +361,8 @@ export default function JobEditPage() {
           hourlyWage        : jobData.hourlyWage        ?? "",
           travelExpense     : jobData.travelExpense,
           nearestStation    : jobData.nearestStation,
+          remunerationType    : jobData.remunerationType,
+          commissionRate      : jobData.commissionRate,
           /* Event */
           eventDate : jobData.eventDate,
           capacity  : jobData.capacity,
@@ -459,9 +466,8 @@ export default function JobEditPage() {
       if (!formData.endDate.trim()) newErrors.endDate = "終了日は必須です";
     }
     if (job.selectionType === "intern_long") {
-      if (!formData.startDate.trim()) {
-        newErrors.startDate = "開始日は必須です";
-      }
+    if (job.selectionType === "intern_long") {
+      // 開始日必須チェックは削除
 
       if (!formData.workingHours.trim()) {
         newErrors.workingHours = "勤務時間は必須です";
@@ -473,15 +479,65 @@ export default function JobEditPage() {
         newErrors.workDaysPerWeek = "数字で入力してください（例: 3）";
       }
 
-      if (!formData.hourlyWage.trim()) {
-        newErrors.hourlyWage = "時給は必須です";
-      } else if (parseNumber(formData.hourlyWage) === null) {
-        newErrors.hourlyWage = "数字で入力してください（例: 1200）";
+      if (formData.remunerationType === "hourly") {
+        if (!formData.hourlyWage.trim()) {
+          newErrors.hourlyWage = "時給は必須です";
+        } else if (parseNumber(formData.hourlyWage) === null) {
+          newErrors.hourlyWage = "数字で入力してください（例: 1200）";
+        }
+      } else {
+        if (!formData.commissionRate.trim()) {
+          newErrors.commissionRate = "歩合の条件を入力してください";
+        }
       }
     }
 
+      if (!formData.workingHours.trim()) {
+        newErrors.workingHours = "勤務時間は必須です";
+      }
+
+      if (!formData.workDaysPerWeek.trim()) {
+        newErrors.workDaysPerWeek = "勤務日数は必須です";
+      } else if (parseNumber(formData.workDaysPerWeek) === null) {
+        newErrors.workDaysPerWeek = "数字で入力してください（例: 3）";
+      }
+
+      if (formData.remunerationType === "hourly") {
+        if (!formData.hourlyWage.trim()) {
+          newErrors.hourlyWage = "時給は必須です";
+        } else if (parseNumber(formData.hourlyWage) === null) {
+          newErrors.hourlyWage = "数字で入力してください（例: 1200）";
+        }
+      } else {
+        if (!formData.commissionRate.trim()) {
+          newErrors.commissionRate = "歩合の条件を入力してください";
+        }
+      }
+    }
+
+    const hasErrors = Object.keys(newErrors).length > 0;
+
+    // 画面への反映
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    if (hasErrors) {
+      // 1) 最初のエラー項目へスクロール＆フォーカス
+      const firstKey = Object.keys(newErrors)[0];
+      const firstEl = typeof document !== "undefined" ? document.getElementById(firstKey) : null;
+      if (firstEl) {
+        firstEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        // @ts-ignore
+        if (firstEl.focus) firstEl.focus();
+      }
+
+      // 2) アラートで不足項目を一覧表示
+      const lines = Object.values(newErrors).map((m) => `・${m}`);
+      if (typeof window !== "undefined") {
+        window.alert(["必須項目が未入力です。次を確認してください:", "", ...lines].join("\n"));
+      }
+    }
+
+    return !hasErrors;
   };
 
   /** ----------------------------------------------------------------
@@ -560,12 +616,14 @@ export default function JobEditPage() {
           detailPayload = {
             job_id              : id,
             selection_id        : id,
-            start_date          : formData.startDate || null,
+            start_date          : toIsoOrNull(formData.startDate),
             // 0 が入り得ないため Non‑Null Assertion（バリデーション済）
             working_hours       : formData.workingHours || null,
             work_days_per_week  : parseNumber(formData.workDaysPerWeek),
-            hourly_wage         : parseNumber(formData.hourlyWage),
-            is_paid             : !!formData.hourlyWage,
+            hourly_wage         : formData.remunerationType === "hourly" ? parseNumber(formData.hourlyWage) : null,
+            remuneration_type   : formData.remunerationType,
+            commission_rate     : formData.remunerationType === "commission" ? (formData.commissionRate || null) : null,
+            is_paid             : formData.remunerationType === "commission" ? true : !!parseNumber(formData.hourlyWage),
             travel_expense      : formData.travelExpense || null,
             nearest_station     : formData.nearestStation || null,
             benefits            : formData.benefits || null,
@@ -575,12 +633,12 @@ export default function JobEditPage() {
           detailTable = "event_details"
           detailPayload = {
             ...detailPayload,
-            event_date : toIsoOrNull(formData.eventDate),
-            capacity   : formData.capacity ? Number(formData.capacity) : null,
-            venue      : formData.venue || null,
-            format     : formData.format,
-            schedule   : formData.schedule || null, 
-
+            selection_id: id, // NOT NULL制約を満たす
+            event_date: toIsoOrNull(formData.eventDate),
+            capacity: formData.capacity ? Number(formData.capacity) : null,
+            venue: formData.venue || null,
+            format: formData.format
+            // schedule カラムは存在しないため送信しない
           }
           break
         default:
@@ -994,30 +1052,34 @@ export default function JobEditPage() {
                       />
                     </div>
                     {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="applicationDeadline">応募締切日</Label>
-                      <Input
-                        id="applicationDeadline"
-                        name="applicationDeadline"
-                        type="date"
-                        value={formData.applicationDeadline}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                      />
-                      <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
-                    </div>
-                    <div>
-                      <Label htmlFor="startDate">勤務開始日</Label>
-                      <Input
-                        id="startDate"
-                        name="startDate"
-                        type="date"
-                        value={formData.startDate}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="applicationDeadline">応募締切日</Label>
+                        <Input
+                          id="applicationDeadline"
+                          name="applicationDeadline"
+                          type="date"
+                          value={formData.applicationDeadline}
+                          onChange={handleInputChange}
+                          className="mt-1"
+                        />
+                        <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
+                      </div>
+
+                      {/* 長期インターンでは勤務開始日を非表示 */}
+                      {!isInternLong && (
+                        <div>
+                          <Label htmlFor="startDate">勤務開始日</Label>
+                          <Input
+                            id="startDate"
+                            name="startDate"
+                            type="date"
+                            value={formData.startDate}
+                            onChange={handleInputChange}
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>

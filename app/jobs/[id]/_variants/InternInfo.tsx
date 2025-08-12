@@ -107,16 +107,28 @@ export default function InternInfo({
   }, [job.id])
 
   /* computed */
+  const internship = job?.internship ?? {};
+  
   const period =
-    job?.internship?.period ??
-    `${job?.internship?.start_date ?? "—"} 〜 ${
-      job?.internship?.end_date ?? "—"
-    }`
-  const workingDays = job?.internship?.working_days ?? "応相談"
-  const hourlyWage =
-    job?.salary_min && job?.salary_max
-      ? `${job.salary_min.toLocaleString()}〜${job.salary_max.toLocaleString()}円／時`
-      : "要相談"
+    (internship.start_date || internship.end_date)
+      ? `${internship.start_date ?? "—"} 〜 ${internship.end_date ?? "—"}`
+      : (typeof internship.duration_weeks === "number"
+          ? `${internship.duration_weeks}週間`
+          : "—");
+  
+  const workingDays =
+    typeof internship.work_days_per_week === "number"
+      ? `週 ${internship.work_days_per_week} 日`
+      : "応相談";
+  
+  const hourlyWage = (() => {
+    const paid = internship.is_paid;
+    const allowance = internship.allowance;
+    if (paid === false) return "無給";
+    if (allowance && String(allowance).trim() !== "") return String(allowance);
+    if (paid === true) return "有給";
+    return "-";
+  })();
 
   const isNew =
     job?.created_at &&
