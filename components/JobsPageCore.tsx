@@ -863,32 +863,6 @@ job_tags!job_tags_job_id_fkey (
         </div>
       </section>
 
-      {/* Promotional Banners Section */}
-      <section className="container mx-auto max-w-6xl px-4 py-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="flex flex-col items-center justify-center p-4 text-center border-0 shadow-lg bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-red-400 rounded-full -mr-8 -mt-8 opacity-50"></div>
-            <h3 className="text-lg font-bold">全1000社!!</h3>
-            <p className="text-xl font-bold">就活面接質問</p>
-          </Card>
-          <Card className="flex flex-col items-center justify-center p-4 text-center border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-400 rounded-full -mr-8 -mt-8 opacity-50"></div>
-            <h3 className="text-lg font-bold">質問の答えを選ぶだけ!!</h3>
-            <p className="text-xl font-bold">ガクチカ自動生成</p>
-          </Card>
-          <Card className="flex flex-col items-center justify-center p-4 text-center border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-orange-400 rounded-full -mr-8 -mt-8 opacity-50"></div>
-            <h3 className="text-lg font-bold">見逃し厳禁!</h3>
-            <p className="text-xl font-bold">締切間近</p>
-          </Card>
-          <Card className="flex flex-col items-center justify-center p-4 text-center border-0 shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-green-400 rounded-full -mr-8 -mt-8 opacity-50"></div>
-            <h3 className="text-lg font-bold">もう書き方に悩まない!!</h3>
-            <p className="text-xl font-bold">先輩のESを見る</p>
-          </Card>
-        </div>
-      </section>
-
       {/* Events Section */}
       {events.length > 0 && (
         <section className="container mx-auto max-w-6xl px-4 py-8">
