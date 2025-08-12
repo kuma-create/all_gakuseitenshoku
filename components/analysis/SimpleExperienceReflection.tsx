@@ -132,30 +132,45 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
   const handleSave = useCallback(async () => {
     if (!formData.title || !formData.description) return;
 
-    const completeness = calculateCompleteness(formData);
-
-    const payload = {
-      id: editingExperience?.id, // upsert by id when editing
+    // DBに存在するカラムのみに絞る
+    const payloadDb: any = {
       user_id: userId,
       title: formData.title!,
       description: formData.description!,
-      category: formData.category || 'club',
-      period: formData.period || '',
-      is_job_hunt_relevant: formData.isJobHuntRelevant ?? true,
-      details: formData.details || {},
-      completeness,
-      last_updated: new Date().toISOString().split('T')[0],
-      is_private: formData.isPrivate || false,
-    } as any;
+      // テーブルの category は text。未指定時は 'general' に寄せる
+      category: formData.category ?? 'general',
+      // updated_at を明示更新
+      updated_at: new Date().toISOString(),
+    };
 
-    // Remove undefined id when creating
-    if (!editingExperience) delete payload.id;
+    // skills は text[] のみ許容。details.skills があればそれを使用
+    if (Array.isArray(formData.details?.skills)) {
+      payloadDb.skills = formData.details!.skills;
+    }
 
-    const { error } = await supabase
-      .from('ipo_experiences')
-      .upsert(payload, { onConflict: 'id' })
-      .select()
-      .single();
+    // months / started_on / ended_on は今回は送らない（未使用のため）
+    // 送るときは整数/ISO日付(YYYY-MM-DD)に整形して payloadDb に追加する
+
+    let error: any = null;
+
+    if (editingExperience?.id != null) {
+      // id は bigserial（数値）。string の場合は数値化
+      const idNum = Number(editingExperience.id);
+      const { error: e } = await supabase
+        .from('ipo_experiences')
+        .update(payloadDb)
+        .eq('id', idNum)
+        .select()
+        .single();
+      error = e;
+    } else {
+      const { error: e } = await supabase
+        .from('ipo_experiences')
+        .insert(payloadDb)
+        .select()
+        .single();
+      error = e;
+    }
 
     if (error) {
       console.error('Failed to save experience:', error);
@@ -164,7 +179,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
 
     await loadExperiences();
     resetForm();
-  }, [formData, editingExperience, userId, calculateCompleteness, loadExperiences, resetForm]);
+  }, [formData, editingExperience, userId, loadExperiences, resetForm]);
 
   const handleTemplateSelect = useCallback((template: ExperienceTemplate) => {
     setSelectedTemplate(template);

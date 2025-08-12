@@ -492,10 +492,13 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     run();
 
     // Subscribe to auth state changes
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const uid = session?.user?.id ?? null;
       setUserId(uid);
-      if (uid) {
+
+      // Only refetch on meaningful changes; avoid TOKEN_REFRESH which can interrupt typing
+      const shouldRefetch = event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION';
+      if (uid && shouldRefetch) {
         // 最新の進捗とノートを再取得
         supabase
           .from('ipo_analysis_progress')
@@ -576,7 +579,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   // シンプルなタグ抽出（#タグ を拾う／structuredも見る）
   const extractTags = (text: string, obj?: typeof manual): string[] => {
     const set = new Set<string>();
-    const regex = /#([\\p{L}\\p{N}_一-龥ぁ-んァ-ヶー]+)/gu;
+    const regex = /#([\p{L}\p{N}_一-龥ぁ-んァ-ヶー]+)/gu;
     let m;
     while ((m = regex.exec(text)) !== null) {
       const t = m[1].trim();
@@ -1585,16 +1588,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             {/* Left Sidebar */}
             <aside className="hidden md:block col-span-4 lg:col-span-3">
               <div className="sticky top-[64px] space-y-3">
-                {/* Search */}
-                <div className="bg-muted/30 rounded-xl border p-3">
-                  <Input
-                    value={navQuery}
-                    onChange={(e) => setNavQuery(e.target.value)}
-                    placeholder="ツール検索"
-                    className="h-9"
-                    aria-label="ツール検索"
-                  />
-                </div>
+
 
                 {/* Vertical menu */}
                 <nav aria-label="分析ツールメニュー" className="bg-muted/30 rounded-xl border p-2">
