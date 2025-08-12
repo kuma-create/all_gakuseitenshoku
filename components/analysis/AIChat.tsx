@@ -692,21 +692,6 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                 {interactionMode === 'free' ? '壁打ちモード' : '空欄を埋めるモード'}
               </Badge>
             </div>
-            <div className="flex items-center space-x-1">
-              <span>深度レベル:</span>
-              <div className="flex space-x-1">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <div
-                    key={level}
-                    className={`w-2 h-2 rounded-full ${
-                      level <= Math.min(5, Math.floor(stats.deepThoughts / 2) + 1)
-                        ? 'bg-blue-500'
-                        : 'bg-gray-300'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>

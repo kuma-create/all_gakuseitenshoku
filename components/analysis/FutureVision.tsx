@@ -1,3 +1,11 @@
+// Minimal Json type for Supabase jsonb
+type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json }
+  | Json[];
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Target, Calendar, Lightbulb, Save, Eye, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Card } from '../ui/card';
@@ -95,44 +103,44 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
 
       const { data, error } = await supabase
         .from('ipo_future_vision')
-        .select('timeframe, career, lifestyle, relationships, skills, values, achievements, challenges, learnings')
-        .eq('user_id', uid);
+        .select('action_plan')
+        .eq('user_id', uid)
+        .maybeSingle();
 
-      if (!error && data && data.length > 0) {
-        const merged = { ...EMPTY_VISION } as Record<Timeframe, VisionData>;
-        for (const row of data as any[]) {
-          const { timeframe: _tf, ...rest } = row as { timeframe: Timeframe } & Partial<VisionData>;
-          const tf = _tf as Timeframe;
-          if (tf && merged[tf]) {
-            // Spread DB fields but always finalize with the canonical timeframe key
-            merged[tf] = { ...merged[tf], ...rest, timeframe: tf } as VisionData;
-          }
+      if (!error && data) {
+        // Expecting { action_plan: { visions: Record<Timeframe, VisionData> } }
+        const ap = (data as any)?.action_plan ?? {};
+        const stored = ap?.visions as Record<Timeframe, VisionData> | undefined;
+
+        if (stored && typeof stored === 'object') {
+          // Merge with EMPTY_VISION to ensure all keys exist
+          const merged = { ...EMPTY_VISION } as Record<Timeframe, VisionData>;
+          (Object.keys(merged) as Timeframe[]).forEach((tf) => {
+            merged[tf] = {
+              ...merged[tf],
+              ...(stored[tf] ?? {}),
+              timeframe: tf,
+            } as VisionData;
+          });
+          setVisions(merged);
         }
-        setVisions(merged);
       }
       setLoading(false);
     })();
   }, []);
 
   // --------- save (debounced) ---------
-  const saveOne = async (tf: Timeframe, v: VisionData) => {
+  const saveAllToJson = async (current: Record<Timeframe, VisionData>) => {
     if (!userId) return;
     setSaving('saving');
-    const payload = {
+    const payload: { user_id: string; action_plan: Json; updated_at: string } = {
       user_id: userId,
-      timeframe: tf,
-      career: v.career ?? '',
-      lifestyle: v.lifestyle ?? '',
-      relationships: v.relationships ?? '',
-      skills: v.skills ?? '',
-      values: v.values ?? '',
-      achievements: v.achievements ?? '',
-      challenges: v.challenges ?? '',
-      learnings: v.learnings ?? '',
+      action_plan: ({ visions: current } as unknown) as Json,
       updated_at: new Date().toISOString(),
     };
-
-    const { error } = await supabase.from('ipo_future_vision').upsert(payload, { onConflict: 'user_id,timeframe' });
+    const { error } = await supabase
+      .from('ipo_future_vision')
+      .upsert(payload, { onConflict: 'user_id' });
     if (error) {
       console.error('save future_visions error', error);
       setSaving('error');
@@ -143,24 +151,25 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
   };
 
   const saveAll = async () => {
-    for (const tf of Object.keys(visions) as Timeframe[]) {
-      await saveOne(tf, visions[tf]);
-    }
+    await saveAllToJson(visions);
   };
 
-  const scheduleSave = (tf: Timeframe) => {
+  const scheduleSave = (nextState: Record<Timeframe, VisionData>) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      void saveOne(tf, visions[tf]);
+      void saveAllToJson(nextState);
     }, 800);
   };
 
   const updateVision = (field: keyof Omit<VisionData, 'timeframe'>, value: string) => {
     setVisions((prev) => {
-      const next = { ...prev, [activeTimeframe]: { ...prev[activeTimeframe], [field]: value } } as Record<Timeframe, VisionData>;
+      const next = {
+        ...prev,
+        [activeTimeframe]: { ...prev[activeTimeframe], [field]: value },
+      } as Record<Timeframe, VisionData>;
+      scheduleSave(next);
       return next;
     });
-    scheduleSave(activeTimeframe);
   };
 
   // --------- UI ---------
