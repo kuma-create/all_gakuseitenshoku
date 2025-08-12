@@ -15,8 +15,12 @@ import { usePathname } from "next/navigation";
  */
 export default function Footer() {
     const pathname = usePathname();
-    if (pathname.startsWith("/admin") || pathname.startsWith("/company")) {
-      return null; // Hide footer on admin and company pages
+    if (
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/company") ||
+      pathname.startsWith("/ipo")
+    ) {
+      return null; // Hide footer on admin, company, and IPO pages
     }
   return (
     <footer className="bg-white py-8 md:py-12">          

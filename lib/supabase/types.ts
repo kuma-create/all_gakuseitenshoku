@@ -289,6 +289,13 @@ export type Database = {
             referencedRelation: "question_bank"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "challenge_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "vw_question_bank"
+            referencedColumns: ["id"]
+          },
         ]
       }
       challenge_sessions: {
@@ -489,6 +496,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "applicants_view"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "challenges_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "challenges_student_id_fkey"
@@ -1169,6 +1183,134 @@ export type Database = {
           },
         ]
       }
+      diagnosis_answers: {
+        Row: {
+          created_at: string
+          question_id: number
+          session_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          question_id: number
+          session_id: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          question_id?: number
+          session_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnosis_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnosis_questions: {
+        Row: {
+          category: string
+          id: number
+          is_active: boolean
+          sort_order: number | null
+          text: string
+          type: string
+        }
+        Insert: {
+          category: string
+          id?: number
+          is_active?: boolean
+          sort_order?: number | null
+          text: string
+          type: string
+        }
+        Update: {
+          category?: string
+          id?: number
+          is_active?: boolean
+          sort_order?: number | null
+          text?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      diagnosis_results: {
+        Row: {
+          created_at: string
+          growth_areas: string[]
+          id: string
+          insights: string[]
+          recommendations: Json
+          scores: Json
+          session_id: string
+          strengths: string[]
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          growth_areas?: string[]
+          id?: string
+          insights?: string[]
+          recommendations?: Json
+          scores?: Json
+          session_id: string
+          strengths?: string[]
+          type: string
+        }
+        Update: {
+          created_at?: string
+          growth_areas?: string[]
+          id?: string
+          insights?: string[]
+          recommendations?: Json
+          scores?: Json
+          session_id?: string
+          strengths?: string[]
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnosis_results_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnosis_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          type: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_details: {
         Row: {
           capacity: number | null
@@ -1611,6 +1753,691 @@ export type Database = {
           },
         ]
       }
+      ipo_ai_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: number
+          meta: Json
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: number
+          meta?: Json
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: number
+          meta?: Json
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_ai_chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_ai_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          thread_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          thread_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_ai_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ipo_ai_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_ai_threads: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ipo_analysis_progress: {
+        Row: {
+          ai_chat: number
+          experience_reflection: number
+          future_vision: number
+          life_chart: number
+          strength_analysis: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_chat?: number
+          experience_reflection?: number
+          future_vision?: number
+          life_chart?: number
+          strength_analysis?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_chat?: number
+          experience_reflection?: number
+          future_vision?: number
+          life_chart?: number
+          strength_analysis?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_analysis_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_calendar_events: {
+        Row: {
+          benefits: string[] | null
+          category: string
+          date: string
+          description: string
+          end_time: string | null
+          id: number
+          is_public: boolean
+          location: string | null
+          max_participants: number | null
+          organizer: string
+          priority: string
+          registration_deadline: string | null
+          registration_status: string | null
+          requirements: string[] | null
+          tags: string[] | null
+          target_audience: string | null
+          time: string | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          benefits?: string[] | null
+          category: string
+          date: string
+          description: string
+          end_time?: string | null
+          id?: never
+          is_public?: boolean
+          location?: string | null
+          max_participants?: number | null
+          organizer: string
+          priority?: string
+          registration_deadline?: string | null
+          registration_status?: string | null
+          requirements?: string[] | null
+          tags?: string[] | null
+          target_audience?: string | null
+          time?: string | null
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          benefits?: string[] | null
+          category?: string
+          date?: string
+          description?: string
+          end_time?: string | null
+          id?: never
+          is_public?: boolean
+          location?: string | null
+          max_participants?: number | null
+          organizer?: string
+          priority?: string
+          registration_deadline?: string | null
+          registration_status?: string | null
+          requirements?: string[] | null
+          tags?: string[] | null
+          target_audience?: string | null
+          time?: string | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_calendar_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_event_registrations: {
+        Row: {
+          created_at: string | null
+          event_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ipo_calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ipo_event_registrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_experiences: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          ended_on: string | null
+          id: number
+          impact: string | null
+          learning: string | null
+          months: number | null
+          skills: string[] | null
+          started_on: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          ended_on?: string | null
+          id?: number
+          impact?: string | null
+          learning?: string | null
+          months?: number | null
+          skills?: string[] | null
+          started_on?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          ended_on?: string | null
+          id?: number
+          impact?: string | null
+          learning?: string | null
+          months?: number | null
+          skills?: string[] | null
+          started_on?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_experiences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_future_vision: {
+        Row: {
+          action_plan: Json
+          long_goal: string | null
+          short_goal: string | null
+          target_industry: string | null
+          target_role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_plan?: Json
+          long_goal?: string | null
+          short_goal?: string | null
+          target_industry?: string | null
+          target_role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_plan?: Json
+          long_goal?: string | null
+          short_goal?: string | null
+          target_industry?: string | null
+          target_role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_future_vision_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_library_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          details: Json | null
+          id: string
+          name: string
+          popularity: number | null
+          tags: string[] | null
+          trend: string | null
+          trend_score: number | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          details?: Json | null
+          id?: string
+          name: string
+          popularity?: number | null
+          tags?: string[] | null
+          trend?: string | null
+          trend_score?: number | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          details?: Json | null
+          id?: string
+          name?: string
+          popularity?: number | null
+          tags?: string[] | null
+          trend?: string | null
+          trend_score?: number | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ipo_library_user_data: {
+        Row: {
+          created_at: string
+          favorites: string[]
+          search_history: string[]
+          updated_at: string
+          user_id: string
+          views: Json
+        }
+        Insert: {
+          created_at?: string
+          favorites?: string[]
+          search_history?: string[]
+          updated_at?: string
+          user_id: string
+          views?: Json
+        }
+        Update: {
+          created_at?: string
+          favorites?: string[]
+          search_history?: string[]
+          updated_at?: string
+          user_id?: string
+          views?: Json
+        }
+        Relationships: []
+      }
+      ipo_life_chart_events: {
+        Row: {
+          category: string
+          created_at: string
+          date: string | null
+          emotional_level: number | null
+          id: number
+          impact: number
+          impact_level: number | null
+          is_private: boolean | null
+          job_industries: string[] | null
+          job_job_types: string[] | null
+          job_keywords: string[] | null
+          job_relevant: boolean | null
+          month: number
+          note: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          date?: string | null
+          emotional_level?: number | null
+          id?: number
+          impact?: number
+          impact_level?: number | null
+          is_private?: boolean | null
+          job_industries?: string[] | null
+          job_job_types?: string[] | null
+          job_keywords?: string[] | null
+          job_relevant?: boolean | null
+          month?: number
+          note?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          date?: string | null
+          emotional_level?: number | null
+          id?: number
+          impact?: number
+          impact_level?: number | null
+          is_private?: boolean | null
+          job_industries?: string[] | null
+          job_job_types?: string[] | null
+          job_keywords?: string[] | null
+          job_relevant?: boolean | null
+          month?: number
+          note?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_life_chart_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_selection_companies: {
+        Row: {
+          applied_date: string
+          current_stage: number
+          id: string
+          industry: string | null
+          job_benefits: string[] | null
+          job_description: string | null
+          job_requirements: string[] | null
+          job_salary: string | null
+          job_title: string
+          last_update: string
+          location: string | null
+          name: string
+          notes: string | null
+          overall_rating: number | null
+          priority: Database["public"]["Enums"]["ipo_priority"]
+          size: Database["public"]["Enums"]["ipo_company_size"]
+          status: Database["public"]["Enums"]["ipo_company_status"]
+          tags: string[]
+          user_id: string
+        }
+        Insert: {
+          applied_date?: string
+          current_stage?: number
+          id?: string
+          industry?: string | null
+          job_benefits?: string[] | null
+          job_description?: string | null
+          job_requirements?: string[] | null
+          job_salary?: string | null
+          job_title: string
+          last_update?: string
+          location?: string | null
+          name: string
+          notes?: string | null
+          overall_rating?: number | null
+          priority?: Database["public"]["Enums"]["ipo_priority"]
+          size?: Database["public"]["Enums"]["ipo_company_size"]
+          status?: Database["public"]["Enums"]["ipo_company_status"]
+          tags?: string[]
+          user_id?: string
+        }
+        Update: {
+          applied_date?: string
+          current_stage?: number
+          id?: string
+          industry?: string | null
+          job_benefits?: string[] | null
+          job_description?: string | null
+          job_requirements?: string[] | null
+          job_salary?: string | null
+          job_title?: string
+          last_update?: string
+          location?: string | null
+          name?: string
+          notes?: string | null
+          overall_rating?: number | null
+          priority?: Database["public"]["Enums"]["ipo_priority"]
+          size?: Database["public"]["Enums"]["ipo_company_size"]
+          status?: Database["public"]["Enums"]["ipo_company_status"]
+          tags?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_selection_companies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_selection_contacts: {
+        Row: {
+          company_id: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          role: string
+          user_id?: string
+        }
+        Update: {
+          company_id?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_selection_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "ipo_selection_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ipo_selection_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_selection_stages: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          date: string | null
+          feedback: string | null
+          id: string
+          interviewer: string | null
+          location: string | null
+          name: string
+          notes: string | null
+          preparation: string[] | null
+          rating: number | null
+          status: Database["public"]["Enums"]["ipo_stage_status"]
+          time: string | null
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          date?: string | null
+          feedback?: string | null
+          id?: string
+          interviewer?: string | null
+          location?: string | null
+          name: string
+          notes?: string | null
+          preparation?: string[] | null
+          rating?: number | null
+          status?: Database["public"]["Enums"]["ipo_stage_status"]
+          time?: string | null
+          user_id?: string
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          date?: string | null
+          feedback?: string | null
+          id?: string
+          interviewer?: string | null
+          location?: string | null
+          name?: string
+          notes?: string | null
+          preparation?: string[] | null
+          rating?: number | null
+          status?: Database["public"]["Enums"]["ipo_stage_status"]
+          time?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_selection_stages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "ipo_selection_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ipo_selection_stages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_traits: {
+        Row: {
+          created_at: string
+          id: number
+          kind: string
+          note: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          kind: string
+          note?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          kind?: string
+          note?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       job_embeddings: {
         Row: {
           content: string
@@ -1817,6 +2644,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      kv_store_42a03002: {
+        Row: {
+          key: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          value?: Json
+        }
+        Relationships: []
       }
       media_authors: {
         Row: {
@@ -2389,6 +3231,13 @@ export type Database = {
             foreignKeyName: "resumes_user_id_profile_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resumes_user_id_profile_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "student_profiles"
             referencedColumns: ["user_id"]
           },
@@ -2679,6 +3528,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "session_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "vw_question_bank"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "session_answers_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
@@ -2713,6 +3569,7 @@ export type Database = {
           birth_date: string | null
           city: string | null
           created_at: string | null
+          current_period_end: string | null
           department: string | null
           desired_industries: string[] | null
           desired_locations: string[] | null
@@ -2738,6 +3595,7 @@ export type Database = {
           motive: string | null
           phase_status: string | null
           phone: string | null
+          plan: string | null
           postal_code: string | null
           pr_body: string | null
           pr_text: string | null
@@ -2756,6 +3614,8 @@ export type Database = {
           strength1: string | null
           strength2: string | null
           strength3: string | null
+          sub_status: string | null
+          trial_start: string | null
           university: string | null
           updated_at: string
           user_id: string | null
@@ -2772,6 +3632,7 @@ export type Database = {
           birth_date?: string | null
           city?: string | null
           created_at?: string | null
+          current_period_end?: string | null
           department?: string | null
           desired_industries?: string[] | null
           desired_locations?: string[] | null
@@ -2797,6 +3658,7 @@ export type Database = {
           motive?: string | null
           phase_status?: string | null
           phone?: string | null
+          plan?: string | null
           postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
@@ -2815,6 +3677,8 @@ export type Database = {
           strength1?: string | null
           strength2?: string | null
           strength3?: string | null
+          sub_status?: string | null
+          trial_start?: string | null
           university?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2831,6 +3695,7 @@ export type Database = {
           birth_date?: string | null
           city?: string | null
           created_at?: string | null
+          current_period_end?: string | null
           department?: string | null
           desired_industries?: string[] | null
           desired_locations?: string[] | null
@@ -2856,6 +3721,7 @@ export type Database = {
           motive?: string | null
           phase_status?: string | null
           phone?: string | null
+          plan?: string | null
           postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
@@ -2874,6 +3740,8 @@ export type Database = {
           strength1?: string | null
           strength2?: string | null
           strength3?: string | null
+          sub_status?: string | null
+          trial_start?: string | null
           university?: string | null
           updated_at?: string
           user_id?: string | null
@@ -3296,6 +4164,56 @@ export type Database = {
         }
         Relationships: []
       }
+      weaknesses: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          impact: number
+          improvement_plan: Json
+          job_impact: Json
+          name: string
+          progress_tracking: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact: number
+          improvement_plan?: Json
+          job_impact?: Json
+          name: string
+          progress_tracking?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact?: number
+          improvement_plan?: Json
+          job_impact?: Json
+          name?: string
+          progress_tracking?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weaknesses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webtest_questions: {
         Row: {
           challenge_id: string | null
@@ -3536,31 +4454,56 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          current_period_end: string | null
+          id: string | null
+          plan: string | null
+          sub_status: string | null
+        }
+        Insert: {
+          current_period_end?: string | null
+          id?: string | null
+          plan?: string | null
+          sub_status?: string | null
+        }
+        Update: {
+          current_period_end?: string | null
+          id?: string | null
+          plan?: string | null
+          sub_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_user_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       selections_view: {
         Row: {
-          allowance: string | null
           application_deadline: string | null
-          capacity: number | null
+          benefits: string | null
           company_id: string | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
           duration_weeks: number | null
           end_date: string | null
-          event_date: string | null
-          format: string | null
           id: string | null
-          is_online: boolean | null
           location: string | null
-          published: boolean | null
+          requirements: string | null
           salary_max: number | null
           salary_min: number | null
+          salary_range: string | null
           selection_type: Database["public"]["Enums"]["selection_type"] | null
-          start_date: string | null
           title: string | null
-          venue: string | null
           views: number | null
           work_days_per_week: number | null
+          work_type: string | null
           working_days: string | null
         }
         Relationships: [
@@ -3658,6 +4601,13 @@ export type Database = {
             foreignKeyName: "resumes_user_id_profile_fkey"
             columns: ["student_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resumes_user_id_profile_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
             referencedRelation: "student_profiles"
             referencedColumns: ["user_id"]
           },
@@ -3733,6 +4683,39 @@ export type Database = {
           },
         ]
       }
+      vw_question_bank: {
+        Row: {
+          category: Database["public"]["Enums"]["question_category"] | null
+          choices: Json | null
+          correct_choice: number | null
+          created_at: string | null
+          difficulty: number | null
+          explanation: string | null
+          id: string | null
+          stem: string | null
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["question_category"] | null
+          choices?: Json | null
+          correct_choice?: number | null
+          created_at?: string | null
+          difficulty?: number | null
+          explanation?: string | null
+          id?: string | null
+          stem?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["question_category"] | null
+          choices?: Json | null
+          correct_choice?: number | null
+          created_at?: string | null
+          difficulty?: number | null
+          explanation?: string | null
+          id?: string | null
+          stem?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_offer: {
@@ -3760,6 +4743,10 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      calculate_diagnosis: {
+        Args: { p_session_id: string }
+        Returns: string
       }
       calculate_profile_completion: {
         Args: { p_user_id: string }
@@ -4013,6 +5000,16 @@ export type Database = {
         | "スカウト承諾"
       event_format: "online" | "onsite" | "hybrid"
       grandprix_type: "case" | "webtest" | "bizscore"
+      ipo_company_size: "startup" | "sme" | "large" | "megacorp"
+      ipo_company_status:
+        | "applied"
+        | "in_progress"
+        | "final_interview"
+        | "offer"
+        | "rejected"
+        | "withdrawn"
+      ipo_priority: "high" | "medium" | "low"
+      ipo_stage_status: "pending" | "passed" | "failed" | "scheduled"
       offer_status: "pending" | "accepted" | "rejected"
       question_category:
         | "web_lang"
@@ -4168,6 +5165,17 @@ export const Constants = {
       ],
       event_format: ["online", "onsite", "hybrid"],
       grandprix_type: ["case", "webtest", "bizscore"],
+      ipo_company_size: ["startup", "sme", "large", "megacorp"],
+      ipo_company_status: [
+        "applied",
+        "in_progress",
+        "final_interview",
+        "offer",
+        "rejected",
+        "withdrawn",
+      ],
+      ipo_priority: ["high", "medium", "low"],
+      ipo_stage_status: ["pending", "passed", "failed", "scheduled"],
       offer_status: ["pending", "accepted", "rejected"],
       question_category: [
         "web_lang",

@@ -17,7 +17,7 @@ import Link  from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Search, Mail, MessageSquare, Bell,
-  LogIn, Menu, User, Briefcase, LogOut, ChevronDown, Trophy, BookOpen, Key,
+  LogIn, Menu, User, Briefcase, LogOut, ChevronDown, BookOpen, Key,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetTrigger, SheetClose,
@@ -39,7 +39,6 @@ const studentMain: NavItem[] = [
   { href: "/jobs",              label: "探す",       icon: Search },
   { href: "/offers",    label: "スカウト",   icon: Mail },
   { href: "/chat",      label: "チャット",   icon: MessageSquare },
-  { href: "/grandprix",         label: "就活GP",    icon: Trophy },
   { href: "/media", label: "学転メディア", icon: BookOpen },
   { href: "/features",          label: "特集",       icon: BookOpen },
 ];
@@ -61,7 +60,6 @@ const companyMain: NavItem[] = [
 ];
 const adminMain: NavItem[] = [
   { href: "/admin", label: "Admin", icon: LayoutDashboard },
-  { href: "/admin/grandprix", label: "GP", icon: LayoutDashboard },
   { href: "/admin/media", label: "記事", icon: LayoutDashboard },
 ];
 
@@ -132,21 +130,15 @@ function NotificationBell({ userId }: { userId: string }) {
 }
 
 export default function Header() {
-  const pathname              = usePathname();
-  const router                = useRouter();
+  const pathname = usePathname();
+  const router = useRouter();
   const {
     ready, isLoggedIn, session, userType, user, logout,
   } = useAuth();
-  // Helper for logout that redirects to "/"
-  const handleLogout = async () => {
-    await logout();
-    router.push("/");
-  };
-  /* ロール判定 */
-  const isCompanySide = userType === "company" || userType === "company_admin";
 
-  /* ---------- Avatar 取得（student のみ） ---------- */
+  // --- Hooks must not be conditional. Always declare before any early return. ---
   const [avatar, setAvatar] = useState<string | null>(null);
+
   useEffect(() => {
     if (!ready || !isLoggedIn || userType !== "student" || !user) {
       setAvatar(null);
@@ -162,11 +154,26 @@ export default function Header() {
     })();
   }, [ready, isLoggedIn, userType, user?.id]);
 
+  // Helper for logout that redirects to "/"
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
+  /* ロール判定 */
+  const isCompanySide = userType === "company" || userType === "company_admin";
+
   /* ---------- メインメニュー ---------- */
   const main: NavItem[] =
     isCompanySide ? companyMain
     : userType === "admin" ? adminMain
     : studentMain;
+
+  // --- IPO専用分岐（/ipoページではヘッダーを描画しない） ---
+  const isIpo = pathname.startsWith("/ipo");
+  if (isIpo) {
+    return null;
+  }
 
   /* ---------- UI ---------- */
   return (
@@ -179,13 +186,6 @@ export default function Header() {
         {/* 未ログイン時に表示するトップナビ（PC） */}
         {ready && !isLoggedIn && (
           <nav className="hidden md:flex items-center gap-6">
-            <Link
-              href="/grandprix"
-              className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-gray-900"
-            >
-              <Trophy size={16} />
-              就活GP
-            </Link>
             <Link
               href="/jobs"
               className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900"
@@ -336,18 +336,7 @@ export default function Header() {
                   <span className="font-bold">学生転職</span>
                 </div>
 
-                {/* === 就活グランプリ（未ログインのみ） === */}
-                {(!ready || !isLoggedIn) && (
-                  <SheetClose asChild>
-                    <Link
-                      href="/grandprix"
-                      className="mb-4 flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
-                    >
-                      <Trophy size={16} />
-                      就活グランプリ
-                    </Link>
-                  </SheetClose>
-                )}
+                {/* ---- 未ログイン ---- */}
 
                 {/* ---- 未ログイン ---- */}
                 {!ready || !isLoggedIn ? (
