@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Brain, CheckCircle, TrendingUp, Star, Target, Heart, 
   Users, Lightbulb, Shield, ArrowRight, RotateCcw, 
-  Download, Share2, BookOpen, Award, Clock
+  Download, Share2, BookOpen, Award, Clock, X
 } from 'lucide-react';
 
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -66,6 +66,28 @@ interface JobRecommendation {
   requiredSkills: string[];
 }
 
+// ---- Past Results (history) types ----
+interface DiagnosisResultRow {
+  id: string;
+  session_id: string;
+  type: DiagnosisType;
+  scores: Record<string, number>;
+  strengths: string[];
+  growth_areas: string[];
+  recommendations: JobRecommendation[];
+  insights: string[];
+  created_at: string;
+}
+
+const mapRowToResult = (row: DiagnosisResultRow): DiagnosisResult => ({
+  type: row.type,
+  scores: row.scores ?? {},
+  strengths: row.strengths ?? [],
+  growthAreas: row.growth_areas ?? [],
+  recommendations: row.recommendations ?? [],
+  insights: row.insights ?? [],
+});
+
 const DIAGNOSIS_TYPES = {
   personality: {
     title: '性格診断',
@@ -116,6 +138,12 @@ export default function DiagnosisPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const progress = selectedDiagnosis && questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
 
+  // History (past results)
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<DiagnosisResultRow[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
   // Run a callback when the main thread is idle (fallback to setTimeout)
   const runIdle = (cb: () => void) => {
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -125,6 +153,27 @@ export default function DiagnosisPage() {
       setTimeout(cb, 0);
     }
   };
+
+  // Fetch past diagnosis results (limited)
+  const fetchHistory = useCallback(async () => {
+    setHistoryError(null);
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('diagnosis_results')
+        .select('id, session_id, type, scores, strengths, growth_areas, recommendations, insights, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50)
+        .returns<DiagnosisResultRow[]>();
+      if (error) {
+        setHistoryError('過去の結果の取得に失敗しました。');
+      } else {
+        setHistory(data ?? []);
+      }
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   // Prefetch routes used right after diagnosis
   useEffect(() => {
@@ -433,6 +482,15 @@ export default function DiagnosisPage() {
     return (
       <div className="bg-background min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/ipo/diagnosis/result')}
+              className="h-10"
+            >
+              過去の診断結果を見る
+            </Button>
+          </div>
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -601,6 +659,16 @@ export default function DiagnosisPage() {
             </h1>
             <p className="text-xl text-gray-600">あなたの特性と最適なキャリアパスをご確認ください</p>
           </motion.div>
+
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/ipo/diagnosis/result')}
+              className="h-9"
+            >
+              過去の診断結果を見る
+            </Button>
+          </div>
 
           <Tabs defaultValue="overview" className="space-y-8">
             <TabsList className="grid w-full grid-cols-4">
@@ -1091,4 +1159,92 @@ export default function DiagnosisPage() {
       </div>
     </div>
   );
+  {/* ───────────── Past Results Modal ───────────── */}
+  {showHistory && (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={() => setShowHistory(false)}
+      />
+      {/* Panel */}
+      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-background shadow-xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h2 className="text-lg font-semibold">過去の診断結果</h2>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowHistory(false);
+                router.push('/ipo/diagnosis/result');
+              }}
+            >
+              一覧へ
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowHistory(false)}
+              className="rounded-full"
+              aria-label="Close history"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4 overflow-y-auto h-[calc(100%-56px)]">
+          {historyLoading && (
+            <div className="text-sm text-gray-600">読み込み中…</div>
+          )}
+          {historyError && (
+            <div className="text-sm text-red-600">{historyError}</div>
+          )}
+          {!historyLoading && !historyError && history.length === 0 && (
+            <div className="text-sm text-gray-600">過去の診断結果はまだありません。</div>
+          )}
+
+          {!historyLoading && history.length > 0 && (
+            <div className="space-y-3">
+              {history.map((row) => (
+                <Card key={row.id} className="hover:border-blue-300 transition">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(row.created_at).toLocaleString('ja-JP')}
+                        </div>
+                        <div className="text-base font-semibold mt-1">
+                          {DIAGNOSIS_TYPES[row.type].title}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(Object.keys(row.scores || {}).slice(0, 3)).map((k) => (
+                            <Badge key={k} variant="secondary">
+                              {k}: {Math.round(Number(row.scores?.[k] ?? 0))}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowHistory(false);
+                            router.push(`/ipo/diagnosis/result/${row.id}`);
+                          }}
+                        >
+                          開く
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )}
 }
