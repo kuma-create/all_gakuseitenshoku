@@ -1,4 +1,4 @@
-import AppHeader from "@/components/AppHeader";
+import AppHeader from "components/AppHeader";
 import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
@@ -12,7 +12,7 @@ const items = [
 export default function AdminHome() {
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader />
+      <AppHeader title="管理者ホーム" />
       <View style={{ flex: 1, padding: 24 }}>
         <Text style={{ fontSize: 18, fontWeight: "800", marginBottom: 12 }}>管理者ダッシュボード</Text>
         <View style={{ gap: 10 }}>

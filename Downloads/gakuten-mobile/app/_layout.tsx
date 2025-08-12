@@ -68,7 +68,11 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={qc}>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: true }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      />
     </QueryClientProvider>
   );
 }

@@ -1,6 +1,6 @@
+import AppHeader from "components/AppHeader";
 import { Link } from "expo-router";
-import { View, Text, Pressable } from "react-native";
-import AppHeader from "@/components/AppHeader";
+import { Pressable, Text, View } from "react-native";
 
 const items = [
   { label: "求人作成", href: "/company/jobs/new" },
@@ -12,7 +12,7 @@ const items = [
 export default function CompanyHome() {
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader />
+      <AppHeader title="企業ホーム" />
       <View style={{ flex: 1, padding: 24 }}>
         <Text style={{ fontSize: 18, fontWeight: "800", marginBottom: 12 }}>企業ダッシュボード</Text>
         <View style={{ gap: 10 }}>
