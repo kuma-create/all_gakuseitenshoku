@@ -1,0 +1,36 @@
+// app/(student)/index.tsx
+import { Link } from "expo-router";
+import { View, Text, Pressable } from "react-native";
+
+const items = [
+  { label: "プロフィール", href: "/(student)/profile" },
+  { label: "求人を探す", href: "/(student)/jobs" },
+  { label: "メッセージ", href: "/(student)/messages" },
+  { label: "設定", href: "/(student)/settings" },
+];
+
+export default function StudentHome() {
+  return (
+    <View style={{ flex: 1, padding: 24 }}>
+      <Text style={{ fontSize: 18, fontWeight: "800", marginBottom: 12 }}>学生ホーム</Text>
+      <View style={{ gap: 10 }}>
+        {items.map((it) => (
+          <Link key={it.href} href={it.href} asChild>
+            <Pressable
+              style={{
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: "#e5e7eb",
+                backgroundColor: "#fff",
+              }}
+            >
+              <Text style={{ fontWeight: "600" }}>{it.label}</Text>
+            </Pressable>
+          </Link>
+        ))}
+      </View>
+    </View>
+  );
+}
