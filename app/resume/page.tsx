@@ -327,7 +327,8 @@ export default function ResumePage() {
   });
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [formData, setFormData] = useState<FormData>({
+  // 既定フォーム（深いマージに使う）
+  const DEFAULT_FORM: FormData = {
     basic: {
       lastName: "",
       firstName: "",
@@ -369,7 +370,9 @@ export default function ResumePage() {
       workPreferences: [],
       remarks: "",
     },
-  });
+  };
+
+  const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
 
   // 初期ロード済みフラグ
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -402,8 +405,19 @@ export default function ResumePage() {
 
         if (resumeRow) {
           // 既存レジュメあり → フォームへ反映
-          if (resumeRow.form_data)
-            setFormData(resumeRow.form_data as unknown as FormData);
+          if (resumeRow.form_data) {
+            const raw = resumeRow.form_data as any;
+            const merged: FormData = {
+              ...DEFAULT_FORM,
+              ...(raw || {}),
+              basic: { ...DEFAULT_FORM.basic, ...(raw?.basic || {}) },
+              education: { ...DEFAULT_FORM.education, ...(raw?.education || {}) },
+              skills: { ...DEFAULT_FORM.skills, ...(raw?.skills || {}) },
+              pr: { ...DEFAULT_FORM.pr, ...(raw?.pr || {}) },
+              conditions: { ...DEFAULT_FORM.conditions, ...(raw?.conditions || {}) },
+            };
+            setFormData(merged);
+          }
 
           if (Array.isArray(resumeRow.work_experiences))
             setWorkExperiences(
@@ -1070,12 +1084,12 @@ export default function ResumePage() {
               : []
           }
           educations={
-            formData.education.university
+            formData.education?.university
               ? [
                   `${
-                    formData.education.graduationDate ||
-                    formData.education.admissionDate
-                  } ${formData.education.university} ${formData.education.faculty}`,
+                    formData.education?.graduationDate ||
+                    formData.education?.admissionDate || ""
+                  } ${formData.education?.university || ""} ${formData.education?.faculty || ""}`,
                 ]
               : []
           }
