@@ -116,7 +116,7 @@ export default function InternInfo({
   const hourlyWage =
     job?.salary_min && job?.salary_max
       ? `${job.salary_min.toLocaleString()}〜${job.salary_max.toLocaleString()}円／時`
-      : "要相談"
+      : "-"
 
   const isNew =
     job?.created_at &&
