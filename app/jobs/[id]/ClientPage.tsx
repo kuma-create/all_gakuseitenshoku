@@ -131,9 +131,13 @@ export default function ClientPage({ id }: { id: string }) {
               min_duration_months,
               work_days_per_week,
               hourly_wage,
+              remuneration_type,
+              commission_rate,
+              is_paid,
               travel_expense,
               nearest_station,
-              benefits
+              benefits,
+              working_hours
             ),
             fulltime:fulltime_details!job_id(
               working_days,
@@ -167,35 +171,11 @@ export default function ClientPage({ id }: { id: string }) {
 
         const sel = selRows[0] as unknown as SelectionWithCompany
 
-        /* ---- fetch requirements / skills / hours / benefits ---- */
-        const [
-          { data: reqRows,  error: reqErr },
-          { data: sklRows,  error: sklErr },
-          { data: hrsRows,  error: hrsErr },
-          { data: benRows,  error: benErr },
-        ] = await Promise.all([
-          // @ts-expect-error job_requirements not in generated types yet
-          supabase.from("job_requirements").select("requirement").eq("job_id", id),
-          // @ts-expect-error job_skills not in generated types yet
-          supabase.from("job_skills").select("skill").eq("job_id", id),
-          // @ts-expect-error job_work_hours not in generated types yet
-          supabase.from("job_work_hours").select("hours").eq("job_id", id),
-          // @ts-expect-error job_benefits not in generated types yet
-          supabase.from("job_benefits").select("benefit").eq("job_id", id),
-        ]);
-
-        if (reqErr || sklErr || hrsErr || benErr) {
-          console.warn("detail fetch error", reqErr, sklErr, hrsErr, benErr);
-        }
-
-        const requirementsList =
-          Array.isArray(reqRows) ? reqRows.map((r: any) => (r as any).requirement) : [];
-        const skillsList =
-          Array.isArray(sklRows) ? sklRows.map((s: any) => (s as any).skill) : [];
-        const workHoursList =
-          Array.isArray(hrsRows) ? hrsRows.map((h: any) => (h as any).hours) : [];
-        const benefitsList =
-          Array.isArray(benRows) ? benRows.map((b: any) => (b as any).benefit) : [];
+        // Initialize lists (tables like job_requirements/* do not exist in current schema)
+        const requirementsList: string[] = [];
+        const skillsList: string[] = [];
+        let workHoursList: (string | null)[] = [];
+        const benefitsList: string[] = [];
 
         /* attach flattened arrays */
         (sel as any).requirementsList = requirementsList;
@@ -256,10 +236,10 @@ export default function ClientPage({ id }: { id: string }) {
         // --- Benefits ---
         if (!benefitsList || benefitsList.length === 0) {
           const rawBen =
-            (sel as any).fulltime?.benefits ??
-            (sel as any).fulltime?.benefits_list ??
             (sel as any).intern_long?.benefits ??
-            (sel as any).intern_long?.benefits_list;
+            (sel as any).intern_long?.benefits_list ??
+            (sel as any).fulltime?.benefits ??
+            (sel as any).fulltime?.benefits_list;
 
           let tokens: string[] = [];
 
@@ -275,6 +255,31 @@ export default function ClientPage({ id }: { id: string }) {
 
           if (tokens.length > 0) {
             (sel as any).benefitsList = tokens;
+          }
+        }
+
+        // ---- derive reward (給与/報酬) for long internship ----
+        if ((sel as any).selection_type === "internship_long" || (sel as any).selection_type === "intern_long") {
+          const il = (sel as any).intern_long || {};
+          let reward: string | null = null;
+
+          const paid = il.is_paid as boolean | undefined;
+          const rt = il.remuneration_type as string | undefined;
+          const wage = il.hourly_wage as number | undefined;
+          const com = il.commission_rate as string | undefined;
+
+          if (paid === false) {
+            reward = "無給";
+          } else if (rt === "hourly" && typeof wage === "number") {
+            reward = `${Number(wage).toLocaleString()}円/時`;
+          } else if (rt === "commission" && com) {
+            reward = `歩合（${String(com)}）`;
+          } else if (paid === true) {
+            reward = "有給";
+          }
+
+          if (reward) {
+            (sel as any).salary_range = reward;
           }
         }
 
