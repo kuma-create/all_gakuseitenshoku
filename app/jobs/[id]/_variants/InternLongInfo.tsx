@@ -115,22 +115,24 @@ export default function InternInfo({
 
 
   // ----- Summary values -----
-  // Prefer `job.intern_long_details` (joined directly from Supabase) but
-  // fall back to `job.internship` for compatibility.
-  const internship = job?.intern_long_details ?? job?.internship ?? {}
+  // Prefer `job.intern_long` (joined directly from Supabase), then intern_long_details, then internship for compatibility.
+  const internship = job?.intern_long ?? job?.intern_long_details ?? job?.internship ?? {};
 
   const minDurationMonths = internship.min_duration_months ?? null
   const minDurationDisplay = minDurationMonths ? `${minDurationMonths}ヶ月〜` : "-"
 
   const remunerationDisplay = (() => {
-    const type = internship.remuneration_type ?? "hourly"
+    const paid = internship.is_paid;
+    const type = internship.remuneration_type ?? "hourly";
+    if (paid === false) return "無給";
     if (type === "commission") {
-      return internship.commission_rate ? `歩合 ${internship.commission_rate}` : "歩合"
+      return internship.commission_rate ? `歩合 ${internship.commission_rate}` : "歩合";
     }
-    if (internship.hourly_wage) {
-      return `${internship.hourly_wage.toLocaleString()}円／時`
+    if (typeof internship.hourly_wage === "number") {
+      return `${internship.hourly_wage.toLocaleString()}円／時`;
     }
-    return "-"
+    if (paid === true) return "有給";
+    return "-";
   })()
 
   const workingDaysRaw =
@@ -145,11 +147,9 @@ export default function InternInfo({
 
 
   const workingHours =
-    internship?.working_hours && internship.working_hours.trim() !== ""
+    internship?.working_hours && String(internship.working_hours).trim() !== ""
       ? internship.working_hours
-      : job?.working_hours && job.working_hours.trim() !== ""
-          ? job.working_hours
-          : "-";
+      : "-";
 
   const isNew =
     job?.created_at &&
