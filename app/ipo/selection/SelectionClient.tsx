@@ -166,9 +166,19 @@ const COMPANY_SIZES = {
 };
 
 const INDUSTRIES = [
-  'IT・ソフトウェア', 'コンサルティング', '金融・銀行', '商社', 'メーカー',
-  '広告・マーケティング', '不動産', '医療・ヘルスケア', '教育', '小売・サービス',
-  '公務員・非営利', 'その他'
+  'IT・通信',
+  '金融',
+  '広告・マーケティング',
+  '医療・福祉',
+  'メーカー',
+  'コンサルティング',
+  'サービス',
+  '教育',
+  '商社',
+  'マスコミ',
+  '小売・流通',
+  '公務員',
+  'その他'
 ];
 
 export function SelectionPage({ navigate }: SelectionPageProps) {
@@ -841,7 +851,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         transition={{ duration: 0.2 }}
         whileHover={{ scale: 1.02 }}
       >
-        <Card className="cursor-pointer bg-white border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 overflow-hidden h-32 sm:h-36">
+        <Card className="group cursor-pointer bg-white border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 min-h-[9rem] sm:min-h-[10rem]">
           <CardContent className="p-3 h-full">
             {/* Priority Color Bar */}
             <div className={`h-0.5 bg-gradient-to-r ${priorityConfig.gradient} mb-2`} />
@@ -1366,7 +1376,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
           {selectedCompany && (
             <>
-              <DialogHeader className="pb-4 border-b flex-shrink-0">
+              <DialogHeader className="pb-4 border-b flex-shrink-0 pr-10 sm:pr-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <DialogTitle className="text-xl sm:text-2xl truncate">{selectedCompany.name}</DialogTitle>
@@ -1374,7 +1384,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                       {selectedCompany.jobDetails.title} • {selectedCompany.industry}
                     </DialogDescription>
                   </div>
-                  <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+                  <div className="flex items-center space-x-2 ml-4 mr-10 sm:mr-2 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
@@ -1402,11 +1412,26 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
               <div className="flex-1 overflow-hidden">
                 <Tabs defaultValue="overview" className="h-full flex flex-col">
-                  <TabsList className="grid w-full grid-cols-4 h-10 flex-shrink-0">
-                    <TabsTrigger value="overview" className="text-xs sm:text-sm">概要</TabsTrigger>
-                    <TabsTrigger value="stages" className="text-xs sm:text-sm">選考段階</TabsTrigger>
-                    <TabsTrigger value="contacts" className="text-xs sm:text-sm">連絡先</TabsTrigger>
-                    <TabsTrigger value="notes" className="text-xs sm:text-sm">メモ</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3 h-10 flex-shrink-0 bg-gray-100/70 rounded-lg p-1 gap-1">
+                    <TabsTrigger
+                      value="overview"
+                      className="text-xs sm:text-sm rounded-md text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow"
+                    >
+                      概要
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="stages"
+                      className="text-xs sm:text-sm rounded-md text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow"
+                    >
+                      選考段階
+                    </TabsTrigger>
+                    {/* <TabsTrigger value="contacts" className="text-xs sm:text-sm">連絡先</TabsTrigger> */}
+                    <TabsTrigger
+                      value="notes"
+                      className="text-xs sm:text-sm rounded-md text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow"
+                    >
+                      メモ
+                    </TabsTrigger>
                   </TabsList>
 
                   <div className="flex-1 overflow-hidden">
@@ -1508,7 +1533,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                         )}
                       </TabsContent>
 
-                      <TabsContent value="stages" className="mt-4 space-y-3">
+                      <TabsContent value="stages" className="mt-4 space-y-3 px-1">
                         <div className="flex justify-between items-center">
                           <h4 className="text-lg font-medium">選考段階</h4>
                           <Button
@@ -1535,7 +1560,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                           selectedCompany.stages.map((stage, index) => {
                             const isActive = index === selectedCompany.currentStage;
                             return (
-                              <Card key={stage.id} className={`p-4 ${isActive ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''}`}>
+                              <Card key={stage.id} className={`p-4 ${isActive ? 'border-2 border-blue-400 bg-blue-50/50' : ''}`}>
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <div className="flex items-center space-x-2 mb-2">
@@ -1659,60 +1684,6 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                         )}
                       </TabsContent>
 
-                      <TabsContent value="contacts" className="mt-4 space-y-3">
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-lg font-medium">連絡先</h4>
-                        </div>
-
-                        {selectedCompany.contacts.length === 0 ? (
-                          <Card className="p-6 text-center">
-                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                              <Users className="w-6 h-6 text-gray-400" />
-                            </div>
-                            <p className="text-gray-500 text-sm">連絡先がまだ登録されていません</p>
-                          </Card>
-                        ) : (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {selectedCompany.contacts.map((contact, index) => (
-                              <Card key={index} className="p-4">
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-gray-600" />
-                                  </div>
-                                  <div>
-                                    <h5 className="font-medium text-gray-900 text-sm">{contact.name}</h5>
-                                    <p className="text-xs text-gray-600">{contact.role}</p>
-                                  </div>
-                                </div>
-                                <div className="space-y-1">
-                                  {contact.email && (
-                                    <div className="flex items-center space-x-1">
-                                      <Mail className="w-3 h-3 text-gray-400" />
-                                      <a 
-                                        href={`mailto:${contact.email}`} 
-                                        className="text-xs text-blue-600 hover:underline truncate"
-                                      >
-                                        {contact.email}
-                                      </a>
-                                    </div>
-                                  )}
-                                  {contact.phone && (
-                                    <div className="flex items-center space-x-1">
-                                      <Phone className="w-3 h-3 text-gray-400" />
-                                      <a 
-                                        href={`tel:${contact.phone}`} 
-                                        className="text-xs text-blue-600 hover:underline"
-                                      >
-                                        {contact.phone}
-                                      </a>
-                                    </div>
-                                  )}
-                                </div>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </TabsContent>
 
                       <TabsContent value="notes" className="mt-4 space-y-4">
                         <div>
@@ -1768,7 +1739,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
           </DialogHeader>
           
           <ScrollArea className="flex-1 py-4">
-            <div className="space-y-4 pr-4">
+            <div className="space-y-4 px-2 sm:px-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-1 block">企業名 *</Label>
@@ -1928,7 +1899,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
           </DialogHeader>
           
           <ScrollArea className="flex-1 py-4">
-            <div className="space-y-4 pr-4">
+            <div className="space-y-4 px-2 sm:px-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-1 block">企業名 *</Label>
