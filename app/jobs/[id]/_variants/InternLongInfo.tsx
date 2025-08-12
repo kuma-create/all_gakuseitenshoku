@@ -120,7 +120,7 @@ export default function InternInfo({
   const internship = job?.intern_long_details ?? job?.internship ?? {}
 
   const minDurationMonths = internship.min_duration_months ?? null
-  const minDurationDisplay = minDurationMonths ? `${minDurationMonths}ヶ月〜` : "応相談"
+  const minDurationDisplay = minDurationMonths ? `${minDurationMonths}ヶ月〜` : "-"
 
   const remunerationDisplay = (() => {
     const type = internship.remuneration_type ?? "hourly"
@@ -130,7 +130,7 @@ export default function InternInfo({
     if (internship.hourly_wage) {
       return `${internship.hourly_wage.toLocaleString()}円／時`
     }
-    return "要相談"
+    return "-"
   })()
 
   const workingDaysRaw =
@@ -141,7 +141,7 @@ export default function InternInfo({
   const workingDaysDisplay =
     typeof workingDaysRaw === "number"
       ? `週${workingDaysRaw}日`
-      : workingDaysRaw ?? "応相談"
+      : workingDaysRaw ?? "-"
 
 
   const workingHours =
@@ -149,7 +149,7 @@ export default function InternInfo({
       ? internship.working_hours
       : job?.working_hours && job.working_hours.trim() !== ""
           ? job.working_hours
-          : "9:00〜18:00（休憩1時間）";
+          : "-";
 
   const isNew =
     job?.created_at &&
