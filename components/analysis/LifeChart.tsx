@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { Plus, Edit3, Trash2, TrendingUp, TrendingDown, Calendar, Star, Award, Users, BookOpen, Heart, Target, Save, Download, Eye, EyeOff, ChevronRight, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { Card } from '../ui/card';
@@ -53,25 +53,19 @@ interface Insight {
   jobHuntApplication: string;
 }
 
-// Supabase upsert payload shape (keep fields optional except those required by insert)
+// Supabase upsert payload shape: match DB schema exactly
 type UpsertLifeEvent = {
   id?: string;
   user_id: string;
   title: string;
-  description?: string;
+  year: number;
+  month?: number;
+  note?: string;
   date: string;         // YYYY-MM-DD
-  age?: number;
   category: LifeEvent['category'];
   emotional_level?: number;
   impact_level?: number;
-  skills?: string[];
-  learnings?: string[];
-  values?: string[];
   is_private?: boolean;
-  star_situation?: string;
-  star_task?: string;
-  star_action?: string;
-  star_result?: string;
   job_relevant?: boolean;
   job_industries?: string[];
   job_job_types?: string[];
@@ -132,6 +126,110 @@ const initialFormState = {
   }
 };
 
+const EventDialogForm = React.memo(function EventDialogForm(props: {
+  initial: Partial<LifeEvent>;
+  categoryConfig: typeof categoryConfig;
+  onCancel: () => void;
+  onSave: (form: Partial<LifeEvent>) => void;
+}) {
+  const { initial, categoryConfig, onCancel, onSave } = props;
+  const [form, setForm] = React.useState<Partial<LifeEvent>>(() => ({ ...initial }));
+
+  React.useEffect(() => {
+    setForm({ ...initial });
+  }, [initial]);
+
+  const update = React.useCallback(<K extends keyof LifeEvent>(k: K, v: LifeEvent[K]) =>
+    setForm(p => ({ ...p, [k]: v })), []);
+
+  return (
+    <form
+      onSubmit={(e)=>{ e.preventDefault(); onSave(form); }}
+      className="space-y-6"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <Label htmlFor="title">タイトル *</Label>
+          <Input
+            id="title"
+            name="title"
+            type="text"
+            autoComplete="off"
+            inputMode="text"
+            autoCorrect="off"
+            spellCheck={false}
+            value={form.title ?? ''}
+            onChange={(e) => update('title', e.target.value as any)}
+            onKeyDown={(e)=>{ if(e.key==='Enter'&&!e.shiftKey) e.preventDefault(); }}
+            placeholder="例: 大学受験、サークル代表就任"
+          />
+        </div>
+        <div>
+          <Label htmlFor="date">日付 *</Label>
+          <Input id="date" name="date" type="date"
+            value={form.date || ''}
+            onChange={(e)=>update('date', e.target.value as any)} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <Label htmlFor="age">年齢</Label>
+          <Input id="age" name="age" type="number" min="0" max="100"
+            value={form.age ?? 18}
+            onChange={(e)=>update('age', (parseInt(e.target.value,10)||18) as any)} />
+        </div>
+        <div>
+          <Label id="category-label" htmlFor="category-trigger">カテゴリー</Label>
+          <Select value={(form.category as any) || 'personal'} onValueChange={(v)=>update('category' as any, v as any)}>
+            <SelectTrigger aria-labelledby="category-label" id="category-trigger" name="category">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(categoryConfig).map(([key, cfg])=>(
+                <SelectItem key={key} value={key}>
+                  <div className="flex items-center space-x-2">
+                    <cfg.icon className="w-4 h-4" />
+                    <span>{cfg.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="description">詳細説明</Label>
+        <Textarea
+          id="description"
+          name="description"
+          value={form.description ?? ''}
+          onChange={(e) => update('description', e.target.value as any)}
+          placeholder="この出来事について詳しく説明してください..."
+          rows={4}
+        />
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <input type="checkbox" id="isPrivate" name="isPrivate"
+          checked={form.isPrivate || false}
+          onChange={(e)=>update('isPrivate' as any, e.target.checked as any)}
+          className="rounded"/>
+        <Label htmlFor="isPrivate">プライベート（他人に公開しない）</Label>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-6 border-t">
+        <Button variant="outline" type="button" onClick={onCancel}>キャンセル</Button>
+        <Button type="submit" disabled={!form.title || !form.date}>
+          <Save className="w-4 h-4 mr-2" />
+          保存
+        </Button>
+      </div>
+    </form>
+  );
+});
+
 export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   const [events, setEvents] = useState<LifeEvent[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -147,13 +245,19 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   const [aiError, setAiError] = useState<string | null>(null);
 
   const [newEvent, setNewEvent] = useState<Partial<LifeEvent>>(initialFormState);
+  const [dialogKey, setDialogKey] = useState(0);
+  const initialEventRef = useRef<Partial<LifeEvent>>(initialFormState);
 
-  // モバイル検出を最初に1回だけ実行
+  // モバイル検出（幅のブレだけ監視）: 仮想キーボードでの高さ変化では再レンダーさせない
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    const mql = window.matchMedia('(max-width: 767.98px)');
+    setIsMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    // Safari 14 以前対策で addEventListener がなければ addListener を使う
+    const add = (mql as any).addEventListener ? 'addEventListener' : 'addListener';
+    const remove = (mql as any).removeEventListener ? 'removeEventListener' : 'removeListener';
+    (mql as any)[add]('change', handler);
+    return () => (mql as any)[remove]('change', handler);
   }, []);
 
   // データロード: userIdが変わるたびに実行
@@ -174,32 +278,38 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     }
   }, [events.length, insights.length, updateProgress]); // events.length のみに変更
 
-  const mapDbToLifeEvent = (row: any): LifeEvent => ({
-    id: row.id,
-    title: row.title ?? '',
-    description: row.description ?? '',
-    date: row.date,                 // 'YYYY-MM-DD'
-    age: row.age ?? 18,
-    category: row.category as LifeEvent['category'],
-    emotionalLevel: row.emotional_level ?? 0,
-    impactLevel: row.impact_level ?? 3,
-    skills: row.skills ?? [],
-    learnings: row.learnings ?? [],
-    values: row.values ?? [],
-    isPrivate: row.is_private ?? false,
-    starFramework: {
-      situation: row.star_situation ?? '',
-      task: row.star_task ?? '',
-      action: row.star_action ?? '',
-      result: row.star_result ?? '',
-    },
-    jobHuntRelevance: {
-      relevant: row.job_relevant ?? false,
-      industries: row.job_industries ?? [],
-      jobTypes: row.job_job_types ?? [],
-      keywords: row.job_keywords ?? [],
-    },
-  });
+  const mapDbToLifeEvent = (row: any): LifeEvent => {
+    // Compute year/month from columns or fallback to date
+    const y = row.year ?? (row.date ? new Date(row.date).getFullYear() : new Date().getFullYear());
+    const m = row.month ?? (row.date ? new Date(row.date).getMonth() + 1 : 1);
+    const computedAge = currentAge - (new Date().getFullYear() - y);
+    return {
+      id: row.id,
+      title: row.title ?? '',
+      description: row.note ?? '', // use note, not description
+      date: row.date ?? `${y}-${String(m).padStart(2,'0')}-01`,
+      age: computedAge,
+      category: row.category as LifeEvent['category'],
+      emotionalLevel: row.emotional_level ?? 0,
+      impactLevel: row.impact_level ?? 3,
+      skills: row.skills ?? [],
+      learnings: row.learnings ?? [],
+      values: row.values ?? [],
+      isPrivate: row.is_private ?? false,
+      starFramework: {
+        situation: row.star_situation ?? '',
+        task: row.star_task ?? '',
+        action: row.star_action ?? '',
+        result: row.star_result ?? '',
+      },
+      jobHuntRelevance: {
+        relevant: row.job_relevant ?? false,
+        industries: row.job_industries ?? [],
+        jobTypes: row.job_job_types ?? [],
+        keywords: row.job_keywords ?? [],
+      },
+    };
+  };
 
   const loadLifeEvents = useCallback(async () => {
     if (!userId) return;
@@ -273,53 +383,54 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     setShowEventDialog(false);
   }, []);
 
-  const handleSaveEvent = useCallback(async () => {
-    if (!newEvent.title || !newEvent.date || !userId) return;
+  const handleSaveEvent = useCallback(async (src?: Partial<LifeEvent>) => {
+    const e = src ?? newEvent;
+    if (!e.title || !e.date || !userId) return;
 
+    // Derive year and month from date
+    const d = new Date(e.date!);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+
+    // Payload for DB: match DB schema exactly
     const payload: UpsertLifeEvent = {
       ...(editingEvent ? { id: editingEvent.id } : {}),
       user_id: userId,
-      title: newEvent.title!,
-      description: newEvent.description || '',
-      date: newEvent.date!,            // 'YYYY-MM-DD'
-      age: newEvent.age ?? 18,
-      category: (newEvent.category as LifeEvent['category']) ?? 'personal',
-      emotional_level: newEvent.emotionalLevel ?? 0,
-      impact_level: newEvent.impactLevel ?? 3,
-      skills: newEvent.skills ?? [],
-      learnings: newEvent.learnings ?? [],
-      values: newEvent.values ?? [],
-      is_private: newEvent.isPrivate ?? false,
-      star_situation: newEvent.starFramework?.situation ?? '',
-      star_task: newEvent.starFramework?.task ?? '',
-      star_action: newEvent.starFramework?.action ?? '',
-      star_result: newEvent.starFramework?.result ?? '',
-      job_relevant: newEvent.jobHuntRelevance?.relevant ?? false,
-      job_industries: newEvent.jobHuntRelevance?.industries ?? [],
-      job_job_types: newEvent.jobHuntRelevance?.jobTypes ?? [],
-      job_keywords: newEvent.jobHuntRelevance?.keywords ?? [],
+      title: e.title!,
+      year: y,
+      month: m,
+      note: e.description || '',
+      date: e.date!,
+      category: (e.category as LifeEvent['category']) ?? 'personal',
+      emotional_level: e.emotionalLevel ?? 0,
+      impact_level: e.impactLevel ?? 3,
+      is_private: e.isPrivate ?? false,
+      job_relevant: e.jobHuntRelevance?.relevant ?? false,
+      job_industries: e.jobHuntRelevance?.industries ?? [],
+      job_job_types: e.jobHuntRelevance?.jobTypes ?? [],
+      job_keywords: e.jobHuntRelevance?.keywords ?? [],
     };
 
-    // Optimistic UI: if creating, generate a temp id to render immediately
+    // Optimistic UI
     const tempId = editingEvent?.id || `tmp-${Date.now()}`;
     const nextEvent: LifeEvent = {
       id: tempId,
       title: payload.title,
-      description: payload.description ?? '',
+      description: e.description ?? '',
       date: payload.date,
-      age: payload.age ?? 18,
+      age: currentAge - (new Date().getFullYear() - y),
       category: payload.category as LifeEvent['category'],
       emotionalLevel: payload.emotional_level ?? 0,
       impactLevel: payload.impact_level ?? 3,
-      skills: payload.skills ?? [],
-      learnings: payload.learnings ?? [],
-      values: payload.values ?? [],
+      skills: e.skills ?? [],
+      learnings: e.learnings ?? [],
+      values: e.values ?? [],
       isPrivate: payload.is_private ?? false,
       starFramework: {
-        situation: payload.star_situation ?? '',
-        task: payload.star_task ?? '',
-        action: payload.star_action ?? '',
-        result: payload.star_result ?? '',
+        situation: e.starFramework?.situation ?? '',
+        task: e.starFramework?.task ?? '',
+        action: e.starFramework?.action ?? '',
+        result: e.starFramework?.result ?? '',
       },
       jobHuntRelevance: {
         relevant: payload.job_relevant ?? false,
@@ -331,10 +442,13 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
     setEvents(prev => {
       if (editingEvent) {
-        return prev.map(e => e.id === editingEvent.id ? nextEvent : e);
+        return prev.map(ei => ei.id === editingEvent.id ? nextEvent : ei);
       }
       return [...prev, nextEvent];
     });
+
+    // Diagnostic log before upsert
+    console.debug('[lifeChart] upsert payload keys:', Object.keys(payload));
 
     let data;
     try {
@@ -344,7 +458,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
         .select('*')
         .single()
         .throwOnError();
-      data = res.data ?? res; // supabase-js v2 returns `data` key; be tolerant
+      data = res.data ?? res;
     } catch (err: any) {
       console.error('upsert life_events error (diagnostic):', {
         message: err?.message,
@@ -353,16 +467,15 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
         hint: err?.hint
       });
       if (!editingEvent) {
-        setEvents(prev => prev.filter(e => e.id !== tempId));
+        setEvents(prev => prev.filter(ei => ei.id !== tempId));
       }
       resetForm();
       return;
     }
 
     if (data) {
-      // replace temp item with actual DB row (id from uuid)
       const saved = mapDbToLifeEvent(data);
-      setEvents(prev => prev.map(e => (e.id === tempId || e.id === editingEvent?.id) ? saved : e));
+      setEvents(prev => prev.map(ei => (ei.id === tempId || ei.id === editingEvent?.id) ? saved : ei));
     }
 
     resetForm();
@@ -370,8 +483,9 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
 
   const handleEditEvent = useCallback((event: LifeEvent) => {
-    setNewEvent(event);
+    initialEventRef.current = event;
     setEditingEvent(event);
+    setDialogKey(k => k + 1);
     setShowEventDialog(true);
   }, []);
 
@@ -429,13 +543,6 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     URL.revokeObjectURL(url);
   }, [events, insights]);
 
-  // フォーム更新ハンドラーを最適化
-  const updateFormField = useCallback(<T extends keyof typeof newEvent>(
-    field: T, 
-    value: typeof newEvent[T]
-  ) => {
-    setNewEvent(prev => ({ ...prev, [field]: value }));
-  }, []);
 
   const generateInsightsAI = useCallback(async () => {
     setAiError(null);
@@ -624,6 +731,33 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     const minAge = Math.min(...displayEvents.map(e => e.age), 15);
     const span = Math.max(1, maxAge - minAge);
 
+    // Memoize event dots so that typing in the dialog does not cause the animated chart to rebuild on every keystroke
+    const eventDots = useMemo(() => {
+      return displayEvents.map((event, index) => {
+        const x = ((event.age - minAge) / span) * 100;
+        const y = ((5 - event.emotionalLevel) / 10) * 100;
+        const config = categoryConfig[event.category];
+        return (
+          <motion.div
+            key={event.id}
+            className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
+            style={{ left: `${x}%`, top: `${y}%` }}
+            initial={false} // 再レンダー時に初期アニメを再実行しない
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => handleEditEvent(event)}
+          >
+            <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${config.color} border-2 border-white shadow-lg`}></div>
+            <div className="absolute top-5 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="font-medium text-sm">{event.title}</div>
+              <div className="text-xs text-gray-500">{event.age}歳 • {config.label}</div>
+              <div className="text-xs text-gray-700 mt-1 max-w-40 truncate">{event.description}</div>
+            </div>
+          </motion.div>
+        );
+      });
+    }, [displayEvents, minAge, span]);
+
     return (
       <div className="space-y-6">
         <Card className="p-6">
@@ -672,30 +806,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
               {/* Events */}
               <div className="absolute left-12 right-0 top-4 bottom-8">
-                {displayEvents.map((event, index) => {
-                  const x = ((event.age - minAge) / span) * 100;
-                  const y = ((5 - event.emotionalLevel) / 10) * 100;
-                  const config = categoryConfig[event.category];
-
-                  return (
-                    <motion.div
-                      key={event.id}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
-                      style={{ left: `${x}%`, top: `${y}%` }}
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.1 }}
-                      onClick={() => handleEditEvent(event)}
-                    >
-                      <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${config.color} border-2 border-white shadow-lg`}></div>
-                      <div className="absolute top-5 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                        <div className="font-medium text-sm">{event.title}</div>
-                        <div className="text-xs text-gray-500">{event.age}歳 • {config.label}</div>
-                        <div className="text-xs text-gray-700 mt-1 max-w-40 truncate">{event.description}</div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                {eventDots}
               </div>
             </div>
           </div>
@@ -828,7 +939,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       }
       setShowEventDialog(open);
     }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>
             {editingEvent ? 'ライフイベントを編集' : '新しいライフイベントを追加'}
@@ -837,96 +948,13 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
             人生の重要な出来事を記録し、就活で活用できる形で整理しましょう
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="title">タイトル *</Label>
-              <Input
-                id="title"
-                value={newEvent.title || ''}
-                onChange={(e) => updateFormField('title', e.target.value)}
-                placeholder="例: 大学受験、サークル代表就任"
-              />
-            </div>
-            <div>
-              <Label htmlFor="date">日付 *</Label>
-              <Input
-                id="date"
-                type="date"
-                value={newEvent.date || ''}
-                onChange={(e) => updateFormField('date', e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="age">年齢</Label>
-              <Input
-                id="age"
-                type="number"
-                min="0"
-                max="100"
-                value={newEvent.age || 18}
-                onChange={(e) => updateFormField('age', parseInt(e.target.value) || 18)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="category">カテゴリー</Label>
-              <Select 
-                value={newEvent.category || 'personal'} 
-                onValueChange={(value) => updateFormField('category', value as any)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(categoryConfig).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>
-                      <div className="flex items-center space-x-2">
-                        <config.icon className="w-4 h-4" />
-                        <span>{config.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="description">詳細説明</Label>
-            <Textarea
-              id="description"
-              value={newEvent.description || ''}
-              onChange={(e) => updateFormField('description', e.target.value)}
-              placeholder="この出来事について詳しく説明してください..."
-              rows={4}
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="isPrivate"
-              checked={newEvent.isPrivate || false}
-              onChange={(e) => updateFormField('isPrivate', e.target.checked)}
-              className="rounded"
-            />
-            <Label htmlFor="isPrivate">プライベート（他人に公開しない）</Label>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button variant="outline" onClick={resetForm}>
-              キャンセル
-            </Button>
-            <Button onClick={handleSaveEvent} disabled={!newEvent.title || !newEvent.date}>
-              <Save className="w-4 h-4 mr-2" />
-              保存
-            </Button>
-          </div>
-        </div>
+        <EventDialogForm
+          key={dialogKey}
+          initial={initialEventRef.current}
+          categoryConfig={categoryConfig}
+          onCancel={resetForm}
+          onSave={(form) => { void handleSaveEvent(form); }}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -947,7 +975,12 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
               <Download className="w-4 h-4 mr-2" />
               就活用エクスポート
             </Button>
-            <Button onClick={() => setShowEventDialog(true)}>
+            <Button onClick={() => {
+              initialEventRef.current = initialFormState;
+              setEditingEvent(null);
+              setDialogKey(k => k + 1);
+              setShowEventDialog(true);
+            }}>
               <Plus className="w-4 h-4 mr-2" />
               イベント追加
             </Button>
