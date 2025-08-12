@@ -37,7 +37,7 @@ export default function CaseHomePage() {
       {/* タイトル & バナー */}
       <header className="mb-6 md:mb-8">
         <p className="text-xs font-medium uppercase tracking-wider text-sky-600">IPO</p>
-        <h1 className="mt-1 text-3xl md:text-4xl font-bold tracking-tight text-gray-900">ケース対策ハブ</h1>
+        <h1 className="mt-1 text-3xl md:text-4xl font-bold tracking-tight text-gray-900">ケース対策</h1>
         <p className="mt-2 text-sm md:text-base text-gray-600">ケース・Webテスト・面談対策をひとつの場所で。今の目的に合うメニューから始めましょう。</p>
       </header>
 

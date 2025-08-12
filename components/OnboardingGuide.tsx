@@ -75,7 +75,7 @@ const quickActions: QuickAction[] = [
   },
   {
     title: 'ケース問題を1問解く',
-    description: 'まずは/ipo/caseで1問だけ挑戦。解法の考え方も確認できます',
+    description: 'まずはケースで1問だけ挑戦。解法の考え方も確認できます',
     time: '10分',
     icon: PenTool,
     route: '/ipo/case',
@@ -209,19 +209,19 @@ const guideSteps: GuideStep[] = [
     prerequisite: [1, 3],
     tasks: [
       {
-        title: 'ケース問題を1問解く（/ipo/case/case）',
+        title: 'ケース問題を1問解く',
         description: '基礎的な問題で思考プロセスを確認します',
         estimatedTime: '10分',
         difficulty: '中級者'
       },
       {
         title: '面接の想定質問に答える',
-        description: 'よくある質問に短文で回答を作成（/ipo/analysis 内の想定質問セクション）',
+        description: 'よくある質問に短文で回答を作成',
         estimatedTime: '20分',
         difficulty: '初心者'
       },
       {
-        title: 'Webテストを10問解く（/ipo/case/webtest）',
+        title: 'Webテストを10問解く',
         description: '時間は気にせず、出題形式に慣れましょう',
         estimatedTime: '15分',
         difficulty: '初心者'
@@ -282,7 +282,7 @@ const guideSteps: GuideStep[] = [
     tasks: [
       {
         title: 'ダッシュボードを週1で確認',
-        description: '自己分析の空欄補充率・分析概要%をチェック',
+        description: '自己分析の空欄補充率・分析概要をチェック',
         estimatedTime: '5分',
         difficulty: '初心者'
       },
@@ -407,9 +407,6 @@ export function OnboardingGuide({
                       詳細
                     </button>
                   </div>
-                  <Button variant="outline" size="sm" onClick={onClose}>
-                    <X className="w-5 h-5" />
-                  </Button>
                 </div>
               </div>
               
@@ -851,13 +848,10 @@ export function OnboardingGuide({
                   <DialogOverlay />
                   <DialogContent className="p-0 w-full max-w-2xl rounded-lg border shadow-lg">
                     <div className="p-6">
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-start mb-4">
                         <h3 className="text-lg font-bold">
                           {currentStepData?.tasks[showTaskDetail.taskIndex]?.title}
                         </h3>
-                        <Button variant="outline" size="sm" onClick={() => setShowTaskDetail(null)}>
-                          <X className="w-4 h-4" />
-                        </Button>
                       </div>
                       
                       {currentStepData && (
