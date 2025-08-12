@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { Briefcase, Calendar, ChevronRight, Filter, Heart, MapPin, Search, Star, ClipboardList, Clock, Mic, GraduationCap } from "lucide-react"
+import { Briefcase, Calendar, ChevronRight, ChevronDown, Filter, Heart, MapPin, Search, Star, ClipboardList, Clock, Mic, GraduationCap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState, useRef } from "react"
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 // （Tabs 依存を削除したため、インポートも削除）
 import { supabase } from "@/lib/supabase/client"
@@ -85,6 +87,8 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   tags?: string[] | null
   cover_image_url?: string | null
   job_tags?: { tag: string }[] | null
+  event_date?: string | null
+  event_format?: string | null
 }
 
 const SALARY_MAX = 1200
@@ -98,6 +102,39 @@ const SELECTION_TYPES = [
   { value: "event", label: "説明会／イベント" },
 ] as const
 
+
+/* 業種（複数選択可・固定リスト） */
+const INDUSTRY_OPTIONS = [
+  "IT・通信",
+  "金融",
+  "広告・マーケティング",
+  "医療・福祉",
+  "メーカー",
+  "コンサルティング",
+  "サービス",
+  "教育",
+  "商社",
+  "マスコミ",
+  "小売・流通",
+  "公務員",
+] as const;
+
+/* 職種（複数選択可・固定リスト） */
+const JOB_TYPE_OPTIONS = [
+  "エンジニア",
+  "研究・開発",
+  "品質管理",
+  "デザイナー",
+  "営業",
+  "総務・人事",
+  "物流",
+  "生産管理",
+  "コンサルタント",
+  "経理・財務",
+  "企画・マーケティング",
+  "販売・サービス",
+] as const;
+
 /* 年収フィルターの選択肢 */
 const SALARY_OPTIONS = [
   { value: "all", label: "すべての年収" },
@@ -106,7 +143,15 @@ const SALARY_OPTIONS = [
   { value: "600", label: "600万以上" },
   { value: "800", label: "800万以上" },
   { value: "1000", label: "1000万以上" },
-] as const
+] as const;
+
+/* 開催形式フィルターの選択肢 */
+const EVENT_FORMAT_OPTIONS = [
+  { value: "all",     label: "すべての形式" },
+  { value: "online",  label: "オンライン" },
+  { value: "onsite", label: "対面" },
+  { value: "hybrid",  label: "ハイブリッド" },
+] as const;
 
 /* 特集バナー */
 const FEATURED_BANNERS = [
@@ -169,7 +214,7 @@ export default function JobsPage({
 
   /* UI filter states */
   // --- initialize filters from URL query parameters ---
-  const industryParam      = searchParams.get("industry")      ?? "all";
+  const industryParam      = searchParams.get("industry")      ?? "";
   const jobTypeParam       = searchParams.get("jobType")       ?? "all";
   // Accept both ?selectionType= and legacy ?type=
   const selectionTypeParam =
@@ -177,14 +222,40 @@ export default function JobsPage({
     searchParams.get("type") ??
     "all";
   const salaryMinParam     = searchParams.get("salaryMin")     ?? "all";
+  // イベント系フィルター（開催日・開催形式）
+  // 後方互換: eventDate があれば from に流し込む
+  const eventFromParam   = searchParams.get("eventFrom")   ?? (searchParams.get("eventDate") ?? "");
+  const eventToParam     = searchParams.get("eventTo")     ?? "";
+  const eventFormatParam = searchParams.get("eventFormat") ?? "all";
   // `search` is the committed keyword that triggers filtering.
   // `query` is the text the user is currently typing.
   const [search, setSearch] = useState(qParam);
   const [query, setQuery] = useState(qParam);
-  const [industry, setIndustry] = useState(industryParam);
-  const [jobType, setJobType] = useState(jobTypeParam);
+  const [industriesSelected, setIndustriesSelected] = useState<string[]>(industryParam ? industryParam.split(",").filter(Boolean) : []);
+  const [jobTypesSelected, setJobTypesSelected] = useState<string[]>(
+    jobTypeParam && jobTypeParam !== "all"
+      ? jobTypeParam.split(",").filter(Boolean)
+      : []
+  );
   const [selectionType, setSelectionType] = useState(selectionTypeParam);
   const [salaryMin, setSalaryMin] = useState<string>(salaryMinParam);
+  const [eventFrom, setEventFrom] = useState<string>(eventFromParam);
+  const [eventTo, setEventTo] = useState<string>(eventToParam);
+  const [eventFormat, setEventFormat] = useState<string>(eventFormatParam);
+  // 本選考以外を選んだら年収フィルターはリセット
+  useEffect(() => {
+    if (selectionType !== "fulltime" && salaryMin !== "all") {
+      setSalaryMin("all");
+    }
+  }, [selectionType]);
+  // 説明会／イベント と インターン（短期）以外ではイベント系フィルターをリセット
+  useEffect(() => {
+    if (!["event", "internship_short"].includes(selectionType)) {
+      if (eventFrom !== "") setEventFrom("");
+      if (eventTo !== "") setEventTo("");
+      if (eventFormat !== "all") setEventFormat("all");
+    }
+  }, [selectionType]);
   const [saved, setSaved] = useState<Set<string>>(new Set())
   // 最初に localStorage から読み取って saved セットを初期化
   useEffect(() => {
@@ -213,13 +284,16 @@ export default function JobsPage({
    * ------------------------------------------------------------
    */
   useEffect(() => {
-    const currentIndustry       = searchParams.get("industry")      ?? "all";
+    const currentIndustry       = searchParams.get("industry")      ?? "";
     const currentJobType        = searchParams.get("jobType")       ?? "all";
     const currentSelectionType =
       searchParams.get("selectionType") ??
       searchParams.get("type") ??
       "all";
     const currentSalaryMin      = searchParams.get("salaryMin")     ?? "all";
+    const currentEventFrom      = searchParams.get("eventFrom")     ?? (searchParams.get("eventDate") ?? "");
+    const currentEventTo        = searchParams.get("eventTo")       ?? "";
+    const currentEventFormat    = searchParams.get("eventFormat")   ?? "all";
     const currentQuery          = searchParams.get("q")             ?? "";
     const currentTab = (searchParams.get("tab") ?? "company") as
       | "company"
@@ -227,10 +301,17 @@ export default function JobsPage({
       | "intern"
       | "event";
 
-    setIndustry(currentIndustry);
-    setJobType(currentJobType);
+    setIndustriesSelected(currentIndustry ? currentIndustry.split(",").filter(Boolean) : []);
+    setJobTypesSelected(
+      currentJobType && currentJobType !== "all"
+        ? currentJobType.split(",").filter(Boolean)
+        : []
+    );
     setSelectionType(currentSelectionType);
     setSalaryMin(currentSalaryMin);
+    setEventFrom(currentEventFrom);
+    setEventTo(currentEventTo);
+    setEventFormat(currentEventFormat);
     setSearch(currentQuery);
     setQuery(currentQuery);
     setCategory(currentTab);
@@ -241,27 +322,29 @@ export default function JobsPage({
     const params = new URLSearchParams();
     if (qValue) params.set("q", qValue);
     params.set("tab", category);
-    if (industry !== "all") params.set("industry", industry);
-    if (jobType !== "all") params.set("jobType", jobType);
+    if (industriesSelected.length > 0) params.set("industry", industriesSelected.join(","));
+    if (jobTypesSelected.length > 0) {
+      params.set("jobType", jobTypesSelected.join(","));
+    }
     if (selectionType !== "all") {
       params.set("selectionType", selectionType);
       params.set("type", selectionType);          // legacy alias
     }
-    if (salaryMin !== "all") params.set("salaryMin", salaryMin);
+    if (selectionType === "fulltime" && salaryMin !== "all") {
+      params.set("salaryMin", salaryMin);
+    }
+    // 説明会／イベント と インターン（短期）のときのみ 開催日（開始）・形式を含める
+    // 終了日はインターン（短期）のときだけ含める
+    if (["event", "internship_short"].includes(selectionType)) {
+      if (eventFrom) params.set("eventFrom", eventFrom);
+      if (selectionType === "internship_short" && eventTo) {
+        params.set("eventTo", eventTo);
+      }
+      if (eventFormat !== "all") params.set("eventFormat", eventFormat);
+    }
     return params.toString();
   };
 
-  // --- keep the URL in sync when any filter changes (skip first render) ---
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    // stay on the current pathname; just update query parameters
-    const path = typeof window !== "undefined" ? window.location.pathname : "/jobs";
-    router.replace(`${path}?${buildParams()}`, { scroll: false });
-  }, [industry, jobType, selectionType, salaryMin, category]);
 
   /* ---------------- fetch ----------------- */
   useEffect(() => {
@@ -342,15 +425,7 @@ job_tags!job_tags_job_id_fkey (
   }, [])
 
   /* ------------- derived options ---------- */
-  const industries = useMemo(() => {
-    const set = new Set(jobs.map((j) => j.industry ?? "").filter(Boolean))
-    return ["all", ...Array.from(set)] as string[]
-  }, [jobs])
-
-  const jobTypes = useMemo(() => {
-    const set = new Set(jobs.map((j) => j.job_type ?? "").filter(Boolean))
-    return ["all", ...Array.from(set)] as string[]
-  }, [jobs])
+  // industries computed from jobs is no longer needed; use INDUSTRY_OPTIONS for options
 
   /* ------------- filter logic ------------- */
   const displayed = useMemo(() => {
@@ -362,11 +437,74 @@ job_tags!job_tags_job_id_fkey (
         j.companies?.name?.toLowerCase().includes(q) ||
         j.description?.toLowerCase().includes(q)
 
-      const matchesInd = industry === "all" || (j.industry ?? "").toLowerCase().includes(industry.toLowerCase())
+      const matchesInd =
+        industriesSelected.length === 0 ||
+        industriesSelected.some((opt) => (j.industry ?? "").toLowerCase().includes(opt.toLowerCase()));
 
-      const matchesJob = jobType === "all" || (j.job_type ?? "").toLowerCase().includes(jobType.toLowerCase())
+      const matchesJob =
+        jobTypesSelected.length === 0 ||
+        jobTypesSelected.some((opt) => (j.job_type ?? "").toLowerCase().includes(opt.toLowerCase()));
 
-      const matchesSalary = salaryMin === "all" || (j.salary_max ?? j.salary_min ?? 0) >= Number(salaryMin)
+      // 開催形式・開催日（説明会／イベント・インターン（短期）のときのみ適用）
+      const eventLike = ["event", "internship_short"].includes(selectionType);
+      const matchesEventFormat = eventLike
+        ? (eventFormat === "all" || (j.event_format ?? "") === eventFormat)
+        : true;
+
+      // 開催日: 期間指定（YYYY-MM）の文字列比較で範囲判定
+      // イベントは event_date(月)を単一点で判定
+      // インターン（短期）は start_date〜end_date の「期間」とユーザー指定範囲の重なりで判定
+      const effectiveEventTo = selectionType === "internship_short" ? eventTo : "";
+
+      // 文字列比較のため YYYY-MM に正規化するヘルパ
+      const toMonth = (v?: string | null) => (v ? v.slice(0, 7) : "");
+
+      // 各タイプごとの基準フィールド
+      const eventMonth = selectionType === "event" ? toMonth(j.event_date) : "";
+      const internStartMonth =
+        selectionType === "internship_short" ? toMonth((j as any).start_date) : "";
+      const internEndMonth =
+        selectionType === "internship_short"
+          ? toMonth((j as any).end_date || (j as any).start_date)
+          : "";
+
+      // 重なり判定（[aStart,aEnd] と [bStart,bEnd] が1日でも重なれば true）
+      // ここでは月単位なので文字列比較でOK（YYYY-MM フォーマット）
+      const rangesOverlap = (aStart: string, aEnd: string, bStart: string, bEnd: string) => {
+        // 空値を含む場合の安全側ロジック
+        if (!aStart && !aEnd) return true; // ユーザー側未指定
+        if (!bStart && !bEnd) return false; // 求人側未設定
+        const effAStart = aStart || "0000-00";
+        const effAEnd   = aEnd   || "9999-99";
+        const effBStart = bStart || "0000-00";
+        const effBEnd   = bEnd   || "9999-99";
+        return !(effBEnd < effAStart || effBStart > effAEnd);
+      };
+
+      const matchesEventDate = eventLike
+        ? (
+            // イベント: event_date が from〜to(※toはイベントでは無視される)の範囲に入るか
+            selectionType === "event"
+              ? (
+                  (!eventFrom ? true : (!!eventMonth && eventMonth === eventFrom))
+                )
+              : (
+                  // インターン（短期）: 期間重なりで判定
+                  rangesOverlap(
+                    eventFrom || "",                // ユーザー開始月
+                    effectiveEventTo || "",         // ユーザー終了月
+                    internStartMonth,               // 求人開始月
+                    internEndMonth                  // 求人終了月(なければ開始月で代替)
+                  )
+                )
+          )
+        : true;
+
+      // 年収フィルターは本選考のときのみ適用
+      const matchesSalary =
+        selectionType === "fulltime"
+          ? (salaryMin === "all" || (j.salary_max ?? j.salary_min ?? 0) >= Number(salaryMin))
+          : true;
 
       // treat legacy & canonical keys as identical
       const isSameSelection = (
@@ -384,9 +522,17 @@ job_tags!job_tags_job_id_fkey (
 
       const matchesCategory = isSameSelection(selectionType, j.selection_type);
 
-      return matchesQ && matchesInd && matchesJob && matchesSalary && matchesCategory
+      return (
+        matchesQ &&
+        matchesInd &&
+        matchesJob &&
+        matchesSalary &&
+        matchesEventFormat &&
+        matchesEventDate &&
+        matchesCategory
+      );
     })
-  }, [jobs, search, industry, jobType, salaryMin, selectionType])
+  }, [jobs, search, industriesSelected, jobTypesSelected, salaryMin, selectionType, eventFrom, eventTo, eventFormat])
 
   const closingSoon = useMemo(() => {
     return jobs.filter((j) => {
@@ -431,6 +577,11 @@ job_tags!job_tags_job_id_fkey (
     const committed = query.trim();
     setSearch(committed);                 // update filter keyword
     router.push(`/jobs/list?${buildParams(committed)}`);
+  };
+  const applyFilters = () => {
+    const path = typeof window !== "undefined" ? window.location.pathname : "/jobs/list";
+    router.push(`${path}?${buildParams()}`);
+    setFilterOpen(false);
   };
 
   if (loading) {
@@ -552,20 +703,30 @@ job_tags!job_tags_job_id_fkey (
                     フィルター
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
-                  <FilterPanel
-                    industries={industries}
-                    jobTypes={jobTypes}
-                    industry={industry}
-                    setIndustry={setIndustry}
-                    jobType={jobType}
-                    setJobType={setJobType}
-                    selectionType={selectionType}
-                    setSelectionType={setSelectionType}
-                    salaryMin={salaryMin}
-                    setSalaryMin={setSalaryMin}
-                  />
-                </SheetContent>
+              <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
+                <FilterPanel
+                  jobTypeOptions={JOB_TYPE_OPTIONS as unknown as string[]}
+                  industriesSelected={industriesSelected}
+                  setIndustriesSelected={setIndustriesSelected}
+                  jobTypesSelected={jobTypesSelected}
+                  setJobTypesSelected={setJobTypesSelected}
+                  selectionType={selectionType}
+                  setSelectionType={setSelectionType}
+                  salaryMin={salaryMin}
+                  setSalaryMin={setSalaryMin}
+                  eventFrom={eventFrom}
+                  setEventFrom={setEventFrom}
+                  eventTo={eventTo}
+                  setEventTo={setEventTo}
+                  eventFormat={eventFormat}
+                  setEventFormat={setEventFormat}
+                />
+                <div className="mt-4">
+                  <Button className="w-full rounded-full" onClick={applyFilters}>
+                    この条件で検索
+                  </Button>
+                </div>
+              </SheetContent>
               </Sheet>
 
               {/* grid/list toggle */}
@@ -603,31 +764,17 @@ job_tags!job_tags_job_id_fkey (
 
             {/* desktop inline filters */}
             <div className="mt-4 hidden flex-wrap gap-3 md:flex">
-              <Select value={industry} onValueChange={setIndustry}>
-                <SelectTrigger className="w-40 rounded-full">
-                  <SelectValue placeholder="業界" />
-                </SelectTrigger>
-                <SelectContent>
-                  {industries.map((i) => (
-                    <SelectItem key={i} value={i}>
-                      {i === "all" ? "すべての業界" : i}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <IndustryMultiSelect
+                selected={industriesSelected}
+                onChange={setIndustriesSelected}
+                options={INDUSTRY_OPTIONS as unknown as string[]}
+              />
 
-              <Select value={jobType} onValueChange={setJobType}>
-                <SelectTrigger className="w-40 rounded-full">
-                  <SelectValue placeholder="職種" />
-                </SelectTrigger>
-                <SelectContent>
-                  {jobTypes.map((j) => (
-                    <SelectItem key={j} value={j}>
-                      {j === "all" ? "すべての職種" : j}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <JobTypeMultiSelect
+                selected={jobTypesSelected}
+                onChange={setJobTypesSelected}
+                options={JOB_TYPE_OPTIONS as unknown as string[]}
+              />
 
               <Select value={selectionType} onValueChange={setSelectionType}>
                 <SelectTrigger className="w-48 rounded-full">
@@ -642,39 +789,76 @@ job_tags!job_tags_job_id_fkey (
                 </SelectContent>
               </Select>
 
-              <Select value={salaryMin} onValueChange={setSalaryMin}>
-                <SelectTrigger className="w-40 rounded-full">
-                  <SelectValue placeholder="年収" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SALARY_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {selectionType === "fulltime" && (
+                <Select value={salaryMin} onValueChange={setSalaryMin}>
+                  <SelectTrigger className="w-40 rounded-full">
+                    <SelectValue placeholder="年収" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SALARY_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {["event", "internship_short"].includes(selectionType) && (
+                <>
+                  <DateInputWithPlaceholder
+                    value={eventFrom}
+                    onChange={setEventFrom}
+                    placeholder="開始日"
+                    className="w-44"
+                  />
+                  {selectionType === "internship_short" && (
+                    <DateInputWithPlaceholder
+                      value={eventTo}
+                      onChange={setEventTo}
+                      placeholder="終了日"
+                      className="w-44"
+                    />
+                  )}
+                  <Select value={eventFormat} onValueChange={setEventFormat}>
+                    <SelectTrigger className="w-44 rounded-full">
+                      <SelectValue placeholder="開催形式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EVENT_FORMAT_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
+              <Button className="rounded-full" onClick={applyFilters}>
+                この条件で検索
+              </Button>
             </div>
+           
 
-            {/* 注目のキーワード (Featured Keywords) */}
+            {/* 注目のキーワード (Featured Keywords) — 一時停止中
             <div className="mt-4">
               <h3 className="mb-2 text-sm font-semibold text-gray-700">注目キーワード</h3>
-            <div className="flex flex-wrap gap-2">
-              {FEATURED_KEYWORDS.map((kw) => (
-                <Badge
-                  key={kw}
-                  className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
-                  onClick={() => {
-                    setQuery(kw);
-                    setSearch(kw);
-                    router.push(`/jobs/list?${buildParams(kw)}`);
-                  }}
-                >
-                  {kw}
-                </Badge>
-              ))}
+              <div className="flex flex-wrap gap-2">
+                {FEATURED_KEYWORDS.map((kw) => (
+                  <Badge
+                    key={kw}
+                    className="bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer rounded-full px-3"
+                    onClick={() => {
+                      setQuery(kw);
+                      setSearch(kw);
+                      router.push(`/jobs/list?${buildParams(kw)}`);
+                    }}
+                  >
+                    {kw}
+                  </Badge>
+                ))}
+              </div>
             </div>
-            </div>
+            */}
           </div>
         </div>
       </section>
@@ -872,14 +1056,6 @@ job_tags!job_tags_job_id_fkey (
         />
       </section>
 
-      {/* Footer */}
-      <footer className="flex flex-col gap-2 sm:flex-row w-full shrink-0 items-center border-t bg-white px-4 py-6 md:px-6">
-        <p className="text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} Make Culture. All rights reserved.
-        </p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-        </nav>
-      </footer>
     </div>
     </>
   )
@@ -907,56 +1083,87 @@ function CategoryHeader({
 }
 
 /* =============== components ================ */
+/** Date input that shows a visible placeholder until focused/filled */
+function DateInputWithPlaceholder({
+  value,
+  onChange,
+  placeholder,
+  className = "",
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+  className?: string
+}) {
+  const [isDateMode, setIsDateMode] = useState(false);
+
+  return (
+    <div className={`relative ${className}`}>
+      <Input
+        type={isDateMode ? "month" : "text"}
+        value={value}
+        onFocus={() => setIsDateMode(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.value) setIsDateMode(false);
+        }}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-full pr-10"
+        placeholder={isDateMode ? "" : placeholder}
+        aria-label={placeholder}
+      />
+      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+        <Calendar size={16} />
+      </div>
+    </div>
+  );
+}
+
 function FilterPanel({
-  industries,
-  jobTypes,
-  industry,
-  setIndustry,
-  jobType,
-  setJobType,
+  jobTypeOptions,
+  industriesSelected,
+  setIndustriesSelected,
+  jobTypesSelected,
+  setJobTypesSelected,
   selectionType,
   setSelectionType,
   salaryMin,
   setSalaryMin,
+  eventFrom,
+  setEventFrom,
+  eventTo,
+  setEventTo,
+  eventFormat,
+  setEventFormat,
 }: {
-  industries: string[]
-  jobTypes: string[]
-  industry: string
-  setIndustry: (v: string) => void
-  jobType: string
-  setJobType: (v: string) => void
+  jobTypeOptions: string[]
+  industriesSelected: string[]
+  setIndustriesSelected: (v: string[]) => void
+  jobTypesSelected: string[]
+  setJobTypesSelected: (v: string[]) => void
   selectionType: string
   setSelectionType: (v: string) => void
   salaryMin: string
   setSalaryMin: (v: string) => void
+  eventFrom: string
+  setEventFrom: (v: string) => void
+  eventTo: string
+  setEventTo: (v: string) => void
+  eventFormat: string
+  setEventFormat: (v: string) => void
 }) {
   return (
     <div className="space-y-4 py-4">
-      <Select value={industry} onValueChange={setIndustry}>
-        <SelectTrigger className="rounded-full">
-          <SelectValue placeholder="業界" />
-        </SelectTrigger>
-        <SelectContent>
-          {industries.map((i) => (
-            <SelectItem key={i} value={i}>
-              {i === "all" ? "すべての業界" : i}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <IndustryMultiSelect
+        selected={industriesSelected}
+        onChange={setIndustriesSelected}
+        options={INDUSTRY_OPTIONS as unknown as string[]}
+      />
 
-      <Select value={jobType} onValueChange={setJobType}>
-        <SelectTrigger className="rounded-full">
-          <SelectValue placeholder="職種" />
-        </SelectTrigger>
-        <SelectContent>
-          {jobTypes.map((j) => (
-            <SelectItem key={j} value={j}>
-              {j === "all" ? "すべての職種" : j}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <JobTypeMultiSelect
+        selected={jobTypesSelected}
+        onChange={setJobTypesSelected}
+        options={jobTypeOptions}
+      />
 
       <Select value={selectionType} onValueChange={setSelectionType}>
         <SelectTrigger className="rounded-full">
@@ -971,20 +1178,101 @@ function FilterPanel({
         </SelectContent>
       </Select>
 
-      <Select value={salaryMin} onValueChange={setSalaryMin}>
-        <SelectTrigger className="rounded-full">
-          <SelectValue placeholder="年収" />
-        </SelectTrigger>
-        <SelectContent>
-          {SALARY_OPTIONS.map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {selectionType === "fulltime" && (
+        <Select value={salaryMin} onValueChange={setSalaryMin}>
+          <SelectTrigger className="rounded-full">
+            <SelectValue placeholder="年収" />
+          </SelectTrigger>
+          <SelectContent>
+            {SALARY_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {["event", "internship_short"].includes(selectionType) && (
+        <>
+          <DateInputWithPlaceholder
+            value={eventFrom}
+            onChange={setEventFrom}
+            placeholder="開始日"
+          />
+          {selectionType === "internship_short" && (
+            <DateInputWithPlaceholder
+              value={eventTo}
+              onChange={setEventTo}
+              placeholder="終了日"
+            />
+          )}
+          <Select value={eventFormat} onValueChange={setEventFormat}>
+            <SelectTrigger className="rounded-full">
+              <SelectValue placeholder="開催形式" />
+            </SelectTrigger>
+            <SelectContent>
+              {EVENT_FORMAT_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
+      )}
     </div>
   )
+}
+
+function IndustryMultiSelect({
+  options,
+  selected,
+  onChange,
+}: {
+  options: string[]
+  selected: string[]
+  onChange: (v: string[]) => void
+}) {
+  const toggle = (opt: string) => {
+    if (selected.includes(opt)) {
+      onChange(selected.filter((v) => v !== opt));
+    } else {
+      onChange([...selected, opt]);
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="rounded-full min-w-[10rem] justify-between">
+          <span>業種{selected.length > 0 ? `（${selected.length}）` : ""}</span>
+          <ChevronDown className="h-4 w-4 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold">業種（複数選択可）</span>
+          {selected.length > 0 && (
+            <button
+              type="button"
+              className="text-xs text-red-600 hover:underline"
+              onClick={() => onChange([])}
+            >
+              クリア
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          {options.map((opt) => (
+            <label key={opt} className="flex items-center gap-2 text-sm">
+              <Checkbox checked={selected.includes(opt)} onCheckedChange={() => toggle(opt)} />
+              <span>{opt}</span>
+            </label>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function JobGrid({
@@ -1172,4 +1460,55 @@ function JobGrid({
       ))}
     </div>
   )
+}
+
+function JobTypeMultiSelect({
+  options,
+  selected,
+  onChange,
+}: {
+  options: string[]
+  selected: string[]
+  onChange: (v: string[]) => void
+}) {
+  const toggle = (opt: string) => {
+    if (selected.includes(opt)) {
+      onChange(selected.filter((v) => v !== opt));
+    } else {
+      onChange([...selected, opt]);
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="rounded-full min-w-[10rem] justify-between">
+          <span>職種{selected.length > 0 ? `（${selected.length}）` : ""}</span>
+          <ChevronDown className="h-4 w-4 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold">職種（複数選択可）</span>
+          {selected.length > 0 && (
+            <button
+              type="button"
+              className="text-xs text-red-600 hover:underline"
+              onClick={() => onChange([])}
+            >
+              クリア
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          {options.map((opt) => (
+            <label key={opt} className="flex items-center gap-2 text-sm">
+              <Checkbox checked={selected.includes(opt)} onCheckedChange={() => toggle(opt)} />
+              <span>{opt}</span>
+            </label>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
