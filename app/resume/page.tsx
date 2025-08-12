@@ -372,7 +372,53 @@ export default function ResumePage() {
   });
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [formData, setFormData] = useState<FormData>(DEFAULT_FORM_DATA);
+
+  // 既定フォーム（深いマージに使う）
+  const DEFAULT_FORM: FormData = {
+    basic: {
+      lastName: "",
+      firstName: "",
+      lastNameKana: "",
+      firstNameKana: "",
+      birthdate: "",
+      gender: "male",
+      email: "",
+      phone: "",
+      address: "",
+    },
+    education: {
+      university: "",
+      faculty: "",
+      admissionDate: "",
+      graduationDate: "",
+      status: "enrolled",
+      researchTheme: "",
+    },
+    skills: {
+      certifications: "",
+      skills: "",
+      languages: "",
+      frameworks: "",
+      tools: "",
+    },
+    pr: {
+      title: "",
+      content: "",
+      strengths: ["", "", ""],
+      motivation: "",
+    },
+    conditions: {
+      industries: [],
+      jobTypes: [],
+      locations: [],
+      workStyle: "",
+      salary: "",
+      workPreferences: [],
+      remarks: "",
+    },
+  };
+
+  const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
 
   // 初期ロード済みフラグ
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -1087,12 +1133,12 @@ export default function ResumePage() {
               : []
           }
           educations={
-            formData.education.university
+            formData.education?.university
               ? [
                   `${
-                    formData.education.graduationDate ||
-                    formData.education.admissionDate
-                  } ${formData.education.university} ${formData.education.faculty}`,
+                    formData.education?.graduationDate ||
+                    formData.education?.admissionDate || ""
+                  } ${formData.education?.university || ""} ${formData.education?.faculty || ""}`,
                 ]
               : []
           }
