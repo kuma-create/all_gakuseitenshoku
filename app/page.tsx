@@ -22,6 +22,9 @@ import {
   Calendar,
   Star,
   MapPin,
+  MessageSquare,
+  Trophy,
+  ChevronRight,
 } from "lucide-react"
 import ArticleCard from "@/components/article-card"
 import TrendingTopics from "@/components/trending-topics"
@@ -41,10 +44,13 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from "@/components/ui/card"
 
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
+import { LazyImage } from "@/components/ui/lazy-image"
 
 
 
@@ -460,6 +466,317 @@ return (
           animation: heroBg 12s ease-in-out infinite;
         }
       `}</style>
+      
+      {/* Features Section */}
+      <section id="features" className="pt-8 pb-16 sm:py-20 md:py-28">
+        <div className="container px-4 md:px-6">
+          <div className="mx-auto max-w-3xl text-center mb-16">
+          <span className="mb-8 inline-block bg-gradient-to-r from-red-600 via-red-500 to-orange-400 bg-clip-text text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold tracking-tight text-transparent">
+            学生転職とは
+          </span>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold leading-snug tracking-tight">
+              長期インターンやアルバイトの<span className="text-red-600">経歴</span>にスカウトが届く
+              新しいハイキャリア就活サービス
+            </h2>
+            <p className="mt-4 text-gray-600">
+              学生転職は、従来の就活の常識を覆す新しいスカウトオファーサービスです。
+              これまでの経験を企業にアピールし
+              スキルに見合った年収・ポジション付きの評価のあるオファーを受け取ってみませんか？
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            <Card className="relative overflow-hidden border-0 bg-white shadow-lg transition-all duration-200 hover:shadow-xl">
+              <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
+              <CardHeader className="pb-2">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                  <Search className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-xl">スカウト型で効率的なマッチング</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  あなたのプロフィールを見た企業から直接オファーが届きます。
+                  自分に興味を持った企業とだけ話を進められるので、効率的に就活ができます。
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-0 bg-white shadow-lg transition-all duration-200 hover:shadow-xl">
+              <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
+              <CardHeader className="pb-2">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                  <MessageSquare className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-xl">職務経歴書で自分らしさをPR</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  あなたの経験やスキルを職務経歴書として整理。
+                  自己分析をサポートし、企業に自分の強みを効果的にアピールできます。
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-0 bg-white shadow-lg transition-all duration-200 hover:shadow-xl">
+              <div className="absolute top-0 left-0 h-1 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
+              <CardHeader className="pb-2">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                  <Trophy className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-xl">就活グランプリでチャンス拡大</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  ビジネススキルを可視化するオンラインコンテスト。
+                  自分の強みと弱みを客観的に把握でき、企業からの注目度もアップします。
+                </p>
+              </CardContent>
+
+            </Card>
+          </div>
+        </div>
+      </section>
+      
+
+      {/* How It Works Section */}
+      <section id="how-it-works" className="bg-gray-50 py-20 md:py-28">
+        <div className="container px-4 md:px-6">
+          <div className="mx-auto max-w-3xl text-center mb-16">
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200 text-2lg">スカウトまでの流れ</Badge>
+            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+              <span className="text-red-600">3ステップ</span>で理想の企業と出会う
+            </h2>
+            <p className="mt-4 text-gray-600">
+              プロフィール作成や就活グランプリへの参加であなたの市場価値を高めましょう。
+              市場価値が高いほど驚きのスカウトが届く！
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 transform bg-gray-200 md:hidden"></div>
+            <div className="hidden md:block">
+              <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 transform bg-gray-200"></div>
+            </div>
+
+            <div className="grid gap-12 md:grid-cols-3">
+              <div className="relative">
+                <div className="relative z-10 mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white md:mx-0">
+                  <span className="text-xl font-bold">1</span>
+                </div>
+                <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
+                  <h3 className="mb-3 text-xl font-bold">プロフィール登録</h3>
+                  <p className="text-gray-600">
+                    あなたのスキルや経験、希望する業界などを入力し、魅力的なプロフィールを作成。
+                    職務経歴書を作成して、自分の強みをアピールしましょう。
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="relative z-10 mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white md:mx-0">
+                  <span className="text-xl font-bold">2</span>
+                </div>
+                <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
+                  <h3 className="mb-3 text-xl font-bold">市場価値を高める</h3>
+                  <p className="text-gray-600">
+                    職務経歴書のブラッシュアップや就活グランプリなどの参加を通じて
+                    自身の市場地を高めていきましょう。
+                    プロフィールや就活グランプリの結果によりスカウトの内容が変わってきます。
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="relative z-10 mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white md:mx-0">
+                  <span className="text-xl font-bold">3</span>
+                </div>
+                <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
+                  <h3 className="mb-3 text-xl font-bold">スカウトを受け取る</h3>
+                  <p className="text-gray-600">
+                    あなたのプロフィールに興味を持った企業から直接スカウトメッセージが届きます。
+                    興味のある企業とコミュニケーションを取りましょう。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-16 text-center">
+            <Button size="lg" className="bg-red-600 px-8 hover:bg-red-700" asChild>
+              <Link href="/signup">
+                今すぐ始める
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-20 md:py-28">
+        <div className="container px-4 md:px-6">
+          <div className="mx-auto max-w-3xl text-center mb-16">
+            <Badge className="mb-4 bg-red-100 text-red-600 hover:bg-red-200 text-2lg">利用者の声</Badge>
+            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+              <span className="text-red-600">先輩たち</span>の成功体験
+            </h2>
+            <p className="mt-4 text-gray-600">学生転職を利用して理想の企業に内定した先輩たちの声をご紹介します。</p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
+              <div className="mb-6 flex items-center gap-4">
+                <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
+                  <LazyImage src="/student_tanaka.jpg" alt="田中さんのプロフィール" fill className="object-cover" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">田中 美咲</h3>
+                  <p className="text-sm text-gray-500">早稲田大学 商学部</p>
+                </div>
+              </div>
+              <div className="mb-4 flex">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                ))}
+              </div>
+              <p className="mb-4 text-gray-600">
+                「新規事業や経営などビジネスの最上流に若いうちから携わりたいと思い、
+                コンサルファームと事業会社を両面で見ていました。ネットで調べても絶対に出会えなかった
+                事業会社から多数スカウトが届き結果経営幹部待遇での内定をもらうことができました。」
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <span className="font-medium text-gray-500">内定先：</span>
+                <span className="font-medium">BCGコンサルティング</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
+              <div className="mb-6 flex items-center gap-4">
+                <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
+                  <LazyImage src="/student_sato.jpg" alt="佐藤さんのプロフィール" fill className="object-cover" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">佐藤 健太</h3>
+                  <p className="text-sm text-gray-500">東京大学 工学部</p>
+                </div>
+              </div>
+              <div className="mb-4 flex">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                ))}
+              </div>
+              <p className="mb-4 text-gray-600">
+                「エントリーシートを書く前に職務経歴書を作成したことで、自分の強みを整理できました。
+                スカウト機能で知らなかったベンチャー企業と出会い、今はエンジニアとして活躍しています。」
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <span className="font-medium text-gray-500">内定先：</span>
+                <span className="font-medium">リブ・コンサルティング</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-6 shadow-lg transition-all duration-200 hover:shadow-xl">
+              <div className="mb-6 flex items-center gap-4">
+                <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-red-100">
+                  <LazyImage src="/studetn_suzuki.jpg" alt="鈴木さんのプロフィール" fill className="object-cover" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">鈴木 優子</h3>
+                  <p className="text-sm text-gray-500">慶應義塾大学 経済学部</p>
+                </div>
+              </div>
+              <div className="mb-4 flex">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                ))}
+              </div>
+              <p className="mb-4 text-gray-600">
+                「学生時代からAI系の受託会社にてエンジニアをしていましたが、新卒ではAI×〇〇領域で新規事業に挑戦してみたいと考えていました。
+                AI領域のスタートアップが増えている中でAIを活用した未来の姿や自分のやりたいことの全てにマッチした企業と出会うことができました。」
+              </p>
+              <div className="flex items-center gap-1 text-sm">
+                <span className="font-medium text-gray-500">内定先：</span>
+                <span className="font-medium">株式会社日本製造</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section id="faq" className="bg-gray-50 py-20 md:py-28">
+        <div className="container px-4 md:px-6">
+          <div className="mx-auto max-w-3xl text-center mb-16">
+            <Badge className="mb-8 bg-red-100 text-red-600 hover:bg-red-200 text-2lg">よくある質問</Badge>
+            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+              <span className="text-red-600">疑問</span>にお答えします
+            </h2>
+            <p className="mt-4 text-gray-600">
+              学生転職についてよくある質問をまとめました。 その他のご質問はお問い合わせフォームからお気軽にどうぞ。
+            </p>
+          </div>
+
+          <div className="mx-auto max-w-3xl">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1" className="border rounded-lg mb-4 bg-white">
+                <AccordionTrigger className="px-6 py-4 text-left text-lg font-medium hover:no-underline">
+                  逆求人型就活とは何ですか？
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4 text-gray-600">
+                  逆求人型就活とは、学生が企業に応募するのではなく、企業から学生にスカウトが届く仕組みです。
+                  あなたのプロフィールや職務経歴書を見た企業から直接オファーが届くため、
+                  効率的に就活を進めることができます。自分に興味を持った企業とだけコミュニケーションを取れるのが特徴です。
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-2" className="border rounded-lg mb-4 bg-white">
+                <AccordionTrigger className="px-6 py-4 text-left text-lg font-medium hover:no-underline">
+                  職務経歴書って難しいですか？
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4 text-gray-600">
+                  学生転職では、学生向けに最適化された職務経歴書のテンプレートを用意しています。
+                  アルバイトやインターン、ゼミやサークル活動など、学生時代の経験を整理するガイドラインがあるので、
+                  初めての方でも簡単に作成できます。また、AIによる文章の添削機能もあり、より魅力的な職務経歴書を作成できます。
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-3" className="border rounded-lg mb-4 bg-white">
+                <AccordionTrigger className="px-6 py-4 text-left text-lg font-medium hover:no-underline">
+                  就活グランプリとは何ですか？
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4 text-gray-600">
+                  就活グランプリは、ビジネスケース、Webテスト、ビジネス戦闘力診断の3つのコンテンツで
+                  あなたのスキルを客観的に評価するオンラインコンテストです。
+                  参加することで自分の強みと弱みを把握でき、企業にもその結果をアピールできます。
+                  上位入賞者には、企業への推薦や選考免除などの特典もあります。
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-4" className="border rounded-lg mb-4 bg-white">
+                <AccordionTrigger className="px-6 py-4 text-left text-lg font-medium hover:no-underline">
+                  学生転職の利用は無料ですか？
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4 text-gray-600">
+                  はい、学生転職は学生の方は完全無料でご利用いただけます。
+                  登録、プロフィール作成、企業とのメッセージのやり取り、就活グランプリへの参加など、
+                  すべての機能を無料でご利用いただけます。
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-5" className="border rounded-lg bg-white">
+                <AccordionTrigger className="px-6 py-4 text-left text-lg font-medium hover:no-underline">
+                  どのような企業が登録していますか？
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4 text-gray-600">
+                  大手企業からベンチャー、スタートアップまで、様々な業界の1,200社以上の企業が登録しています。
+                  IT・通信、コンサルティング、メーカー、金融、広告・マスコミなど、幅広い業界の企業があなたとの出会いを待っています。
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </div>
+      </section>
 
       {/* Featured Video & Side Articles — temporarily disabled */}
       {false && (
@@ -521,7 +838,7 @@ return (
       )}
 
       {/* Trending Articles Section ----------------------------------------- */}
-      <section id="trending-articles" className="max-w-6xl mx-auto px-4 py-12">
+      {/* <section id="trending-articles" className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">
             トレンド記事
@@ -547,7 +864,7 @@ return (
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* 
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -774,175 +1091,6 @@ return (
           )}
         </div>
       </section>
-
-
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-
-        {/* Enhanced Tabs Navigation like NewsPicks */}
-        <Tabs defaultValue="news" className="mb-10">
-          <div className="border-b sticky top-14 z-40 bg-white md:static md:bg-transparent px-4">
-            <div className="max-w-6xl mx-auto flex items-center justify-between">
-              {/* --- Tab Navigation --- */}
-              <TabsList className="flex-1 justify-start bg-transparent h-12 p-0 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                <TabsTrigger
-                  value="news"
-                  className="px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent min-w-max"
-                >
-                  ニュース
-                </TabsTrigger>
-                <TabsTrigger
-                  value="career"
-                  className="px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent min-w-max"
-                >
-                  キャリア
-                </TabsTrigger>
-                <TabsTrigger
-                  value="ai"
-                  className="px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent min-w-max"
-                >
-                  AI分析
-                </TabsTrigger>
-                <TabsTrigger
-                  value="companies"
-                  className="px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent min-w-max"
-                >
-                  企業研究
-                </TabsTrigger>
-                <TabsTrigger
-                  value="own"
-                  className="px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent min-w-max"
-                >
-                  自社メディア
-                </TabsTrigger>
-              </TabsList>
-
-              {/* --- Search --- */}
-              <div className="hidden md:flex items-center relative ml-6 flex-shrink-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="記事を検索"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && searchQuery.trim()) {
-                      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
-                    }
-                  }}
-                  className="pl-9 w-64"
-                />
-              </div>
-            </div>
-          </div>
-          <TabsContent value="news" className="mt-6">
-            {newsArticles.length === 0 ? (
-              <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
-                {newsArticles.map((a) => (
-                  <ArticleCard
-                    key={a.id}
-                    title={a.title}
-                    excerpt={a.description ?? ""}
-                    imageUrl={a.imageUrl!}
-                    category={a.source}
-                    date={a.publishedAt.slice(0, 10)}
-                    onClick={() => setActive(a)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="career" className="mt-6">
-            {careerArticles.length === 0 ? (
-              <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
-                {careerArticles.map((a) => (
-                  <ArticleCard
-                    key={a.id}
-                    title={a.title}
-                    excerpt={a.description ?? ""}
-                    imageUrl={a.imageUrl!}
-                    category={a.source}
-                    date={a.publishedAt.slice(0, 10)}
-                    onClick={() => setActive(a)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="ai" className="mt-6">
-            {aiArticles.length === 0 ? (
-              <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
-                {aiArticles.map((a) => (
-                  <ArticleCard
-                    key={a.id}
-                    title={a.title}
-                    excerpt={a.description ?? ""}
-                    imageUrl={a.imageUrl!}
-                    category={a.source}
-                    date={a.publishedAt.slice(0, 10)}
-                    onClick={() => setActive(a)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="companies" className="mt-6">
-            {companyArticlesTab.length === 0 ? (
-              <p className="text-center py-12 text-gray-500">記事が見つかりませんでした</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
-                {companyArticlesTab.map((a) => (
-                  <ArticleCard
-                    key={a.id}
-                    title={a.title}
-                    excerpt={a.description ?? ""}
-                    imageUrl={a.imageUrl!}
-                    category={a.source}
-                    date={a.publishedAt.slice(0, 10)}
-                    onClick={() => setActive(a)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="own" className="mt-6">
-            {companyArticlesWithImages.length === 0 ? (
-              <p className="text-center py-12 text-gray-500">
-                記事が見つかりませんでした
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 gap-y-8">
-                {companyArticlesWithImages.map((c) => (
-                  <ArticleCard
-                    key={c.id}
-                    title={c.title}
-                    excerpt={c.description ?? ""}
-                    imageUrl={c.imageUrl!}
-                    category={c.source}
-                    date={c.publishedAt.slice(0, 10)}
-                    onClick={() => setActive(c)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      {active && (
-        <ArticleDetailDrawer
-          article={active}
-          open={!!active}
-          onOpenChange={(v) => {
-            if (!v) setActive(null)
-          }}
-        />
-      )}
 
       {/* CV Registration CTA */}
       <section className="w-full relative flex items-center justify-center min-h-[60vh] bg-gradient-to-br from-red-600 via-red-400 to-blue-500 text-white px-4">
