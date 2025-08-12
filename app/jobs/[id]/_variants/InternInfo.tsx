@@ -248,7 +248,6 @@ export default function InternInfo({
               <ul className="space-y-2 text-sm text-gray-700">
                 {job.requirements.split("\n").filter(Boolean).map((r: string, i: number) => (
                   <li key={i} className="flex gap-2">
-                    <Plus size={16} className="text-red-600 mt-0.5" />
                     <span>{r}</span>
                   </li>
                 ))}
