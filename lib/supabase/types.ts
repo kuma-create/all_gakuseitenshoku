@@ -1224,6 +1224,7 @@ export type Database = {
           category: string
           id: number
           is_active: boolean
+          is_reverse: boolean
           sort_order: number | null
           text: string
           type: string
@@ -1232,6 +1233,7 @@ export type Database = {
           category: string
           id?: number
           is_active?: boolean
+          is_reverse?: boolean
           sort_order?: number | null
           text: string
           type: string
@@ -1240,6 +1242,7 @@ export type Database = {
           category?: string
           id?: number
           is_active?: boolean
+          is_reverse?: boolean
           sort_order?: number | null
           text?: string
           type?: string
