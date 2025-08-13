@@ -18,7 +18,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { createClient } from '@/lib/supabase/client';
 
+
 const supabase = createClient();
+
+// Unbiased in-place shuffle (returns a new array)
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 // ---- Supabase row types (align these names/columns to your schema) ----
 type DiagnosisRowType = 'personality' | 'values' | 'career' | 'skills';
@@ -95,30 +106,30 @@ const DIAGNOSIS_TYPES = {
     icon: Brain,
     color: 'from-purple-400 to-purple-600',
     questions: 40,
-    duration: '約10分'
+    duration: '約15分'
   },
   values: {
     title: '価値観診断',
     description: 'あなたが大切にする価値観を明確にします',
     icon: Heart,
     color: 'from-pink-400 to-pink-600',
-    questions: 30,
-    duration: '約8分'
+    questions: 36,
+    duration: '約10分'
   },
   career: {
     title: 'キャリア適性診断',
     description: '様々な職種への適性を総合的に評価します',
     icon: Target,
     color: 'from-blue-400 to-blue-600',
-    questions: 50,
-    duration: '約12分'
+    questions: 30,
+    duration: '約8分'
   },
   skills: {
     title: 'スキル診断',
     description: '現在のスキルレベルと今後の成長可能性を分析',
     icon: Award,
     color: 'from-green-400 to-green-600',
-    questions: 35,
+    questions: 36,
     duration: '約9分'
   }
 };
@@ -203,6 +214,7 @@ export default function DiagnosisPage() {
         .from('diagnosis_questions')
         .select('id,text,category,type,sort_order')
         .eq('type', selectedDiagnosis)
+        .eq('is_active', true)
         .order('sort_order', { ascending: true })
         .returns<DiagnosisQuestionRow[]>();
 
@@ -227,7 +239,7 @@ export default function DiagnosisPage() {
         category: q.category,
         type: q.type as DiagnosisType,
       }));
-      setQuestions(mapped);
+      setQuestions(shuffleArray(mapped));
 
       // Create a session row up-front
       const { data: sessionIns, error: sessionErr } = await supabase
@@ -1099,11 +1111,11 @@ export default function DiagnosisPage() {
               {/* Answer Options */}
               <div className="space-y-4">
                 {[
-                  { value: 5, label: '非常にそう思う', color: 'from-green-500 to-green-600', emoji: '😊' },
-                  { value: 4, label: 'そう思う', color: 'from-green-400 to-green-500', emoji: '🙂' },
-                  { value: 3, label: 'どちらでもない', color: 'from-gray-400 to-gray-500', emoji: '😐' },
-                  { value: 2, label: 'そう思わない', color: 'from-orange-400 to-orange-500', emoji: '🙁' },
-                  { value: 1, label: '全くそう思わない', color: 'from-red-500 to-red-600', emoji: '😞' }
+                  { value: 5, label: '非常にそう思う', color: 'from-green-500 to-green-600' },
+                  { value: 4, label: 'そう思う', color: 'from-green-400 to-green-500' },
+                  { value: 3, label: 'どちらでもない', color: 'from-gray-400 to-gray-500' },
+                  { value: 2, label: 'そう思わない', color: 'from-orange-400 to-orange-500' },
+                  { value: 1, label: '全くそう思わない', color: 'from-red-500 to-red-600' }
                 ].map((option) => (
                   <motion.button
                     key={option.value}
@@ -1113,7 +1125,6 @@ export default function DiagnosisPage() {
                     className={`w-full p-5 rounded-2xl bg-gradient-to-r ${option.color} text-white font-medium transition-all duration-200 hover:shadow-lg flex items-center justify-between`}
                   >
                     <div className="flex items-center space-x-3">
-                      <span className="text-2xl">{option.emoji}</span>
                       <span className="text-lg">{option.label}</span>
                     </div>
                     <ArrowRight className="w-5 h-5 opacity-70" />
