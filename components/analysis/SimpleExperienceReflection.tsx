@@ -251,9 +251,9 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
   }, [experiences]);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full md:max-w-4xl md:mx-auto space-y-6 px-2 sm:px-4">
       {/* Header */}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">経験の整理</h2>
@@ -274,20 +274,20 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="p-4 text-center">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-blue-600 mb-1">{experiences.length}</div>
           <div className="text-sm text-gray-600">総経験数</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-green-600 mb-1">{statistics.jobHuntCount}</div>
           <div className="text-sm text-gray-600">就活活用</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-purple-600 mb-1">{statistics.completedCount}</div>
           <div className="text-sm text-gray-600">完成度高</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-orange-600 mb-1">{statistics.averageCompleteness}%</div>
           <div className="text-sm text-gray-600">平均完成度</div>
         </Card>
@@ -295,7 +295,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
 
       {/* Experiences */}
       {experiences.length === 0 ? (
-        <Card className="p-12 text-center">
+        <Card className="p-8 sm:p-12 text-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Star className="w-8 h-8 text-blue-600" />
           </div>
@@ -307,7 +307,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
           </Button>
         </Card>
       ) : (
-        <div className={`grid gap-6 ${viewMode === 'cards' ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-4 sm:gap-6 ${viewMode === 'cards' ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
           {experiences.map((experience, index) => {
             const config = categoryConfig[experience.category];
             const IconComponent = config.icon;
@@ -319,8 +319,8 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="p-6 hover:shadow-lg transition-all duration-300 cursor-pointer group">
-                  <div className="flex items-start justify-between mb-4">
+                <Card className="p-3 xs:p-4 sm:p-6 hover:shadow-lg transition-all duration-300 cursor-pointer group">
+                  <div className="flex items-start justify-between mb-3 sm:mb-4 flex-wrap gap-2">
                     <div className="flex items-center space-x-3">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${config.color}`}>
                         <IconComponent className="w-6 h-6" />
@@ -365,7 +365,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                   </div>
                   
                   {experience.details?.skills && experience.details.skills.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1 mt-2">
                       {experience.details.skills.slice(0, 3).map((skill, i) => (
                         <Badge key={i} variant="secondary" className="text-xs">
                           {skill}
@@ -402,17 +402,17 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-6 px-2 sm:px-0">
             {/* Template Selection */}
             {!editingExperience && (
               <div>
-                <Label className="text-base mb-3 block">テンプレートを選ぶ（任意）</Label>
+                <Label className="text-sm sm:text-base mb-3 block">テンプレートを選ぶ（任意）</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {experienceTemplates.map(template => (
                     <button
                       key={template.id}
                       onClick={() => handleTemplateSelect(template)}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                      className={`p-3 sm:p-4 rounded-lg border-2 text-left transition-all ${
                         selectedTemplate?.id === template.id 
                           ? 'border-blue-500 bg-blue-50' 
                           : 'border-gray-200 hover:border-gray-300'
@@ -431,20 +431,21 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
             {/* Basic Info */}
             <div className="space-y-4">
               <div>
-                <Label htmlFor="title">タイトル *</Label>
+                <Label htmlFor="title" className="text-sm sm:text-base">タイトル *</Label>
                 <Input
                   id="title"
                   value={formData.title || ''}
                   onChange={(e) => updateFormField('title', e.target.value)}
                   placeholder="例：テニスサークル代表"
+                  className="h-10 text-sm md:h-9 md:text-base"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="category">カテゴリー</Label>
+                  <Label htmlFor="category" className="text-sm sm:text-base">カテゴリー</Label>
                   <Select value={formData.category || 'club'} onValueChange={(value) => updateFormField('category', value as any)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10 text-sm md:h-9 md:text-base">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -461,24 +462,26 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                 </div>
 
                 <div>
-                  <Label htmlFor="period">期間</Label>
+                  <Label htmlFor="period" className="text-sm sm:text-base">期間</Label>
                   <Input
                     id="period"
                     value={formData.period || ''}
                     onChange={(e) => updateFormField('period', e.target.value)}
                     placeholder="例：2022年4月〜2023年3月"
+                    className="h-10 text-sm md:h-9 md:text-base"
                   />
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="description">説明 *</Label>
+                <Label htmlFor="description" className="text-sm sm:text-base">説明 *</Label>
                 <Textarea
                   id="description"
                   value={formData.description || ''}
                   onChange={(e) => updateFormField('description', e.target.value)}
                   placeholder="この経験について説明してください..."
                   rows={4}
+                  className="h-10 text-sm md:h-9 md:text-base"
                 />
                 <div className="text-xs text-gray-500 mt-1">
                   {(formData.description?.length || 0)}/500文字
@@ -491,7 +494,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                   checked={formData.isJobHuntRelevant ?? true}
                   onCheckedChange={(checked) => updateFormField('isJobHuntRelevant', checked)}
                 />
-                <Label htmlFor="jobHuntRelevant">就活で活用する</Label>
+                <Label htmlFor="jobHuntRelevant" className="text-sm sm:text-base">就活で活用する</Label>
               </div>
             </div>
 
@@ -515,28 +518,30 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="role">役割</Label>
+                        <Label htmlFor="role" className="text-sm sm:text-base">役割</Label>
                         <Input
                           id="role"
                           value={formData.details?.role || ''}
                           onChange={(e) => updateDetailField('role', e.target.value)}
                           placeholder="例：代表"
+                          className="h-10 text-sm md:h-9 md:text-base"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="organization">組織・団体</Label>
+                        <Label htmlFor="organization" className="text-sm sm:text-base">組織・団体</Label>
                         <Input
                           id="organization"
                           value={formData.details?.organization || ''}
                           onChange={(e) => updateDetailField('organization', e.target.value)}
                           placeholder="例：東京大学テニスサークル"
+                          className="h-10 text-sm md:h-9 md:text-base"
                         />
                       </div>
                     </div>
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <Label htmlFor="challenge">困難・課題</Label>
+                        <Label htmlFor="challenge" className="text-sm sm:text-base">困難・課題</Label>
                         <Button
                           variant="outline"
                           size="sm"
@@ -553,34 +558,37 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                         onChange={(e) => updateDetailField('challenge', e.target.value)}
                         placeholder="どのような困難や課題がありましたか？"
                         rows={2}
+                        className="h-10 text-sm md:h-9 md:text-base"
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="action">取り組み・行動</Label>
+                      <Label htmlFor="action" className="text-sm sm:text-base">取り組み・行動</Label>
                       <Textarea
                         id="action"
                         value={formData.details?.action || ''}
                         onChange={(e) => updateDetailField('action', e.target.value)}
                         placeholder="どのような行動や取り組みを行いましたか？"
                         rows={2}
+                        className="h-10 text-sm md:h-9 md:text-base"
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="result">結果・成果</Label>
+                      <Label htmlFor="result" className="text-sm sm:text-base">結果・成果</Label>
                       <Textarea
                         id="result"
                         value={formData.details?.result || ''}
                         onChange={(e) => updateDetailField('result', e.target.value)}
                         placeholder="どのような結果や成果が得られましたか？"
                         rows={2}
+                        className="h-10 text-sm md:h-9 md:text-base"
                       />
                     </div>
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <Label>身についたスキル</Label>
+                        <Label className="text-sm sm:text-base">身についたスキル</Label>
                         <Button
                           variant="outline"
                           size="sm"
@@ -593,7 +601,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                       </div>
                       <div className="flex flex-wrap gap-2 mb-2">
                         {(formData.details?.skills || []).map((skill, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center space-x-1">
+                          <Badge key={index} variant="secondary" className="flex items-center space-x-1 text-[11px] sm:text-sm">
                             <span>{skill}</span>
                             <button
                               onClick={() => {
@@ -614,7 +622,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                               const newSkills = [...(formData.details?.skills || []), skill];
                               updateDetailField('skills', newSkills);
                             }}
-                            className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                            className="text-[11px] sm:text-sm px-2 py-1 sm:px-3 sm:py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
                           >
                             {skill}
                           </button>
@@ -627,10 +635,10 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
             </div>
 
             <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button variant="outline" onClick={resetForm}>
+              <Button variant="outline" onClick={resetForm} className="h-10 px-4 sm:h-9">
                 キャンセル
               </Button>
-              <Button onClick={handleSave} disabled={!formData.title || !formData.description}>
+              <Button onClick={handleSave} disabled={!formData.title || !formData.description} className="h-10 px-4 sm:h-9">
                 <Save className="w-4 h-4 mr-2" />
                 保存
               </Button>
