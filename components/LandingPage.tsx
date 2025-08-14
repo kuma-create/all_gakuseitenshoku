@@ -220,7 +220,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
     return (
       <div
         className={
-          `relative mx-auto w-[280px] h-[560px] mb-8 transform ` +
+          `relative mx-auto w-[240px] h-[480px] md:w-[280px] md:h-[560px] mb-8 transform ` +
           `rotate-0 ` +
           `transition-transform duration-500 ease-out`
         }
@@ -421,38 +421,34 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
   const faqs = [
     {
       question: '本当に全機能が無料ですか？追加料金はありませんか？',
-      answer: 'はい。IPO大学の機能（AI自己分析・ケース問題・キャリアスコア・スマートカレンダー・業界/企業図鑑・適職診断など）はすべて無料でご利用いただけます。クレジットカード登録は不要で、機能制限や隠れ課金もありません。'
+      answer: 'はい、学生のみなさんは現在の主要機能を「ずっと無料」で使えます。登録にクレジットカードは不要、いわゆる“隠れ課金”もありません。まずは気軽に触ってみて、自分に合うかどうかを試してみてください。'
     },
     {
       question: '今後、有料化されたりしませんか？',
-      answer: 'コア機能は恒久的に無料で提供します。将来的に企業スポンサーによる特集やイベント連携などのB2B収益化を行いますが、学生ユーザーの主要機能に料金が発生することは想定していません。'
+      answer: '就活の基本にあたるコア機能は、これからも無料で提供していきます。将来もし有料のオプションが出る場合は、追加の便利ツールやイベント連携など「もっとやりたい人向け」のものを想定しています。無料プランだけでも就活準備はしっかり進められる設計です。'
     },
     {
       question: 'AIの分析はどれくらい正確ですか？根拠はありますか？',
-      answer: '分析は心理学のBig5理論などの知見を参考に開発しています。画面上に根拠や注意点を明示し、最終判断はご自身で行えるように設計しています。AIの結果は“補助輪”としてご活用ください。'
+      answer: 'AIは心理学のBig5理論などの知見を参考に設計していますが、100%の正解を出す“占い”ではありません。おすすめは「AIの結果をたたき台に、自分の言葉へ言い換える」使い方。根拠や注意点は画面に明記しているので、安心して“壁打ち相手”として活用してください。'
     },
     {
       question: '個人情報やデータは安全に管理されますか？',
-      answer: '通信はSSLで暗号化し、RLS（行レベルセキュリティ）を有効化したDB上で適切に管理しています。個人情報保護法に準拠し、第三者への提供は行いません。退会時にはデータを削除します。'
+      answer: '通信はSSLで暗号化し、データベースはRLS（行レベルセキュリティ）で適切に保護しています。必要最小限の情報のみを扱い、学外の第三者へ勝手に共有することはありません。退会時にはデータ削除も可能です。安心してお使いください。'
     },
     {
       question: '学生転職との連携は無料ですか？',
-      answer: 'はい。プロフィール・職歴・PRの同期は無料でご利用いただけます。1クリックで最新情報を反映し、重複入力を削減します。'
+      answer: 'はい、無料です。プロフィールや職歴、自己PRなどをワンクリックで同期でき、二重入力の手間を減らせます。まずは連携して、最新情報をまとめて管理するところから始めてみましょう。'
     },
     {
       question: '地方大学でも効果はありますか？',
-      answer: 'オンライン前提の学習設計のため、地域差なくご活用いただけます。自己分析・ケース問題・面接想定問答を自分のペースで学べます。'
+      answer: 'オンライン前提の設計なので、地域に関係なく活用できます。自己分析やケース演習、面接対策は好きな時間に進められますし、イベントも順次オンラインで参加しやすくしていきます。「移動が大変…」という方でも、学びやすい環境を用意しています。'
     }
   ];
 
   const handleGetStarted = () => {
     if (isPending) return;
     startTransition(() => {
-      if (user) {
-        navigate('/ipo/dashboard');
-      } else {
-        navigate('/ipo/analysis');
-      }
+      navigate('/ipo/dashboard');
     });
   };
 
@@ -495,7 +491,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
               width={800}
               height={600}
               sizes="(max-width: 768px) 90vw, (max-width: 1280px) 60vw, 720px"
-              className="relative w-full h-auto object-contain max-h-[360px] md:max-h-[420px] transform rotate-0 transition-transform duration-500 ease-out"
+              className="relative w-full h-auto object-contain max-h-[320px] sm:max-h-[360px] md:max-h-[420px] transform rotate-0 transition-transform duration-500 ease-out"
               loading="eager"
             />
           </div>
@@ -505,7 +501,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen max-w-[100vw] bg-white relative overflow-x-hidden">
       {/* Fixed Header */}
       <motion.header 
         className={`fixed top-0 w-full z-50 transform-gpu transition-all duration-500 ${
@@ -517,8 +513,8 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
         animate={{ y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-visible">
+          <div className="flex justify-between items-center h-14 sm:h-16 md:h-20 gap-3 sm:gap-6">
             <motion.div 
               className="flex items-center space-x-3 cursor-pointer"
               onClick={() => navigate('/ipo')}
@@ -531,7 +527,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                   alt="IPO大学ロゴ"
                   width={160}
                   height={48}
-                  className="h-8 sm:h-10 md:h-12 w-auto"
+                  className="h-7 sm:h-9 md:h-10 w-auto shrink-0"
                   priority
                 />
               </div>
@@ -549,15 +545,16 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
               ) : (
                 <>
                   <button
-                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 rounded"
-                    onClick={() => navigate('/ipo/analysis')}
+                    className="text-gray-700 hover:text-gray-900 font-medium transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 px-2 py-1 sm:px-3 sm:py-1.5 text-sm sm:text-base"
+                    onClick={() => navigate('/ipo/dashboard')}
                   >
                     ログイン
                   </button>
                   <Button
                     onClick={handleGetStarted}
                     size="lg"
-                    className="bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700  shadow-lg hover:shadow-xl transition-all duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                    className="bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 shadow-lg hover:shadow-xl transition-all duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3 rounded-lg shrink-0"
+                    style={{whiteSpace: 'nowrap'}}
                   >
                     1分で無料ではじめる
                   </Button>
@@ -571,7 +568,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
       {/* Hero Section */}
       <section
         ref={heroRef}
-        className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 md:pt-36 lg:pt-40 pb-16 md:pb-24"
+        className="relative min-h-[80vh] md:min-h-screen flex items-center justify-center overflow-hidden pt-20 md:pt-36 lg:pt-40 pb-12 md:pb-24"
       >
         {/* Background Effects */}
         <motion.div
@@ -591,7 +588,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <h1 className="text-5xl lg:text-7xl font-bold tracking-tight mb-8 leading-tight">
+            <h1 className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight mb-6 sm:mb-8 leading-tight break-words">
               <span className="bg-gradient-to-r from-sky-600 via-cyan-600 to-cyan-600 bg-clip-text text-transparent">
                 散らばった就活を、ここで一元化
               </span>
@@ -599,7 +596,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
               <span className="text-gray-900">AIが自己分析・ES・面接まで伴走する就活ツール</span>
             </h1>
 
-            <p className="mt-2 md:mt-4 text-xl lg:text-2xl text-gray-600 mb-8 max-w-4xl mx-auto leading-relaxed">
+            <p className="mt-2 md:mt-4 text-base sm:text-xl lg:text-2xl text-gray-600 mb-8 max-w-4xl mx-auto leading-relaxed px-1">
               メモやカレンダーに分散した情報をひとつに集約。AIが
               <strong>自己分析 → ES下書き → 面接対策 → スケジュール管理</strong>
               まで自動でサポートします。
@@ -650,7 +647,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
       </section>
 
       {/* Features Highlight Section with Big Numbers */}
-      <section className="py-32 bg-gradient-to-b from-gray-50 to-white overflow-hidden">
+      <section className="py-20 md:py-32 bg-gradient-to-b from-gray-50 to-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <motion.div 
             className="text-center mb-20"
@@ -681,11 +678,11 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                 viewport={{ once: true }}
                 className={`relative ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}
               >
-                <div className={`grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center bg-gradient-to-r ${feature.bgGradient} rounded-3xl p-8 lg:p-16 shadow-xl`}>
+                <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-16 lg:gap-24 items-center bg-gradient-to-r ${feature.bgGradient} rounded-3xl p-6 md:p-8 lg:p-16 shadow-xl`}>
                   {/* Text Content */}
                   <div className={`${index % 2 === 1 ? 'lg:order-2' : ''}`}>
                     <div className="flex items-center mb-8">
-                      <div className={`text-8xl lg:text-9xl font-black bg-gradient-to-r ${feature.gradient} bg-clip-text text-transparent opacity-90 mr-6`}>
+                    <div className={`text-6xl md:text-8xl lg:text-9xl font-black bg-gradient-to-r ${feature.gradient} bg-clip-text text-transparent opacity-90 mr-6`}>
                         {feature.number}
                       </div>
                     </div>
@@ -701,7 +698,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                     <Button
                       size="lg"
                       className={`bg-gradient-to-r ${feature.gradient} hover:opacity-90 shadow-lg hover:shadow-xl transition-all duration-300 text-lg px-8 py-4`}
-                      onClick={() => navigate(features.find(f => f.icon === feature.icon)?.route || '/ipo/analysis')}
+                      onClick={() => navigate(features.find(f => f.icon === feature.icon)?.route || '/ipo/dashboard')}
                     >
                       今すぐ試す
                       <ArrowRight className="ml-2 w-5 h-5" />
@@ -720,7 +717,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
       </section>
 
       {/* Simplified Features Grid Section */}
-      <section className="py-24 relative">
+      <section className="py-16 md:py-24 relative">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <motion.div 
             className="text-center mb-20"
@@ -757,7 +754,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                       COMING&nbsp;SOON
                     </span>
                   )}
-                  <CardContent className="p-6 h-full flex flex-col">
+                  <CardContent className="p-5 sm:p-6 h-full flex flex-col">
                     {/* Icon */}
                     <div className={`w-12 h-12 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300 mb-6`}>
                       <feature.icon className="w-6 h-6 text-white" />
@@ -798,7 +795,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 gap-4 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 gap-3 sm:gap-4 text-center">
             {universities.map((university, index) => (
               <motion.div
                 key={index}
@@ -820,7 +817,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-32 relative overflow-hidden">
+      <section className="py-20 md:py-32 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-sky-50 to-cyan-50 opacity-50"></div>
         
         <div className="relative max-w-6xl mx-auto px-6 lg:px-8">
@@ -857,7 +854,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                             <img
                               src={testimonials[currentTestimonial].avatarUrl}
                               alt={`${testimonials[currentTestimonial].name} の顔写真（イメージ）`}
-                              className="w-20 h-20 rounded-full object-cover border border-gray-200"
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border border-gray-200"
                               loading="lazy"
                             />
                           ) : (
@@ -919,7 +916,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-32 bg-gray-50">
+      <section className="py-20 md:py-32 bg-gray-50">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
           <motion.div 
             className="text-center mb-16"
@@ -981,7 +978,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
       </section>
 
       {/* CTA Section */}
-      <section className="py-32 bg-gradient-to-r from-sky-600 to-cyan-600 text-white relative overflow-hidden">
+      <section className="py-20 md:py-32 bg-gradient-to-r from-sky-600 to-cyan-600 text-white relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 right-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>

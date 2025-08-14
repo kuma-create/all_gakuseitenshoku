@@ -61,7 +61,7 @@ interface Company {
   currentStage: number;
   stages: SelectionStage[];
   priority: 'high' | 'medium' | 'low';
-  notes: string;
+  notes: string
   contacts: {
     name: string;
     role: string;
@@ -851,7 +851,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         transition={{ duration: 0.2 }}
         whileHover={{ scale: 1.02 }}
       >
-        <Card className="group cursor-pointer bg-white border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 min-h-[9rem] sm:min-h-[10rem]">
+        <Card className="group cursor-pointer bg-white border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 min-h-[8.5rem] sm:min-h-[10rem]">
           <CardContent className="p-3 h-full">
             {/* Priority Color Bar */}
             <div className={`h-0.5 bg-gradient-to-r ${priorityConfig.gradient} mb-2`} />
@@ -931,7 +931,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className={`h-6 w-6 p-0 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
                     onClick={(e) => {
                       e.stopPropagation();
                       openEditCompanyDialog(company);
@@ -942,7 +942,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-1 text-xs"
+                    className={`h-6 px-1 text-xs ${isMobile ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
                     onClick={(e) => {
                       e.stopPropagation();
                       openCompanyDialog(company);
@@ -961,7 +961,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
   const MobileFiltersSheet = () => (
     <Sheet open={showMobileFilters} onOpenChange={setShowMobileFilters}>
-      <SheetContent side="bottom" className="h-[70vh]">
+      <SheetContent side="bottom" className="h-[80vh]">
         <SheetHeader>
           <SheetTitle>フィルター・並び替え</SheetTitle>
           <SheetDescription>
@@ -1350,7 +1350,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className="grid gap-2.5 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
               {filteredAndSortedCompanies.map((company, index) => (
                 <motion.div
@@ -1373,7 +1373,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
       {/* Company Detail Dialog */}
       <Dialog open={showCompanyDialog} onOpenChange={setShowCompanyDialog}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+        <DialogContent className="w-[100vw] max-w-[100vw] sm:max-w-4xl h-[100dvh] sm:h-[90vh] p-0 sm:p-0 flex flex-col">
           {selectedCompany && (
             <>
               <DialogHeader className="pb-4 border-b flex-shrink-0 pr-10 sm:pr-2">
@@ -1729,8 +1729,9 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
       </Dialog>
 
       {/* Add Company Dialog */}
+      {/* Add Company Dialog */}
       <Dialog open={showAddCompanyDialog} onOpenChange={setShowAddCompanyDialog}>
-        <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
+        <DialogContent className="w-[100vw] max-w-[100vw] sm:max-w-2xl h-[100dvh] sm:h-[90vh] p-0 sm:p-0 flex flex-col">
           <DialogHeader className="pb-4 border-b flex-shrink-0">
             <DialogTitle>新しい企業を追加</DialogTitle>
             <DialogDescription>
@@ -1889,8 +1890,9 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
       </Dialog>
 
       {/* Edit Company Dialog */}
+      {/* Edit Company Dialog */}
       <Dialog open={showEditCompanyDialog} onOpenChange={setShowEditCompanyDialog}>
-        <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
+        <DialogContent className="w-[100vw] max-w-[100vw] sm:max-w-2xl h-[100dvh] sm:h-[90vh] p-0 sm:p-0 flex flex-col">
           <DialogHeader className="pb-4 border-b flex-shrink-0">
             <DialogTitle>企業情報を編集</DialogTitle>
             <DialogDescription>

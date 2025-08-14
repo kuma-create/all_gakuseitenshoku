@@ -78,6 +78,7 @@ const PUBLIC_ROUTES = new Set([
   "/internships",
   "/lp",
   "/ipo",
+  "/ipo/login",
   "/search",
   "/terms",  
   "/lp/students/fee",
