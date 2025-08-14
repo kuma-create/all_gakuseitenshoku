@@ -22,7 +22,7 @@ import { supabase } from "../../src/lib/supabase";
 // 型
 // ------------------------------
  type Stats = { scouts: number; applications: number; chatRooms: number };
- type GrandPrix = { id: string; title: string; banner_url?: string | null };
+// type GrandPrix = { id: string; title: string; banner_url?: string | null };
  type Scout = {
   id: string;
   company_id: string;
@@ -45,7 +45,7 @@ export default function StudentHome() {
   const [stats, setStats] = useState<Stats>({ scouts: 0, applications: 0, chatRooms: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
 
-  const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
+  // const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
   const [offers, setOffers] = useState<Scout[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
 
@@ -104,27 +104,20 @@ export default function StudentHome() {
       });
       setStatsLoading(false);
 
-      // ---- Grand Prix と最新オファー (最大10件) ----
-      const [gpRes, offersRes] = await Promise.all([
-        supabase.from("challenges").select("id,title,banner_url").order("created_at", { ascending: false }),
-        supabase
-          .from("scouts")
-          .select(
-            `id, company_id, message, is_read, created_at,
-             company:companies!scouts_company_id_fkey(id,name,logo),
-             job:jobs!scouts_job_id_fkey(id,title)`
-          )
-          .eq("student_id", sid)
-          .order("created_at", { ascending: false })
-          .limit(10),
-      ]);
-
-      setGrandPrix(
-        (gpRes.data ?? []).map((c: any) => ({ id: c.id, title: c.title, banner_url: c.banner_url ?? null }))
-      );
+      // ---- 最新オファー (最大10件) ----
+      const { data: offersData } = await supabase
+        .from("scouts")
+        .select(
+          `id, company_id, message, is_read, created_at,
+           company:companies!scouts_company_id_fkey(id,name,logo),
+           job:jobs!scouts_job_id_fkey(id,title)`
+        )
+        .eq("student_id", sid)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       setOffers(
-        (offersRes.data ?? []).map((r: any) => ({
+        (offersData ?? []).map((r: any) => ({
           id: r.id,
           company_id: r.company_id,
           company_name: r.company?.name ?? null,
@@ -135,6 +128,7 @@ export default function StudentHome() {
           is_read: r.is_read,
         }))
       );
+      // setGrandPrix(...) // Grand Prixの取得は現在無効化
 
       setCardsLoading(false);
     })();
@@ -189,7 +183,7 @@ export default function StudentHome() {
                 <View style={{ height: 120, backgroundColor: "#f3f4f6", borderRadius: 12 }} />
               ) : (
                 <>
-                  <GrandPrixCard events={grandPrix} />
+                  {/* <GrandPrixCard events={grandPrix} /> */}
                   <OffersCard offers={offers} />
                 </>
               )}
@@ -306,6 +300,7 @@ function ProfileCard({ userId }: { userId: string }) {
   );
 }
 
+/* 
 // ------------------------------
 // GrandPrixCard
 // ------------------------------
@@ -354,6 +349,7 @@ function GrandPrixCard({ events }: { events: GrandPrix[] }) {
     </View>
   );
 }
+*/
 
 // ------------------------------
 // OffersCard
@@ -424,7 +420,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
 function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
   return (
     <View style={{ flexDirection: "row", gap: 12 }}>
-      <StatCard title="スカウト状況" desc="企業からのオファー" value={stats.scouts} loading={loading} href="/(student)/offers" />
+      <StatCard title="スカウト状況" desc="企業からのオファー" value={stats.scouts} loading={loading} href="/(student)/scouts" />
       <StatCard title="応募履歴" desc="エントリーした求人" value={stats.applications} loading={loading} href="/(student)/applications" />
     </View>
   );

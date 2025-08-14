@@ -1,10 +1,10 @@
-
-
 // app/(student)/profile.tsx
 // Mobile Student Profile – minimal RN version with autosave & tabs
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { AppState } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../src/lib/supabase"; // <- keep relative to avoid alias issues
 // import type { Database } from "../../src/lib/supabase/types"; // (optional) if types exist
 
@@ -43,6 +43,7 @@ const toggleIn = (arr: string[] | null | undefined, v: string) => {
 // ---- component ----
 export default function StudentProfileMobile() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -51,6 +52,61 @@ export default function StudentProfileMobile() {
 
   const dirtyRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstRender = useRef(true);
+  // --- Track編集中のフィールド ---
+  const activeFieldRef = useRef<string | null>(null);
+  const saveSeqRef = useRef(0);
+  const lastSavedKeyRef = useRef<string>("");
+  // Avoid losing first character when using IME (JP/KR/CN):
+  // we defer autosave until compositionend.
+  const composingRef = useRef(false);
+  const setActiveField = useCallback((k: string | null) => { activeFieldRef.current = k; }, []);
+
+  // Keys that are allowed to be sent to student_profiles (server-managed keys excluded)
+  const UPDATABLE_KEYS = [
+    'user_id','last_name','first_name','last_name_kana','first_name_kana','phone','birth_date',
+    'postal_code','prefecture','city','address_line','hometown',
+    'university','faculty','department','admission_month','graduation_month','research_theme',
+    'pr_title','about','pr_text','strength1','strength2','strength3',
+    'work_style','salary_range','desired_positions','work_style_options','preferred_industries','desired_locations',
+    'preference_note','gender'
+  ] as const;
+
+  // Stable stringify (sorted keys) to dedupe saves reliably
+  const stableStringify = (obj: any) => {
+    const out: any = {};
+    Object.keys(obj).sort().forEach(k => { out[k] = obj[k]; });
+    return JSON.stringify(out);
+  };
+
+  // ---- focus management ----
+  const inputRefs = useRef<Record<string, TextInput | null>>({});
+  const register = useCallback((name: string) => (el: TextInput | null) => {
+    inputRefs.current[name] = el;
+  }, []);
+
+  const focusNext = useCallback((current: string) => {
+    const orderBasic = [
+      "last_name","first_name","last_name_kana","first_name_kana",
+      "phone","birth_date","postal_code","prefecture","city",
+      "address_line","hometown",
+      // 学歴
+      "university","faculty","department","graduation_month","research_theme",
+    ];
+    const orderPR = [
+      "pr_title","about","pr_text","strength1","strength2","strength3"
+    ];
+    const orderPref = [
+      "work_style","salary_range","preference_note"
+    ];
+    const order = tab === "basic" ? orderBasic : tab === "pr" ? orderPR : orderPref;
+    const idx = order.indexOf(current);
+    if (idx >= 0 && idx < order.length - 1) {
+      const nextName = order[idx + 1];
+      const next = inputRefs.current[nextName];
+      next?.focus?.();
+    }
+  }, [tab]);
 
   // load
   useEffect(() => {
@@ -79,31 +135,155 @@ export default function StudentProfileMobile() {
     })();
   }, [router]);
 
-  const scheduleSave = useCallback(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    dirtyRef.current = true;
-    saveTimer.current = setTimeout(async () => {
-      try {
-        setSaving(true);
-        const payload = { ...profile };
-        // normalize month inputs to YYYY-MM
-        if (typeof payload.admission_month === "string") payload.admission_month = payload.admission_month.slice(0,7);
-        if (typeof payload.graduation_month === "string") payload.graduation_month = payload.graduation_month.slice(0,7);
-        const { error } = await supabase.from("student_profiles").upsert(payload, { onConflict: "user_id" });
-        if (error) throw error;
-      } catch (e) {
-        console.error("profile save error", e);
-      } finally {
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
+
+  const save = useCallback(async () => {
+    const mySeq = ++saveSeqRef.current;
+    try {
+      setSaving(true);
+      // do not save while date fields are partially typed (prevents flicker & value reset)
+      const isIncomplete = (v: any) => {
+        if (typeof v !== "string") return false;
+        const s = v.trim();
+        if (!s) return false;
+        if (/^\d{1,3}$/.test(s)) return true;
+        if (/^\d{4}$/.test(s)) return true;
+        if (/^\d{4}-$/.test(s)) return true;
+        if (/^\d{4}-\d$/.test(s)) return true;
+        if (/^\d{4}-\d{2}-$/.test(s)) return true;
+        if (/^\d{4}-\d{2}-\d$/.test(s)) return true;
+        return false;
+      };
+      if (isIncomplete(profile.admission_month) || isIncomplete(profile.graduation_month) || isIncomplete(profile.birth_date)) {
+        setSaving(false);
+        return; // wait for more input
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) { setSaving(false); return; }
+
+      const normDate = (val: any) => {
+        if (typeof val !== 'string') return val ?? null;
+        const v = val.trim();
+        if (!v) return null;
+        if (/^\d{4}-\d{2}$/.test(v)) return `${v}-01`;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+        return null;
+      };
+      const payload: any = { user_id: session.user.id };
+      UPDATABLE_KEYS.forEach((k) => {
+        if (k === 'user_id') return;
+        let val = (profile as any)[k];
+        if (k === 'admission_month' || k === 'graduation_month' || k === 'birth_date') {
+          val = normDate(val);
+        }
+        if (val === '') val = null;
+        if (val !== undefined) payload[k] = val;
+      });
+
+      // prevent redundant saves: if nothing changed vs last saved payload, skip
+      const key = stableStringify(payload);
+      if (key === lastSavedKeyRef.current) {
         setSaving(false);
         dirtyRef.current = false;
+        return;
       }
-    }, 400);
+
+      let saved: any = null; let error: any = null;
+      if (profile?.id) {
+        const res = await supabase.from("student_profiles").update(payload).eq("id", profile.id).select().single();
+        saved = res.data; error = res.error;
+      } else {
+        const res = await supabase.from("student_profiles").insert(payload).select().single();
+        saved = res.data; error = res.error;
+      }
+      if (error) throw error;
+      if (saved) {
+        if (mySeq !== saveSeqRef.current) return; // stale
+        // remember last-saved snapshot to avoid save storms
+        lastSavedKeyRef.current = stableStringify(payload);
+        const serverOnly = new Set(["id","user_id","created_at","updated_at"]);
+        const sent = payload;
+        const activeKey = activeFieldRef.current;
+        setProfile((prev:any) => {
+          const next:any = { ...prev, ...sent };
+          Object.keys(saved).forEach((k) => {
+            if (k === activeKey) return;
+            const val = (saved as any)[k];
+            const weSent = Object.prototype.hasOwnProperty.call(sent, k) && sent[k] !== undefined;
+            if ((!weSent || serverOnly.has(k)) && val !== null && val !== undefined) next[k] = val;
+          });
+          return next;
+        });
+      }
+    } catch (e) {
+      console.error("profile save error", e);
+    } finally {
+      setSaving(false);
+      dirtyRef.current = false;
+    }
   }, [profile]);
+
+  const handleBlur = React.useCallback(async () => {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    await save();
+  }, [save]);
+
+  // Web版と同じ: state確定→300ms待って保存（dirty時のみ）。
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    if (!dirtyRef.current) return; // 変更なしなら保存しない
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      // デバウンス後に即保存（markDirty は立て直さない）
+      dirtyRef.current = false;
+      await save();
+    }, 300);
+
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [profile, save]);
+
+
+  // Save on page navigation (beforeRemove)
+  useEffect(() => {
+    const sub = navigation.addListener('beforeRemove', (e: any) => {
+      if (!dirtyRef.current) return; // nothing to save
+      e.preventDefault();
+      const action = e.data.action;
+      // trigger immediate save, then continue navigation when done
+      (async () => {
+        try {
+          await handleBlur();
+        } finally {
+          // proceed with the original navigation
+          // @ts-ignore
+          navigation.dispatch(action);
+        }
+      })();
+    });
+    return sub;
+  }, [navigation, handleBlur]);
+
+  // Save when app goes to background
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if ((state === 'background' || state === 'inactive') && dirtyRef.current) {
+        handleBlur();
+      }
+    });
+    return () => sub.remove();
+  }, [handleBlur]);
 
   const update = useCallback((patch: Record<string, any>) => {
     setProfile((p: any) => ({ ...p, ...patch }));
-    scheduleSave();
-  }, [scheduleSave]);
+    dirtyRef.current = true;
+  }, []);
 
   // completion
   const sectionPct = useMemo(() => {
@@ -173,38 +353,97 @@ export default function StudentProfileMobile() {
       <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:96 }}>
         {tab === "basic" && (
           <View style={{ gap:12 }}>
-            <Field label="姓" value={profile.last_name ?? ""} onChangeText={(v)=>update({ last_name:v })} required />
-            <Field label="名" value={profile.first_name ?? ""} onChangeText={(v)=>update({ first_name:v })} required />
-            <Field label="セイ" value={profile.last_name_kana ?? ""} onChangeText={(v)=>update({ last_name_kana:v })} />
-            <Field label="メイ" value={profile.first_name_kana ?? ""} onChangeText={(v)=>update({ first_name_kana:v })} />
-            <Field label="電話番号" value={profile.phone ?? ""} onChangeText={(v)=>update({ phone:v })} keyboardType="phone-pad" />
-            <Field label="生年月日" value={profile.birth_date ?? ""} onChangeText={(v)=>update({ birth_date:v })} placeholder="YYYY-MM-DD" />
-            <Field label="郵便番号" value={profile.postal_code ?? ""} onChangeText={(v)=>update({ postal_code:v })} />
-            <Field label="都道府県" value={profile.prefecture ?? ""} onChangeText={(v)=>update({ prefecture:v })} />
-            <Field label="市区町村" value={profile.city ?? ""} onChangeText={(v)=>update({ city:v })} />
-            <Field label="番地・建物名など" value={profile.address_line ?? ""} onChangeText={(v)=>update({ address_line:v })} />
-            <Field label="出身地" value={profile.hometown ?? ""} onChangeText={(v)=>update({ hometown:v })} />
+            <Field name="last_name" label="姓" value={profile.last_name ?? ""} onChangeText={(v)=>update({ last_name:v })} required
+              onFocus={() => setActiveField("last_name")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("last_name")} onSubmitEditing={() => { handleBlur(); focusNext("last_name"); }}
+            />
+            <Field name="first_name" label="名" value={profile.first_name ?? ""} onChangeText={(v)=>update({ first_name:v })} required
+              onFocus={() => setActiveField("first_name")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("first_name")} onSubmitEditing={() => { handleBlur(); focusNext("first_name"); }}
+            />
+            <Field name="last_name_kana" label="セイ" value={profile.last_name_kana ?? ""} onChangeText={(v)=>update({ last_name_kana:v })} 
+              onFocus={() => setActiveField("last_name_kana")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("last_name_kana")} onSubmitEditing={() => { handleBlur(); focusNext("last_name_kana"); }}
+            />
+            <Field name="first_name_kana" label="メイ" value={profile.first_name_kana ?? ""} onChangeText={(v)=>update({ first_name_kana:v })} 
+              onFocus={() => setActiveField("first_name_kana")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("first_name_kana")} onSubmitEditing={() => { handleBlur(); focusNext("first_name_kana"); }}
+            />
+            <Field name="phone" label="電話番号" value={profile.phone ?? ""} onChangeText={(v)=>update({ phone: v.replace(/[^0-9+\-]/g, "") })} keyboardType="phone-pad"
+              onFocus={() => setActiveField("phone")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("phone")} onSubmitEditing={() => { handleBlur(); focusNext("phone"); }}
+            />
+            <Field name="birth_date" label="生年月日" value={profile.birth_date ?? ""} onChangeText={(v)=>update({ birth_date:v })} placeholder="YYYY-MM-DD"
+              onFocus={() => setActiveField("birth_date")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("birth_date")} onSubmitEditing={() => { handleBlur(); focusNext("birth_date"); }}
+            />
+            <Field name="postal_code" label="郵便番号" value={profile.postal_code ?? ""} onChangeText={(v)=>update({ postal_code: v.replace(/[^0-9-]/g, "") })} 
+              onFocus={() => setActiveField("postal_code")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("postal_code")} onSubmitEditing={() => { handleBlur(); focusNext("postal_code"); }}
+            />
+            <Field name="prefecture" label="都道府県" value={profile.prefecture ?? ""} onChangeText={(v)=>update({ prefecture:v })} 
+              onFocus={() => setActiveField("prefecture")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("prefecture")} onSubmitEditing={() => { handleBlur(); focusNext("prefecture"); }}
+            />
+            <Field name="city" label="市区町村" value={profile.city ?? ""} onChangeText={(v)=>update({ city:v })} 
+              onFocus={() => setActiveField("city")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("city")} onSubmitEditing={() => { handleBlur(); focusNext("city"); }}
+            />
+            <Field name="address_line" label="番地・建物名など" value={profile.address_line ?? ""} onChangeText={(v)=>update({ address_line:v })} 
+              onFocus={() => setActiveField("address_line")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("address_line")} onSubmitEditing={() => { handleBlur(); focusNext("address_line"); }}
+            />
+            <Field name="hometown" label="出身地" value={profile.hometown ?? ""} onChangeText={(v)=>update({ hometown:v })} 
+              onFocus={() => setActiveField("hometown")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("hometown")} onSubmitEditing={() => { handleBlur(); focusNext("hometown"); }}
+            />
 
             {/* 学歴 */}
             <Section title="学歴" />
-            <Field label="大学名" value={profile.university ?? ""} onChangeText={(v)=>update({ university:v })} />
-            <Field label="学部/研究科" value={profile.faculty ?? ""} onChangeText={(v)=>update({ faculty:v })} />
-            <Field label="学科/専攻" value={profile.department ?? ""} onChangeText={(v)=>update({ department:v })} />
-            <Field label="入学年月 (YYYY-MM)" value={profile.admission_month?.slice(0,7) ?? ""} onChangeText={(v)=>update({ admission_month:v })} />
-            <Field label="卒業予定月 (YYYY-MM)" value={profile.graduation_month?.slice(0,7) ?? ""} onChangeText={(v)=>update({ graduation_month:v })} />
-            <Multiline label="研究テーマ" value={profile.research_theme ?? ""} onChangeText={(v)=>update({ research_theme:v })} />
+            <Field name="university" label="大学名" value={profile.university ?? ""} onChangeText={(v)=>update({ university:v })} 
+              onFocus={() => setActiveField("university")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("university")} onSubmitEditing={() => { handleBlur(); focusNext("university"); }}
+            />
+            <Field name="faculty" label="学部/研究科" value={profile.faculty ?? ""} onChangeText={(v)=>update({ faculty:v })} 
+              onFocus={() => setActiveField("faculty")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("faculty")} onSubmitEditing={() => { handleBlur(); focusNext("faculty"); }}
+            />
+            <Field name="department" label="学科/専攻" value={profile.department ?? ""} onChangeText={(v)=>update({ department:v })} 
+              onFocus={() => setActiveField("department")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("department")} onSubmitEditing={() => { handleBlur(); focusNext("department"); }}
+            />
+            <Field name="graduation_month" label="卒業予定月 (YYYY-MM)" value={profile.graduation_month?.slice(0,7) ?? ""} onChangeText={(v)=>update({ graduation_month:v })} 
+              onFocus={() => setActiveField("graduation_month")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("graduation_month")} onSubmitEditing={() => { handleBlur(); focusNext("graduation_month"); }}
+            />
+            <Multiline name="research_theme" label="研究テーマ" value={profile.research_theme ?? ""} onChangeText={(v)=>update({ research_theme:v })} 
+              onFocus={() => setActiveField("research_theme")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("research_theme")} onSubmitEditing={() => { handleBlur(); focusNext("research_theme"); }}
+            />
           </View>
         )}
 
         {tab === "pr" && (
           <View style={{ gap:12 }}>
-            <Field label="PRタイトル" value={profile.pr_title ?? ""} onChangeText={(v)=>update({ pr_title:v })} placeholder="あなたを一言で" />
-            <Multiline label="自己紹介 (200字)" value={profile.about ?? ""} onChangeText={(v)=>update({ about:v })} maxLength={200} />
-            <Multiline label="自己PR (800字)" value={profile.pr_text ?? ""} onChangeText={(v)=>update({ pr_text:v })} maxLength={800} />
+            <Field name="pr_title" label="PRタイトル" value={profile.pr_title ?? ""} onChangeText={(v)=>update({ pr_title:v })} placeholder="あなたを一言で"
+              onFocus={() => setActiveField("pr_title")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("pr_title")} onSubmitEditing={() => { handleBlur(); focusNext("pr_title"); }}
+            />
+            <Multiline name="about" label="自己紹介 (200字)" value={profile.about ?? ""} onChangeText={(v)=>update({ about:v })} maxLength={200}
+              onFocus={() => setActiveField("about")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("about")} onSubmitEditing={() => { handleBlur(); focusNext("about"); }}
+            />
+            <Multiline name="pr_text" label="自己PR (800字)" value={profile.pr_text ?? ""} onChangeText={(v)=>update({ pr_text:v })} maxLength={800}
+              onFocus={() => setActiveField("pr_text")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("pr_text")} onSubmitEditing={() => { handleBlur(); focusNext("pr_text"); }}
+            />
 
             <Section title="強み (最大3つ)" />
             {[1,2,3].map(i => (
-              <Field key={i} label={`強み${i}`} value={profile[`strength${i}`] ?? ""} onChangeText={(v)=>update({ [`strength${i}`]: v }) as any} placeholder="例: 問題解決力" />
+              <Field key={i} name={`strength${i}`} label={`強み${i}`} value={profile[`strength${i}`] ?? ""} onChangeText={(v)=>update({ [`strength${i}`]: v }) as any} placeholder="例: 問題解決力"
+                onFocus={() => setActiveField(`strength${i}`)} onBlur={() => { setActiveField(null); handleBlur(); }}
+                innerRef={register(`strength${i}`)} onSubmitEditing={() => { handleBlur(); focusNext(`strength${i}`); }}
+              />
             ))}
 
             <Tip />
@@ -214,15 +453,24 @@ export default function StudentProfileMobile() {
         {tab === "pref" && (
           <View style={{ gap:12 }}>
             <Section title="希望条件" />
-            <Field label="希望勤務形態" value={profile.work_style ?? ""} onChangeText={(v)=>update({ work_style:v })} placeholder="例: 正社員 / インターン" />
-            <Field label="希望年収" value={profile.salary_range ?? ""} onChangeText={(v)=>update({ salary_range:v })} placeholder="400万〜500万" />
+            <Field name="work_style" label="希望勤務形態" value={profile.work_style ?? ""} onChangeText={(v)=>update({ work_style:v })} placeholder="例: 正社員 / インターン"
+              onFocus={() => setActiveField("work_style")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("work_style")} onSubmitEditing={() => { handleBlur(); focusNext("work_style"); }}
+            />
+            <Field name="salary_range" label="希望年収" value={profile.salary_range ?? ""} onChangeText={(v)=>update({ salary_range:v })} placeholder="400万〜500万"
+              onFocus={() => setActiveField("salary_range")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("salary_range")} onSubmitEditing={() => { handleBlur(); focusNext("salary_range"); }}
+            />
 
             <TagGroup title="希望職種" options={JOB_TYPE_OPTIONS as readonly string[]} values={profile.desired_positions ?? []} onToggle={(opt)=>update({ desired_positions: toggleIn(profile.desired_positions, opt) })} />
             <TagGroup title="働き方オプション" options={WORK_PREF_OPTIONS as readonly string[]} values={profile.work_style_options ?? []} onToggle={(opt)=>update({ work_style_options: toggleIn(profile.work_style_options, opt) })} />
             <TagGroup title="希望業界" options={INDUSTRY_OPTIONS as readonly string[]} values={(Array.isArray(profile.preferred_industries)? profile.preferred_industries.map(String): [])} onToggle={(opt)=>update({ preferred_industries: toggleIn(profile.preferred_industries, opt) })} />
             <TagGroup title="希望勤務地" options={LOCATION_OPTIONS as readonly string[]} values={profile.desired_locations ?? []} onToggle={(opt)=>update({ desired_locations: toggleIn(profile.desired_locations, opt) })} />
 
-            <Multiline label="備考" value={profile.preference_note ?? ""} onChangeText={(v)=>update({ preference_note:v })} />
+            <Multiline name="preference_note" label="備考" value={profile.preference_note ?? ""} onChangeText={(v)=>update({ preference_note:v })} 
+              onFocus={() => setActiveField("preference_note")} onBlur={() => { setActiveField(null); handleBlur(); }}
+              innerRef={register("preference_note")} onSubmitEditing={() => { handleBlur(); focusNext("preference_note"); }}
+            />
           </View>
         )}
       </ScrollView>
@@ -248,7 +496,8 @@ function Section({ title }: { title: string }) {
   );
 }
 
-function Field({ label, value, onChangeText, placeholder, keyboardType, required, maxLength }:{
+function Field({ name, label, value, onChangeText, placeholder, keyboardType, required, maxLength, onFocus, onBlur, innerRef, onSubmitEditing }:{
+  name: string;
   label: string;
   value: string;
   onChangeText: (t: string) => void;
@@ -256,7 +505,12 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, required
   keyboardType?: any;
   required?: boolean;
   maxLength?: number;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  innerRef?: React.Ref<TextInput>;
+  onSubmitEditing?: () => void;
 }) {
+  // Use composingRef and scheduleSave from closure.
   return (
     <View>
       <Text style={{ fontSize:12, marginBottom:4 }}>
@@ -268,15 +522,24 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, required
         placeholder={placeholder}
         keyboardType={keyboardType}
         maxLength={maxLength}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        ref={innerRef}
+        onSubmitEditing={onSubmitEditing}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="next"
+        blurOnSubmit={false}
         style={{ borderWidth:1, borderColor:"#e5e7eb", borderRadius:8, paddingHorizontal:12, paddingVertical:10, fontSize:14, backgroundColor:"#fff" }}
       />
     </View>
   );
 }
 
-function Multiline({ label, value, onChangeText, placeholder, maxLength, rows=4 }:{
-  label: string; value: string; onChangeText:(t:string)=>void; placeholder?: string; maxLength?: number; rows?: number;
+function Multiline({ name, label, value, onChangeText, placeholder, maxLength, rows=4, onFocus, onBlur, innerRef, onSubmitEditing }:{
+  name: string; label: string; value: string; onChangeText:(t:string)=>void; placeholder?: string; maxLength?: number; rows?: number; onFocus?: () => void; onBlur?: () => void; innerRef?: React.Ref<TextInput>; onSubmitEditing?: () => void;
 }) {
+  // Use composingRef and scheduleSave from closure.
   return (
     <View>
       <Text style={{ fontSize:12, marginBottom:4 }}>{label}</Text>
@@ -287,6 +550,14 @@ function Multiline({ label, value, onChangeText, placeholder, maxLength, rows=4 
         maxLength={maxLength}
         multiline
         numberOfLines={rows}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        ref={innerRef}
+        onSubmitEditing={onSubmitEditing}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="done"
+        blurOnSubmit={true}
         style={{ borderWidth:1, borderColor:"#e5e7eb", borderRadius:8, paddingHorizontal:12, paddingVertical:10, fontSize:14, backgroundColor:"#fff", textAlignVertical:"top" }}
       />
       {typeof maxLength === "number" && (
