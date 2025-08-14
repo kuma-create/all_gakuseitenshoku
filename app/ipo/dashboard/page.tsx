@@ -231,21 +231,21 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
 
 
   return (
-    <div className="bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="bg-background overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">ダッシュボード</h1>
-              <p className="text-muted-foreground">あなたのキャリア開発の進捗を確認しましょう</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">ダッシュボード</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">あなたのキャリア開発の進捗を確認しましょう</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-0 sm:space-x-3 gap-2 flex-wrap w-full sm:w-auto">
               {completedOnboardingSteps.length < 6 && (
                 <Button
                   variant="outline"
                   onClick={() => startTransition(() => setShowOnboardingGuide(true))}
-                  className="flex items-center space-x-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+                  className="flex items-center justify-center space-x-2 border-orange-200 text-orange-700 hover:bg-orange-50 w-full sm:w-auto"
                 >
                   <BookOpen className="w-4 h-4" />
                   <span>進め方ガイド</span>
@@ -264,9 +264,9 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         {isFirstTime && (
           <div className="mb-8">
             <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Gift className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
@@ -306,9 +306,9 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         )}
 
         {/* Header Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">キャリアスコア</p>
@@ -324,20 +324,20 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                     )}
                   </div>
                 </div>
-                <TrendingUp className="w-8 h-8 text-blue-500" />
+                <TrendingUp className="w-8 h-8 text-blue-500 shrink-0" />
               </div>
               <ProgressBar progress={careerScore?.overall ?? 0} className="mt-4" />
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">自己分析完了度</p>
                   <p className="text-2xl font-bold text-gray-900">{analysisCompletion}%</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-sky-500" />
+                <TrendingUp className="w-8 h-8 text-sky-500 shrink-0" />
               </div>
               <ProgressBar progress={analysisCompletion} className="mt-4" />
             </CardContent>
@@ -348,7 +348,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             <span className="absolute top-3 right-3 text-[10px] tracking-wide font-semibold px-2 py-1 rounded-md bg-gray-900 text-white">
               COMING&nbsp;SOON
             </span>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Peerレビュー</p>
@@ -366,12 +366,12 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Career Score Radar */}
             <Card>
-              <CardHeader>
+              <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">キャリアスコア詳細</h2>
@@ -394,9 +394,13 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <CareerRadarChart data={careerScoreData} />
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+              <CardContent className="p-4 sm:p-6">
+                <div className="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto">
+                  <div className="min-w-[320px] sm:min-w-0">
+                    <CareerRadarChart data={careerScoreData} />
+                  </div>
+                </div>
+                <div className="mt-4 sm:mt-6 grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 text-sm">
                   {Object.entries(careerScoreData).map(([key, value]) => (
                     <div key={key} className="text-center">
                       <div className="font-bold text-lg text-gray-900">{value}</div>
@@ -409,7 +413,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 {careerScore?.insights && (
                   <div className="mt-6 space-y-4">
                     {careerScore.insights.strengths.length > 0 && (
-                      <div className="p-4 bg-green-50 rounded-lg">
+                      <div className="p-4 bg-green-50 rounded-lg break-words">
                         <h4 className="font-medium text-green-800 mb-2">💪 あなたの強み</h4>
                         <ul className="text-sm text-green-700 space-y-1">
                           {careerScore.insights.strengths.map((strength, index) => (
@@ -420,7 +424,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                     )}
                     
                     {careerScore.insights.improvements.length > 0 && (
-                      <div className="p-4 bg-orange-50 rounded-lg">
+                      <div className="p-4 bg-orange-50 rounded-lg break-words">
                         <h4 className="font-medium text-orange-800 mb-2">🎯 改善ポイント</h4>
                         <ul className="text-sm text-orange-700 space-y-1">
                           {careerScore.insights.improvements.map((improvement, index) => (
@@ -431,7 +435,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                     )}
                     
                     {careerScore.insights.recommendations.length > 0 && (
-                      <div className="p-4 bg-blue-50 rounded-lg">
+                      <div className="p-4 bg-blue-50 rounded-lg break-words">
                         <h4 className="font-medium text-blue-800 mb-2">💡 おすすめアクション</h4>
                         <ul className="text-sm text-blue-700 space-y-1">
                           {careerScore.insights.recommendations.map((recommendation, index) => (
@@ -450,7 +454,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               <span className="absolute top-3 right-3 text-[10px] tracking-wide font-semibold px-2 py-1 rounded-md bg-gray-900 text-white">
                 COMING&nbsp;SOON
               </span>
-              <CardHeader>
+              <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Peerレビュー</h2>
@@ -462,10 +466,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   {peerReviews.map((review) => (
-                    <div key={review.id} className="border border-gray-200 rounded-xl p-4">
+                    <div key={review.id} className="border border-gray-200 rounded-xl p-3 sm:p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <span className="font-medium text-gray-900">{review.reviewer}</span>
@@ -495,13 +499,13 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
 
             {/* Quick Actions */}
             <Card>
-              <CardHeader>
+              <CardHeader className="p-4 sm:p-6">
                 <h2 className="text-lg font-bold text-gray-900">クイックアクション</h2>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2 sm:space-y-3 p-4 sm:p-6">
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start py-5 sm:py-6"
                   onClick={() => navigateFn('/ipo/analysis')}
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
@@ -509,7 +513,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start py-5 sm:py-6"
                   onClick={() => navigateFn('/ipo/case')}
                 >
                   <Target className="w-4 h-4 mr-2" />
@@ -517,7 +521,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start py-5 sm:py-6"
                   onClick={() => navigateFn('/ipo/calendar')}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
@@ -536,12 +540,12 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setShowReviewModal(false)}
           />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
             <Card className="w-full max-w-md">
-              <CardHeader>
+              <CardHeader className="p-4 sm:p-6">
                 <h3 className="text-lg font-bold text-gray-900">レビューを書く</h3>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     レビュアー名
@@ -550,7 +554,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                     type="text"
                     value={newReview.reviewer}
                     onChange={(e) => setNewReview(prev => ({ ...prev, reviewer: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    className="w-full p-3 sm:p-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
                     placeholder="あなたの名前"
                   />
                 </div>
@@ -580,7 +584,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                     value={newReview.comment}
                     onChange={(e) => setNewReview(prev => ({ ...prev, comment: e.target.value }))}
                     rows={4}
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    className="w-full p-3 sm:p-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
                     placeholder="フィードバックを書いてください..."
                   />
                 </div>

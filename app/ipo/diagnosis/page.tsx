@@ -683,7 +683,7 @@ export default function DiagnosisPage() {
           </div>
 
           <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
               <TabsTrigger value="overview">概要</TabsTrigger>
               <TabsTrigger value="analysis">詳細分析</TabsTrigger>
               <TabsTrigger value="careers">適職</TabsTrigger>
@@ -1089,7 +1089,7 @@ export default function DiagnosisPage() {
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
           <Card className="overflow-hidden">
-            <CardContent className="p-10">
+            <CardContent className="p-6 sm:p-8 md:p-10">
               <div className="text-center mb-10">
                 <motion.div
                   initial={{ scale: 0.8 }}
@@ -1099,11 +1099,11 @@ export default function DiagnosisPage() {
                   <Brain className="w-10 h-10" />
                 </motion.div>
                 
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">
                   質問 {currentQuestion + 1}
                 </h2>
                 
-                <p className="text-xl text-gray-700 leading-relaxed max-w-2xl mx-auto">
+                <p className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed max-w-2xl mx-auto break-words">
                   {currentQ.text}
                 </p>
               </div>
@@ -1122,7 +1122,7 @@ export default function DiagnosisPage() {
                     onClick={() => handleAnswer(option.value)}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`w-full p-5 rounded-2xl bg-gradient-to-r ${option.color} text-white font-medium transition-all duration-200 hover:shadow-lg flex items-center justify-between`}
+                    className={`w-full p-4 sm:p-5 text-sm sm:text-base rounded-2xl bg-gradient-to-r ${option.color} text-white font-medium transition-all duration-200 hover:shadow-lg flex items-center justify-between`}
                   >
                     <div className="flex items-center space-x-3">
                       <span className="text-lg">{option.label}</span>
@@ -1147,7 +1147,7 @@ export default function DiagnosisPage() {
                   <div />
                 )}
                 
-                <div className="flex space-x-2">
+                <div className="hidden md:flex space-x-2 overflow-x-auto max-w-full">
                   {questions.map((_, index) => (
                     <div
                       key={index}

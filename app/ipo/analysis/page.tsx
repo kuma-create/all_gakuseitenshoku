@@ -1570,12 +1570,17 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
   return (
     <div
-      className="bg-background min-h-screen md:pb-0 w-full max-w-full overflow-x-hidden"
+      className="bg-background min-h-screen md:pb-0 w-full max-w-[100vw] overflow-x-hidden"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 5rem)' }}
     >
+      <style jsx global>{`
+        html, body, #__next { max-width: 100%; overflow-x: hidden; }
+        * { box-sizing: border-box; }
+        .no-horizontal-overflow { max-width: 100vw; overflow-x: hidden; }
+      `}</style>
       {/* Header (minimal) */}
       <div className="bg-card border-b border-border sticky top-0 z-40 backdrop-blur-sm bg-card/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-4 min-h-14 flex items-center">
+        <div className="w-full max-w-[100vw] mx-auto px-4 sm:px-6 lg:px-6 py-2 md:py-4 min-h-14 flex items-center">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -1596,11 +1601,11 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
       {/* Desktop Navigation + Content (render only on non-mobile to avoid double mounting) */}
       {!isMobile && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="w-full grid grid-cols-1 md:grid-cols-12 lg:grid-cols-12 gap-6">
+        <div className="w-full max-w-[100vw] mx-auto px-4 sm:px-6 lg:px-6 py-6">
+          <div className="w-full max-w-full overflow-x-hidden grid grid-cols-1 md:grid-cols-12 lg:grid-cols-12 gap-6">
             {/* Left Sidebar */}
-            <aside className="hidden md:block md:col-span-4 lg:col-span-4">
-              <div className="sticky top-[var(--header-height,64px)] space-y-3">
+            <aside className="hidden md:block md:col-span-4 lg:col-span-4 min-w-0">
+              <div className="sticky top-[var(--header-height,64px)] space-y-3 min-w-0">
                 {/* Vertical menu */}
                 <nav aria-label="分析ツールメニュー" className="bg-muted/30 rounded-xl border p-2">
                   <ul className="flex flex-col">
@@ -1641,7 +1646,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             </aside>
 
             {/* Right content */}
-            <div className="col-span-1 md:col-span-8 lg:col-span-8">
+            <div className="col-span-1 md:col-span-8 lg:col-span-8 min-w-0">
               {renderContent()}
             </div>
           </div>
@@ -1650,10 +1655,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
       {/* Mobile Content (render only on mobile to avoid double mounting) */}
       {isMobile && (
-        <div className="px-3 sm:px-3 lg:px-3 pt-3 w-full max-w-full">
+        <div className="px-3 sm:px-3 lg:px-3 pt-3 w-full max-w-[100vw] overflow-x-hidden no-horizontal-overflow">
           <div className="sticky top-14 z-40 bg-background border-b pb-3 pt-2">
             <div className="relative" aria-label="分析タブ">
-              <div className="h-12 w-full overscroll-x-contain rounded-lg border flex items-center gap-2 overflow-x-auto snap-x snap-mandatory whitespace-nowrap px-1.5">
+              <div className="h-12 w-full max-w-full min-w-0 overscroll-x-contain rounded-lg border flex items-center gap-2 overflow-x-auto snap-x snap-mandatory whitespace-nowrap px-1.5">
                 {analysisTools.map((tool) => {
                   const isActive = activeTab === tool.id;
                   return (
@@ -1663,7 +1668,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                       role="tab"
                       aria-selected={isActive}
                       onClick={() => handleTabChange(tool.id)}
-                      className={`snap-start flex items-center gap-2 px-3 py-3.5 rounded-full text-sm whitespace-nowrap min-w-[70px] transition-colors ${
+                      className={`snap-start shrink-0 flex items-center gap-2 px-3 py-3.5 rounded-full text-sm whitespace-nowrap min-w-[70px] transition-colors ${
                         isActive ? 'bg-background text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -1675,7 +1680,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               </div>
             </div>
           </div>
-          <div className="pt-4 px-1">{renderContent()}</div>
+          <div className="pt-4 px-1 max-w-full overflow-x-hidden">{renderContent()}</div>
         </div>
       )}
     </div>

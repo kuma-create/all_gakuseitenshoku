@@ -688,40 +688,43 @@ export default function CalendarPage() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+          className="mb-6"
         >
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-blue-600 mb-1">
-                {events.filter(e => e.isRegistered).length}
-              </div>
-              <div className="text-sm text-gray-600">参加予定</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-green-600 mb-1">
-                {events.filter(e => e.isPublic && !e.isRegistered && e.registrationStatus === 'open').length}
-              </div>
-              <div className="text-sm text-gray-600">申し込み可能</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-orange-600 mb-1">
-                {events.filter(e => e.registrationDeadline && new Date(e.registrationDeadline) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)).length}
-              </div>
-              <div className="text-sm text-gray-600">締切間近</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-2xl font-bold text-purple-600 mb-1">
-                {weekEvents.length}
-              </div>
-              <div className="text-sm text-gray-600">今週の予定</div>
-            </CardContent>
-          </Card>
+          {/* On mobile: horizontal compact row with scroll; on md+: 4-column grid */}
+          <div className="flex gap-3 overflow-x-auto md:overflow-visible md:grid md:grid-cols-4 md:gap-6">
+            <Card className="min-w-[9rem] md:min-w-0">
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="text-lg md:text-2xl font-bold text-blue-600 mb-0.5 md:mb-1">
+                  {events.filter(e => e.isRegistered).length}
+                </div>
+                <div className="text-xs md:text-sm text-gray-600">参加予定</div>
+              </CardContent>
+            </Card>
+            <Card className="min-w-[9rem] md:min-w-0">
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="text-lg md:text-2xl font-bold text-green-600 mb-0.5 md:mb-1">
+                  {events.filter(e => e.isPublic && !e.isRegistered && e.registrationStatus === 'open').length}
+                </div>
+                <div className="text-xs md:text-sm text-gray-600">申し込み可能</div>
+              </CardContent>
+            </Card>
+            <Card className="min-w-[9rem] md:min-w-0">
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="text-lg md:text-2xl font-bold text-orange-600 mb-0.5 md:mb-1">
+                  {events.filter(e => e.registrationDeadline && new Date(e.registrationDeadline) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)).length}
+                </div>
+                <div className="text-xs md:text-sm text-gray-600">締切間近</div>
+              </CardContent>
+            </Card>
+            <Card className="min-w-[9rem] md:min-w-0">
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="text-lg md:text-2xl font-bold text-purple-600 mb-0.5 md:mb-1">
+                  {weekEvents.length}
+                </div>
+                <div className="text-xs md:text-sm text-gray-600">今週の予定</div>
+              </CardContent>
+            </Card>
+          </div>
         </motion.div>
 
         {/* Search and Filter */}

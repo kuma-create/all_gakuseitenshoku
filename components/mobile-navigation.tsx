@@ -2,12 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Briefcase, FileText, Mail, MessageSquare, Star, User } from "lucide-react"
+import { Briefcase, FileText, Mail, MessageSquare, Star, User, Home, Users, Calendar, LayoutDashboard, Brain, ClipboardList, Target, Book, Activity } from "lucide-react"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/client"
 
 export function MobileNavigation() {
   const pathname = usePathname()
+  const isIpo = pathname?.startsWith("/ipo")
 
   // ── 学生ロール判定 ───────────────────────────
   const [isStudent, setIsStudent] = useState<boolean>(false)
@@ -50,23 +51,34 @@ export function MobileNavigation() {
     }
   }, [])
 
-  // トップページや学生以外 → 非表示
-  if (pathname === "/" || !isStudent) return null
+  // トップページや学生以外 → 非表示 (IPOページは常に表示)
+  if (!isIpo && (pathname === "/" || !isStudent)) return null
 
-  const links = [
+  const defaultLinks = [
     { href: "/student-dashboard", label: "マイページ", icon: User },
     { href: "/resume", label: "職務経歴書", icon: FileText },
     { href: "/jobs", label: "求人一覧", icon: Briefcase },
     { href: "/offers", label: "オファー一覧", icon: Mail },
     { href: "/chat", label: "チャット", icon: MessageSquare },
     { href: "/features", label: "特集", icon: Star },
-  ]
+  ] as const
+
+  const ipoLinks = [
+    { href: "/ipo/dashboard", label: "ホーム", icon: LayoutDashboard },
+    { href: "/ipo/analysis", label: "自己分析", icon: Brain },
+    { href: "/ipo/selection", label: "選考状況", icon: ClipboardList },
+    { href: "/ipo/case", label: "対策", icon: Target },
+    { href: "/ipo/library", label: "調べる", icon: Book },
+    { href: "/ipo/diagnosis", label: "診断", icon: Activity },
+  ] as const
+
+  const links = isIpo ? ipoLinks : defaultLinks
 
   return (
     <div className="fixed bottom-0 left-0 z-50 w-full border-t bg-white md:hidden">
       <div className="mx-auto flex max-w-md justify-between px-2">
         {links.map((link) => {
-          const isActive = pathname === link.href
+          const isActive = pathname === link.href || pathname.startsWith(link.href + "/")
           const Icon = link.icon
           return (
             <Link
