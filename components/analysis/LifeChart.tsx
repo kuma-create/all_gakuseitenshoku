@@ -733,7 +733,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
         </Card>
 
         {(hasInsights ? insights : fallbackInsights).map((ins, idx) => (
-          <Card key={idx} className="p-6">
+          <Card key={idx} className="p-4 sm:p-6">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                 {ins.type === 'strength' ? <Star className="w-5 h-5" /> :
@@ -768,7 +768,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
         ))}
 
         {!events.length && (
-          <Card className="p-6 text-center text-gray-600">
+          <Card className="p-4 sm:p-6 text-center text-gray-600">
             まずはイベントを追加してください。AI分析ボタンでサマリーが生成されます。
           </Card>
         )}
@@ -780,7 +780,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     // maxAge, minAge, span, eventDots are computed above via useMemo
     return (
       <div className="space-y-6">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold">人生グラフ</h3>
             <div className="flex items-center space-x-3">
@@ -884,7 +884,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="p-6 hover:shadow-md transition-shadow">
+              <Card className="p-4 sm:p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start space-x-4">
                   <div className={`w-12 h-12 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
                     <IconComponent className="w-6 h-6 text-white" />
@@ -980,7 +980,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full md:max-w-6xl md:mx-auto space-y-6 px-2 sm:px-4">
       {/* Header */}
       <Card className="p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
@@ -1016,24 +1016,24 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4 text-center">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-blue-600 mb-1">{events.length}</div>
           <div className="text-sm text-gray-600">総イベント数</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-green-600 mb-1">
             {events.filter(e => e.jobHuntRelevance.relevant).length}
           </div>
           <div className="text-sm text-gray-600">就活関連</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-purple-600 mb-1">
             {[...new Set(events.flatMap(e => e.skills))].length}
           </div>
           <div className="text-sm text-gray-600">スキル種類</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-orange-600 mb-1">{insights.length}</div>
           <div className="text-sm text-gray-600">インサイト</div>
         </Card>

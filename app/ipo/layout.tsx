@@ -2,6 +2,7 @@
 import React, { useEffect, useCallback, startTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Layout } from "@/components/Layout";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 export default function IPOLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -45,8 +46,12 @@ export default function IPOLayout({ children }: { children: React.ReactNode }) {
   const user = null;
 
   return (
-    <Layout currentRoute={currentRoute as any} navigate={navigate} user={user}>
-      {children}
-    </Layout>
+    <SidebarProvider>
+      <Layout currentRoute={currentRoute as any} navigate={navigate} user={user}>
+        <div className="w-full max-w-full overflow-x-hidden">
+          {children}
+        </div>
+      </Layout>
+    </SidebarProvider>
   );
 }

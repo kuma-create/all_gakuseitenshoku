@@ -174,8 +174,8 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
 
   // --------- UI ---------
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <Card className="p-6">
+    <div className="w-full md:max-w-4xl md:mx-auto space-y-4 sm:space-y-6 px-2 sm:px-4 pb-16 sm:pb-0">
+      <Card className="p-2.5 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-bold text-foreground">将来ビジョン設計</h2>
@@ -200,7 +200,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
         )}
 
         {/* Progress Overview */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
           {Object.entries(visions).map(([timeframe, vision]) => (
             <div key={timeframe} className="p-4 bg-muted rounded-lg text-center">
               <div className="text-lg font-bold text-foreground">{getCompletionRate(vision)}%</div>
@@ -211,7 +211,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
       </Card>
 
       <Tabs value={activeTimeframe} onValueChange={(value) => setActiveTimeframe(value as Timeframe)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 text-[13px] sm:text-base">
           <TabsTrigger value="5年後" className="flex items-center space-x-2">
             <Target className="w-4 h-4" />
             <span>5年後</span>
@@ -229,13 +229,13 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
         {Object.entries(visions).map(([timeframe, vision]) => (
           <TabsContent key={timeframe} value={timeframe as Timeframe} className="mt-6">
             <div className="space-y-6">
-              <Card className="p-6">
+              <Card className="p-2.5 sm:p-6">
                 <h3 className="font-bold text-foreground mb-4">{timeframe}のビジョン</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   {Object.entries(fieldLabels).map(([field, label]) => (
                     <div key={field} className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <label className="font-medium text-foreground">{label}</label>
+                        <label className="font-medium text-[13px] sm:text-sm text-foreground">{label}</label>
                         <span
                           className="inline-flex items-center"
                           title={prompts[field as keyof typeof prompts]}
@@ -248,7 +248,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
                         onChange={(e) => updateVision(field as keyof Omit<VisionData, 'timeframe'>, e.target.value)}
                         placeholder={prompts[field as keyof typeof prompts]}
                         rows={4}
-                        className="w-full px-3 py-2 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm"
+                        className="w-full px-2 py-2 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm sm:text-base"
                       />
                     </div>
                   ))}
@@ -257,7 +257,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
 
               {/* Vision Summary */}
               {getCompletionRate(vision) > 50 && (
-                <Card className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+                <Card className="p-2.5 sm:p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
                   <h4 className="font-bold text-foreground mb-3">🎯 {timeframe}のビジョンサマリー</h4>
                   <div className="space-y-2 text-sm text-muted-foreground">
                     {vision.career && (
@@ -278,12 +278,12 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
       </Tabs>
 
       {/* Inspiration Section */}
-      <Card className="p-6">
+      <Card className="p-2.5 sm:p-6">
         <h3 className="font-bold text-foreground mb-4">💡 ビジョン作成のヒント</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div className="space-y-2">
             <h4 className="font-medium text-foreground">効果的なビジョンの特徴</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
+            <ul className="text-[12px] sm:text-sm text-muted-foreground space-y-1">
               <li>• 具体的で詳細に描かれている</li>
               <li>• 感情に訴えかける内容になっている</li>
               <li>• 実現可能性と挑戦性のバランスが取れている</li>
@@ -292,7 +292,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
           </div>
           <div className="space-y-2">
             <h4 className="font-medium text-foreground">考える際のポイント</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
+            <ul className="text-[12px] sm:text-sm text-muted-foreground space-y-1">
               <li>• 「なぜそうありたいのか」理由も考える</li>
               <li>• 数字や期限を入れて具体化する</li>
               <li>• 周りの人への影響も含めて考える</li>

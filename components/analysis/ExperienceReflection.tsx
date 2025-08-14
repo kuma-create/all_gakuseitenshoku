@@ -249,28 +249,28 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
     return (
       <div className="space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600 mb-1">{experiences.length}</div>
-            <div className="text-sm text-gray-600">総経験数</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+          <Card className="p-3 sm:p-4 text-center">
+            <div className="text-xl sm:text-2xl font-bold text-blue-600 mb-1">{experiences.length}</div>
+            <div className="text-[13px] sm:text-sm text-gray-600">総経験数</div>
           </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600 mb-1">{highPriorityExperiences.length}</div>
-            <div className="text-sm text-gray-600">就活重要度高</div>
+          <Card className="p-3 sm:p-4 text-center">
+            <div className="text-xl sm:text-2xl font-bold text-green-600 mb-1">{highPriorityExperiences.length}</div>
+            <div className="text-[13px] sm:text-sm text-gray-600">就活重要度高</div>
           </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600 mb-1">{completedExperiences.length}</div>
-            <div className="text-sm text-gray-600">完成度80%以上</div>
+          <Card className="p-3 sm:p-4 text-center">
+            <div className="text-xl sm:text-2xl font-bold text-purple-600 mb-1">{completedExperiences.length}</div>
+            <div className="text-[13px] sm:text-sm text-gray-600">完成度80%以上</div>
           </Card>
-          <Card className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600 mb-1">{Math.round(avgCompleteness)}%</div>
-            <div className="text-sm text-gray-600">平均完成度</div>
+          <Card className="p-3 sm:p-4 text-center">
+            <div className="text-xl sm:text-2xl font-bold text-orange-600 mb-1">{Math.round(avgCompleteness)}%</div>
+            <div className="text-[13px] sm:text-sm text-gray-600">平均完成度</div>
           </Card>
         </div>
 
         {/* Top Experiences */}
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-6">就活で活用予定の主要経験</h3>
+        <Card className="p-3 sm:p-6">
+          <h3 className="text-base sm:text-xl font-bold mb-6">就活で活用予定の主要経験</h3>
           <div className="space-y-4">
             {highPriorityExperiences.slice(0, 3).map((experience, index) => {
               const config = categoryConfig[experience.category];
@@ -280,11 +280,11 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200"
+                  className="p-2.5 sm:p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200"
                 >
                   <div className="flex items-start space-x-4">
-                    <div className={`w-12 h-12 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                      <config.icon className="w-6 h-6 text-white" />
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                      <config.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
@@ -320,8 +320,8 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
         </Card>
 
         {/* Category Distribution */}
-        <Card className="p-6">
-          <h3 className="text-xl font-bold mb-6">経験の分野別分布</h3>
+        <Card className="p-3 sm:p-6">
+          <h3 className="text-base sm:text-xl font-bold mb-6">経験の分野別分布</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {Object.entries(categoryConfig).map(([key, config]) => {
               const count = experiences.filter(e => e.category === key).length;
@@ -330,13 +330,13 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
               return (
                 <motion.div
                   key={key}
-                  className="p-4 bg-gray-50 rounded-lg text-center"
+                  className="p-2.5 sm:p-4 bg-gray-50 rounded-lg text-center"
                   whileHover={{ scale: 1.02 }}
                 >
-                  <div className={`w-12 h-12 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center mx-auto mb-3`}>
-                    <IconComponent className="w-6 h-6 text-white" />
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center mx-auto mb-3`}>
+                    <IconComponent className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <h4 className="font-medium text-gray-900 mb-1">{config.label}</h4>
+                  <h4 className="font-medium text-gray-900 mb-1 text-sm sm:text-base">{config.label}</h4>
                   <div className="text-2xl font-bold text-gray-700">{count}</div>
                 </motion.div>
               );
@@ -353,7 +353,7 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
     return (
       <div className="space-y-6">
         {/* Filters */}
-        <Card className="p-4">
+        <Card className="p-3 sm:p-4">
           <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-4">
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-full md:w-48">
@@ -390,15 +390,18 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="p-6 hover:shadow-md transition-shadow">
+                {/* Card padding reduced on mobile */}
+                <Card className="p-3 sm:p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-start space-x-4">
-                    <div className={`w-14 h-14 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                      <config.icon className="w-7 h-7 text-white" />
+                    {/* Icon container and icon size reduced on mobile */}
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                      <config.icon className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
                     
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-xl font-bold text-gray-900">{experience.title}</h4>
+                        {/* Title font size reduced on mobile */}
+                        <h4 className="text-base sm:text-xl font-bold text-gray-900">{experience.title}</h4>
                         <div className="flex items-center space-x-2">
                           <Badge className={`${config.bgColor} ${config.textColor}`}>
                             {config.label}
@@ -434,13 +437,14 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                         </div>
                       </div>
 
-                      <p className="text-gray-700 mb-4">{experience.description}</p>
+                      {/* Description font size reduced on mobile */}
+                      <p className="text-sm sm:text-base text-gray-700 mb-4">{experience.description}</p>
 
-                      {/* STAR Framework Preview */}
+                      {/* STAR Framework Preview, reduced padding and font size on mobile */}
                       {experience.starFramework.situation && (
-                        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                        <div className="mb-4 p-3 sm:p-4 bg-blue-50 rounded-lg">
                           <h5 className="font-medium text-blue-900 mb-2">STAR法での整理</h5>
-                          <p className="text-sm text-blue-700">{experience.starFramework.situation}</p>
+                          <p className="text-[13px] sm:text-sm text-blue-700">{experience.starFramework.situation}</p>
                         </div>
                       )}
 
@@ -449,17 +453,18 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                           <span className="font-medium text-gray-600">スキル:</span>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {experience.skills.slice(0, 3).map((skill, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">{skill}</Badge>
+                              <Badge key={i} variant="secondary" className="text-[11px] sm:text-xs">{skill}</Badge>
                             ))}
                             {experience.skills.length > 3 && (
-                              <Badge variant="outline" className="text-xs">+{experience.skills.length - 3}</Badge>
+                              <Badge variant="outline" className="text-[11px] sm:text-xs">+{experience.skills.length - 3}</Badge>
                             )}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        {/* Footer font size reduced on mobile */}
+                        <div className="flex items-center space-x-4 text-[13px] sm:text-sm text-gray-600">
                           <div className="flex items-center space-x-1">
                             <CheckCircle className="w-4 h-4" />
                             <span>完成度 {experience.completeness}%</span>
@@ -488,9 +493,9 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 px-2 sm:px-4 pb-16 sm:pb-0">
       {/* Header */}
-      <Card className="p-6">
+      <Card className="p-3 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">ガクチカ・経験整理</h2>
@@ -508,7 +513,7 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
       </Card>
 
       {/* View Toggle */}
-      <Card className="p-4">
+      <Card className="p-2.5 sm:p-4">
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">概要</TabsTrigger>
@@ -545,32 +550,33 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
 
       {/* Experience Dialog */}
       <Dialog open={showExperienceDialog} onOpenChange={setShowExperienceDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto px-2 sm:px-0 pt-3 pb-6">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">
               {editingExperience ? '経験を編集' : '新しい経験を追加'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm sm:text-base">
               STAR法を活用して就活で使える経験を整理しましょう
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2.5 sm:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 items-start">
               <div>
-                <Label htmlFor="title">タイトル *</Label>
+                <Label htmlFor="title" className="text-[11px] sm:text-sm md:text-base">タイトル *</Label>
                 <Input
                   id="title"
+                  className="h-9 text-[13px] sm:h-9 sm:text-base"
                   value={newExperience.title}
                   onChange={(e) => setNewExperience(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="例: サークル代表として組織改革"
                 />
               </div>
               <div>
-                <Label htmlFor="category">カテゴリー</Label>
+                <Label htmlFor="category" className="text-[11px] sm:text-sm md:text-base">カテゴリー</Label>
                 <Select value={newExperience.category} onValueChange={(value) => setNewExperience(prev => ({ ...prev, category: value as any }))}>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="h-9 text-[13px] sm:h-9 sm:text-base">
+                    <SelectValue className="text-sm sm:text-base" />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(categoryConfig).map(([key, config]) => (
@@ -587,9 +593,10 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
             </div>
 
             <div>
-              <Label htmlFor="description">概要説明</Label>
+              <Label htmlFor="description" className="text-[11px] sm:text-sm md:text-base">概要説明</Label>
               <Textarea
                 id="description"
+                className="min-h-[80px] text-sm sm:text-base"
                 value={newExperience.description}
                 onChange={(e) => setNewExperience(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="この経験について簡潔に説明してください..."
@@ -598,10 +605,10 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
             </div>
 
             <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button variant="outline" onClick={() => setShowExperienceDialog(false)}>
+              <Button variant="outline" className="h-9 text-[13px] sm:text-base" onClick={() => setShowExperienceDialog(false)}>
                 キャンセル
               </Button>
-              <Button onClick={handleSaveExperience} disabled={!newExperience.title}>
+              <Button className="h-9 text-[13px] sm:text-base" onClick={handleSaveExperience} disabled={!newExperience.title}>
                 <Save className="w-4 h-4 mr-2" />
                 保存
               </Button>
