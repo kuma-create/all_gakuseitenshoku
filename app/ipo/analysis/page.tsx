@@ -197,7 +197,7 @@ interface SimpleTrait {
 
 export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const [activeTab, setActiveTab] = useState('overview');
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false));
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [progress, setProgress] = useState<AnalysisProgress>({
     aiChat: 0,
@@ -428,14 +428,24 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     }, 500); // debounce 500ms
   }, [userId]);
 
-  // Check if mobile
+  // Check if mobile (via media query)
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    if (mq.addEventListener) {
+      mq.addEventListener('change', handler);
+    } else {
+      // Safari <14 fallback
+      mq.addListener(handler);
+    }
+    return () => {
+      if (mq.removeEventListener) {
+        mq.removeEventListener('change', handler);
+      } else {
+        mq.removeListener(handler);
+      }
     };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Resolve Supabase auth user and load saved progress
@@ -1104,7 +1114,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               </div>
               <div className="space-y-4 p-4 pt-0">
                 <div className="space-y-1">
-                  <Label htmlFor="pr_title" className="text-xs sm:text-sm">PR タイトル</Label>
+                  <Label htmlFor="pr_title" className="text-sm">PR タイトル</Label>
                   <Input
                     id="pr_title"
                     value={manual.prTitle}
@@ -1116,7 +1126,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="about" className="text-xs sm:text-sm">自己紹介（〜200文字）</Label>
+                    <Label htmlFor="about" className="text-sm">自己紹介（〜200文字）</Label>
                     <span className="text-xs text-gray-500">{manual.about.length}/200</span>
                   </div>
                   <Textarea
@@ -1131,7 +1141,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="pr_text" className="text-xs sm:text-sm">自己PR（〜800文字）</Label>
+                    <Label htmlFor="pr_text" className="text-sm">自己PR（〜800文字）</Label>
                     <span className="text-xs text-gray-500">{manual.prText.length}/800</span>
                   </div>
                   <Textarea
@@ -1145,7 +1155,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs sm:text-sm">強み（最大3つ）</Label>
+                  <Label className="text-sm">強み（最大3つ）</Label>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {manual.strengths.map((v, i) => (
                       <Input
@@ -1186,7 +1196,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                     {/* 強み */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs sm:text-sm">強み</Label>
+                        <Label className="text-sm">強み</Label>
                         <Button variant="outline" size="sm" className="h-7 gap-1" onClick={addStrengthItem}>
                           <PlusCircle className="h-4 w-4" /> 追加
                         </Button>
@@ -1223,7 +1233,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                     {/* 弱み */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs sm:text-sm">弱み</Label>
+                        <Label className="text-sm">弱み</Label>
                         <Button variant="outline" size="sm" className="h-7 gap-1" onClick={addWeaknessItem}>
                           <PlusCircle className="h-4 w-4" /> 追加
                         </Button>
@@ -1325,26 +1335,26 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
                       <CollapsibleContent className="mt-3 space-y-3">
                         <div className="space-y-1">
-                          <Label htmlFor={`company-${exp.id}`} className="text-xs">企業・組織名</Label>
-                          <Input id={`company-${exp.id}`} placeholder="〇〇株式会社" className="h-8 text-xs" value={exp.company} onChange={(e) => handleWorkExperienceChange(exp.id, 'company', e.target.value)} />
+                          <Label htmlFor={`company-${exp.id}`} className="text-sm">企業・組織名</Label>
+                          <Input id={`company-${exp.id}`} placeholder="〇〇株式会社" className="h-10 text-sm md:h-8 md:text-xs" value={exp.company} onChange={(e) => handleWorkExperienceChange(exp.id, 'company', e.target.value)} />
                         </div>
 
                         <div className="space-y-1">
-                          <Label className="text-xs">職種（複数選択可）</Label>
+                          <Label className="text-sm">職種（複数選択可）</Label>
                           <div className="grid grid-cols-2 gap-x-3 gap-y-1 md:grid-cols-3 md:gap-2">
                             {[ 'エンジニア','営業','コンサルタント','経営・経営企画','総務・人事','経理・財務','企画','マーケティング','デザイナー','広報','その他' ].map(opt => (
                               <div key={opt} className="flex items-center space-x-2">
-                                <Checkbox id={`jobType-${exp.id}-${opt}`} className="h-3.5 w-3.5" checked={(exp.jobTypes||[]).includes(opt)} onCheckedChange={(checked) => handleJobTypeToggle(exp.id, opt, checked as boolean)} />
-                                <Label htmlFor={`jobType-${exp.id}-${opt}`} className="text-[10px]">{opt}</Label>
+                                <Checkbox id={`jobType-${exp.id}-${opt}`} className="h-4 w-4 md:h-3.5 md:w-3.5" checked={(exp.jobTypes||[]).includes(opt)} onCheckedChange={(checked) => handleJobTypeToggle(exp.id, opt, checked as boolean)} />
+                                <Label htmlFor={`jobType-${exp.id}-${opt}`} className="text-xs">{opt}</Label>
                               </div>
                             ))}
                           </div>
                         </div>
 
                         <div className="space-y-1">
-                          <Label htmlFor={`position-${exp.id}`} className="text-xs">役職・ポジション</Label>
+                          <Label htmlFor={`position-${exp.id}`} className="text-sm">役職・ポジション</Label>
                           <Select value={exp.position} onValueChange={(v) => handleWorkExperienceChange(exp.id, 'position', v)}>
-                            <SelectTrigger className="w-48 h-8 text-xs" id={`position-${exp.id}`}>
+                            <SelectTrigger className="w-48 h-10 text-sm md:h-8 md:text-xs" id={`position-${exp.id}`}>
                               <SelectValue placeholder="役職を選択" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1360,33 +1370,33 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
-                            <Label htmlFor={`startDate-${exp.id}`} className="text-xs">開始年月</Label>
-                            <Input id={`startDate-${exp.id}`} type="month" className="h-8 text-xs" value={exp.startDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'startDate', e.target.value)} />
+                            <Label htmlFor={`startDate-${exp.id}`} className="text-sm">開始年月</Label>
+                            <Input id={`startDate-${exp.id}`} type="month" inputMode="numeric" placeholder="YYYY-MM" className="h-10 text-sm md:h-8 md:text-xs" value={exp.startDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'startDate', e.target.value)} />
                           </div>
                           <div className="space-y-1">
-                            <Label htmlFor={`endDate-${exp.id}`} className="text-xs">終了年月</Label>
-                            <Input id={`endDate-${exp.id}`} type="month" className="h-8 text-xs" value={exp.endDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'endDate', e.target.value)} disabled={exp.isCurrent} />
+                            <Label htmlFor={`endDate-${exp.id}`} className="text-sm">終了年月</Label>
+                            <Input id={`endDate-${exp.id}`} type="month" inputMode="numeric" placeholder="YYYY-MM" className="h-10 text-sm md:h-8 md:text-xs" value={exp.endDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'endDate', e.target.value)} disabled={exp.isCurrent} />
                           </div>
                         </div>
 
                         <div className="space-y-1">
                           <div className="flex items-center space-x-2">
-                            <Checkbox id={`current-${exp.id}`} className="h-3.5 w-3.5" checked={exp.isCurrent} onCheckedChange={(checked) => handleWorkExperienceChange(exp.id, 'isCurrent', Boolean(checked))} />
-                            <Label htmlFor={`current-${exp.id}`} className="text-xs">現在も在籍中</Label>
+                            <Checkbox id={`current-${exp.id}`} className="h-4 w-4 md:h-3.5 md:w-3.5" checked={exp.isCurrent} onCheckedChange={(checked) => handleWorkExperienceChange(exp.id, 'isCurrent', Boolean(checked))} />
+                            <Label htmlFor={`current-${exp.id}`} className="text-sm">現在も在籍中</Label>
                           </div>
                         </div>
 
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <Label htmlFor={`jobDescription-${exp.id}`} className="text-xs">業務内容</Label>
+                            <Label htmlFor={`jobDescription-${exp.id}`} className="text-sm">業務内容</Label>
                             <span className="text-xs text-gray-500">{exp.description.length}/500文字</span>
                           </div>
-                          <Textarea id={`jobDescription-${exp.id}`} placeholder="担当した業務内容や成果について記入してください" className="min-h-[100px] text-xs" value={exp.description} onChange={(e) => handleWorkExperienceChange(exp.id, 'description', e.target.value)} maxLength={500} />
+                          <Textarea id={`jobDescription-${exp.id}`} placeholder="担当した業務内容や成果について記入してください" className="min-h-[100px] text-sm" value={exp.description} onChange={(e) => handleWorkExperienceChange(exp.id, 'description', e.target.value)} maxLength={500} />
                         </div>
 
                         <div className="space-y-1">
-                          <Label htmlFor={`technologies-${exp.id}`} className="text-xs">使用技術・ツール</Label>
-                          <Input id={`technologies-${exp.id}`} placeholder="Word, Python, AWS, Figmaなど" className="h-8 text-xs" value={exp.technologies} onChange={(e) => handleWorkExperienceChange(exp.id, 'technologies', e.target.value)} />
+                          <Label htmlFor={`technologies-${exp.id}`} className="text-sm">使用技術・ツール</Label>
+                          <Input id={`technologies-${exp.id}`} placeholder="Word, Python, AWS, Figmaなど" className="h-10 text-sm md:h-8 md:text-xs" value={exp.technologies} onChange={(e) => handleWorkExperienceChange(exp.id, 'technologies', e.target.value)} />
                           {exp.technologies && exp.technologies.split(',').some(t => t.trim() !== '') && (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {exp.technologies.split(',').map((tech, i) => {
@@ -1399,8 +1409,8 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                         </div>
 
                         <div className="space-y-1">
-                          <Label htmlFor={`achievements-${exp.id}`} className="text-xs">成果・実績</Label>
-                          <Textarea id={`achievements-${exp.id}`} placeholder="具体的な成果や数値、評価されたポイントなどを記入してください" className="min-h-[80px] text-xs" value={exp.achievements} onChange={(e) => handleWorkExperienceChange(exp.id, 'achievements', e.target.value)} />
+                          <Label htmlFor={`achievements-${exp.id}`} className="text-sm">成果・実績</Label>
+                          <Textarea id={`achievements-${exp.id}`} placeholder="具体的な成果や数値、評価されたポイントなどを記入してください" className="min-h-[80px] text-sm" value={exp.achievements} onChange={(e) => handleWorkExperienceChange(exp.id, 'achievements', e.target.value)} />
                         </div>
                       </CollapsibleContent>
                     </div>
@@ -1559,10 +1569,13 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   }
 
   return (
-    <div className="bg-background min-h-screen pb-20 md:pb-0">
+    <div
+      className="bg-background min-h-screen md:pb-0 w-full max-w-full overflow-x-hidden"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 5rem)' }}
+    >
       {/* Header (minimal) */}
       <div className="bg-card border-b border-border sticky top-0 z-40 backdrop-blur-sm bg-card/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-4 min-h-14 flex items-center">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -1584,12 +1597,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       {/* Desktop Navigation + Content (render only on non-mobile to avoid double mounting) */}
       {!isMobile && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="w-full grid grid-cols-12 gap-6">
+          <div className="w-full grid grid-cols-1 md:grid-cols-12 lg:grid-cols-12 gap-6">
             {/* Left Sidebar */}
-            <aside className="hidden md:block col-span-4 lg:col-span-3">
-              <div className="sticky top-[64px] space-y-3">
-
-
+            <aside className="hidden md:block md:col-span-4 lg:col-span-4">
+              <div className="sticky top-[var(--header-height,64px)] space-y-3">
                 {/* Vertical menu */}
                 <nav aria-label="分析ツールメニュー" className="bg-muted/30 rounded-xl border p-2">
                   <ul className="flex flex-col">
@@ -1630,7 +1641,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             </aside>
 
             {/* Right content */}
-            <div className="col-span-12 md:col-span-8 lg:col-span-9">
+            <div className="col-span-1 md:col-span-8 lg:col-span-8">
               {renderContent()}
             </div>
           </div>
@@ -1639,10 +1650,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
       {/* Mobile Content (render only on mobile to avoid double mounting) */}
       {isMobile && (
-        <div className="px-4 sm:px-6 lg:px-8 pt-3">
-          <div className="sticky top-[56px] z-40 bg-background/80 backdrop-blur-sm pb-2">
+        <div className="px-3 sm:px-3 lg:px-3 pt-3 w-full max-w-full">
+          <div className="sticky top-14 z-40 bg-background border-b pb-3 pt-2">
             <div className="relative" aria-label="分析タブ">
-              <div className="w-full h-11 px-1 bg-muted/40 rounded-xl border flex items-center gap-2 overflow-x-auto snap-x snap-mandatory">
+              <div className="h-12 w-full overscroll-x-contain rounded-lg border flex items-center gap-2 overflow-x-auto snap-x snap-mandatory whitespace-nowrap px-1.5">
                 {analysisTools.map((tool) => {
                   const isActive = activeTab === tool.id;
                   return (
@@ -1652,11 +1663,11 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                       role="tab"
                       aria-selected={isActive}
                       onClick={() => handleTabChange(tool.id)}
-                      className={`snap-start flex items-center gap-2 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors ${
+                      className={`snap-start flex items-center gap-2 px-3 py-3.5 rounded-full text-sm whitespace-nowrap min-w-[70px] transition-colors ${
                         isActive ? 'bg-background text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <tool.icon className="w-4 h-4" />
+                      <tool.icon className="w-5 h-5 shrink-0" />
                       <span>{tool.subtitle || tool.title}</span>
                     </button>
                   );
@@ -1664,7 +1675,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               </div>
             </div>
           </div>
-          <div className="pt-3">{renderContent()}</div>
+          <div className="pt-4 px-1">{renderContent()}</div>
         </div>
       )}
     </div>

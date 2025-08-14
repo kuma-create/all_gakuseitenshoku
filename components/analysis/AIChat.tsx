@@ -455,7 +455,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="w-full max-w-full md:max-w-5xl md:mx-auto px-2 sm:px-4 overflow-x-hidden">
         <Card className="p-12 text-center">
           <div className="w-8 h-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-muted-foreground">AIチャットを準備しています...</p>
@@ -469,13 +469,13 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
     : '何でも気軽に話してください…';
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="w-full max-w-full md:max-w-5xl md:mx-auto px-2 sm:px-4 overflow-x-hidden">
 
       {/* Top Bar: 空欄補充率 + モード切替 */}
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border rounded-2xl p-4 mb-4">
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border rounded-2xl p-3 sm:p-4 mb-4">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex-1">
-            <div className="flex items-center justify-between text-sm mb-2">
+            <div className="flex items-center justify-between text-[13px] sm:text-sm leading-relaxed mb-2">
               <span className="font-medium">自己分析の空欄補充率</span>
               <span className="tabular-nums">{progressPercent}%</span>
             </div>
@@ -485,6 +485,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
             <Button
               variant={interactionMode === 'free' ? 'default' : 'outline'}
               size="sm"
+              className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1"
               onClick={() => setInteractionMode('free')}
             >
               壁打ちモード
@@ -492,6 +493,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
             <Button
               variant={interactionMode === 'fill' ? 'default' : 'outline'}
               size="sm"
+              className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1"
               onClick={() => setInteractionMode('fill')}
             >
               空欄を埋めるモード
@@ -500,7 +502,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
         </div>
       </div>
       <div className="bg-card rounded-2xl shadow-sm border border-border mb-4 overflow-hidden">
-        <div className="p-4 md:p-6 space-y-4 min-h-[40vh] max-h-[72vh] md:max-h-[75vh] overflow-y-auto">
+        <div className="p-2.5 sm:p-4 md:p-6 space-y-3 sm:space-y-4 min-h-[40vh] max-h-[60vh] sm:max-h-[65vh] md:max-h-[70vh] lg:max-h-[75vh] overflow-y-auto overflow-x-hidden">
           <AnimatePresence>
             {messages.map((message, index) => (
               <motion.div 
@@ -522,16 +524,16 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                       </div>
                     )}
                   </div>
-                  <div className={`rounded-2xl p-4 relative ${ 
-                    message.type === 'user' 
-                      ? 'bg-primary text-primary-foreground max-w-md' 
-                      : 'bg-muted text-muted-foreground max-w-2xl'
-                  }`}>
+                <div className={`rounded-2xl p-2.5 sm:p-4 relative break-words ${
+                  message.type === 'user'
+                    ? 'bg-primary text-primary-foreground max-w-[90vw] sm:max-w-md'
+                    : 'bg-muted text-muted-foreground max-w-[92vw] sm:max-w-lg md:max-w-2xl'
+                }`}>
                     <div className="flex items-start space-x-2 mb-2">
                       {message.emoji && (
                         <span className="text-lg flex-shrink-0">{message.emoji}</span>
                       )}
-                      <p className="text-sm leading-relaxed whitespace-pre-line flex-1">{message.content}</p>
+                      <p className="text-[13px] sm:text-sm leading-relaxed whitespace-pre-line flex-1 break-words">{message.content}</p>
                     </div>
                     
                     {message.insights && (
@@ -543,22 +545,22 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                       >
                         <div className="flex items-center space-x-2 mb-2">
                           <Lightbulb className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-800">💡 気づき</span>
+                          <span className="text-[13px] sm:text-sm font-medium text-blue-800">💡 気づき</span>
                         </div>
                         {message.insights.map((insight, i) => (
-                          <p key={i} className="text-sm text-blue-700">• {insight}</p>
+                          <p key={i} className="text-[13px] sm:text-sm text-blue-700 leading-relaxed break-words">• {insight}</p>
                         ))}
                       </motion.div>
                     )}
                     
                     {message.questions && (
                       <div className="mt-3 space-y-1">
-                        <div className="text-xs font-medium text-blue-600 mb-2">💭 続けて話せること:</div>
+                        <div className="text-[11px] sm:text-xs font-medium text-blue-600 mb-2">💭 続けて話せること:</div>
                         {message.questions.map((question, i) => (
                           <motion.button
                             key={i}
                             onClick={() => handleQuickPrompt(question)}
-                            className="block w-full text-left text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="block w-full text-left text-[13px] sm:text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1.5 sm:p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed leading-relaxed break-words"
                             disabled={isTyping}
                             whileHover={{ x: 4 }}
                             transition={{ type: "spring", stiffness: 300 }}
@@ -573,27 +575,27 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded border bg-muted hover:bg-muted/70"
                           onClick={() => onApplyToManual?.({ prTitle: pickTitleFrom(message.content) })}
                         >PRタイトルに反映</button>
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded border bg-muted hover:bg-muted/70"
                           onClick={() => onApplyToManual?.({ about: message.content })}
                         >自己紹介に反映</button>
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded border bg-muted hover:bg-muted/70"
                           onClick={() => onApplyToManual?.({ prText: message.content })}
                         >自己PRに反映</button>
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded border bg-muted hover:bg-muted/70"
                           onClick={() => onApplyToManual?.({ selfAnalysis: message.content })}
                         >自己分析に追記</button>
                         <button
                           type="button"
-                          className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70"
+                          className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded border bg-muted hover:bg-muted/70"
                           onClick={() => onApplyToManual?.({ strengths: pickStrengthsFrom(message.content) })}
                         >強みに追加</button>
                       </div>
@@ -602,12 +604,12 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                     <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/20">
                       <div className="flex items-center space-x-2">
                         {message.category && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-[11px] sm:text-xs">
                             {message.category}
                           </Badge>
                         )}
                       </div>
-                      <span className="text-xs opacity-50">
+                      <span className="text-[11px] sm:text-xs opacity-50">
                         {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -623,30 +625,30 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              <div className="flex items-start space-x-3 max-w-3xl">
+              <div className="flex items-start space-x-3 max-w-[92vw] sm:max-w-3xl">
                 <div className={`w-10 h-10 bg-gradient-to-br ${currentMode.color} rounded-full flex items-center justify-center`}>
                   <Bot className="w-5 h-5 text-white" />
                 </div>
-                <div className="bg-muted rounded-2xl p-4 border border-border/40">
-                  <div className="flex space-x-1">
-                    {[0, 1, 2].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="w-2 h-2 bg-muted-foreground rounded-full"
-                        animate={{
-                          scale: [1, 1.5, 1],
-                          opacity: [0.5, 1, 0.5]
-                        }}
-                        transition={{
-                          duration: 1.5,
-                          repeat: Infinity,
-                          delay: i * 0.2
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">AIが考えています...</p>
+              <div className="bg-muted rounded-2xl p-3 sm:p-4 border border-border/40">
+                <div className="flex space-x-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-2 h-2 bg-muted-foreground rounded-full"
+                      animate={{
+                        scale: [1, 1.5, 1],
+                        opacity: [0.5, 1, 0.5]
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        delay: i * 0.2
+                      }}
+                    />
+                  ))}
                 </div>
+                <p className="text-[11px] sm:text-xs text-muted-foreground mt-2 leading-relaxed">AIが考えています...</p>
+              </div>
               </div>
             </motion.div>
           )}
@@ -654,7 +656,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
         </div>
 
         {/* Enhanced Input Area */}
-        <div className="border-t border-border p-4">
+        <div className="border-t border-border p-3 sm:p-4">
           <div className="flex items-end space-x-3">
             <div className="flex-1 relative">
               <textarea
@@ -667,7 +669,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                 }}
                 onKeyPress={handleKeyPress}
                 placeholder={placeholderText}
-                className="w-full px-4 py-3 bg-input-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder-muted-foreground resize-none min-h-[44px] max-h-[120px]"
+                className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-input-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder-muted-foreground resize-none min-h-[44px] max-h-[120px]"
                 rows={1}
                 disabled={isTyping}
                 maxLength={1000}
@@ -679,16 +681,16 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
             <Button
               onClick={handleSendMessage}
               disabled={!inputText.trim() || isTyping}
-              className="p-3 shrink-0"
+              className="p-2.5 sm:p-3 shrink-0"
               size="lg"
             >
               <Send className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between mt-3 text-[11px] sm:text-xs text-muted-foreground">
             <div className="flex items-center space-x-3">
               <span>Enterで送信 • Shift+Enterで改行</span>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-[11px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1">
                 {interactionMode === 'free' ? '壁打ちモード' : '空欄を埋めるモード'}
               </Badge>
             </div>
