@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Home, 
   Target, 
@@ -12,7 +12,7 @@ import {
   FileText
 } from 'lucide-react';
 import { Route, User as UserType } from '../App';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Sidebar,
   SidebarContent,
@@ -25,9 +25,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from './ui/sidebar';
 
 interface LayoutProps {
@@ -39,6 +39,37 @@ interface LayoutProps {
 
 export function Layout({ children, currentRoute, navigate, user }: LayoutProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  const { setOpen } = useSidebar();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 640px)'); // tailwind sm breakpoint
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      // @ts-ignore - unify event/list
+      const matches = 'matches' in e ? e.matches : e.currentTarget?.matches ?? mq.matches;
+      setIsMobile(!!matches);
+    };
+    // initial
+    setIsMobile(mq.matches);
+    // subscribe
+    mq.addEventListener?.('change', handler as EventListener);
+    // fallback for older Safari
+    // @ts-ignore
+    mq.addListener?.(handler);
+    return () => {
+      mq.removeEventListener?.('change', handler as EventListener);
+      // @ts-ignore
+      mq.removeListener?.(handler);
+    };
+  }, []);
+
+  const handleNavigate = (route: Route) => {
+    navigate(route);
+    // Auto close the sidebar on mobile after navigating to a different item
+    if (isMobile) setOpen(false);
+  };
 
   const navItems = [
     { 
@@ -89,21 +120,26 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     // Clear user data and navigate to home
     localStorage.removeItem('ipo-user-data');
     navigate('/ipo');
+    if (isMobile) setOpen(false);
     setIsUserMenuOpen(false);
   };
 
   const handleSettingsClick = () => {
     navigate('/ipo/settings');
+    if (isMobile) setOpen(false);
     setIsUserMenuOpen(false);
   };
 
   return (
-    <SidebarProvider>
-      <Sidebar variant="inset">
-        <SidebarHeader>
+    <>
+      <Sidebar
+        variant="inset"
+        className="!bg-white dark:!bg-neutral-900 supports-[backdrop-filter]:!bg-white backdrop-blur-0 border-r border-neutral-200 dark:border-neutral-800 shadow-sm"
+      >
+        <SidebarHeader className="bg-white dark:bg-neutral-900">
           <div 
             className="flex items-center space-x-2 cursor-pointer p-2 hover:bg-sidebar-accent rounded-lg transition-colors"
-            onClick={() => navigate('/ipo')}
+            onClick={() => handleNavigate('/ipo' as Route)}
           >
             <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-orange-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-sm">IPO</span>
@@ -114,14 +150,19 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
             </div>
             {user && (
               <div className="flex items-center mt-2 space-x-2">
-                <Avatar name={user.name} size="xs" />
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={(user as any)?.avatarUrl ?? undefined} alt={user.name} />
+                  <AvatarFallback className="text-[10px]">
+                    {(user.name || '').slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="text-xs text-sidebar-foreground/80">{user.name}（自分）</span>
               </div>
             )}
           </div>
         </SidebarHeader>
         
-        <SidebarContent>
+        <SidebarContent className="bg-white dark:bg-neutral-900">
           <SidebarGroup>
             <SidebarGroupLabel>メインメニュー</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -129,12 +170,20 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                 {navItems.map((item) => (
                   <SidebarMenuItem key={item.route}>
                     <SidebarMenuButton
-                      onClick={() => navigate(item.route)}
+                      onClick={() => {
+                        if (currentRoute !== item.route) {
+                          handleNavigate(item.route);
+                        } else if (isMobile) {
+                          // If tapping the same route on mobile, just close
+                          setOpen(false);
+                        }
+                      }}
                       isActive={currentRoute === item.route}
                       tooltip={item.description}
+                      className={`${currentRoute === item.route ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'} justify-start`}
                     >
                       <item.icon className="w-4 h-4" />
-                      <span>{item.label}</span>
+                      <span className="truncate">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -143,7 +192,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
           </SidebarGroup>
         </SidebarContent>
         
-        <SidebarFooter>
+        <SidebarFooter className="bg-white dark:bg-neutral-900">
           {user && (
             <SidebarMenu>
               <SidebarMenuItem>
@@ -152,7 +201,12 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                     className="w-full"
                   >
-                    <Avatar name={user.name} size="sm" />
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={(user as any)?.avatarUrl ?? undefined} alt={user.name} />
+                      <AvatarFallback className="text-xs">
+                        {(user.name || '').slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex flex-col items-start">
                       <span className="text-sm font-medium">{user.name}</span>
                       <span className="text-xs text-sidebar-foreground/70 capitalize">
@@ -167,7 +221,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                         className="fixed inset-0 z-50"
                         onClick={() => setIsUserMenuOpen(false)}
                       />
-                      <div className="absolute bottom-full left-0 right-0 mb-2 bg-sidebar border border-sidebar-border rounded-lg shadow-lg py-1 z-50">
+                      <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-neutral-900 border border-sidebar-border rounded-lg shadow-lg py-1 z-50">
                         <button 
                           onClick={handleSettingsClick}
                           className="w-full text-left px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center space-x-2 transition-colors"
@@ -192,7 +246,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
           )}
         </SidebarFooter>
         
-        <SidebarRail />
+        <SidebarRail className="hidden sm:flex" />
       </Sidebar>
       
       <SidebarInset>
@@ -219,6 +273,6 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
           {children}
         </main>
       </SidebarInset>
-    </SidebarProvider>
+    </>
   );
 }

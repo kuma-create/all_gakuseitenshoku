@@ -124,7 +124,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* End Google Tag Manager */}
       </head>
       <body
-        className={`${inter.className} bg-background text-foreground`}
+        className={`${inter.className} bg-background text-foreground w-full max-w-full overflow-x-hidden`}
         suppressHydrationWarning
       >
         {/* Google Tag Manager (noscript) */}
@@ -152,7 +152,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               {/* クライアント側で認可判定 */}
               <AuthGuard />
 
-              <div className="relative flex min-h-screen flex-col">
+              <div className="relative flex min-h-screen flex-col w-full max-w-full overflow-x-hidden">
                 <Header />
                 <main className="flex-1 pb-16 md:pb-0">{children}</main>
                 <Footer />
