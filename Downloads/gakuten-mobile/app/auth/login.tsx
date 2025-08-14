@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from "react-native";
 import { ROLE_DEST } from "../../src/constants/routes";
@@ -184,6 +184,7 @@ export default function Login() {
               value={email}
               onChangeText={setEmail}
               placeholder="your@mail.com"
+              placeholderTextColor="#9ca3af"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -263,11 +264,15 @@ export default function Login() {
         )}
 
         {/* サインアップリンク（PC版の文言に寄せる） */}
-        <View style={{ marginTop: 18, alignItems: "center" }}>
-          <Text style={{ color: "#6b7280", fontSize: 12 }}>
-            アカウントをお持ちでない方は
-            <Text onPress={() => router.push("/auth/signup" as any)} style={{ color: "#dc2626", fontWeight: "600" }}> 新規登録</Text>
-          </Text>
+        <View style={{ marginTop: 18, alignItems: "center", flexDirection: "row", justifyContent: "center" }}>
+          <Text style={{ color: "#6b7280", fontSize: 12 }}>アカウントをお持ちでない方は </Text>
+          <Link
+            href="/auth/signup"
+            style={{ color: "#dc2626", fontWeight: "600", fontSize: 12 }}
+            accessibilityRole="link"
+          >
+            新規登録
+          </Link>
         </View>
       </View>
     </View>
