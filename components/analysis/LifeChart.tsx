@@ -1,3 +1,16 @@
+// 年齢計算ヘルパー
+const calcAge = (birthDateStr: string, at: Date = new Date()) => {
+  try {
+    const bd = new Date(birthDateStr);
+    if (Number.isNaN(bd.getTime())) return undefined as any;
+    let age = at.getFullYear() - bd.getFullYear();
+    const m = at.getMonth() - bd.getMonth();
+    if (m < 0 || (m === 0 && at.getDate() < bd.getDate())) age--;
+    return Math.max(0, age);
+  } catch {
+    return undefined as any;
+  }
+};
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { Plus, Edit3, Trash2, TrendingUp, TrendingDown, Calendar, Star, Award, Users, BookOpen, Heart, Target, Save, Download, Eye, EyeOff, ChevronRight, ArrowUp, ArrowDown, Minus } from 'lucide-react';
@@ -131,13 +144,24 @@ const EventDialogForm = React.memo(function EventDialogForm(props: {
   categoryConfig: typeof categoryConfig;
   onCancel: () => void;
   onSave: (form: Partial<LifeEvent>) => void;
+  birthDate?: string | null;
 }) {
-  const { initial, categoryConfig, onCancel, onSave } = props;
+  const { initial, categoryConfig, onCancel, onSave, birthDate } = props;
   const [form, setForm] = React.useState<Partial<LifeEvent>>(() => ({ ...initial }));
 
   React.useEffect(() => {
     setForm({ ...initial });
   }, [initial]);
+
+  // 年齢自動計算: birthDateとform.dateがあれば
+  React.useEffect(() => {
+    if (birthDate && form.date) {
+      const computed = calcAge(birthDate, new Date(form.date));
+      if (typeof computed === 'number' && computed !== form.age) {
+        setForm(p => ({ ...p, age: computed }));
+      }
+    }
+  }, [birthDate, form.date]);
 
   const update = React.useCallback(<K extends keyof LifeEvent>(k: K, v: LifeEvent[K]) =>
     setForm(p => ({ ...p, [k]: v })), []);
@@ -175,9 +199,22 @@ const EventDialogForm = React.memo(function EventDialogForm(props: {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <Label htmlFor="age">年齢</Label>
-          <Input id="age" name="age" type="number" min="0" max="100"
+          <Input
+            id="age"
+            name="age"
+            type="number"
+            min="0"
+            max="100"
             value={form.age ?? 18}
-            onChange={(e)=>update('age', (parseInt(e.target.value,10)||18) as any)} />
+            readOnly={!!birthDate}
+            onChange={(e)=> {
+              if (birthDate) return;
+              update('age', (parseInt(e.target.value,10)||18) as any);
+            }}
+          />
+          {birthDate ? (
+            <div className="text-xs text-gray-500 mt-1">生年月日から自動計算</div>
+          ) : null}
         </div>
         <div>
           <Label id="category-label" htmlFor="category-trigger">カテゴリー</Label>
@@ -209,6 +246,46 @@ const EventDialogForm = React.memo(function EventDialogForm(props: {
           placeholder="この出来事について詳しく説明してください..."
           rows={4}
         />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <Label htmlFor="emotionalLevel">感情レベル（-5〜+5）</Label>
+          <div className="mt-2 flex items-center gap-3">
+            <Slider
+              id="emotionalLevel"
+              min={-5}
+              max={5}
+              step={1}
+              value={[typeof form.emotionalLevel === 'number' ? form.emotionalLevel : 0]}
+              onValueChange={(v)=> update('emotionalLevel' as any, Number(Array.isArray(v) ? v[0] : v) as any)}
+              aria-label="感情レベル"
+            />
+            <span className="w-12 text-sm text-gray-700 text-right">
+              {(() => {
+                const val = typeof form.emotionalLevel === 'number' ? form.emotionalLevel : 0;
+                return val > 0 ? `+${val}` : `${val}`;
+              })()}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">出来事をどれくらいポジティブ/ネガティブに感じたか（-5:とても辛い / +5:とても嬉しい）</p>
+        </div>
+        <div>
+          <Label htmlFor="impactLevel">影響度（1〜5）</Label>
+          <div className="mt-2 flex items-center gap-3">
+            <Slider
+              id="impactLevel"
+              min={1}
+              max={5}
+              step={1}
+              value={[typeof form.impactLevel === 'number' ? form.impactLevel : 3]}
+              onValueChange={(v)=> update('impactLevel' as any, Number(Array.isArray(v) ? v[0] : v) as any)}
+              aria-label="影響度"
+            />
+            <span className="w-12 text-sm text-gray-700 text-right">{(typeof form.impactLevel === 'number' ? form.impactLevel : 3)}/5</span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">その出来事が自分の成長・価値観・進路へ与えた影響の大きさ</p>
+        </div>
       </div>
 
       <div className="flex items-center space-x-2">
@@ -248,6 +325,8 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   const [dialogKey, setDialogKey] = useState(0);
   const initialEventRef = useRef<Partial<LifeEvent>>(initialFormState);
 
+  const [birthDate, setBirthDate] = useState<string | null>(null);
+
   // モバイル検出（幅のブレだけ監視）: 仮想キーボードでの高さ変化では再レンダーさせない
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 767.98px)');
@@ -264,6 +343,33 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
   useEffect(() => {
     if (!userId) return;
     loadLifeEvents();
+  }, [userId]);
+
+  // 生年月日ロード: userIdが変わるたびに実行
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      try {
+        // Try profiles by id first
+        let res: any = await (supabase as any).from('profiles').select('birth_date,birthday,date_of_birth').eq('id', userId).maybeSingle?.() ?? (supabase as any).from('profiles').select('birth_date,birthday,date_of_birth').eq('id', userId).single();
+        let data = (res?.data ?? res) as any;
+        if (!data) {
+          // Fallback to user_id column if present
+          const res2: any = await (supabase as any).from('profiles').select('birth_date,birthday,date_of_birth').eq('user_id', userId).maybeSingle?.() ?? (supabase as any).from('profiles').select('birth_date,birthday,date_of_birth').eq('user_id', userId).single();
+          data = (res2?.data ?? res2) as any;
+        }
+        const bd: string | null =
+          data?.birth_date || data?.birthday || data?.date_of_birth || null;
+        if (bd) {
+          setBirthDate(bd);
+          // also set the current age baseline for other calculations
+          const ageNow = calcAge(bd, new Date());
+          if (typeof ageNow === 'number') setCurrentAge(ageNow);
+        }
+      } catch (e) {
+        console.debug('[lifeChart] birthDate load skipped or failed:', e);
+      }
+    })();
   }, [userId]);
 
   // 進捗更新は events と insights が変更された時のみ
@@ -536,6 +642,21 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     return { maxAge: maxA, minAge: minA, span: sp };
   }, [displayEvents, currentAge]);
 
+  const ageTicks = useMemo(() => {
+  const totalYears = maxAge - minAge + 1;
+  let step = 1;
+  if (totalYears > 12) step = isMobile ? 3 : 2;
+  if (totalYears > 20) step = isMobile ? 4 : 5;
+
+  const ticks: number[] = [];
+  for (let a = minAge; a <= maxAge; a++) {
+    if (a === minAge || a === maxAge || ((a - minAge) % step === 0)) {
+      ticks.push(a);
+    }
+  }
+  return ticks;
+}, [minAge, maxAge, isMobile]);
+
   // Memoize event dots at top-level (Rules of Hooks compliant)
   const eventDots = useMemo(() => {
     return displayEvents.map((event) => {
@@ -556,7 +677,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
           <div className="absolute top-5 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <div className="font-medium text-sm">{event.title}</div>
             <div className="text-xs text-gray-500">{event.age}歳 • {config.label}</div>
-            <div className="text-xs text-gray-700 mt-1 max-w-40 truncate">{event.description}</div>
+            <div className="text-xs text-gray-700 mt-1 max-w-[180px] sm:max-w-40 truncate">{event.description}</div>
           </div>
         </motion.div>
       );
@@ -793,7 +914,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
           <div className="relative">
             {/* Chart Container */}
-            <div className="h-80 relative border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white">
+            <div className="h-64 sm:h-80 relative border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white overflow-hidden">
               {/* Y-axis (Emotional Level) */}
               <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-500">
                 <span>+5</span>
@@ -805,10 +926,9 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
               {/* X-axis (Age) */}
               <div className="absolute bottom-0 left-12 right-0 h-8 flex justify-between items-end text-xs text-gray-500">
-                {Array.from({ length: maxAge - minAge + 1 }, (_, i) => minAge + i).map(age => (
+                {ageTicks.map((age) => (
                   <span key={age} className="relative">
                     {age}歳
-                    {/* <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-px h-72 bg-gray-200"></div> */}
                   </span>
                 ))}
               </div>
@@ -832,14 +952,30 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
           </div>
         </Card>
 
+        {/* Add button between chart and category filter */}
+        <div className="flex justify-end">
+          <Button
+            size={isMobile ? 'sm' : 'default'}
+            onClick={() => {
+              initialEventRef.current = initialFormState;
+              setEditingEvent(null);
+              setDialogKey((k) => k + 1);
+              setShowEventDialog(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            イベント追加
+          </Button>
+        </div>
+
         {/* Category Filters */}
         <Card className="p-4">
           <h4 className="font-medium mb-3">カテゴリーフィルター</h4>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {Object.entries(categoryConfig).map(([key, config]) => {
               const isSelected = selectedCategories.includes(key);
               const IconComponent = config.icon;
-              
+
               return (
                 <button
                   key={key}
@@ -850,15 +986,20 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
                       setSelectedCategories(prev => [...prev, key]);
                     }
                   }}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-all ${
-                    isSelected 
-                      ? `${config.bgColor} border-current ${config.textColor}` 
-                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                  className={`group w-full h-12 sm:h-10 px-3 rounded-xl border transition-all flex items-center justify-between shadow-sm ${
+                    isSelected
+                      ? `${config.bgColor} border-current ${config.textColor}`
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <IconComponent className="w-4 h-4" />
-                  <span className="text-sm">{config.label}</span>
-                  <Badge variant="outline" className="ml-1 text-xs">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <IconComponent className="w-4 h-4 shrink-0" />
+                    <span className="text-sm truncate">{config.label}</span>
+                  </span>
+                  <Badge
+                    variant={isSelected ? 'outline' : 'outline'}
+                    className="w-7 h-7 sm:w-6 sm:h-6 p-0 flex items-center justify-center text-xs rounded-full"
+                  >
                     {events.filter(e => e.category === key).length}
                   </Badge>
                 </button>
@@ -892,7 +1033,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-lg text-gray-900">{event.title}</h3>
+                      <h3 className="font-bold text-lg text-gray-900 truncate">{event.title}</h3>
                       <div className="flex items-center space-x-2">
                         <Badge className={config.bgColor + ' ' + config.textColor}>
                           {config.label}
@@ -974,33 +1115,44 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
           categoryConfig={categoryConfig}
           onCancel={resetForm}
           onSave={(form) => { void handleSaveEvent(form); }}
+          birthDate={birthDate}
         />
       </DialogContent>
     </Dialog>
   );
 
   return (
-    <div className="w-full md:max-w-6xl md:mx-auto space-y-6 px-2 sm:px-4">
+    <div className={`w-full md:max-w-6xl md:mx-auto ${isMobile ? 'space-y-4' : 'space-y-6'} px-2 sm:px-4`}>
       {/* Header */}
-      <Card className="p-6">
+      <Card className={`${isMobile ? 'p-4' : 'p-6'}`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">ライフチャート</h2>
-            <p className="text-gray-600">
+            <p className="text-gray-600 hidden sm:block">
               人生の重要な出来事を整理し、就活で活用できるエピソードを発見しましょう
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <Button variant="outline" onClick={exportForJobHunt}>
-              <Download className="w-4 h-4 mr-2" />
-              就活用エクスポート
+            <Button
+              variant="outline"
+              size={isMobile ? 'icon' : 'default'}
+              onClick={exportForJobHunt}
+              aria-label="就活用エクスポート"
+              className={isMobile ? 'h-10 w-10 leading-none py-0 -mt-px' : 'h-10 leading-none py-0 -mt-px'}
+            >
+              <Download className={`w-4 h-4 ${isMobile ? '' : 'mr-2'}`} />
+              {!isMobile && '就活用エクスポート'}
+              {isMobile && <span className="sr-only">就活用エクスポート</span>}
             </Button>
-            <Button onClick={() => {
-              initialEventRef.current = initialFormState;
-              setEditingEvent(null);
-              setDialogKey(k => k + 1);
-              setShowEventDialog(true);
-            }}>
+            <Button
+              size="default"
+              className="h-10 leading-none py-0"
+              onClick={() => {
+                initialEventRef.current = initialFormState;
+                setEditingEvent(null);
+                setDialogKey(k => k + 1);
+                setShowEventDialog(true);
+              }}>
               <Plus className="w-4 h-4 mr-2" />
               イベント追加
             </Button>
@@ -1016,31 +1168,31 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
-        <Card className="p-2.5 sm:p-4 text-center">
-          <div className="text-2xl font-bold text-blue-600 mb-1">{events.length}</div>
-          <div className="text-sm text-gray-600">総イベント数</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 w-full">
+        <Card className="p-2 sm:p-3 text-center flex flex-col justify-center h-16 sm:h-20">
+          <div className="text-lg sm:text-xl font-bold text-blue-600 mb-0.5 leading-tight">{events.length}</div>
+          <div className="text-xs sm:text-sm text-gray-600">総イベント数</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
-          <div className="text-2xl font-bold text-green-600 mb-1">
+        <Card className="p-2 sm:p-3 text-center flex flex-col justify-center h-16 sm:h-20">
+          <div className="text-lg sm:text-xl font-bold text-green-600 mb-0.5 leading-tight">
             {events.filter(e => e.jobHuntRelevance.relevant).length}
           </div>
-          <div className="text-sm text-gray-600">就活関連</div>
+          <div className="text-xs sm:text-sm text-gray-600">就活関連</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
-          <div className="text-2xl font-bold text-purple-600 mb-1">
+        <Card className="p-2 sm:p-3 text-center flex flex-col justify-center h-16 sm:h-20">
+          <div className="text-lg sm:text-xl font-bold text-purple-600 mb-0.5 leading-tight">
             {[...new Set(events.flatMap(e => e.skills))].length}
           </div>
-          <div className="text-sm text-gray-600">スキル種類</div>
+          <div className="text-xs sm:text-sm text-gray-600">スキル種類</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
-          <div className="text-2xl font-bold text-orange-600 mb-1">{insights.length}</div>
-          <div className="text-sm text-gray-600">インサイト</div>
+        <Card className="p-2 sm:p-3 text-center flex flex-col justify-center h-16 sm:h-20">
+          <div className="text-lg sm:text-xl font-bold text-orange-600 mb-0.5 leading-tight">{insights.length}</div>
+          <div className="text-xs sm:text-sm text-gray-600">インサイト</div>
         </Card>
       </div>
 
       {/* View Toggle */}
-      <Card className="p-4">
+      <Card className={`${isMobile ? 'p-3' : 'p-4'}`}>
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="chart">グラフ表示</TabsTrigger>

@@ -18,13 +18,13 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Search, Mail, MessageSquare, Bell,
   LogIn, Menu, User, Briefcase, LogOut, ChevronDown, BookOpen, Key,
+  GraduationCap, Newspaper, Sparkles
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetTrigger, SheetClose,
 } from "@/components/ui/sheet";
 import {
-  DropdownMenu, DropdownMenuTrigger,
-  DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Button }   from "@/components/ui/button";
 import { useAuth }  from "@/lib/auth-context";
@@ -37,10 +37,11 @@ type NavItem = { href: string; label: string; icon: React.ElementType };
 const studentMain: NavItem[] = [
   { href: "/student-dashboard", label: "マイページ", icon: LayoutDashboard },
   { href: "/jobs",              label: "探す",       icon: Search },
-  { href: "/offers",    label: "スカウト",   icon: Mail },
-  { href: "/chat",      label: "チャット",   icon: MessageSquare },
-  { href: "/media", label: "学転メディア", icon: BookOpen },
-  { href: "/features",          label: "特集",       icon: BookOpen },
+  { href: "/offers",            label: "スカウト",   icon: Mail },
+  { href: "/chat",              label: "チャット",   icon: MessageSquare },
+  { href: "/ipo/dashboard",     label: "IPO大学",    icon: GraduationCap },
+  { href: "/media",             label: "学転メディア", icon: Newspaper },
+  { href: "/features",          label: "特集",       icon: Sparkles },
 ];
 /* ---------- マイページ配下 ---------- */
 const studentSub: NavItem[] = [

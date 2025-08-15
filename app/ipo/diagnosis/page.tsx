@@ -492,13 +492,13 @@ export default function DiagnosisPage() {
   // Main Diagnosis Selection
   if (!selectedDiagnosis) {
     return (
-      <div className="bg-background min-h-screen">
+      <div className="bg-background min-h-screen overflow-x-hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex justify-end mb-4">
             <Button
               variant="outline"
               onClick={() => router.push('/ipo/diagnosis/result')}
-              className="h-10"
+              className="h-10 min-w-0 text-sm"
             >
               過去の診断結果を見る
             </Button>
@@ -522,7 +522,7 @@ export default function DiagnosisPage() {
             )}
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6">
             {Object.entries(DIAGNOSIS_TYPES).map(([key, diagnosis], index) => {
               const IconComponent = diagnosis.icon;
               return (
@@ -535,15 +535,15 @@ export default function DiagnosisPage() {
                   className="cursor-pointer group"
                 >
                   <Card className="h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group-hover:border-blue-300">
-                    <CardContent className="p-8">
-                      <div className={`w-16 h-16 bg-gradient-to-br ${diagnosis.color} text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                    <CardContent className="p-4 sm:p-6">
+                      <div className={`w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br ${diagnosis.color} text-white rounded-2xl flex items-center justify-center mb-5 sm:mb-6 group-hover:scale-110 transition-transform`}>
                         <IconComponent className="w-8 h-8" />
                       </div>
                       
-                      <h3 className="text-2xl font-bold text-gray-900 mb-4">{diagnosis.title}</h3>
-                      <p className="text-gray-600 mb-6 leading-relaxed">{diagnosis.description}</p>
+                      <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">{diagnosis.title}</h3>
+                      <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed">{diagnosis.description}</p>
                       
-                      <div className="flex items-center justify-between text-sm text-gray-500 mb-6">
+                      <div className="flex items-center justify-between text-xs sm:text-sm text-gray-500 mb-5 sm:mb-6">
                         <div className="flex items-center space-x-2">
                           <Users className="w-4 h-4" />
                           <span>{diagnosis.questions}問</span>
@@ -554,7 +554,7 @@ export default function DiagnosisPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center text-blue-600 font-medium group-hover:text-blue-700">
+                      <div className="flex items-center text-blue-600 font-medium group-hover:text-blue-700 text-sm sm:text-base">
                         <span>診断を開始する</span>
                         <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                       </div>
@@ -577,7 +577,7 @@ export default function DiagnosisPage() {
                   <Star className="w-6 h-6 text-yellow-500 mr-2" />
                   <h3 className="text-xl font-bold text-gray-900">診断の特徴</h3>
                 </div>
-                <div className="grid md:grid-cols-3 gap-6 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-center">
                   <div>
                     <Shield className="w-8 h-8 text-blue-500 mx-auto mb-2" />
                     <h4 className="font-medium text-gray-900 mb-1">科学的根拠</h4>
@@ -656,7 +656,7 @@ export default function DiagnosisPage() {
   // Results display
   if (showResults && results) {
     return (
-      <div className="bg-background min-h-screen">
+      <div className="bg-background min-h-screen overflow-x-hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <motion.div
             initial={{ y: 30, opacity: 0 }}
@@ -676,18 +676,18 @@ export default function DiagnosisPage() {
             <Button
               variant="outline"
               onClick={() => router.push('/ipo/diagnosis/result')}
-              className="h-9"
+              className="h-9 min-w-0 text-sm"
             >
               過去の診断結果を見る
             </Button>
           </div>
 
           <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">概要</TabsTrigger>
-              <TabsTrigger value="analysis">詳細分析</TabsTrigger>
-              <TabsTrigger value="careers">適職</TabsTrigger>
-              <TabsTrigger value="actions">行動計画</TabsTrigger>
+            <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 gap-1 overflow-x-auto whitespace-nowrap no-scrollbar">
+              <TabsTrigger value="overview" className="text-xs sm:text-sm px-3 sm:px-4 py-2">概要</TabsTrigger>
+              <TabsTrigger value="analysis" className="text-xs sm:text-sm px-3 sm:px-4 py-2">詳細分析</TabsTrigger>
+              <TabsTrigger value="careers" className="text-xs sm:text-sm px-3 sm:px-4 py-2">適職</TabsTrigger>
+              <TabsTrigger value="actions" className="text-xs sm:text-sm px-3 sm:px-4 py-2">行動計画</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-8">
@@ -701,8 +701,10 @@ export default function DiagnosisPage() {
                     <CardHeader>
                       <h3 className="text-2xl font-bold text-gray-900">あなたの特性スコア</h3>
                     </CardHeader>
-                    <CardContent>
-                      <CareerRadarChart data={toRadarData(results.scores)} />
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="max-w-full overflow-x-auto">
+                        <CareerRadarChart data={toRadarData(results.scores)} />
+                      </div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -720,7 +722,7 @@ export default function DiagnosisPage() {
                         あなたの強み
                       </h3>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4 sm:p-6">
                       <div className="space-y-3">
                         {strengthsSorted.length === 0 && (
                           <p className="text-sm text-gray-500">データが足りません</p>
@@ -748,7 +750,7 @@ export default function DiagnosisPage() {
                         成長できる分野
                       </h3>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4 sm:p-6">
                       <div className="space-y-3">
                         {growthSorted.length === 0 && (
                           <p className="text-sm text-gray-500">データが足りません</p>
@@ -774,7 +776,7 @@ export default function DiagnosisPage() {
             </TabsContent>
 
             <TabsContent value="analysis" className="space-y-8">
-              <div className="grid lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {Object.entries(results.scores).map(([key, score], index) => (
                   <motion.div
                     key={key}
@@ -783,7 +785,7 @@ export default function DiagnosisPage() {
                     transition={{ delay: index * 0.1 }}
                   >
                     <Card>
-                      <CardContent className="p-6">
+                      <CardContent className="p-4 sm:p-6">
                         <div className="text-center">
                           <div className="text-3xl font-bold text-gray-900 mb-2">{score}</div>
                           <div className="text-gray-600 mb-4">{jpLabel(key)}</div>
@@ -827,7 +829,7 @@ export default function DiagnosisPage() {
                     transition={{ delay: index * 0.1 }}
                   >
                     <Card className="overflow-hidden">
-                      <CardContent className="p-8">
+                      <CardContent className="p-6 sm:p-8">
                         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                           <div className="flex-1">
                             <div className="flex items-center space-x-4 mb-4">
@@ -966,11 +968,11 @@ export default function DiagnosisPage() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="flex flex-col sm:flex-row gap-4 mt-8"
+            className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-8"
           >
             <Button 
               onClick={() => startTransition(() => router.push('/ipo/library'))} 
-              className="flex-1 flex items-center justify-center space-x-2 h-12"
+              className="flex-1 flex items-center justify-center space-x-2 h-12 min-w-0 text-sm"
             >
               <BookOpen className="w-4 h-4" />
               <span>業界・職種を詳しく調べる</span>
@@ -978,7 +980,7 @@ export default function DiagnosisPage() {
             <Button 
               variant="outline" 
               onClick={resetDiagnosis} 
-              className="flex-1 flex items-center justify-center space-x-2 h-12"
+              className="flex-1 flex items-center justify-center space-x-2 h-12 min-w-0 text-sm"
             >
               <RotateCcw className="w-4 h-4" />
               <span>別の診断を受ける</span>
@@ -997,7 +999,7 @@ export default function DiagnosisPage() {
                 }
                 startTransition(() => router.push('/ipo/dashboard'));
               }}
-              className="flex-1 flex items-center justify-center space-x-2 h-12"
+              className="flex-1 flex items-center justify-center space-x-2 h-12 min-w-0 text-sm"
             >
               <Download className="w-4 h-4" />
               <span>結果を保存</span>
@@ -1012,7 +1014,7 @@ export default function DiagnosisPage() {
   const currentQ = questions[currentQuestion];
   if (!currentQ) {
     return (
-      <div className="bg-background min-h-screen">
+      <div className="bg-background min-h-screen overflow-x-hidden">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card className="mb-6">
             <CardContent className="p-6 text-center">
@@ -1032,7 +1034,7 @@ export default function DiagnosisPage() {
   }
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="bg-background min-h-screen overflow-x-hidden">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div
@@ -1089,7 +1091,7 @@ export default function DiagnosisPage() {
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
           <Card className="overflow-hidden">
-            <CardContent className="p-10">
+            <CardContent className="p-5 sm:p-7 md:p-10">
               <div className="text-center mb-10">
                 <motion.div
                   initial={{ scale: 0.8 }}
@@ -1099,11 +1101,11 @@ export default function DiagnosisPage() {
                   <Brain className="w-10 h-10" />
                 </motion.div>
                 
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">
                   質問 {currentQuestion + 1}
                 </h2>
                 
-                <p className="text-xl text-gray-700 leading-relaxed max-w-2xl mx-auto">
+                <p className="text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed max-w-2xl mx-auto break-words px-1">
                   {currentQ.text}
                 </p>
               </div>
@@ -1122,7 +1124,7 @@ export default function DiagnosisPage() {
                     onClick={() => handleAnswer(option.value)}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`w-full p-5 rounded-2xl bg-gradient-to-r ${option.color} text-white font-medium transition-all duration-200 hover:shadow-lg flex items-center justify-between`}
+                    className={`w-full p-3 sm:p-5 text-sm sm:text-base rounded-2xl bg-gradient-to-r ${option.color} text-white font-medium transition-all duration-200 hover:shadow-lg flex items-center justify-between`}
                   >
                     <div className="flex items-center space-x-3">
                       <span className="text-lg">{option.label}</span>
@@ -1147,7 +1149,7 @@ export default function DiagnosisPage() {
                   <div />
                 )}
                 
-                <div className="flex space-x-2">
+                <div className="hidden md:flex space-x-2 overflow-x-auto max-w-full no-scrollbar">
                   {questions.map((_, index) => (
                     <div
                       key={index}

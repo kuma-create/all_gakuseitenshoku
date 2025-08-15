@@ -157,66 +157,66 @@ export function AnalysisOverview({ progress, onNavigateToTool }: AnalysisOvervie
       >
         <Card className="w-full px-0 sm:px-8 py-3 sm:py-8">
           <div className="px-3 sm:px-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
               <div>
                 <h2 className="text-base sm:text-2xl font-bold text-foreground mb-2">自己分析の進捗</h2>
                 <p className="text-muted-foreground">あなたの自己理解度を可視化します</p>
               </div>
               <div className="text-right">
                 <motion.div 
-                  className="text-xl sm:text-4xl font-bold text-primary mb-1"
+                  className="text-lg sm:text-3xl font-bold text-primary mb-1"
                   animate={{ scale: [1, 1.05, 1] }}
                   transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
                 >
                   {overallProgress}%
                 </motion.div>
-                <div className="text-sm text-muted-foreground">総合完了率</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">総合完了率</div>
               </div>
             </div>
 
-            <div className="mb-8">
-              <Progress value={overallProgress} className="h-3 mb-2" />
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="mb-4">
+              <Progress value={overallProgress} className="h-2 mb-1" />
+              <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
                 <span>開始</span>
                 <span>完了</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 w-full">
+            <div className="grid grid-cols-3 gap-1 sm:gap-4 w-full">
               <motion.div 
-                className="text-center p-2 sm:p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200"
+                className="text-center p-1.5 sm:p-4 min-w-0 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200"
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
                   <Award className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-green-700 mb-1">{completedTools}</div>
-                <div className="text-sm text-green-600">完了したツール</div>
+                <div className="text-lg sm:text-3xl font-bold text-green-700 mb-1">{completedTools}</div>
+                <div className="text-xs sm:text-sm text-green-600">完了したツール</div>
               </motion.div>
               
               <motion.div 
-                className="text-center p-2 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200"
+                className="text-center p-1.5 sm:p-4 min-w-0 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200"
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-2">
                   <Clock className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-blue-700 mb-1">{inProgressTools}</div>
-                <div className="text-sm text-blue-600">進行中のツール</div>
+                <div className="text-lg sm:text-3xl font-bold text-blue-700 mb-1">{inProgressTools}</div>
+                <div className="text-xs sm:text-sm text-blue-600">進行中のツール</div>
               </motion.div>
               
               <motion.div 
-                className="text-center p-2 sm:p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200"
+                className="text-center p-1.5 sm:p-4 min-w-0 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200"
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-2">
                   <Target className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-purple-700 mb-1">{actionableTools.length - completedTools}</div>
-                <div className="text-sm text-purple-600">残りのツール</div>
+                <div className="text-lg sm:text-3xl font-bold text-purple-700 mb-1">{actionableTools.length - completedTools}</div>
+                <div className="text-xs sm:text-sm text-purple-600">残りのツール</div>
               </motion.div>
             </div>
           </div>
@@ -282,7 +282,7 @@ export function AnalysisOverview({ progress, onNavigateToTool }: AnalysisOvervie
       )}
 
       {/* Tools Grid */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-4 max-w-full overflow-x-hidden w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 max-w-full overflow-x-hidden w-full">
         {actionableTools.map((tool, index) => {
           const colors = getColorClasses(tool.color);
           const isCompleted = progress[tool.id as keyof typeof progress] >= 100;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Edit3, Trash2, Save, Download, Star, Calendar, TrendingUp, CheckCircle, X, Eye, EyeOff, Filter } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -16,6 +16,8 @@ import { categoryConfig, skillSuggestions, commonESQuestions, industryOptions, p
 import { calculateCompleteness, generateESAnswer } from './utils/experienceUtils';
 
 import { supabase } from '@/lib/supabase/client';
+
+const MAX_DESC = 500;
 
 // --- DB <-> UI mappers ---
 const fromRow = (row: any): Experience => ({
@@ -75,6 +77,13 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
   const [editingExperience, setEditingExperience] = useState<Experience | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPrivate, setShowPrivate] = useState(true);
+
+  const formScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollIntoViewIfNeeded = (el: HTMLElement) => {
+    try {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch {}
+  };
 
   const [newExperience, setNewExperience] = useState<Partial<Experience>>({
     title: '',
@@ -250,21 +259,29 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
-          <Card className="p-3 sm:p-4 text-center">
-            <div className="text-xl sm:text-2xl font-bold text-blue-600 mb-1">{experiences.length}</div>
-            <div className="text-[13px] sm:text-sm text-gray-600">総経験数</div>
+          <Card className="p-3 sm:p-4 text-center h-20 sm:h-24 flex flex-col justify-center">
+            <div className="flex flex-col justify-center items-center h-full">
+              <div className="text-xl sm:text-2xl font-bold text-blue-600 mb-1">{experiences.length}</div>
+              <div className="text-[13px] sm:text-sm text-gray-600">総経験数</div>
+            </div>
           </Card>
-          <Card className="p-3 sm:p-4 text-center">
-            <div className="text-xl sm:text-2xl font-bold text-green-600 mb-1">{highPriorityExperiences.length}</div>
-            <div className="text-[13px] sm:text-sm text-gray-600">就活重要度高</div>
+          <Card className="p-3 sm:p-4 text-center h-20 sm:h-24 flex flex-col justify-center">
+            <div className="flex flex-col justify-center items-center h-full">
+              <div className="text-xl sm:text-2xl font-bold text-green-600 mb-1">{highPriorityExperiences.length}</div>
+              <div className="text-[13px] sm:text-sm text-gray-600">就活重要度高</div>
+            </div>
           </Card>
-          <Card className="p-3 sm:p-4 text-center">
-            <div className="text-xl sm:text-2xl font-bold text-purple-600 mb-1">{completedExperiences.length}</div>
-            <div className="text-[13px] sm:text-sm text-gray-600">完成度80%以上</div>
+          <Card className="p-3 sm:p-4 text-center h-20 sm:h-24 flex flex-col justify-center">
+            <div className="flex flex-col justify-center items-center h-full">
+              <div className="text-xl sm:text-2xl font-bold text-purple-600 mb-1">{completedExperiences.length}</div>
+              <div className="text-[13px] sm:text-sm text-gray-600">完成度80%以上</div>
+            </div>
           </Card>
-          <Card className="p-3 sm:p-4 text-center">
-            <div className="text-xl sm:text-2xl font-bold text-orange-600 mb-1">{Math.round(avgCompleteness)}%</div>
-            <div className="text-[13px] sm:text-sm text-gray-600">平均完成度</div>
+          <Card className="p-3 sm:p-4 text-center h-20 sm:h-24 flex flex-col justify-center">
+            <div className="flex flex-col justify-center items-center h-full">
+              <div className="text-xl sm:text-2xl font-bold text-orange-600 mb-1">{Math.round(avgCompleteness)}%</div>
+              <div className="text-[13px] sm:text-sm text-gray-600">平均完成度</div>
+            </div>
           </Card>
         </div>
 
@@ -286,9 +303,9 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                     <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
                       <config.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-bold text-blue-900">{experience.title}</h4>
+                        <h4 className="font-bold text-blue-900 line-clamp-1 break-words">{experience.title}</h4>
                         <div className="flex items-center space-x-2">
                           <Badge className="bg-green-100 text-green-700">優先度高</Badge>
                           <Badge className={`${config.bgColor} ${config.textColor}`}>
@@ -296,19 +313,19 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                           </Badge>
                         </div>
                       </div>
-                      <p className="text-blue-700 text-sm mb-3">{experience.description}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div>
+                      <p className="text-blue-700 text-sm mb-3 line-clamp-3 break-words">{experience.description}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 text-sm">
+                        <div className="min-w-0">
                           <span className="font-medium text-blue-800">期間:</span>
-                          <div className="text-blue-600">{experience.period.duration}</div>
+                          <div className="text-blue-600 truncate">{experience.period.duration}</div>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <span className="font-medium text-blue-800">完成度:</span>
-                          <div className="text-blue-600">{experience.completeness}%</div>
+                          <div className="text-blue-600 truncate">{experience.completeness}%</div>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <span className="font-medium text-blue-800">スキル数:</span>
-                          <div className="text-blue-600">{experience.skills.length}個</div>
+                          <div className="text-blue-600 truncate">{experience.skills.length}個</div>
                         </div>
                       </div>
                     </div>
@@ -391,17 +408,17 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                 transition={{ delay: index * 0.1 }}
               >
                 {/* Card padding reduced on mobile */}
-                <Card className="p-3 sm:p-6 hover:shadow-md transition-shadow">
+                <Card className="p-3 sm:p-6 rounded-xl hover:shadow-lg/50 transition-shadow">
                   <div className="flex items-start space-x-4">
                     {/* Icon container and icon size reduced on mobile */}
                     <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r ${config.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
                       <config.icon className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
                     
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-3">
                         {/* Title font size reduced on mobile */}
-                        <h4 className="text-base sm:text-xl font-bold text-gray-900">{experience.title}</h4>
+                        <h4 className="text-base sm:text-xl font-bold text-gray-900 line-clamp-1 break-words">{experience.title}</h4>
                         <div className="flex items-center space-x-2">
                           <Badge className={`${config.bgColor} ${config.textColor}`}>
                             {config.label}
@@ -422,29 +439,29 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
-                        <div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-4 text-sm">
+                        <div className="min-w-0">
                           <span className="font-medium text-gray-600">組織:</span>
-                          <div className="text-gray-900">{experience.organization}</div>
+                          <div className="text-gray-900 truncate">{experience.organization}</div>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <span className="font-medium text-gray-600">役割:</span>
-                          <div className="text-gray-900">{experience.role}</div>
+                          <div className="text-gray-900 truncate">{experience.role}</div>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <span className="font-medium text-gray-600">期間:</span>
-                          <div className="text-gray-900">{experience.period.duration}</div>
+                          <div className="text-gray-900 truncate">{experience.period.duration}</div>
                         </div>
                       </div>
 
-                      {/* Description font size reduced on mobile */}
-                      <p className="text-sm sm:text-base text-gray-700 mb-4">{experience.description}</p>
+                      {/* Description */}
+                      <p className="text-sm sm:text-base text-gray-700 mb-4 line-clamp-3 break-words">{experience.description}</p>
 
-                      {/* STAR Framework Preview, reduced padding and font size on mobile */}
+                      {/* STAR Framework Preview */}
                       {experience.starFramework.situation && (
                         <div className="mb-4 p-3 sm:p-4 bg-blue-50 rounded-lg">
                           <h5 className="font-medium text-blue-900 mb-2">STAR法での整理</h5>
-                          <p className="text-[13px] sm:text-sm text-blue-700">{experience.starFramework.situation}</p>
+                          <p className="text-[13px] sm:text-sm text-blue-700 line-clamp-3 break-words">{experience.starFramework.situation}</p>
                         </div>
                       )}
 
@@ -463,8 +480,8 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                       </div>
 
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        {/* Footer font size reduced on mobile */}
-                        <div className="flex items-center space-x-4 text-[13px] sm:text-sm text-gray-600">
+                        {/* Footer */}
+                        <div className="flex items-center space-x-4 text-[12px] sm:text-sm text-gray-600">
                           <div className="flex items-center space-x-1">
                             <CheckCircle className="w-4 h-4" />
                             <span>完成度 {experience.completeness}%</span>
@@ -493,7 +510,7 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6 px-2 sm:px-4 pb-16 sm:pb-0">
+    <div className="max-w-6xl mx-auto w-full overflow-x-hidden space-y-4 sm:space-y-6 px-2 sm:px-4 pb-24 sm:pb-0">
       {/* Header */}
       <Card className="p-3 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
@@ -503,8 +520,8 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
               学生時代の経験を就活で効果的に活用できる形で整理しましょう
             </p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Button variant="outline">
+          <div className="flex items-center flex-wrap gap-2 sm:gap-3">
+            <Button variant="outline" className="w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
               ESテンプレート出力
             </Button>
@@ -515,11 +532,11 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
       {/* View Toggle */}
       <Card className="p-2.5 sm:p-4">
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">概要</TabsTrigger>
-            <TabsTrigger value="experiences">経験詳細</TabsTrigger>
-            <TabsTrigger value="gakuchika">ガクチカ生成</TabsTrigger>
-            <TabsTrigger value="templates">ESテンプレート</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 overflow-x-auto">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm py-1.5 sm:py-2">概要</TabsTrigger>
+            <TabsTrigger value="experiences" className="text-xs sm:text-sm py-1.5 sm:py-2">経験詳細</TabsTrigger>
+            <TabsTrigger value="gakuchika" className="text-xs sm:text-sm py-1.5 sm:py-2">ガクチカ生成</TabsTrigger>
+            <TabsTrigger value="templates" className="text-xs sm:text-sm py-1.5 sm:py-2">ESテンプレート</TabsTrigger>
           </TabsList>
         </Tabs>
       </Card>
@@ -560,7 +577,10 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2.5 sm:space-y-6">
+          <div
+            ref={formScrollRef}
+            className="space-y-2.5 sm:space-y-6 pb-[calc(120px+env(safe-area-inset-bottom))] sm:pb-32 scroll-pb-[120px] sm:scroll-pb-24"
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 items-start">
               <div>
                 <Label htmlFor="title" className="text-[11px] sm:text-sm md:text-base">タイトル *</Label>
@@ -570,12 +590,16 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
                   value={newExperience.title}
                   onChange={(e) => setNewExperience(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="例: サークル代表として組織改革"
+                  onFocus={(e) => scrollIntoViewIfNeeded(e.currentTarget)}
                 />
               </div>
               <div>
                 <Label htmlFor="category" className="text-[11px] sm:text-sm md:text-base">カテゴリー</Label>
                 <Select value={newExperience.category} onValueChange={(value) => setNewExperience(prev => ({ ...prev, category: value as any }))}>
-                  <SelectTrigger className="h-9 text-[13px] sm:h-9 sm:text-base">
+                  <SelectTrigger
+                    className="h-9 text-[13px] sm:h-9 sm:text-base"
+                    onFocus={(e) => scrollIntoViewIfNeeded(e.currentTarget)}
+                  >
                     <SelectValue className="text-sm sm:text-base" />
                   </SelectTrigger>
                   <SelectContent>
@@ -596,22 +620,31 @@ export function ExperienceReflection({ userId, onProgressUpdate }: ExperienceRef
               <Label htmlFor="description" className="text-[11px] sm:text-sm md:text-base">概要説明</Label>
               <Textarea
                 id="description"
-                className="min-h-[80px] text-sm sm:text-base"
+                className="min-h-[100px] text-sm sm:text-base"
                 value={newExperience.description}
-                onChange={(e) => setNewExperience(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value.slice(0, MAX_DESC);
+                  setNewExperience(prev => ({ ...prev, description: v }));
+                }}
                 placeholder="この経験について簡潔に説明してください..."
-                rows={3}
+                rows={4}
+                onFocus={(e) => scrollIntoViewIfNeeded(e.currentTarget)}
               />
+              <div className="mt-1 text-right text-[11px] text-gray-500">{(newExperience.description || '').length}/{MAX_DESC}字</div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button variant="outline" className="h-9 text-[13px] sm:text-base" onClick={() => setShowExperienceDialog(false)}>
-                キャンセル
-              </Button>
-              <Button className="h-9 text-[13px] sm:text-base" onClick={handleSaveExperience} disabled={!newExperience.title}>
-                <Save className="w-4 h-4 mr-2" />
-                保存
-              </Button>
+            <div aria-hidden className="h-12 sm:h-8" />
+            <div className="sticky bottom-0 left-0 right-0 z-20 -mx-2 sm:mx-0 bg-white/95 backdrop-blur border-t px-2 sm:px-4 py-2">
+              <div className="max-w-4xl mx-auto flex items-center gap-2">
+                <Button variant="outline" className="flex-1 h-10 text-[13px] sm:text-base" onClick={() => setShowExperienceDialog(false)}>
+                  キャンセル
+                </Button>
+                <Button className="flex-1 h-10 text-[13px] sm:text-base" onClick={handleSaveExperience} disabled={!newExperience.title}>
+                  <Save className="w-4 h-4 mr-2" />
+                  保存
+                </Button>
+              </div>
+              <div className="h-[env(safe-area-inset-bottom)]" />
             </div>
           </div>
         </DialogContent>

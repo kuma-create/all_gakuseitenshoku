@@ -28,7 +28,7 @@ const PUBLIC_PREFIXES = [
   "/",                       // トップページ
   "/app",                    // ← 追加: アプリのトップも公開扱い
   "/login",                  // 共通ログイン
-  "/ipo/upgrade",            // 有料誘導（/ipoの例外）
+  "/ipo/login",            // 有料誘導（/ipoの例外）
   "/signup",                 // 新規登録
   "/auth/student/register",  // 学生登録フロー
   "/auth/reset",             // パスワードリセット
@@ -222,7 +222,7 @@ export const config = {
       - /admin, /company, /student, /offers, /applications, /chat を除外
         （これらはクライアント側 AuthGuard で判定）
     */
-    "/((?!_next/static|_next/image|favicon.ico|$|refer||admin|company|lp|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|media|whitepapers|impersonated).*)",
+    "/((?!_next/static|_next/image|favicon.ico|$|refer||admin|company|lp|student|offers|applications|chat|jobs|resume|companies|jobs|terms|onboarding/profile|privacy-policy|ipo/login|media|whitepapers|impersonated).*)",
 
   ],
 };

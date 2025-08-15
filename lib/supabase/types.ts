@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -1952,6 +1952,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ipo_calendar_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "company_member_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ipo_career_score: {
+        Row: {
+          breakdown: Json
+          id: number
+          insights: Json | null
+          overall: number
+          scored_at: string
+          trend: string | null
+          user_id: string
+        }
+        Insert: {
+          breakdown?: Json
+          id?: number
+          insights?: Json | null
+          overall?: number
+          scored_at?: string
+          trend?: string | null
+          user_id: string
+        }
+        Update: {
+          breakdown?: Json
+          id?: number
+          insights?: Json | null
+          overall?: number
+          scored_at?: string
+          trend?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ipo_career_score_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "company_member_emails"
@@ -4728,7 +4766,7 @@ export type Database = {
         }[]
       }
       auto_grade_answer: {
-        Args: { p_question_id: string; p_answer_raw: Json }
+        Args: { p_answer_raw: Json; p_question_id: string }
         Returns: number
       }
       avg_response_time: {
@@ -4758,15 +4796,15 @@ export type Database = {
       calculate_resume_completion: {
         Args: { p_user_id: string }
         Returns: {
-          score: number
           missing: string[]
+          score: number
         }[]
       }
       calculate_work_history_completion: {
         Args: { p_user_id: string }
         Returns: {
-          score: number
           missing: string[]
+          score: number
         }[]
       }
       count_unread: {
@@ -4778,40 +4816,40 @@ export type Database = {
         Returns: string
       }
       custom_access_token_hook: {
-        Args: { uid: string; email: string; claims: Json }
+        Args: { claims: Json; email: string; uid: string }
         Returns: Json
       }
       dashboard_overview: {
         Args: Record<PropertyKey, never>
         Returns: {
-          students: number
-          companies: number
           applications: number
+          companies: number
           scouts: number
+          students: number
         }[]
       }
       get_leaderboard: {
         Args: { p_limit?: number }
         Returns: {
+          avatar: string
+          full_name: string
+          rank: number
           student_id: string
           total_score: number
-          rank: number
-          full_name: string
-          avatar: string
         }[]
       }
       get_my_chat_rooms: {
         Args: { p_user: string }
         Returns: {
-          id: string
           company_id: string
+          company_logo: string
+          company_name: string
+          id: string
+          is_unread: boolean
+          last_created: string
+          last_message: string
           student_id: string
           updated_at: string
-          company_name: string
-          company_logo: string
-          last_message: string
-          last_created: string
-          is_unread: boolean
         }[]
       }
       get_or_create_chat_room_from_scout: {
@@ -4915,7 +4953,7 @@ export type Database = {
         Returns: unknown
       }
       jwt_custom_claims_hook: {
-        Args: { event: Json } | { uid: string; email: string; claims: Json }
+        Args: { claims: Json; email: string; uid: string } | { event: Json }
         Returns: Json
       }
       l2_norm: {
@@ -4928,13 +4966,13 @@ export type Database = {
       }
       match_job_embeddings: {
         Args: {
-          query_embedding: string
           match_count: number
+          query_embedding: string
           similarity_threshold: number
         }
         Returns: {
-          job_id: string
           content: string
+          job_id: string
           score: number
         }[]
       }
