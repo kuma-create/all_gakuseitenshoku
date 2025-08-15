@@ -467,7 +467,7 @@ function HeaderBlock({ job, company, tags }: { job: Job; company: Company; tags:
   return (
     <View style={styles.headerCard}>
       <View style={{ height: 96, backgroundColor: "#dc2626", opacity: 0.9 }} />
-      <View style={{ marginTop: -40, padding: 16 }}>
+      <View style={{ marginTop: -24, padding: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Image
             source={
@@ -476,10 +476,12 @@ function HeaderBlock({ job, company, tags }: { job: Job; company: Company; tags:
             style={styles.logo}
             resizeMode="cover"
           />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.jobTitle}>{job?.title ?? "—"}</Text>
+          <View style={{ flex: 1, paddingTop: 8 }}>
+            <Text style={styles.jobTitle} numberOfLines={3}>
+              {normalizeTitle(job?.title)}
+            </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
-              <Text style={styles.companyLink}>{company?.name ?? "企業名"}</Text>
+              <Text style={styles.companyLink}>{(company?.name || "企業名").trim()}</Text>
               {isNew && <View style={styles.badgeNew}><Text style={styles.badgeNewText}>新着</Text></View>}
             </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 6 }}>
@@ -834,6 +836,26 @@ async function ensureCanApply(router: ReturnType<typeof useRouter>) {
     router.push("/auth/signup");
     throw new Error("no profile");
   }
+}
+
+/**
+ * タイトルの体裁が崩れるケース（改行や連続空白、HTMLエンティティ混入など）に備えて整形
+ */
+function normalizeTitle(raw?: string | null): string {
+  if (!raw) return "—";
+  let s = String(raw);
+  // よく混入しがちな HTML エンティティを最小限デコード
+  s = s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'");
+  // 改行・タブ・連続空白を 1 つの半角スペースへ
+  s = s.replace(/[\t\r\n]+/g, " ").replace(/\s{2,}/g, " ");
+  // 先頭末尾の空白を削除
+  s = s.trim();
+  return s.length ? s : "—";
 }
 
 /* ============================================================

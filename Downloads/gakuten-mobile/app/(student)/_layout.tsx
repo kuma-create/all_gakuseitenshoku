@@ -4,6 +4,7 @@ import { Link, Slot, usePathname, useRouter } from "expo-router";
 import React from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AppHeader from "../../components/AppHeader";
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
 const HEADER_HEIGHT = 56;
@@ -92,35 +93,8 @@ export default function StudentLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* 上部ヘッダー（ネイティブヘッダーは_offにしてある想定） */}
-      {!hideHeader && (
-        <SafeAreaView edges={["top"]} style={{ backgroundColor: "#fff" }}>
-          <View
-            style={{
-              height: HEADER_HEIGHT,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 12,
-              backgroundColor: "#fff",
-              borderBottomWidth: 1,
-              borderBottomColor: "#f1f5f9",
-            }}
-          >
-            <View style={{ width: 60 }} />
-            <View style={{ flex: 1, alignItems: "center" }}>
-              <Image
-                source={require("../../assets/images/logo2.png")}
-                style={{ width: 32, height: 32 }}
-                resizeMode="contain"
-                accessibilityLabel="Gakuten ロゴ"
-              />
-            </View>
-            <View style={{ width: 60 }} />
-          </View>
-        </SafeAreaView>
-      )}
-
+      {!hideHeader && <AppHeader title={title} />}
+      
       {/* コンテンツ領域：下部バーに隠れないように余白を確保 */}
       <View style={{ flex: 1 }}>
         <Slot />

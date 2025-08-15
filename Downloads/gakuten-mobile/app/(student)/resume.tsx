@@ -2,9 +2,10 @@
 // Mobile Resume Editor — based on /app/resume/page.tsx (Web)
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, AppState, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
+import { useNavigation } from "@react-navigation/native";
 
 /* =========================
    Types (Web 版を踏襲)
@@ -62,6 +63,16 @@ const JOB_TYPE_OPTIONS = [
   "経理・財務", "企画", "マーケティング", "デザイナー", "広報", "その他",
 ] as const;
 
+const POSITION_OPTIONS = [
+  "メンバー",
+  "リーダー",
+  "マネージャー",
+  "責任者",
+  "役員",
+  "代表",
+  "その他",
+] as const;
+
 const DEFAULT_FORM: FormData = {
   basic: { lastName:"", firstName:"", lastNameKana:"", firstNameKana:"", birthdate:"", gender:"male", email:"", phone:"", address:"" },
   education: { university:"", faculty:"", admissionDate:"", graduationDate:"", status:"enrolled", researchTheme:"" },
@@ -82,6 +93,21 @@ const getCompletionColor = (p: number) =>
 ========================= */
 export default function ResumeMobileScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+
+  // autosave controls (profile.tsx parity)
+  const dirtyRef = useRef(false);
+  const firstRender = useRef(true);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveSeqRef = useRef(0);
+  const lastSavedKeyRef = useRef<string>("");
+
+  // Stable stringify to dedupe saves reliably
+  const stableStringify = (obj: any) => {
+    const out: any = {};
+    Object.keys(obj).sort().forEach(k => { out[k] = obj[k]; });
+    return JSON.stringify(out);
+  };
 
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -93,7 +119,6 @@ export default function ResumeMobileScreen() {
   ]);
 
   const [completionPercentage, setCompletionPercentage] = useState(0);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* -------- Load existing resume + profile prefill -------- */
   useEffect(() => {
@@ -160,6 +185,13 @@ export default function ResumeMobileScreen() {
       } catch (e) {
         console.error("load resume error", e);
       } finally {
+        // Prime lastSaved snapshot key with defaults (prevents first empty save)
+        const prime = stableStringify({
+          form_data: DEFAULT_FORM as unknown as Json,
+          work_experiences: [{ id:1, isOpen:true, company:"", position:"", jobTypes:[], startDate:"", endDate:"", isCurrent:false, description:"", technologies:"", achievements:"" }] as unknown as Json,
+          updated_at: "",
+        });
+        lastSavedKeyRef.current = prime;
         setInitialLoaded(true);
         setLoading(false);
       }
@@ -187,34 +219,41 @@ export default function ResumeMobileScreen() {
     setCompletionPercentage(clamp01(work));
   }, [workExperiences]);
 
-  /* -------- Autosave (1s debounce) -------- */
-  const triggerSave = useCallback(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { void handleSave(); }, 1000);
+  // cleanup on unmount: clear timer
+  useEffect(() => {
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, []);
-  useEffect(() => { triggerSave(); }, [formData, workExperiences, triggerSave]);
 
-  const handleSave = useCallback(async () => {
+  const save = useCallback(async () => {
+    const mySeq = ++saveSeqRef.current;
     try {
       setSaving(true);
       const { data:{ session } } = await supabase.auth.getSession();
       const uid = session?.user?.id;
       if (!uid) { setSaving(false); return; }
 
-      // does resume row exist?
-      const { data: existing, error: selectErr } = await supabase
-        .from("resumes").select("id").eq("user_id", uid).maybeSingle();
-      if (selectErr && selectErr.code !== "PGRST116") {
-        console.error("resumes select error", selectErr);
-        setSaving(false); return;
-      }
-
+      // Build payload
       const payload = {
         form_data: formData as unknown as Json,
         work_experiences: workExperiences as unknown as Json,
         updated_at: new Date().toISOString(),
       };
 
+      // Dedupe: skip if nothing changed since last save
+      const key = stableStringify(payload);
+      if (key === lastSavedKeyRef.current) {
+        setSaving(false);
+        dirtyRef.current = false;
+        return;
+      }
+
+      // Upsert
+      const { data: existing, error: selectErr } = await supabase
+        .from("resumes").select("id").eq("user_id", uid).maybeSingle();
+      if (selectErr && selectErr.code !== "PGRST116") {
+        console.error("resumes select error", selectErr);
+        setSaving(false); return;
+      }
       let err;
       if (existing?.id) {
         const { error } = await supabase.from("resumes").update(payload).eq("id", existing.id);
@@ -223,11 +262,59 @@ export default function ResumeMobileScreen() {
         const { error } = await supabase.from("resumes").insert({ user_id: uid, ...payload });
         err = error;
       }
-      if (err) console.error("autosave error", err);
+      if (err) throw err;
+
+      if (mySeq !== saveSeqRef.current) return; // stale
+      lastSavedKeyRef.current = key;
+    } catch (e) {
+      console.error("resume save error", e);
     } finally {
       setSaving(false);
+      dirtyRef.current = false;
     }
   }, [formData, workExperiences]);
+
+  const handleBlur = useCallback(async () => {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    await save();
+  }, [save]);
+
+  // Debounced autosave when state changes (after initial load)
+  useEffect(() => {
+    if (!initialLoaded) return;
+    if (firstRender.current) { firstRender.current = false; return; }
+    if (!dirtyRef.current) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      dirtyRef.current = false;
+      await save();
+    }, 300);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [initialLoaded, formData, workExperiences, save]);
+
+  // Save on navigation away
+  useEffect(() => {
+    const sub = navigation.addListener('beforeRemove', (e: any) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      const action = e.data.action;
+      (async () => {
+        try { await handleBlur(); } finally { /* @ts-ignore */ navigation.dispatch(action); }
+      })();
+    });
+    return sub;
+  }, [navigation, handleBlur]);
+
+  // Save when app goes to background
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if ((state === 'background' || state === 'inactive') && dirtyRef.current) {
+        handleBlur();
+      }
+    });
+    return () => sub.remove();
+  }, [handleBlur]);
 
   /* -------- Mutations -------- */
   const addWork = useCallback(() => {
@@ -235,13 +322,15 @@ export default function ResumeMobileScreen() {
       const newId = prev.length ? Math.max(...prev.map(p => p.id)) + 1 : 1;
       return [...prev, { id:newId, isOpen:true, company:"", position:"", jobTypes:[], startDate:"", endDate:"", isCurrent:false, description:"", technologies:"", achievements:"" }];
     });
+    dirtyRef.current = true;
   }, []);
-  const removeWork = useCallback((id:number) => setWorkExperiences(prev => prev.filter(w => w.id !== id)), []);
+  const removeWork = useCallback((id:number) => { setWorkExperiences(prev => prev.filter(w => w.id !== id)); dirtyRef.current = true; }, []);
   const toggleOpen = useCallback((id:number) => {
     setWorkExperiences(prev => prev.map(w => w.id === id ? { ...w, isOpen: !w.isOpen } : w));
   }, []);
   const patchWork = useCallback((id:number, patch: Partial<WorkExperience>) => {
     setWorkExperiences(prev => prev.map(w => w.id === id ? { ...w, ...patch } : w));
+    dirtyRef.current = true;
   }, []);
   const toggleJobType = useCallback((id:number, val:string) => {
     setWorkExperiences(prev => prev.map(w => {
@@ -250,6 +339,16 @@ export default function ResumeMobileScreen() {
       set.has(val) ? set.delete(val) : set.add(val);
       return { ...w, jobTypes: [...set] };
     }));
+    dirtyRef.current = true;
+  }, []);
+
+  const setPosition = useCallback((id:number, val:string) => {
+    setWorkExperiences(prev => prev.map(w => {
+      if (w.id !== id) return w;
+      const next = w.position === val ? "" : val;
+      return { ...w, position: next };
+    }));
+    dirtyRef.current = true;
   }, []);
 
   /* -------- UI -------- */
@@ -324,24 +423,73 @@ export default function ResumeMobileScreen() {
                   </View>
                 </View>
 
-                <Field label="役職・ポジション" value={exp.position} onChangeText={(v)=>patchWork(exp.id,{position:v})} placeholder="メンバー / リーダー / 代表 など" />
-
-                <View style={{ flexDirection:"row", gap:8 }}>
-                  <View style={{ flex:1 }}>
-                    <Field label="開始年月 (YYYY-MM)" value={exp.startDate} onChangeText={(v)=>patchWork(exp.id,{startDate:v})} placeholder="2024-04" />
-                  </View>
-                  <View style={{ flex:1 }}>
-                    <Field label="終了年月 (YYYY-MM)" value={exp.endDate} onChangeText={(v)=>patchWork(exp.id,{endDate:v})} placeholder="2024-09" />
+                {/* 役職・ポジション（単一選択） */}
+                <View>
+                  <Text style={{ fontSize:12, marginBottom:6 }}>役職・ポジション（単一選択）</Text>
+                  <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
+                    {POSITION_OPTIONS.map(opt => {
+                      const selected = exp.position === opt;
+                      return (
+                        <Pressable
+                          key={opt}
+                          onPress={() => setPosition(exp.id, opt)}
+                          style={{
+                            paddingVertical:6,
+                            paddingHorizontal:10,
+                            borderRadius:999,
+                            borderWidth:1,
+                            borderColor: selected ? "#0ea5e9" : "#e5e7eb",
+                            backgroundColor: selected ? "#e0f2fe" : "#fff",
+                          }}
+                        >
+                          <Text style={{ fontSize:12, color: selected ? "#0369a1" : "#334155" }}>{opt}</Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 </View>
 
+                {/* 開始年月/終了年月 */}
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Field
+                      label="開始年月 (YYYY-MM)"
+                      value={exp.startDate}
+                      onChangeText={(v) => patchWork(exp.id, { startDate: v })}
+                      placeholder="2024-04"
+                    />
+                  </View>
+                  {!exp.isCurrent && (
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label="終了年月 (YYYY-MM)"
+                        value={exp.endDate}
+                        onChangeText={(v) => patchWork(exp.id, { endDate: v })}
+                        placeholder="2024-09"
+                      />
+                    </View>
+                  )}
+                </View>
+
                 {/* 在籍中 */}
-                <Pressable onPress={()=>patchWork(exp.id,{isCurrent:!exp.isCurrent})} style={{ flexDirection:"row", alignItems:"center", gap:8 }}>
-                  <View style={{
-                    width:20, height:20, borderRadius:4, borderWidth:1, borderColor:"#cbd5e1",
-                    backgroundColor: exp.isCurrent ? "#0ea5e9" : "#fff"
-                  }} />
-                  <Text style={{ fontSize:12 }}>現在も在籍中</Text>
+                <Pressable
+                  onPress={() => {
+                    const next = !exp.isCurrent;
+                    patchWork(exp.id, next ? { isCurrent: true, endDate: "" } : { isCurrent: false });
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      borderWidth: 1,
+                      borderColor: "#cbd5e1",
+                      backgroundColor: exp.isCurrent ? "#0ea5e9" : "#fff",
+                    }}
+                  />
+                  <Text style={{ fontSize: 12 }}>現在も在籍中</Text>
                 </Pressable>
 
                 {/* 業務内容 */}

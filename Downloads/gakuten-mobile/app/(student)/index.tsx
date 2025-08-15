@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 
 // NOTE: プロジェクトのエイリアス事情があるため、相対 import を推奨
 // 既存クライアントのパスに合わせて変更してください。
@@ -249,10 +250,75 @@ function ProfileCard({ userId }: { userId: string }) {
   }, [userId]);
 
   const onPick = useCallback(async () => {
-    Alert.alert("画像アップロード", "この端末でのファイルピッカー実装は未接続です。後で実装してください。", [
-      { text: "OK" },
-    ]);
-  }, []);
+    if (!userId) return;
+    try {
+      setSaving(true);
+
+      // 1) Permission
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== "granted") {
+        Alert.alert("権限が必要です", "写真ライブラリへのアクセスを許可してください。");
+        setSaving(false);
+        return;
+      }
+
+      // 2) Launch picker
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+
+      if (picked.canceled || !picked.assets?.length) {
+        setSaving(false);
+        return;
+      }
+
+      const asset = picked.assets[0];
+      const uri = asset.uri;
+
+      // 3) Read file data as blob
+      const res = await fetch(uri);
+      const blob = await res.blob();
+      const contentType = blob.type || "image/jpeg";
+
+      // Decide extension from mimetype
+      const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+      const filePath = `${userId}/${Date.now()}.${ext}`;
+
+      // 4) Upload to Supabase Storage (bucket: avatars)
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, blob, { contentType, upsert: true });
+
+      if (upErr) {
+        throw upErr;
+      }
+
+      // 5) Get public URL (ensure the bucket is public or use signed URLs instead)
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      const publicUrl = pub.publicUrl;
+
+      // 6) Save to profile and update UI
+      const { error: dbErr } = await supabase
+        .from("student_profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("user_id", userId);
+
+      if (dbErr) {
+        throw dbErr;
+      }
+
+      setAvatarUrl(publicUrl);
+      Alert.alert("更新しました", "プロフィール画像を変更しました。");
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("アップロードに失敗しました", e?.message ?? "不明なエラーです");
+    } finally {
+      setSaving(false);
+    }
+  }, [userId]);
 
   return (
     <View style={{ borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#fff", borderRadius: 12 }}>
@@ -263,6 +329,11 @@ function ProfileCard({ userId }: { userId: string }) {
           ) : (
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
               <Text>🙂</Text>
+            </View>
+          )}
+          {saving && (
+            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.2)" }}>
+              <ActivityIndicator />
             </View>
           )}
         </View>
@@ -280,8 +351,8 @@ function ProfileCard({ userId }: { userId: string }) {
             />
           </View>
         </View>
-        <TouchableOpacity onPress={onPick} style={{ padding: 8 }}>
-          <Text style={{ color: "#ef4444", fontWeight: "600" }}>変更</Text>
+        <TouchableOpacity onPress={onPick} disabled={saving} style={{ padding: 8, opacity: saving ? 0.6 : 1 }}>
+          <Text style={{ color: "#ef4444", fontWeight: "600" }}>{saving ? "変更中…" : "変更"}</Text>
         </TouchableOpacity>
       </View>
       <View style={{ flexDirection: "row", gap: 8, padding: 16, paddingTop: 0 }}>
@@ -367,7 +438,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
           <Text style={{ color: "#6b7280" }}>まだオファーは届いていません</Text>
         )}
         {offers.map((offer) => (
-          <Link key={offer.id} href={`/(student)/offers/${offer.id}`} asChild>
+          <Link key={offer.id} href={`/scouts/${offer.id}`} asChild>
             <Pressable style={{ position: "relative", flexDirection: "row", gap: 12, padding: 12, borderWidth: 1, borderColor: "#f3f4f6", borderRadius: 12, backgroundColor: "#fff", marginBottom: 8 }}>
               {!offer.is_read && (
                 <View style={{ position: "absolute", right: 12, top: 12, width: 8, height: 8, backgroundColor: "#ef4444", borderRadius: 9999 }} />
