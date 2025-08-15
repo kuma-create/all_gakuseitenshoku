@@ -536,6 +536,21 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
     return { maxAge: maxA, minAge: minA, span: sp };
   }, [displayEvents, currentAge]);
 
+  const ageTicks = useMemo(() => {
+  const totalYears = maxAge - minAge + 1;
+  let step = 1;
+  if (totalYears > 12) step = isMobile ? 3 : 2;
+  if (totalYears > 20) step = isMobile ? 4 : 5;
+
+  const ticks: number[] = [];
+  for (let a = minAge; a <= maxAge; a++) {
+    if (a === minAge || a === maxAge || ((a - minAge) % step === 0)) {
+      ticks.push(a);
+    }
+  }
+  return ticks;
+}, [minAge, maxAge, isMobile]);
+
   // Memoize event dots at top-level (Rules of Hooks compliant)
   const eventDots = useMemo(() => {
     return displayEvents.map((event) => {
@@ -556,7 +571,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
           <div className="absolute top-5 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <div className="font-medium text-sm">{event.title}</div>
             <div className="text-xs text-gray-500">{event.age}歳 • {config.label}</div>
-            <div className="text-xs text-gray-700 mt-1 max-w-40 truncate">{event.description}</div>
+            <div className="text-xs text-gray-700 mt-1 max-w-[180px] sm:max-w-40 truncate">{event.description}</div>
           </div>
         </motion.div>
       );
@@ -793,7 +808,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
           <div className="relative">
             {/* Chart Container */}
-            <div className="h-80 relative border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white">
+            <div className="h-64 sm:h-80 relative border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white overflow-hidden">
               {/* Y-axis (Emotional Level) */}
               <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-xs text-gray-500">
                 <span>+5</span>
@@ -805,10 +820,9 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
 
               {/* X-axis (Age) */}
               <div className="absolute bottom-0 left-12 right-0 h-8 flex justify-between items-end text-xs text-gray-500">
-                {Array.from({ length: maxAge - minAge + 1 }, (_, i) => minAge + i).map(age => (
+                {ageTicks.map((age) => (
                   <span key={age} className="relative">
                     {age}歳
-                    {/* <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-px h-72 bg-gray-200"></div> */}
                   </span>
                 ))}
               </div>
@@ -892,7 +906,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-lg text-gray-900">{event.title}</h3>
+                      <h3 className="font-bold text-lg text-gray-900 truncate">{event.title}</h3>
                       <div className="flex items-center space-x-2">
                         <Badge className={config.bgColor + ' ' + config.textColor}>
                           {config.label}
@@ -1016,7 +1030,7 @@ export function LifeChart({ userId, onProgressUpdate }: LifeChartProps) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
         <Card className="p-2.5 sm:p-4 text-center">
           <div className="text-2xl font-bold text-blue-600 mb-1">{events.length}</div>
           <div className="text-sm text-gray-600">総イベント数</div>
