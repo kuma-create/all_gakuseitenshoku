@@ -69,7 +69,7 @@ function BottomBar() {
         <Item href="/(student)/jobs" label="探す" iconName="search" active={isActive("/(student)/jobs")} />
         <Item href="/(student)/scouts" label="スカウト" iconName="mail" active={isActive("/(student)/scouts")} />
         <Item href="/(student)/chat" label="チャット" iconName="message-circle" active={isActive("/(student)/chat")} />
-        <Item href="/(student)/ipo" label="IPO大学" iconName="book" active={isActive("/(student)/ipo")} />
+        <Item href="/(student)/ipo/dashboard" label="IPO大学" iconName="book" active={isActive("/(student)/ipo/dashboard")} />
       </View>
     </SafeAreaView>
   );
@@ -80,7 +80,7 @@ function getTitle(pathname: string) {
   if (pathname.startsWith("/(student)/jobs")) return "探す";
   if (pathname.startsWith("/(student)/scouts")) return "スカウト";
   if (pathname.startsWith("/(student)/chat")) return "チャット";
-  if (pathname.startsWith("/(student)/ipo")) return "IPO大学";
+  if (pathname.startsWith("/(student)/ipo/dashboard")) return "IPO大学";
   return "";
 }
 
