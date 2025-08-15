@@ -107,6 +107,12 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       icon: BarChart3,
       description: '性格・適職診断'
     },
+        {
+      label: '学生転職に戻る',
+      route: '/student-dashboard' as Route,
+      icon: User,
+      description: '学生転職ホームに戻る'
+    },
   ];
 
   const handleLogout = () => {

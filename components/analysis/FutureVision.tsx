@@ -150,10 +150,6 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
     }
   };
 
-  const saveAll = async () => {
-    await saveAllToJson(visions);
-  };
-
   const scheduleSave = (nextState: Record<Timeframe, VisionData>) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -182,13 +178,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
             <p className="text-sm text-muted-foreground">5年後、10年後、20年後の理想の姿を具体的に描いてみましょう</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
-            <Badge variant="outline">
-              完了率: {overallCompletion}%
-            </Badge>
-            <Button className="flex items-center space-x-2" onClick={saveAll} disabled={!userId || loading}>
-              {saving === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>{saving === 'saving' ? '保存中...' : saving === 'saved' ? '保存済み' : '保存'}</span>
-            </Button>
+            {/* Completion rate badge removed */}
           </div>
         </div>
 

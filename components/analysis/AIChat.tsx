@@ -114,6 +114,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
   const [threadId, setThreadId] = useState<string | null>(null);
   
   // Responsive max height for the scroll area (handles mobile keyboards/safe areas)
+  // 初期値はundefined（後で計算）
   const [listMaxHeight, setListMaxHeight] = useState<number | undefined>(undefined);
   const [footerHeight, setFooterHeight] = useState(0);
 
@@ -152,6 +153,30 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
   }, [sectionProgress, weights]);
 
 
+  // 画面下部のタブバー(ナビゲーション)高さを推定して、ファーストビューで入力欄が見えるように調整
+  const getBottomNavHeight = () => {
+    if (typeof window === 'undefined') return 0;
+    // CSS変数優先
+    const root = document.documentElement;
+    const varKeys = ['--bottom-nav-height', '--app-tabbar-height', '--tabbar-height'];
+    for (const key of varKeys) {
+      const v = getComputedStyle(root).getPropertyValue(key).trim();
+      if (v) {
+        const px = parseInt(v.replace('px','').trim(), 10);
+        if (!Number.isNaN(px)) return px;
+      }
+    }
+    // 要素ID候補
+    const ids = ['app-tabbar', 'tabbar', 'bottom-nav'];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el && (el as HTMLElement).offsetHeight) return (el as HTMLElement).offsetHeight;
+    }
+    // iOSセーフエリア + 想定タブバー
+    const safe = (window as any).visualViewport ? Math.max(0, ((window as any).visualViewport.height || 0) - window.innerHeight) : 0;
+    return 64 + safe; // デフォルトで約64px確保
+  };
+
   // スクロールエリアの高さを動的に計算する関数
   const computeHeights = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -165,12 +190,10 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
     const footerH = footerRef.current?.offsetHeight || 0;
     setFooterHeight(footerH);
     
-    // チャットメッセージの親コンポーネント（AIChat）のTop位置を取得
-    const parentTop = document.querySelector('body')?.getBoundingClientRect().top || 0;
-    
     // スクロール領域の最大高さを計算
-    const topOffset = headerRef.current?.getBoundingClientRect().top || parentTop;
-    const maxH = Math.max(100, viewportHeight - (topOffset + headerH) - footerH);
+    const topOffset = headerRef.current?.getBoundingClientRect().top || 0;
+    const extraBottom = getBottomNavHeight();
+    const maxH = Math.max(100, viewportHeight - topOffset - headerH - footerH - extraBottom - 4); // わずかな余白＋タブバー
     setListMaxHeight(maxH);
   }, []);
 
@@ -187,6 +210,8 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
 
     // 初回描画時に高さを計算
     computeHeights();
+    // 初回レンダ後にも再計算（外側のレイアウト確定後）
+    setTimeout(() => computeHeights(), 0);
 
     const vv = (window as any).visualViewport;
     window.addEventListener('resize', computeHeights);
@@ -196,7 +221,15 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
     // ResizeObserverでヘッダー/フッターの高さ変化を監視
     let ro: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined' && headerRef.current && footerRef.current) {
-      ro = new ResizeObserver(computeHeights);
+      ro = new ResizeObserver(() => {
+        computeHeights();
+        // 高さ変更後に一番下へスクロール
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          });
+        });
+      });
       ro.observe(headerRef.current);
       ro.observe(footerRef.current);
     }
@@ -244,7 +277,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
       const welcomeMessage: Message = {
         id: 'welcome',
         type: 'ai',
-        content: 'こんにちは！私はあなたの自己分析をサポートするAIアシスタントです。\n\n今日はどんなことを話してみたいですか？どんな小さなことでも大丈夫です。\n\n• 最近感じていること\n• 将来の不安や期待\n• 過去の印象深い経験\n• 自分の性格について\n\nリラックスして、思ったことを自由にお話しください 😊',
+        content: 'こんにちは！AIアシスタントです。\n\nどんなことを話してみたいですか？\n\n- 最近感じていること\n- 過去の印象深い経験\n- 自分の性格について\n\nリラックスして、思ったことを自由にお話しください 😊',
         timestamp: new Date(),
         category: '導入',
         emoji: '🤖',
@@ -495,10 +528,10 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
     : '何でも気軽に話してください…';
 
   return (
-    <div className="w-full max-w-full md:max-w-5xl md:mx-auto px-0 sm:px-0 h-dvh min-h-[100dvh] pt-0 pb-0 overflow-hidden flex flex-col">
+    <div className="w-full max-w-full md:max-w-5xl md:mx-auto px-0 h-[100dvh] max-h-[100dvh] pt-0 pb-0 overflow-hidden flex flex-col">
 
       {/* Top Bar: 空欄補充率 + モード切替 */}
-      <div ref={headerRef} className="sticky top-0 z-30 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border rounded-xl p-2 sm:p-3 mb-1">
+      <div ref={headerRef} className="sticky top-0 z-30 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border rounded-xl p-2 mb-1">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex-1">
             <div className="flex items-center justify-between text-xs sm:text-sm leading-relaxed mb-1">
@@ -529,7 +562,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
       </div>
       <div
         ref={scrollRef}
-        className="p-2 sm:p-4 space-y-3 sm:space-y-4 min-h-0 overflow-y-auto overscroll-contain flex-1"
+        className="p-2 space-y-3 min-h-0 overflow-y-auto overscroll-contain flex-1"
         style={{ maxHeight: listMaxHeight }}
       >
           <AnimatePresence>
@@ -700,8 +733,10 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
         {/* Enhanced Input Area */}
         <div
           ref={footerRef}
-          className="sticky bottom-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border p-2 sm:p-4 pb-[env(safe-area-inset-bottom)]"
+          className="sticky bottom-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border p-2 pb-[env(safe-area-inset-bottom)]"
         >
+          {/* 端末下部のナビゲーション分を確保（見えないスペーサー） */}
+          <div aria-hidden className="pointer-events-none h-0" style={{ height: getBottomNavHeight() ? 0 : 0 }} />
           <div className="flex items-end space-x-2 sm:space-x-3">
             <div className="flex-1 relative">
               <textarea

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback, startTransition } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, startTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Search, 
@@ -69,6 +69,9 @@ const supabase = createClient();
 const makeIcon = (type: 'industry' | 'occupation') => {
   return type === 'industry' ? <Building className="w-6 h-6" /> : <Briefcase className="w-6 h-6" />;
 };
+
+// 表示時に「万円」を自動付与（既に単位が含まれている場合はそのまま）
+const withManEn = (v: string) => (v ? (/[万円]/.test(v) ? v : `${v}万円`) : '');
 
 
 interface LibraryItem {
@@ -201,6 +204,9 @@ export default function LibraryPage() {
   const navigateFn = React.useCallback((route: string) => {
     router.push(route);
   }, [router]);
+
+  // PDF出力用に詳細ビューのDOMを参照
+  const detailRef = useRef<HTMLDivElement | null>(null);
 
 
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
@@ -391,6 +397,65 @@ export default function LibraryPage() {
     });
   }, []);
 
+  const handleShare = useCallback(async () => {
+    if (!selectedItem) return;
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const title = `${selectedItem.name} | 業界・職種ライブラリ`;
+    const text = selectedItem.description ? selectedItem.description.slice(0, 120) : title;
+    try {
+      // Prefer Web Share API if available
+      // @ts-ignore - navigator.share may not exist in some TS lib targets
+      if (navigator.share) {
+        // @ts-ignore
+        await navigator.share({ title, text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        alert('リンクをコピーしました');
+      }
+    } catch (e) {
+      console.warn('[library] share failed:', (e as Error)?.message);
+    }
+  }, [selectedItem]);
+
+
+  // 依存ライブラリなしでPDF化（印刷ダイアログ）: 詳細セクションだけを別ウィンドウに描画して print()
+  const handlePrintPdf = useCallback(() => {
+    if (!selectedItem || !detailRef.current) return;
+    try {
+      const html = detailRef.current.innerHTML;
+      const win = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1000');
+      if (!win) return;
+      // Tailwind をCDNで読み込み（印刷用に最低限のスタイルを反映）
+      win.document.write(`
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>${selectedItem.name} レポート</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              @page { size: A4; margin: 16mm; }
+              @media print {
+                .no-print { display: none !important; }
+              }
+              /* 画像や角丸が印刷で欠けないように */
+              img { max-width: 100%; height: auto; }
+            </style>
+          </head>
+          <body class="bg-white">
+            <div class="print-container">${html}</div>
+            <script>
+              window.onload = function () { setTimeout(function(){ window.print(); window.close(); }, 200); };
+            </script>
+          </body>
+        </html>
+      `);
+      win.document.close();
+    } catch (e) {
+      console.warn('[library] print pdf failed:', (e as Error)?.message);
+    }
+  }, [selectedItem, detailRef]);
+
   const getTrendIcon = (trend: 'up' | 'stable' | 'down') => {
     switch (trend) {
       case 'up':
@@ -411,32 +476,28 @@ export default function LibraryPage() {
     if (!selectedItem) return null;
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-8 max-w-full overflow-x-visible" ref={detailRef}>
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between flex-wrap gap-2 sm:flex-nowrap min-w-0">
           <Button
             variant="ghost"
             onClick={() => setSelectedItem(null)}
-            className="mb-4"
+            className="mb-2 sm:mb-4 -ml-2 sm:ml-0"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             戻る
           </Button>
           
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm">
+          <div className="flex space-x-2 sm:ml-auto flex-wrap min-w-0">
+            <Button variant="outline" size="sm" onClick={handleShare}>
               <Share2 className="w-4 h-4 mr-2" />
               シェア
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              レポート
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => toggleFavorite(selectedItem.id)}
-              disabled={saving}
+              disabled={saving || !isAuthed}
             >
               <Heart className={`w-4 h-4 mr-2 ${userData.favorites.includes(selectedItem.id) ? 'fill-red-500 text-red-500' : ''}`} />
               {userData.favorites.includes(selectedItem.id) ? 'お気に入り済み' : 'お気に入り'}
@@ -446,14 +507,14 @@ export default function LibraryPage() {
         </div>
 
         {/* Hero Section */}
-        <Card className="overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8">
+        <Card className="overflow-hidden w-full max-w-full">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 sm:p-8 max-w-full box-border">
             <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+              <div className="flex items-center space-x-4 min-w-0">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-2xl flex items-center justify-center">
                   {selectedItem.icon}
                 </div>
-                <div>
+                <div className="min-w-0 max-w-full overflow-hidden">
                   <div className="flex items-center space-x-2 mb-2">
                     <Badge variant="secondary" className="bg-white/20 text-white border-0">
                       {selectedItem.type === 'industry' ? '業界' : '職種'}
@@ -461,8 +522,8 @@ export default function LibraryPage() {
                     {getTrendIcon(selectedItem.trend)}
                     <span className="text-sm">トレンドスコア: {selectedItem.trendScore}</span>
                   </div>
-                  <h1 className="text-3xl font-bold mb-2">{selectedItem.name}</h1>
-                  <p className="text-xl text-white/90 mb-4">{selectedItem.description}</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold mb-2 truncate">{selectedItem.name}</h1>
+                  <p className="text-base sm:text-xl text-white/90 mb-4 break-words break-all">{selectedItem.description}</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedItem.tags.map((tag, index) => (
                       <Badge key={index} variant="secondary" className="bg-white/20 text-white border-0">
@@ -476,39 +537,38 @@ export default function LibraryPage() {
           </div>
           
           {/* Key Stats */}
-          <div className="p-6 border-b">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="p-4 sm:p-6 border-b max-w-full">
+            <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{selectedItem.details.averageSalary}</div>
-                <div className="text-sm text-gray-600">平均年収</div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-600">{withManEn(selectedItem.details.averageSalary)}</div>
+                <div className="text-xs sm:text-sm text-gray-600">平均年収</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{selectedItem.details.workEnvironment.remote}%</div>
-                <div className="text-sm text-gray-600">リモート可能</div>
+                <div className="text-xl sm:text-2xl font-bold text-green-600">{selectedItem.details.workEnvironment.remote}%</div>
+                <div className="text-xs sm:text-sm text-gray-600">リモート可能</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{selectedItem.details.regions.reduce((sum, region) => sum + region.jobCount, 0).toLocaleString()}</div>
-                <div className="text-sm text-gray-600">求人数</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{selectedItem.details.companies.length}社</div>
-                <div className="text-sm text-gray-600">主要企業</div>
+                <div className="text-xl sm:text-2xl font-bold text-orange-600">{selectedItem.details.companies.length}社</div>
+                <div className="text-xs sm:text-sm text-gray-600">主要企業</div>
               </div>
             </div>
           </div>
         </Card>
 
         {/* Tabs */}
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-8">
-            <TabsTrigger value="overview">概要</TabsTrigger>
-            <TabsTrigger value="career">キャリア</TabsTrigger>
-            <TabsTrigger value="salary">年収</TabsTrigger>
-            <TabsTrigger value="companies">企業</TabsTrigger>
-            <TabsTrigger value="skills">スキル</TabsTrigger>
-            <TabsTrigger value="work">働き方</TabsTrigger>
-            <TabsTrigger value="regions">地域</TabsTrigger>
-            <TabsTrigger value="interviews">インタビュー</TabsTrigger>
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full min-w-0 max-w-[100vw]">
+          <TabsList className="w-full max-w-full max-w-[100vw] flex flex-nowrap gap-1 overflow-x-auto min-w-0 overscroll-x-contain pl-2 pr-2">
+            {/* ← 先頭スペーサー */}
+            <div aria-hidden className="w-8 shrink-0" />
+
+            <TabsTrigger value="overview"   className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">概要</TabsTrigger>
+            <TabsTrigger value="career"     className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">キャリア</TabsTrigger>
+            <TabsTrigger value="salary"     className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">年収</TabsTrigger>
+            <TabsTrigger value="companies"  className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">企業</TabsTrigger>
+            <TabsTrigger value="skills"     className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">スキル</TabsTrigger>
+            <TabsTrigger value="work"       className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">働き方</TabsTrigger>
+            <TabsTrigger value="regions"    className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">地域</TabsTrigger>
+            <TabsTrigger value="interviews" className="whitespace-nowrap px-3 py-2 text-sm shrink-0 first:ml-1">インタビュー</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -959,8 +1019,8 @@ export default function LibraryPage() {
 
   if (selectedItem) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-6xl mx-auto p-6">
+      <div className="min-h-screen bg-gray-50 overflow-x-hidden max-w-[100vw]">
+        <div className="mx-auto px-4 sm:px-6 py-4 sm:py-6 max-w-screen-sm sm:max-w-5xl w-full max-w-full max-w-[100vw]">
           {renderDetailView()}
         </div>
       </div>
@@ -968,12 +1028,12 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden max-w-[100vw]">
+      <div className="mx-auto px-4 sm:px-6 py-4 sm:py-6 max-w-screen-sm sm:max-w-6xl w-full max-w-full max-w-[100vw]">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">業界・職種ライブラリ</h1>
-          <p className="text-lg text-gray-600">500社以上の詳細データと社員インタビューで、あなたの理想のキャリアを見つけよう</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">業界・職種ライブラリ</h1>
+          <p className="text-base sm:text-lg text-gray-600">500社以上の詳細データと社員インタビューで、あなたの理想のキャリアを見つけよう</p>
         </div>
 
         {/* Search and Filters */}
@@ -990,7 +1050,7 @@ export default function LibraryPage() {
               />
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <select
                 value={selectedFilter}
                 onChange={(e) => setSelectedFilter(e.target.value as typeof selectedFilter)}
@@ -1020,7 +1080,7 @@ export default function LibraryPage() {
             <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-full">
             {filteredAndSortedItems.map((item) => (
               <motion.div
                 key={item.id}
@@ -1029,9 +1089,9 @@ export default function LibraryPage() {
                 transition={{ duration: 0.3 }}
               >
                 <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
-                  <CardContent className="p-6" onClick={() => handleItemClick(item)}>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
+                  <CardContent className="p-4 sm:p-6" onClick={() => handleItemClick(item)}>
+                    <div className="flex items-start justify-between mb-4 min-w-0">
+                      <div className="flex items-center space-x-3 min-w-0">
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
@@ -1046,14 +1106,14 @@ export default function LibraryPage() {
                             }}
                           />
                         ) : null}
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors" style={{ display: item.imageUrl ? 'none' as const : 'flex' }}>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors" style={{ display: item.imageUrl ? 'none' as const : 'flex' }}>
                           {item.icon}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <Badge variant="outline" className="mb-2">
                             {item.type === 'industry' ? '業界' : '職種'}
                           </Badge>
-                          <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
+                          <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors truncate">
                             {item.name}
                           </h3>
                         </div>
@@ -1075,7 +1135,7 @@ export default function LibraryPage() {
                       </div>
                     </div>
                     
-                    <p className="text-gray-600 mb-4 leading-relaxed">{truncateText(item.description, 120)}</p>
+                    <p className="text-gray-600 mb-4 leading-relaxed break-words break-all">{truncateText(item.description, 120)}</p>
                     
                     <div className="flex flex-wrap gap-2 mb-4">
                       {item.tags.slice(0, 3).map((tag, index) => (

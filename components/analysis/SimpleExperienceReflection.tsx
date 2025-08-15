@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Plus, Edit3, Save, Download, Star, Calendar, TrendingUp, CheckCircle, X, Sparkles, ChevronRight, ChevronDown, Brain, FileText } from 'lucide-react';
+import { Plus, Edit3, Save, Download, Star, Calendar, TrendingUp, CheckCircle, X, Sparkles, ChevronRight, ChevronDown, Brain, FileText, Loader2 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -36,6 +36,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   const [formData, setFormData] = useState<Partial<SimpleExperience>>(initialFormData);
+  const [aiLoading, setAiLoading] = useState(false);
   
   // onProgressUpdateの安定した参照を保持
   const onProgressUpdateRef = useRef(onProgressUpdate);
@@ -191,21 +192,60 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
     }));
   }, []);
 
-  const generateSTAR = useCallback(() => {
+  const generateSTAR = useCallback(async () => {
     if (!formData.description) return;
-    
-    // Simple AI-like generation based on description
-    const description = formData.description;
-    setFormData(prev => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        challenge: `${description}において発生した課題`,
-        action: `この課題に対して具体的な取り組みを実施`,
-        result: `取り組みの結果、目標を達成することができました`
+    if (aiLoading) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai/generate-star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: formData.description,
+          category: formData.category || 'general'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const challengeText = data.challenge || `${formData.description}において発生した課題`;
+        const actionText    = data.action    || `この課題に対して具体的な取り組みを実施`;
+        const resultText    = data.result    || `取り組みの結果、目標を達成することができました`;
+        setFormData(prev => ({
+          ...prev,
+          details: {
+            ...prev.details,
+            challenge: challengeText,
+            action: actionText,
+            result: resultText
+          }
+        }));
+      } else {
+        // Fallback to deterministic template when API is unavailable
+        setFormData(prev => ({
+          ...prev,
+          details: {
+            ...prev.details,
+            challenge: `${formData.description}において発生した課題`,
+            action: `この課題に対して具体的な取り組みを実施`,
+            result: `取り組みの結果、目標を達成することができました`
+          }
+        }));
       }
-    }));
-  }, [formData.description]);
+    } catch (e) {
+      // Network / runtime error fallback
+      setFormData(prev => ({
+        ...prev,
+        details: {
+          ...prev.details,
+          challenge: `${formData.description}において発生した課題`,
+          action: `この課題に対して具体的な取り組みを実施`,
+          result: `取り組みの結果、目標を達成することができました`
+        }
+      }));
+    } finally {
+      setAiLoading(false);
+    }
+  }, [formData.description, formData.category, aiLoading]);
 
   const suggestSkills = useCallback(() => {
     const category = formData.category || 'club';
@@ -275,19 +315,19 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 w-full">
-        <Card className="p-2.5 sm:p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-blue-600 mb-1">{experiences.length}</div>
           <div className="text-sm text-gray-600">総経験数</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-green-600 mb-1">{statistics.jobHuntCount}</div>
           <div className="text-sm text-gray-600">就活活用</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-purple-600 mb-1">{statistics.completedCount}</div>
           <div className="text-sm text-gray-600">完成度高</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-orange-600 mb-1">{statistics.averageCompleteness}%</div>
           <div className="text-sm text-gray-600">平均完成度</div>
         </Card>
@@ -392,7 +432,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
         }
         setShowDialog(open);
       }}>
-        <DialogContent className="w-[92vw] sm:w-full sm:max-w-xl md:max-w-2xl max-h-[90vh] overflow-y-auto overflow-visible min-w-0">
+        <DialogContent className="w-[100vw] sm:w-full sm:max-w-xl md:max-w-2xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[85vh] overflow-hidden flex flex-col min-w-0 sm:rounded-lg rounded-none">
           <DialogHeader>
             <DialogTitle>
               {editingExperience ? '経験を編集' : '新しい経験を追加'}
@@ -402,7 +442,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 px-2 sm:px-0">
+          <div className="flex-1 overflow-y-auto space-y-6 px-2 sm:px-0 pb-6">
             {/* Template Selection */}
             {!editingExperience && (
               <div>
@@ -547,8 +587,9 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                           size="sm"
                           onClick={generateSTAR}
                           className="text-xs"
+                          disabled={aiLoading || !formData.description}
                         >
-                          <Brain className="w-3 h-3 mr-1" />
+                          {aiLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Brain className="w-3 h-3 mr-1" />}
                           AI生成
                         </Button>
                       </div>
@@ -633,8 +674,9 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                 )}
               </AnimatePresence>
             </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t">
+          </div>
+          <div className="shrink-0 bg-white pt-4 border-t px-2 sm:px-0">
+            <div className="flex justify-end space-x-3">
               <Button variant="outline" onClick={resetForm} className="h-10 px-4 sm:h-9">
                 キャンセル
               </Button>

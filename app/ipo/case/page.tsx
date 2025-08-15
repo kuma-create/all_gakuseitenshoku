@@ -33,7 +33,7 @@ export default function CaseHomePage() {
   }, [])
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8">
       {/* タイトル & バナー */}
       <header className="mb-6 md:mb-8">
         <p className="text-xs font-medium uppercase tracking-wider text-sky-600">IPO</p>
@@ -43,50 +43,84 @@ export default function CaseHomePage() {
 
       {/* 概要タブ：進捗・統計（ダミー値） */}
       {/* サマリーカード群 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         <Card className="text-center">
-          <CardContent className="p-6">
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <CardContent className="p-3 sm:p-4 md:p-6">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">—</div>
-            <div className="text-sm text-gray-600">解答済み問題</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-0.5">—</div>
+            <div className="text-xs sm:text-sm text-gray-600">解答済み問題</div>
           </CardContent>
         </Card>
 
         <Card className="text-center">
-          <CardContent className="p-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <CardContent className="p-3 sm:p-4 md:p-6">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-2">
               <BarChart3 className="w-6 h-6 text-blue-600" />
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">—</div>
-            <div className="text-sm text-gray-600">平均スコア</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-0.5">—</div>
+            <div className="text-xs sm:text-sm text-gray-600">平均スコア</div>
           </CardContent>
         </Card>
 
         <Card className="text-center">
-          <CardContent className="p-6">
-            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <CardContent className="p-3 sm:p-4 md:p-6">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
               <Trophy className="w-6 h-6 text-purple-600" />
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">—%</div>
-            <div className="text-sm text-gray-600">完了率</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-0.5">—%</div>
+            <div className="text-xs sm:text-sm text-gray-600">完了率</div>
           </CardContent>
         </Card>
 
         <Card className="text-center">
-          <CardContent className="p-6">
-            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <CardContent className="p-3 sm:p-4 md:p-6">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-2">
               <Clock className="w-6 h-6 text-orange-600" />
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">—</div>
-            <div className="text-sm text-gray-600">総学習時間</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-0.5">—</div>
+            <div className="text-xs sm:text-sm text-gray-600">総学習時間</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* クイックアクション */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mt-6">
+        <Card className="transition-shadow md:hover:shadow-lg">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <Users className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-600 mx-auto mb-4" />
+            <h3 className="font-bold text-gray-900 mb-2">Webテストを解く</h3>
+            <p className="text-sm text-gray-600 mb-4">言語・数的・論理問題に挑戦</p>
+            <Button asChild className="w-full">
+              <Link href="/ipo/case/webtest">開始</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="transition-shadow md:hover:shadow-lg">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-sky-600 mx-auto mb-4" />
+            <h3 className="font-bold text-gray-900 mb-2">ケース問題を解く</h3>
+            <p className="text-sm text-gray-600 mb-4">論理的思考力を鍛える</p>
+            <Button asChild className="w-full">
+              <Link href="/ipo/case/case">挑戦</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="opacity-75">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <Gift className="w-10 h-10 sm:w-12 sm:h-12 text-amber-600 mx-auto mb-4" />
+            <h3 className="font-bold text-gray-900 mb-2">先行対策</h3>
+            <p className="text-sm text-gray-600 mb-4">近日公開予定（Coming Soon）</p>
+            <Button disabled className="w-full">準備中</Button>
           </CardContent>
         </Card>
       </div>
 
       {/* 進捗バー（カテゴリ別／ダミー値） */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-6">
         <Card>
           <CardHeader>
             <h3 className="font-bold text-gray-900">Webテスト進捗</h3>
@@ -133,40 +167,6 @@ export default function CaseHomePage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* クイックアクション */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardContent className="p-6 text-center">
-            <Users className="w-12 h-12 text-emerald-600 mx-auto mb-4" />
-            <h3 className="font-bold text-gray-900 mb-2">Webテストを解く</h3>
-            <p className="text-sm text-gray-600 mb-4">言語・数的・論理問題に挑戦</p>
-            <Button asChild className="w-full">
-              <Link href="/ipo/case/webtest">開始</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardContent className="p-6 text-center">
-            <Trophy className="w-12 h-12 text-sky-600 mx-auto mb-4" />
-            <h3 className="font-bold text-gray-900 mb-2">ケース問題を解く</h3>
-            <p className="text-sm text-gray-600 mb-4">論理的思考力を鍛える</p>
-            <Button asChild className="w-full">
-              <Link href="/ipo/case/case">挑戦</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="opacity-75">
-          <CardContent className="p-6 text-center">
-            <Gift className="w-12 h-12 text-amber-600 mx-auto mb-4" />
-            <h3 className="font-bold text-gray-900 mb-2">先行対策</h3>
-            <p className="text-sm text-gray-600 mb-4">近日公開予定（Coming Soon）</p>
-            <Button disabled className="w-full">準備中</Button>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   )
 }
@@ -207,7 +207,7 @@ function CardLink({ href, gradient, iconBg, icon, title, desc, btnClass, disable
       role="link"
     >
       {/* 内容ラッパー */}
-      <div className="flex h-full min-h-[220px] flex-col">
+      <div className="flex h-full min-h-[200px] sm:min-h-[220px] flex-col">
         {/* 右上バッジ（Coming Soonなど） */}
         {disabled && (
           <span className="absolute right-3 top-3 inline-flex items-center rounded-full bg-gray-900/80 px-2.5 py-0.5 text-xs font-medium text-white">
@@ -215,15 +215,15 @@ function CardLink({ href, gradient, iconBg, icon, title, desc, btnClass, disable
           </span>
         )}
         {/* アイコン */}
-        <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-full ${iconBg}`}>
+        <div className={`mb-4 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full ${iconBg}`}>
           <span className="transition-transform duration-200 motion-safe:group-hover:scale-105">{icon}</span>
         </div>
         {/* タイトル/説明 */}
         <h3 id={titleId} className="mb-2 text-xl font-bold text-gray-900">{title}</h3>
-        <p id={descId} className="mb-4 text-gray-600">{desc}</p>
+        <p id={descId} className="mb-4 text-gray-600 break-words">{desc}</p>
         {/* ボタン風の表示（リンクの一部として実装） */}
         <span
-          className={`mt-auto inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white ${btnClass} ${disabled ? "bg-gray-400" : ""}`}
+          className={`mt-auto inline-flex w-full items-center justify-center rounded-md px-3 py-2 sm:px-4 text-sm font-medium text-white ${btnClass} ${disabled ? "bg-gray-400" : ""}`}
         >
           {disabled ? "準備中" : "参加する"}
         </span>
