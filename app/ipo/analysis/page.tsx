@@ -1113,35 +1113,40 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     experienceReflection: progress.experienceReflection,
   }), [sectionProgress.selfNote, progress.lifeChart, progress.futureVision, progress.strengthAnalysis, progress.experienceReflection]);
 
-  const handleTabChange = useCallback((value: string) => {
-  // Recalculate mobile menu position on open/resize/scroll
+    const handleTabChange = useCallback((value: string) => {
+      startTransition(() => {
+        setActiveTab(value);
+        setShowMobileMenu(false);
+      });
+      // Desktopのみスクロール。モバイル/タブレットは位置キープ
+      if (!isMobile && !isTablet && typeof window !== 'undefined') {
+        runIdle(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+      }
+    }, [isMobile, isTablet]);
+  // Recalculate mobile menu position on open/resize/scroll (must be top-level — not inside a callback)
   useEffect(() => {
     if (!showMobileMenu) return;
     const recalc = () => {
       const btn = menuButtonRef.current;
       if (!btn) {
-        setMenuTop(Math.round(window.scrollY + 80)); // fallback
+        // Fallback: approximate just below the sticky header.
+        setMenuTop(56); 
         return;
       }
       const rect = btn.getBoundingClientRect();
-      setMenuTop(Math.round(rect.bottom + window.scrollY));
+      // For a fixed-positioned dropdown, `top` is relative to the viewport,
+      // so DO NOT add window.scrollY (that would push it too far down).
+      const viewportOffset = (window as any)?.visualViewport?.offsetTop || 0;
+      setMenuTop(Math.round(rect.bottom + viewportOffset - 4)); // -4 to tuck up slightly
     };
     recalc();
-    window.addEventListener('resize', recalc, { passive: true });
-    window.addEventListener('scroll', recalc, { passive: true });
+    window.addEventListener('resize', recalc, { passive: true } as any);
+    window.addEventListener('scroll', recalc, { passive: true } as any);
     return () => {
       window.removeEventListener('resize', recalc);
       window.removeEventListener('scroll', recalc);
     };
   }, [showMobileMenu]);
-    startTransition(() => {
-      setActiveTab(value);
-      setShowMobileMenu(false);
-    });
-    if (typeof window !== 'undefined') {
-      runIdle(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
-    }
-  }, []);
 
   const overallProgress = Math.round(
     Object.values(progress).reduce((sum, value) => sum + value, 0) / Object.keys(progress).length
@@ -1729,6 +1734,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           padding: 0 !important;
           margin: 0 !important;
         }
+
+        /* Remove iOS gray tap highlight and pressed-state fill on menu items */
+        a, button { -webkit-tap-highlight-color: transparent; }
+        .analysis-page-root .menu-link:active { background-color: transparent !important; }
       `}</style>
       {/* Header */}
       <header className="bg-card/95 backdrop-blur-sm border-b border-border sticky top-0 z-40">
@@ -1774,7 +1783,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                               try { routerNav.push(`/ipo/analysis/${tool.id}`, { scroll: false }); } catch {}
                             }}
                             aria-current={isActive ? 'page' : undefined}
-                            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                            className={`menu-link w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                               isActive
                                 ? 'bg-background shadow-sm border border-border text-foreground'
                                 : 'hover:bg-background/50 text-muted-foreground hover:text-foreground'
@@ -1789,7 +1798,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                               <div className="text-xs text-muted-foreground truncate">{tool.subtitle}</div>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-xs tabular-nums">{getToolProgressPct(tool.id)}%</span>
+                              <span className="text-xs tabular-nums min-w-[42px] text-right">{getToolProgressPct(tool.id)}%</span>
                               {tool.badge && (
                                 <Badge className="rounded-full px-1.5 py-0.5 text-[10px] leading-none bg-sky-100 text-sky-700">
                                   {tool.badge}
@@ -1817,7 +1826,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         {/* Tablet (md only) */}
         {!isMobile && isTablet && (
           <div>
-            <div className="sticky top-20 z-30 bg-background/95 backdrop-blur-sm py-4 mb-6">
+            <div className="sticky top-20 z-30 bg-background/95 backdrop-blur-sm py-4 mb-4">
               <div className="flex items-center gap-3 overflow-x-auto pb-2">
                 {analysisTools.map((tool) => {
                   const isActive = activeTab === tool.id;
@@ -1831,16 +1840,16 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                         handleTabChange(tool.id);
                         try { routerNav.push(`/ipo/analysis/${tool.id}`, { scroll: false }); } catch {}
                       }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                      className={`menu-link flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                         isActive
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-muted text-foreground border border-border'
                           : 'bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground'
                       }`}
                       role="menuitem"
                     >
                       <Icon className="h-4 w-4" />
                       {tool.title}
-                      <span className="text-xs opacity-75">{getToolProgressPct(tool.id)}%</span>
+                      <span className="text-xs opacity-75 min-w-[42px] text-right">{getToolProgressPct(tool.id)}%</span>
                     </Link>
                   );
                 })}
@@ -1853,7 +1862,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         {/* Mobile (sm) */}
         {isMobile && (
           <div>
-            <div className="sticky top-20 z-30 bg-background/95 backdrop-blur-sm py-3 mb-6">
+            <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-sm py-3 mb-3">
               <div className="relative">
                 <Button
                   ref={menuButtonRef}
@@ -1874,8 +1883,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                   <>
                     <div className="fixed inset-0 bg-black/20 z-[90] pointer-events-auto" onClick={() => setShowMobileMenu(false)} />
                     <div
-                      className="fixed left-2 right-2 rounded-lg border bg-background shadow-lg p-1 z-[100] max-h-[60vh] overflow-auto pointer-events-auto"
-                      style={{ top: menuTop + 8 }}
+                      className="absolute left-0 right-0 top-full mt-2 rounded-lg border bg-background shadow-lg p-1 z-[100] max-h-[60vh] overflow-auto pointer-events-auto"
                     >
                       <ul>
                         {analysisTools.map((tool) => {
@@ -1890,9 +1898,9 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                                   handleTabChange(tool.id);
                                   try { routerNav.push(`/ipo/analysis/${tool.id}`, { scroll: false }); } catch {}
                                 }}
-                                className={`w-full flex items-center gap-3 px-3 py-3 rounded-md text-sm text-left transition-colors ${
+                                className={`menu-link w-full flex items-center gap-3 px-3 py-3 rounded-md text-sm text-left transition-colors ${
                                   isActive
-                                    ? 'bg-primary text-primary-foreground'
+                                    ? 'bg-muted text-foreground border border-border'
                                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                                 }`}
                                 role="menuitem"
@@ -1903,7 +1911,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                                   <div className="text-xs opacity-75 truncate">{tool.subtitle}</div>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                  <span className="text-xs tabular-nums">{getToolProgressPct(tool.id)}%</span>
+                                  <span className="text-xs tabular-nums min-w-[42px] text-right">{getToolProgressPct(tool.id)}%</span>
                                   {tool.badge && (
                                     <Badge className="rounded-full px-1.5 py-0.5 text-[10px] leading-none bg-sky-100 text-sky-700">
                                       {tool.badge}

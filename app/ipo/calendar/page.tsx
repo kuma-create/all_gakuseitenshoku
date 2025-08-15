@@ -40,7 +40,26 @@ interface CalendarEvent {
   targetAudience?: string;
   isRegistered?: boolean;
   registrationStatus?: 'open' | 'closed' | 'waitlist';
+  stageStatus?: string;
+  stageCompanyId?: string | null;
 }
+const stageStatusLabel = (s?: string) => {
+  switch (s) {
+    case 'scheduled':
+      return '予定';
+    case 'pending':
+      return '保留';
+    case 'passed':
+      return '合格';
+    case 'failed':
+      return '不合格';
+    // legacy value fallback
+    case 'completed':
+      return '完了';
+    default:
+      return s ?? '';
+  }
+};
 
 // Supabase row types (minimum needed)
 type DbEvent = {
@@ -67,6 +86,54 @@ type DbEvent = {
 
 // registration rows (ipo_event_registrations)
 type RegistrationRow = { event_id: number; user_id: string };
+
+// selection (選考管理) – 先行予約の最小型（実フィールド名が異なる環境にも対応できるよう可変に）
+type PrebookingRow = {
+  id: string | number;
+  user_id?: string | null;
+  title?: string | null;
+  company?: string | null;
+  location?: string | null;
+  memo?: string | null;
+  start_at?: string | null;
+  end_at?: string | null;
+  scheduled_at?: string | null;
+  reserved_at?: string | null;
+  datetime?: string | null;
+};
+
+// selection_stages（選考段階） – 実カラムに合わせた型
+type StageRow = {
+  id: string | number;
+  user_id: string | null;
+  company_id: string | null;
+  name: string | null;        // 段階名
+  status: string | null;      // scheduled / pending / completed など
+  date: string | null;        // YYYY-MM-DD
+  time: string | null;        // HH:mm
+  location: string | null;
+  feedback: string | null;
+  interviewer: string | null;
+  notes: string | null;       // メモ
+  rating: number | null;
+  preparation: any[] | null;  // 配列
+  completed_at: string | null;
+};
+
+type StageStatus = 'scheduled' | 'pending' | 'passed' | 'failed';
+
+type StageForm = {
+  name: string;
+  date: string;
+  time: string;
+  location: string;
+  notes: string;
+  status: StageStatus;
+};
+const castStageStatus = (s?: string): StageStatus => {
+  const allowed: StageStatus[] = ['scheduled', 'pending', 'passed', 'failed'];
+  return (allowed as readonly string[]).includes(s ?? '') ? (s as StageStatus) : 'scheduled';
+};
 
 
 const EVENT_CATEGORIES = {
@@ -119,6 +186,78 @@ const EVENT_CATEGORIES = {
     bgColor: 'bg-gray-100 text-gray-800 border-gray-200'
   }
 };
+
+// --- Google Calendar helper ----------------------------------------------
+// Format date objects to Google Calendar expected formats
+const pad = (n: number) => String(n).padStart(2, "0");
+const ymd = (d: Date) =>
+  `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
+const ymdHisZ = (d: Date) =>
+  `${ymd(d)}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+
+/**
+ * Build a Google Calendar "add event" URL from a CalendarEvent.
+ * - If time is absent, treats it as an all-day event (end date is next day).
+ * - If endTime is absent but time is present, assumes 60 min duration.
+ */
+const buildGoogleCalendarUrl = (ev: CalendarEvent) => {
+  try {
+    const startBase = new Date(ev.date); // ev.date is ISO
+    let start = new Date(startBase);
+    let end = new Date(startBase);
+
+    if (ev.time) {
+      // Use given start time (already in ev.date or overridden by ev.time)
+      // If `ev.date` already has time baked in, we trust it; otherwise align time by parsing HH:mm
+      if (/^\d{2}:\d{2}$/.test(ev.time)) {
+        const [hh, mm] = ev.time.split(":").map(Number);
+        start.setHours(hh, mm ?? 0, 0, 0);
+      }
+      if (ev.endTime && /^\d{2}:\d{2}$/.test(ev.endTime)) {
+        const [eh, em] = ev.endTime.split(":").map(Number);
+        end = new Date(start);
+        end.setHours(eh, em ?? 0, 0, 0);
+      } else {
+        // default 60 minutes
+        end = new Date(start);
+        end.setMinutes(end.getMinutes() + 60);
+      }
+      const dates = `${ymdHisZ(start)}/${ymdHisZ(end)}`;
+      const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: ev.title || "",
+        details: ev.description || "",
+        location: ev.location || "",
+        dates,
+      });
+      return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    } else {
+      // All-day event
+      const startDay = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+      const endDay = new Date(startDay);
+      endDay.setUTCDate(endDay.getUTCDate() + 1); // end is exclusive
+      const dates = `${ymd(startDay)}/${ymd(endDay)}`;
+      const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: ev.title || "",
+        details: ev.description || "",
+        location: ev.location || "",
+        dates,
+      });
+      return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    }
+  } catch {
+    // Fallback without dates
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: ev.title || "",
+      details: ev.description || "",
+      location: ev.location || "",
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+};
+// --------------------------------------------------------------------------
 
 export default function CalendarPage() {
   const [activeTab, setActiveTab] = useState<'week' | 'month' | 'events'>('events');
@@ -190,10 +329,9 @@ export default function CalendarPage() {
         // Fetch events: public + personal(自分の) をまとめて
         const { data: rows, error: evErr } = await supabase
           .from('ipo_calendar_events')
-          .select('*')
+          .select('id,title,type,category,date,time,end_time,location,description,priority,is_public,max_participants,organizer,tags,registration_deadline,requirements,benefits,target_audience,registration_status')
           .or(user ? `is_public.eq.true,user_id.eq.${user.id}` : 'is_public.eq.true')
-          .order('date', { ascending: true })
-          .returns<DbEvent[]>();
+          .order('date', { ascending: true });
         if (evErr) throw evErr;
 
         const eventIds = (rows ?? []).map(r => String((r as DbEvent).id));
@@ -207,8 +345,7 @@ export default function CalendarPage() {
             .from('ipo_event_registrations')
             .select('event_id,user_id')
             .eq('user_id', user.id)
-            .in('event_id', eventIdsNum as number[])
-            .returns<RegistrationRow[]>();
+            .in('event_id', eventIdsNum as number[]);
           if (regErr) throw regErr;
           myRegs = new Set((regs ?? []).map(r => String(r.event_id)));
         }
@@ -219,8 +356,7 @@ export default function CalendarPage() {
           const { data: allRegs, error: countErr } = await supabase
             .from('ipo_event_registrations')
             .select('event_id')
-            .in('event_id', eventIdsNum as number[])
-            .returns<RegistrationRow[]>();
+            .in('event_id', eventIdsNum as number[]);
           if (countErr) throw countErr;
           if (allRegs) {
             for (const r of allRegs) {
@@ -231,13 +367,137 @@ export default function CalendarPage() {
         }
 
         const mapped = (rows ?? []).map((r: any) => {
-          const id = String(r.id);
-          const isReg = myRegs.has(id);
-          const cnt = countsMap.get(id) ?? 0;
+          const isReg = (myRegs as Set<string>).has(String(r.id));
+          const cnt = ((countsMap as Map<string, number>).get(String(r.id))) ?? 0;
           return mapRowToEvent(r as DbEvent, isReg, cnt);
         });
 
-        setEvents(mapped);
+        // --- 選考管理の「先行予約」を取り込み（存在すれば） ---
+        let prebookMapped: CalendarEvent[] = [];
+        try {
+          // テーブル名は環境に合わせていずれかが存在する想定。先に見つかったものを使用。
+          const prebookTableCandidates = [
+            'selection_prebookings',
+            'ipo_selection_prebookings',
+            'prebookings',
+          ];
+          let preRows: PrebookingRow[] | null = null;
+          for (const t of prebookTableCandidates) {
+            const { data, error } = await supabase
+              .from(t as any)
+              .select('id,user_id,title,company,location,memo,start_at,end_at,scheduled_at,reserved_at,datetime')
+              .limit(200);
+            if (!error && data) {
+              preRows = data as unknown as PrebookingRow[];
+              break;
+            }
+          }
+
+          if (preRows && preRows.length) {
+            prebookMapped = preRows.map((r) => {
+              const start = r.start_at ?? r.scheduled_at ?? r.reserved_at ?? r.datetime ?? null;
+              const end = r.end_at ?? null;
+              const startDate = start ? new Date(start) : new Date();
+              const endDate = end ? new Date(end) : null;
+              const dateISO = startDate.toISOString();
+              const timeStr = start ? startDate.toTimeString().slice(0,5) : undefined;
+              const endTimeStr = endDate ? endDate.toTimeString().slice(0,5) : undefined;
+
+              return {
+                id: `prebook-${String(r.id)}`,
+                title: r.title || `${r.company ?? '面談/面接 先行予約'}`,
+                type: 'interview',
+                category: 'personal',
+                date: dateISO,
+                time: timeStr,
+                endTime: endTimeStr,
+                location: r.location ?? undefined,
+                description: r.memo ?? `${r.company ?? ''} の先行予約` ,
+                priority: 'medium',
+                isPublic: false,
+                maxParticipants: undefined,
+                currentParticipants: 0,
+                organizer: r.company ?? '自分',
+                tags: ['先行予約', '選考管理'],
+                registrationDeadline: undefined,
+                requirements: undefined,
+                benefits: undefined,
+                targetAudience: undefined,
+                isRegistered: true,
+                registrationStatus: 'open',
+              } as CalendarEvent;
+            });
+          }
+        } catch (e) {
+          // テーブルが存在しない等のエラーは握りつぶしてカレンダー自体は表示
+          console.warn('prebookings fetch skipped:', e);
+        }
+
+        // --- 選考段階（selection_stages）を取り込み ---
+        let stageMapped: CalendarEvent[] = [];
+        try {
+          const stageTableCandidates = [
+            'selection_stages',
+            'ipo_selection_stages',
+            'stages',
+          ];
+          let stageRows: StageRow[] | null = null;
+          for (const t of stageTableCandidates) {
+            const { data, error } = await supabase
+              .from(t as any)
+              .select('id,user_id,company_id,name,status,date,time,location,interviewer,notes,feedback,rating,preparation,completed_at')
+              .limit(500);
+            if (!error && data) {
+              stageRows = data as unknown as StageRow[];
+              break;
+            }
+          }
+
+          if (stageRows && stageRows.length) {
+            stageMapped = stageRows
+              .filter((r) => r.date || r.time)
+              .map((r) => {
+                const baseDate = r.date ? `${r.date}T${(r.time ?? '09:00')}:00` : new Date().toISOString();
+                const d = new Date(baseDate);
+                const dateISO = d.toISOString();
+                const timeStr = r.time ?? undefined;
+
+                const title = r.name || '選考（予定）';
+                // タグは最小限（メタは出さない）
+                const tags: string[] = ['選考'];
+
+                return {
+                  id: `stage-${String(r.id)}`,
+                  title,
+                  type: 'interview',
+                  category: 'personal',
+                  date: dateISO,
+                  time: timeStr,
+                  endTime: undefined,
+                  location: r.location ?? undefined,
+                  description: r.notes || r.feedback || title,
+                  priority: 'medium',
+                  isPublic: false,
+                  maxParticipants: undefined,
+                  currentParticipants: 0,
+                  organizer: r.interviewer ?? '自分',
+                  tags, // メタは表示しない
+                  registrationDeadline: undefined,
+                  requirements: undefined,
+                  benefits: undefined,
+                  targetAudience: undefined,
+                  isRegistered: true,
+                  registrationStatus: 'open',
+                  stageStatus: r.status ?? undefined,
+                  stageCompanyId: r.company_id ?? null,
+                } as CalendarEvent;
+              });
+          }
+        } catch (e) {
+          console.warn('selection_stages fetch skipped:', e);
+        }
+
+        setEvents([...mapped, ...prebookMapped, ...stageMapped]);
         setError(null);
       } catch (e: any) {
         console.error(e);
@@ -375,11 +635,16 @@ export default function CalendarPage() {
                     <IconComponent className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg mb-1">{event.title}</h3>
+                    <h3 className="font-bold text-gray-900 text-lg mb-1 break-words">{event.title}</h3>
                     <div className="flex items-center space-x-2">
                       <Badge className={category.bgColor}>
                         {category.label}
                       </Badge>
+                      {event.id.startsWith('stage-') && event.stageStatus && (
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                          {stageStatusLabel(event.stageStatus)}
+                        </Badge>
+                      )}
                       {event.isRegistered && (
                         <Badge variant="secondary" className="bg-green-100 text-green-700">
                           <CheckCircle className="w-3 h-3 mr-1" />
@@ -403,10 +668,10 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <p className="text-gray-600 mb-4 line-clamp-2">{event.description}</p>
+              <p className="text-gray-600 mb-4 line-clamp-2 break-words">{event.description}</p>
 
               <div className="flex flex-wrap gap-2 mb-4">
-                {event.tags.map((tag, index) => (
+                {!event.id.startsWith('stage-') && event.tags.map((tag, index) => (
                   <Badge key={index} variant="outline" className="text-xs">
                     {tag}
                   </Badge>
@@ -438,8 +703,25 @@ export default function CalendarPage() {
                 )}
               </div>
 
+              {/* For private/personal events, still allow quick add to Google Calendar */}
+              {!event.isPublic && (
+                <div className="flex justify-end">
+                  <a
+                    href={buildGoogleCalendarUrl(event)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                      <CalendarIcon className="w-4 h-4" />
+                      <span>Googleカレンダーに追加</span>
+                    </Button>
+                  </a>
+                </div>
+              )}
+
               {event.isPublic && (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center space-x-2">
                     {event.maxParticipants && (
                       <div className="w-24 bg-gray-200 rounded-full h-2">
@@ -449,6 +731,19 @@ export default function CalendarPage() {
                         />
                       </div>
                     )}
+                    {/* Add to Google Calendar */}
+                    <a
+                      href={buildGoogleCalendarUrl(event)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="ml-2"
+                    >
+                      <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                        <CalendarIcon className="w-4 h-4" />
+                        <span>Googleカレンダーに追加</span>
+                      </Button>
+                    </a>
                   </div>
                   <Button
                     onClick={(e) => {
@@ -469,18 +764,74 @@ export default function CalendarPage() {
     );
   };
 
+  // --- Inline editing for stage events ---
+  const updateStageEvent = async (stageId: string, payload: { name?: string; date?: string; time?: string; location?: string; notes?: string; status?: StageStatus; }) => {
+    try {
+      const { error } = await supabase
+        .from('ipo_selection_stages')
+        .update({
+          name: payload.name,
+          date: payload.date,
+          time: payload.time,
+          location: payload.location,
+          notes: payload.notes,
+          status: payload.status,
+        })
+        .eq('id', stageId);
+      if (error) throw error;
+      // フロントの状態も更新
+      setEvents(prev => prev.map(e => {
+        if (e.id === `stage-${stageId}`) {
+          return {
+            ...e,
+            title: payload.name ?? e.title,
+            date: payload.date ? new Date(`${payload.date}T${(payload.time ?? e.time ?? '09:00')}:00`).toISOString() : e.date,
+            time: payload.time ?? e.time,
+            location: payload.location ?? e.location,
+            description: payload.notes ?? e.description,
+            stageStatus: payload.status ?? e.stageStatus,
+          };
+        }
+        return e;
+      }));
+      // 選択中の詳細も更新
+      setSelectedEvent(prev => prev && prev.id === `stage-${stageId}` ? {
+        ...prev,
+        title: payload.name ?? prev.title,
+        date: payload.date ? new Date(`${payload.date}T${(payload.time ?? prev.time ?? '09:00')}:00`).toISOString() : prev.date,
+        time: payload.time ?? prev.time,
+        location: payload.location ?? prev.location,
+        description: payload.notes ?? prev.description,
+        stageStatus: payload.status ?? prev.stageStatus,
+      } : prev);
+    } catch (e) {
+      console.error(e);
+      setError('更新に失敗しました');
+    }
+  };
+
   const EventDetailDialog = () => {
     if (!selectedEvent) return null;
     
     const category = EVENT_CATEGORIES[selectedEvent.category];
     const IconComponent = category.icon;
     const dateInfo = formatDate(selectedEvent.date);
+    const isStage = selectedEvent.id.startsWith('stage-');
+    const [editMode, setEditMode] = React.useState(false);
+    const [form, setForm] = React.useState<StageForm>({
+      name: selectedEvent.title,
+      date: selectedEvent.date.slice(0,10),
+      time: selectedEvent.time || '',
+      location: selectedEvent.location || '',
+      notes: selectedEvent.description || '',
+      status: castStageStatus(selectedEvent.stageStatus),
+    });
 
     return (
       <Dialog open={showEventDetail} onOpenChange={setShowEventDetail}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-screen max-w-[100vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className={`h-3 bg-gradient-to-r ${category.color} -mx-6 -mt-6 mb-6`} />
+            <div className={`h-3 bg-gradient-to-r ${category.color} md:-mx-6 md:-mt-6 mx-0 mt-0 mb-6`} />
             <div className="flex items-start space-x-4">
               <div className={`w-16 h-16 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center text-white flex-shrink-0`}>
                 <IconComponent className="w-8 h-8" />
@@ -496,6 +847,11 @@ export default function CalendarPage() {
                   <Badge className={category.bgColor}>
                     {category.label}
                   </Badge>
+                  {isStage && selectedEvent.stageStatus && (
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                      {stageStatusLabel(selectedEvent.stageStatus)}
+                    </Badge>
+                  )}
                   {selectedEvent.isRegistered && (
                     <Badge variant="secondary" className="bg-green-100 text-green-700">
                       <CheckCircle className="w-3 h-3 mr-1" />
@@ -503,6 +859,13 @@ export default function CalendarPage() {
                     </Badge>
                   )}
                 </div>
+                {isStage && (
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" onClick={() => setEditMode(v => !v)}>
+                      {editMode ? '編集をやめる' : '編集'}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -574,22 +937,63 @@ export default function CalendarPage() {
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">タグ</h4>
                   <div className="flex flex-wrap gap-2">
-                    {selectedEvent.tags.map((tag, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
+                    {!isStage && selectedEvent.tags.map((tag, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">{tag}</Badge>
                     ))}
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Inline edit form for stage event */}
+            {isStage && editMode && (
+              <div className="p-4 border rounded-md bg-muted/20 space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="stage-name">名称</Label>
+                    <Input id="stage-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  </div>
+                <div>
+                  <Label htmlFor="stage-status">ステータス</Label>
+                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StageStatus })}>
+                    <SelectTrigger id="stage-status"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scheduled">予定</SelectItem>
+                      <SelectItem value="pending">保留</SelectItem>
+                      <SelectItem value="passed">合格</SelectItem>
+                      <SelectItem value="failed">不合格</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                  <div>
+                    <Label htmlFor="stage-date">日付</Label>
+                    <Input id="stage-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="stage-time">時間</Label>
+                    <Input id="stage-time" type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="stage-location">場所</Label>
+                    <Input id="stage-location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="stage-notes">メモ</Label>
+                    <Textarea id="stage-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setEditMode(false)}>キャンセル</Button>
+                  <Button onClick={() => updateStageEvent(selectedEvent.id.replace('stage-',''), { ...form })}>保存</Button>
+                </div>
+              </div>
+            )}
+
             {/* Description */}
             <div>
               <h4 className="font-semibold text-gray-900 mb-2">詳細</h4>
-              <p className="text-gray-600 leading-relaxed">{selectedEvent.description}</p>
+              <p className="text-gray-600 leading-relaxed break-words">{selectedEvent.description}</p>
             </div>
-
             {/* Requirements */}
             {selectedEvent.requirements && selectedEvent.requirements.length > 0 && (
               <div>
@@ -621,21 +1025,33 @@ export default function CalendarPage() {
             )}
 
             {/* Action Buttons */}
-            {selectedEvent.isPublic && (
-              <div className="flex space-x-4 pt-4 border-t">
-                <Button
-                  onClick={() => handleEventRegistration(selectedEvent.id)}
-                  variant={selectedEvent.isRegistered ? "outline" : "default"}
-                  className="flex-1"
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <a
+                  href={buildGoogleCalendarUrl(selectedEvent)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  {selectedEvent.isRegistered ? "参加をキャンセル" : "参加申し込み"}
-                </Button>
+                  <Button variant="outline" className="flex items-center space-x-2">
+                    <CalendarIcon className="w-4 h-4" />
+                    <span>Googleカレンダーに追加</span>
+                  </Button>
+                </a>
                 <Button variant="outline" className="flex items-center space-x-2">
                   <Bell className="w-4 h-4" />
                   <span>リマインダー設定</span>
                 </Button>
               </div>
-            )}
+              {selectedEvent.isPublic && (
+                <Button
+                  onClick={() => handleEventRegistration(selectedEvent.id)}
+                  variant={selectedEvent.isRegistered ? "outline" : "default"}
+                  className="sm:flex-1"
+                >
+                  {selectedEvent.isRegistered ? "参加をキャンセル" : "参加申し込み"}
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -643,7 +1059,7 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="bg-background min-h-screen w-full max-w-[100vw] overflow-x-hidden">
       {loading && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card>
@@ -690,9 +1106,9 @@ export default function CalendarPage() {
           transition={{ delay: 0.1 }}
           className="mb-6"
         >
-          {/* On mobile: horizontal compact row with scroll; on md+: 4-column grid */}
-          <div className="flex gap-3 overflow-x-auto md:overflow-visible md:grid md:grid-cols-4 md:gap-6">
-            <Card className="min-w-[9rem] md:min-w-0">
+          {/* On mobile: 2列想定。選考管理の先行予約も合算表示 */}
+          <div className="flex gap-3 overflow-x-auto md:overflow-visible md:grid md:grid-cols-4 md:gap-6 px-2">
+            <Card className="min-w-0">
               <CardContent className="p-4 md:p-6 text-center">
                 <div className="text-lg md:text-2xl font-bold text-blue-600 mb-0.5 md:mb-1">
                   {events.filter(e => e.isRegistered).length}
@@ -700,7 +1116,7 @@ export default function CalendarPage() {
                 <div className="text-xs md:text-sm text-gray-600">参加予定</div>
               </CardContent>
             </Card>
-            <Card className="min-w-[9rem] md:min-w-0">
+            <Card className="min-w-0">
               <CardContent className="p-4 md:p-6 text-center">
                 <div className="text-lg md:text-2xl font-bold text-green-600 mb-0.5 md:mb-1">
                   {events.filter(e => e.isPublic && !e.isRegistered && e.registrationStatus === 'open').length}
@@ -708,7 +1124,7 @@ export default function CalendarPage() {
                 <div className="text-xs md:text-sm text-gray-600">申し込み可能</div>
               </CardContent>
             </Card>
-            <Card className="min-w-[9rem] md:min-w-0">
+            <Card className="min-w-0">
               <CardContent className="p-4 md:p-6 text-center">
                 <div className="text-lg md:text-2xl font-bold text-orange-600 mb-0.5 md:mb-1">
                   {events.filter(e => e.registrationDeadline && new Date(e.registrationDeadline) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)).length}
@@ -716,7 +1132,7 @@ export default function CalendarPage() {
                 <div className="text-xs md:text-sm text-gray-600">締切間近</div>
               </CardContent>
             </Card>
-            <Card className="min-w-[9rem] md:min-w-0">
+            <Card className="min-w-0">
               <CardContent className="p-4 md:p-6 text-center">
                 <div className="text-lg md:text-2xl font-bold text-purple-600 mb-0.5 md:mb-1">
                   {weekEvents.length}
