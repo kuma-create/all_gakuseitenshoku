@@ -11,7 +11,7 @@ import {
   BarChart3,
   FileText
 } from 'lucide-react';
-import { Route, User as UserType } from '../App';
+
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Sidebar,
@@ -30,6 +30,24 @@ import {
   useSidebar,
 } from './ui/sidebar';
 
+// Local type definitions to remove dependency on ../App
+type Route =
+  | '/ipo'
+  | '/ipo/dashboard'
+  | '/ipo/analysis'
+  | '/ipo/selection'
+  | '/ipo/case'
+  | '/ipo/calendar'
+  | '/ipo/library'
+  | '/ipo/diagnosis'
+  | '/ipo/settings';
+
+type UserType = {
+  name: string;
+  role: string; // e.g. 'student' | 'admin'
+  avatarUrl?: string | null;
+};
+
 interface LayoutProps {
   children: React.ReactNode;
   currentRoute: Route;
@@ -38,37 +56,12 @@ interface LayoutProps {
 }
 
 export function Layout({ children, currentRoute, navigate, user }: LayoutProps) {
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-  const { setOpen } = useSidebar();
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 640px)'); // tailwind sm breakpoint
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-      // @ts-ignore - unify event/list
-      const matches = 'matches' in e ? e.matches : e.currentTarget?.matches ?? mq.matches;
-      setIsMobile(!!matches);
-    };
-    // initial
-    setIsMobile(mq.matches);
-    // subscribe
-    mq.addEventListener?.('change', handler as EventListener);
-    // fallback for older Safari
-    // @ts-ignore
-    mq.addListener?.(handler);
-    return () => {
-      mq.removeEventListener?.('change', handler as EventListener);
-      // @ts-ignore
-      mq.removeListener?.(handler);
-    };
-  }, []);
+  const { setOpen, setOpenMobile, isMobile } = useSidebar();
 
   const handleNavigate = (route: Route) => {
     navigate(route);
     // Auto close the sidebar on mobile after navigating to a different item
-    if (isMobile) setOpen(false);
+    if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
   };
 
   const navItems = [
@@ -114,21 +107,29 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       icon: BarChart3,
       description: '性格・適職診断'
     },
+        {
+      label: '学生転職に戻る',
+      route: '/student-dashboard' as Route,
+      icon: User,
+      description: '学生転職ホームに戻る'
+    },
   ];
 
   const handleLogout = () => {
     // Clear user data and navigate to home
     localStorage.removeItem('ipo-user-data');
     navigate('/ipo');
-    if (isMobile) setOpen(false);
+    if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
     setIsUserMenuOpen(false);
   };
 
   const handleSettingsClick = () => {
     navigate('/ipo/settings');
-    if (isMobile) setOpen(false);
+    if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
     setIsUserMenuOpen(false);
   };
+
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   return (
     <>
@@ -173,10 +174,12 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                       onClick={() => {
                         if (currentRoute !== item.route) {
                           handleNavigate(item.route);
-                        } else if (isMobile) {
-                          // If tapping the same route on mobile, just close
-                          setOpen(false);
+                        } else {
+                          // Even if user taps the same route, still close on small screens
+                          if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
                         }
+                        // Extra safety: always try to close on small screens after any tap
+                        if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
                       }}
                       isActive={currentRoute === item.route}
                       tooltip={item.description}

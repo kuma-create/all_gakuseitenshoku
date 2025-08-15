@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Plus, Edit3, Save, Download, Star, Calendar, TrendingUp, CheckCircle, X, Sparkles, ChevronRight, ChevronDown, Brain, FileText } from 'lucide-react';
+import { Plus, Edit3, Save, Download, Star, Calendar, TrendingUp, CheckCircle, X, Sparkles, ChevronRight, ChevronDown, Brain, FileText, Loader2 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -36,6 +36,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   const [formData, setFormData] = useState<Partial<SimpleExperience>>(initialFormData);
+  const [aiLoading, setAiLoading] = useState(false);
   
   // onProgressUpdateの安定した参照を保持
   const onProgressUpdateRef = useRef(onProgressUpdate);
@@ -191,21 +192,60 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
     }));
   }, []);
 
-  const generateSTAR = useCallback(() => {
+  const generateSTAR = useCallback(async () => {
     if (!formData.description) return;
-    
-    // Simple AI-like generation based on description
-    const description = formData.description;
-    setFormData(prev => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        challenge: `${description}において発生した課題`,
-        action: `この課題に対して具体的な取り組みを実施`,
-        result: `取り組みの結果、目標を達成することができました`
+    if (aiLoading) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai/generate-star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: formData.description,
+          category: formData.category || 'general'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const challengeText = data.challenge || `${formData.description}において発生した課題`;
+        const actionText    = data.action    || `この課題に対して具体的な取り組みを実施`;
+        const resultText    = data.result    || `取り組みの結果、目標を達成することができました`;
+        setFormData(prev => ({
+          ...prev,
+          details: {
+            ...prev.details,
+            challenge: challengeText,
+            action: actionText,
+            result: resultText
+          }
+        }));
+      } else {
+        // Fallback to deterministic template when API is unavailable
+        setFormData(prev => ({
+          ...prev,
+          details: {
+            ...prev.details,
+            challenge: `${formData.description}において発生した課題`,
+            action: `この課題に対して具体的な取り組みを実施`,
+            result: `取り組みの結果、目標を達成することができました`
+          }
+        }));
       }
-    }));
-  }, [formData.description]);
+    } catch (e) {
+      // Network / runtime error fallback
+      setFormData(prev => ({
+        ...prev,
+        details: {
+          ...prev.details,
+          challenge: `${formData.description}において発生した課題`,
+          action: `この課題に対して具体的な取り組みを実施`,
+          result: `取り組みの結果、目標を達成することができました`
+        }
+      }));
+    } finally {
+      setAiLoading(false);
+    }
+  }, [formData.description, formData.category, aiLoading]);
 
   const suggestSkills = useCallback(() => {
     const category = formData.category || 'club';
@@ -251,7 +291,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
   }, [experiences]);
 
   return (
-    <div className="w-full md:max-w-4xl md:mx-auto space-y-6 px-2 sm:px-4">
+    <div className="w-full max-w-full overflow-visible md:max-w-4xl md:mx-auto space-y-6 px-3 sm:px-4">
       {/* Header */}
       <Card className="p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -261,11 +301,11 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
               学生時代の経験をシンプルに整理して、就活で活用しましょう
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => setViewMode(viewMode === 'cards' ? 'list' : 'cards')}>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={() => setViewMode(viewMode === 'cards' ? 'list' : 'cards')}>
               {viewMode === 'cards' ? 'リスト表示' : 'カード表示'}
             </Button>
-            <Button onClick={() => setShowDialog(true)}>
+            <Button className="w-full sm:w-auto" onClick={() => setShowDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
               経験を追加
             </Button>
@@ -274,20 +314,20 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full">
-        <Card className="p-2.5 sm:p-4 text-center">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 w-full">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-blue-600 mb-1">{experiences.length}</div>
           <div className="text-sm text-gray-600">総経験数</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-green-600 mb-1">{statistics.jobHuntCount}</div>
           <div className="text-sm text-gray-600">就活活用</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-purple-600 mb-1">{statistics.completedCount}</div>
           <div className="text-sm text-gray-600">完成度高</div>
         </Card>
-        <Card className="p-2.5 sm:p-4 text-center">
+        <Card className="p-2.5 sm:p-4 text-center h-24 flex flex-col justify-center">
           <div className="text-2xl font-bold text-orange-600 mb-1">{statistics.averageCompleteness}%</div>
           <div className="text-sm text-gray-600">平均完成度</div>
         </Card>
@@ -307,7 +347,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
           </Button>
         </Card>
       ) : (
-        <div className={`grid gap-4 sm:gap-6 ${viewMode === 'cards' ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-3 sm:gap-6 ${viewMode === 'cards' ? 'sm:grid-cols-2' : 'grid-cols-1'} min-w-0`}>
           {experiences.map((experience, index) => {
             const config = categoryConfig[experience.category];
             const IconComponent = config.icon;
@@ -319,13 +359,13 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="p-3 xs:p-4 sm:p-6 hover:shadow-lg transition-all duration-300 cursor-pointer group">
-                  <div className="flex items-start justify-between mb-3 sm:mb-4 flex-wrap gap-2">
+                <Card className="p-3 sm:p-4 md:p-6 hover:shadow-lg transition-all duration-300 cursor-pointer group break-words">
+                  <div className="flex items-start justify-between mb-3 sm:mb-4 flex-wrap gap-2 min-w-0">
                     <div className="flex items-center space-x-3">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${config.color}`}>
                         <IconComponent className="w-6 h-6" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <Badge className={`text-xs mb-1 ${config.color}`}>
                           {config.label}
                         </Badge>
@@ -350,8 +390,8 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                     </Button>
                   </div>
                   
-                  <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{experience.title}</h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">{experience.description}</p>
+                  <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 break-words">{experience.title}</h3>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3 break-words">{experience.description}</p>
                   
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center text-sm text-gray-500">
@@ -392,7 +432,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
         }
         setShowDialog(open);
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[100vw] sm:w-full sm:max-w-xl md:max-w-2xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[85vh] overflow-hidden flex flex-col min-w-0 sm:rounded-lg rounded-none">
           <DialogHeader>
             <DialogTitle>
               {editingExperience ? '経験を編集' : '新しい経験を追加'}
@@ -402,7 +442,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 px-2 sm:px-0">
+          <div className="flex-1 overflow-y-auto space-y-6 px-2 sm:px-0 pb-6">
             {/* Template Selection */}
             {!editingExperience && (
               <div>
@@ -412,7 +452,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                     <button
                       key={template.id}
                       onClick={() => handleTemplateSelect(template)}
-                      className={`p-3 sm:p-4 rounded-lg border-2 text-left transition-all ${
+                      className={`w-full p-3 sm:p-4 rounded-lg border-2 text-left transition-all ${
                         selectedTemplate?.id === template.id 
                           ? 'border-blue-500 bg-blue-50' 
                           : 'border-gray-200 hover:border-gray-300'
@@ -437,17 +477,17 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                   value={formData.title || ''}
                   onChange={(e) => updateFormField('title', e.target.value)}
                   placeholder="例：テニスサークル代表"
-                  className="h-10 text-sm md:h-9 md:text-base"
+                  className="h-10 w-full text-sm md:text-base"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="category" className="text-sm sm:text-base">カテゴリー</Label>
                   <Select value={formData.category || 'club'} onValueChange={(value) => updateFormField('category', value as any)}>
-                    <SelectTrigger className="h-10 text-sm md:h-9 md:text-base">
-                      <SelectValue />
-                    </SelectTrigger>
+                  <SelectTrigger className="h-10 w-full min-w-0 text-sm md:text-base">
+                    <SelectValue />
+                  </SelectTrigger>
                     <SelectContent>
                       {Object.entries(categoryConfig).map(([key, config]) => (
                         <SelectItem key={key} value={key}>
@@ -468,7 +508,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                     value={formData.period || ''}
                     onChange={(e) => updateFormField('period', e.target.value)}
                     placeholder="例：2022年4月〜2023年3月"
-                    className="h-10 text-sm md:h-9 md:text-base"
+                    className="h-10 w-full text-sm md:text-base"
                   />
                 </div>
               </div>
@@ -480,8 +520,8 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                   value={formData.description || ''}
                   onChange={(e) => updateFormField('description', e.target.value)}
                   placeholder="この経験について説明してください..."
-                  rows={4}
-                  className="h-10 text-sm md:h-9 md:text-base"
+                  rows={5}
+                  className="min-h-[120px] w-full text-sm md:text-base"
                 />
                 <div className="text-xs text-gray-500 mt-1">
                   {(formData.description?.length || 0)}/500文字
@@ -516,7 +556,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                     exit={{ opacity: 0, height: 0 }}
                     className="mt-4 space-y-4"
                   >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="role" className="text-sm sm:text-base">役割</Label>
                         <Input
@@ -524,7 +564,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                           value={formData.details?.role || ''}
                           onChange={(e) => updateDetailField('role', e.target.value)}
                           placeholder="例：代表"
-                          className="h-10 text-sm md:h-9 md:text-base"
+                          className="h-10 w-full text-sm md:text-base"
                         />
                       </div>
                       <div>
@@ -534,7 +574,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                           value={formData.details?.organization || ''}
                           onChange={(e) => updateDetailField('organization', e.target.value)}
                           placeholder="例：東京大学テニスサークル"
-                          className="h-10 text-sm md:h-9 md:text-base"
+                          className="h-10 w-full text-sm md:text-base"
                         />
                       </div>
                     </div>
@@ -547,8 +587,9 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                           size="sm"
                           onClick={generateSTAR}
                           className="text-xs"
+                          disabled={aiLoading || !formData.description}
                         >
-                          <Brain className="w-3 h-3 mr-1" />
+                          {aiLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Brain className="w-3 h-3 mr-1" />}
                           AI生成
                         </Button>
                       </div>
@@ -558,7 +599,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                         onChange={(e) => updateDetailField('challenge', e.target.value)}
                         placeholder="どのような困難や課題がありましたか？"
                         rows={2}
-                        className="h-10 text-sm md:h-9 md:text-base"
+                        className="min-h-[96px] w-full text-sm md:text-base"
                       />
                     </div>
 
@@ -570,7 +611,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                         onChange={(e) => updateDetailField('action', e.target.value)}
                         placeholder="どのような行動や取り組みを行いましたか？"
                         rows={2}
-                        className="h-10 text-sm md:h-9 md:text-base"
+                        className="min-h-[96px] w-full text-sm md:text-base"
                       />
                     </div>
 
@@ -582,7 +623,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                         onChange={(e) => updateDetailField('result', e.target.value)}
                         placeholder="どのような結果や成果が得られましたか？"
                         rows={2}
-                        className="h-10 text-sm md:h-9 md:text-base"
+                        className="min-h-[96px] w-full text-sm md:text-base"
                       />
                     </div>
 
@@ -603,7 +644,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                         {(formData.details?.skills || []).map((skill, index) => (
                           <Badge key={index} variant="secondary" className="flex items-center space-x-1 text-[11px] sm:text-sm">
                             <span>{skill}</span>
-                            <button
+                            <button className="ml-1 inline-flex"
                               onClick={() => {
                                 const newSkills = formData.details?.skills?.filter((_, i) => i !== index) || [];
                                 updateDetailField('skills', newSkills);
@@ -622,7 +663,7 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                               const newSkills = [...(formData.details?.skills || []), skill];
                               updateDetailField('skills', newSkills);
                             }}
-                            className="text-[11px] sm:text-sm px-2 py-1 sm:px-3 sm:py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                            className="text-[11px] sm:text-sm px-2 py-1 sm:px-3 sm:py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors whitespace-normal"
                           >
                             {skill}
                           </button>
@@ -633,8 +674,9 @@ export function SimpleExperienceReflection({ userId, onProgressUpdate }: SimpleE
                 )}
               </AnimatePresence>
             </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t">
+          </div>
+          <div className="shrink-0 bg-white pt-4 border-t px-2 sm:px-0">
+            <div className="flex justify-end space-x-3">
               <Button variant="outline" onClick={resetForm} className="h-10 px-4 sm:h-9">
                 キャンセル
               </Button>

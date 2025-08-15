@@ -1,4 +1,18 @@
 "use client";
+// 表示用：年収の末尾に「万円」を付ける（既に円/万円などの単位が含まれていればそのまま）
+function formatSalaryWithManEn(input?: string) {
+  if (!input) return "";
+  const trimmed = String(input).trim();
+  // 既に「円」や「万円」が含まれていればそのまま返す
+  if (/円|万円/.test(trimmed)) return trimmed;
+  // 例: 600-800 / 600~800 / 600〜800 → 600-800万円 / 600 → 600万円
+  // 半角/全角のチルダ・波ダッシュ「~」「〜」、ハイフン「-」を許容
+  const onlyNumbersOrRange = /^\d+(?:\s*[\-~〜]\s*\d+)?$/;
+  if (onlyNumbersOrRange.test(trimmed)) {
+    return `${trimmed}万円`;
+  }
+  return trimmed;
+}
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   FileText, Plus, Search, Filter, Edit3, Trash2, Eye, Calendar,
@@ -10,6 +24,7 @@ import {
   RefreshCw, BookOpen, Heart, Zap, Crown, Menu, Home, ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 // Local route type (replace with a shared type later if needed)
 type Route = string;
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -31,7 +46,7 @@ import { createClient } from '@/lib/supabase/client';
 const supabase = createClient();
 
 interface SelectionPageProps {
-  navigate: (route: Route) => void;
+  navigate?: (route: Route) => void;
 }
 
 interface SelectionStage {
@@ -61,7 +76,7 @@ interface Company {
   currentStage: number;
   stages: SelectionStage[];
   priority: 'high' | 'medium' | 'low';
-  notes: string;
+  notes: string
   contacts: {
     name: string;
     role: string;
@@ -182,6 +197,18 @@ const INDUSTRIES = [
 ];
 
 export function SelectionPage({ navigate }: SelectionPageProps) {
+  const router = useRouter();
+  const go = useCallback((route: Route) => {
+    if (typeof navigate === 'function') {
+      try {
+        navigate(route);
+        return;
+      } catch (_) {
+        // fall through to router.push
+      }
+    }
+    router.push(route as string);
+  }, [navigate, router]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showCompanyDialog, setShowCompanyDialog] = useState(false);
@@ -195,7 +222,6 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'priority' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [isMobile, setIsMobile] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -250,15 +276,6 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     rating: 0
   });
 
-  // Mobile detection
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const fetchCompaniesFromSupabase = useCallback(async () => {
     setLoadError(null);
@@ -843,7 +860,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     const progressPercentage = (company.currentStage + 1) / company.stages.length * 100;
     const StatusIcon = statusConfig.icon;
     const PriorityIcon = priorityConfig.icon;
-    
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -851,105 +868,81 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         transition={{ duration: 0.2 }}
         whileHover={{ scale: 1.02 }}
       >
-        <Card className="group cursor-pointer bg-white border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 min-h-[9rem] sm:min-h-[10rem]">
-          <CardContent className="p-3 h-full">
-            {/* Priority Color Bar */}
-            <div className={`h-0.5 bg-gradient-to-r ${priorityConfig.gradient} mb-2`} />
-            
-            <div className="h-full flex flex-col">
-              {/* Header - Compressed */}
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors mb-1">
-                    {company.name}
-                  </h3>
-                  <p className="text-xs text-gray-600 truncate">{company.jobDetails.title}</p>
-                </div>
-                
-                <div className="flex items-center space-x-1 ml-2">
-                  <Badge className={`${statusConfig.color} border text-xs px-1.5 py-0.5`}>
-                    <StatusIcon className="w-2.5 h-2.5 mr-0.5" />
-                    {isMobile ? statusConfig.shortLabel : statusConfig.label}
-                  </Badge>
-                </div>
-              </div>
+        <Card className="group cursor-pointer bg-white border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 h-auto sm:min-h-24 overflow-hidden max-w-full">
+          <CardContent className="p-3 h-full overflow-hidden max-w-full">
+            <div className="flex items-center h-full">
+              {/* Priority Color Strip (vertical) */}
+              <div className={`w-1 self-stretch rounded-sm bg-gradient-to-b ${priorityConfig.gradient}`} />
 
-              {/* Info Row */}
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                <span className="flex items-center truncate">
-                  <Building className="w-2.5 h-2.5 mr-1" />
-                  {company.industry}
-                </span>
-                <span className="flex items-center ml-2">
-                  <Badge className={`${priorityConfig.color} border text-xs px-1`}>
-                    {isMobile ? priorityConfig.shortLabel : priorityConfig.label}
-                  </Badge>
-                </span>
-              </div>
+              <div className="pl-3 flex-1 min-w-0 flex flex-col">
+                {/* Top row: name + status */}
+                <div className="flex items-start justify-between gap-2 gap-y-1 min-w-0 flex-wrap">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                      {company.name}
+                    </h3>
+                    <p className="text-xs text-gray-600 truncate">{company.jobDetails.title}</p>
+                  </div>
 
-              {/* Progress - Compressed */}
-              <div className="mb-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-600">
-                    {company.currentStage + 1}/{company.stages.length}
+                  {/* status badge */}
+                  <div className="flex items-center shrink-0">
+                    <Badge className={`${statusConfig.color} border text-xs px-1.5 py-0.5`}>
+                      <StatusIcon className="w-2.5 h-2.5 mr-0.5" />
+                      <span className="sm:hidden">{statusConfig.shortLabel}</span>
+                      <span className="hidden sm:inline">{statusConfig.label}</span>
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Middle row: industry • stage • rating • updated + actions */}
+                <div className="mt-0.5 flex items-center gap-2 gap-y-0.5 text-[11px] sm:text-xs text-gray-600 min-w-0 flex-wrap">
+                  <span className="flex items-center gap-1 min-w-0 max-w-[60%] sm:max-w-none truncate">
+                    <Building className="w-3 h-3" />{company.industry}
                   </span>
-                  {company.overallRating && (
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-2.5 h-2.5 text-yellow-500 fill-current" />
-                      <span className="text-xs text-gray-600">{company.overallRating}</span>
-                    </div>
+                  <span className="hidden sm:inline">•</span>
+                  {currentStage && (
+                    <span className="truncate">{currentStage.name}</span>
                   )}
+                  <div className="ml-auto flex items-center gap-2 shrink-0">
+                    {company.overallRating && (
+                      <span className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                        {company.overallRating}
+                      </span>
+                    )}
+                    <span className="text-gray-500 hidden sm:inline">{company.lastUpdate}</span>
+                    {/* actions */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => { e.stopPropagation(); openEditCompanyDialog(company); }}
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => { e.stopPropagation(); openCompanyDialog(company); }}
+                    >
+                      <Eye className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="relative">
-                  <Progress value={progressPercentage} className="h-1.5 bg-gray-100" />
-                  <div 
-                    className={`absolute top-0 left-0 h-1.5 rounded-full bg-gradient-to-r ${statusConfig.gradient}`}
-                    style={{ width: `${progressPercentage}%` }}
-                  />
-                </div>
-              </div>
 
-              {/* Current Stage - Ultra Compressed */}
-              {currentStage && (
-                <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                  <span className="truncate">{currentStage.name}</span>
-                  <div className={`w-2 h-2 rounded-full ml-1 ${
-                    currentStage.status === 'passed' ? 'bg-green-500' :
-                    currentStage.status === 'failed' ? 'bg-red-500' :
-                    currentStage.status === 'scheduled' ? 'bg-blue-500' :
-                    'bg-gray-300'
-                  }`} />
-                </div>
-              )}
-
-              {/* Action Row */}
-              <div className="flex items-center justify-between mt-auto">
-                <div className="text-xs text-gray-500 truncate">
-                  {company.lastUpdate}
-                </div>
-                <div className="flex space-x-1 ml-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEditCompanyDialog(company);
-                    }}
-                  >
-                    <Edit3 className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-1 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openCompanyDialog(company);
-                    }}
-                  >
-                    <Eye className="w-3 h-3" />
-                  </Button>
+                {/* Bottom row: thin progress bar */}
+                <div className="mt-1">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[11px] text-gray-600">{company.currentStage + 1}/{company.stages.length}</span>
+                  </div>
+                  <div className="relative overflow-hidden rounded-full">
+                    <Progress value={progressPercentage} className="h-1 bg-gray-100" />
+                    <div
+                      className={`absolute top-0 left-0 h-1 rounded-full bg-gradient-to-r ${statusConfig.gradient}`}
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -961,7 +954,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
   const MobileFiltersSheet = () => (
     <Sheet open={showMobileFilters} onOpenChange={setShowMobileFilters}>
-      <SheetContent side="bottom" className="h-[70vh]">
+      <SheetContent side="bottom" className="h-[80vh]">
         <SheetHeader>
           <SheetTitle>フィルター・並び替え</SheetTitle>
           <SheetDescription>
@@ -1082,21 +1075,21 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="min-h-[100dvh] w-full max-w-full box-border bg-gray-50/50 overflow-x-hidden">
       {/* Compact Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-40 backdrop-blur-sm bg-white/80">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3">
+        <div className="w-full max-w-full mx-0 px-4 sm:max-w-7xl sm:mx-auto sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between min-w-0">
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/ipo/dashboard')}
+                onClick={() => go('/ipo/dashboard')}
                 className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-xl"
               >
                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900">選考管理</h1>
                 <p className="text-xs text-gray-600 hidden sm:block">
                   企業の選考状況を一元管理
@@ -1117,44 +1110,42 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                 className="flex items-center space-x-1 h-8 px-2 sm:px-3"
               >
                 <Filter className="w-3 h-3 sm:w-4 sm:h-4" />
-                {!isMobile && <span>絞り込み</span>}
+                <span className="hidden md:inline">絞り込み</span>
               </Button>
               
-              {!isMobile && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                  className="flex items-center space-x-1 h-8 px-3"
-                >
-                  {viewMode === 'grid' ? (
-                    <>
-                      <List className="w-4 h-4" />
-                      <span>リスト</span>
-                    </>
-                  ) : (
-                    <>
-                      <Grid className="w-4 h-4" />
-                      <span>グリッド</span>
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                className="hidden md:inline-flex items-center space-x-1 h-8 px-3"
+              >
+                {viewMode === 'grid' ? (
+                  <>
+                    <List className="w-4 h-4" />
+                    <span>リスト</span>
+                  </>
+                ) : (
+                  <>
+                    <Grid className="w-4 h-4" />
+                    <span>グリッド</span>
+                  </>
+                )}
+              </Button>
               
               <Button 
                 onClick={() => setShowAddCompanyDialog(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-8 px-2 sm:px-3"
               >
                 <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                <span className="hidden xs:inline">企業追加</span>
-                <span className="xs:hidden">追加</span>
+                <span className="hidden sm:inline">企業追加</span>
+                <span className="sm:hidden">追加</span>
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
+      <div className="w-full max-w-[100dvw] mx-0 px-4 sm:max-w-7xl sm:mx-auto sm:px-6 lg:px-8 py-3 sm:py-6">
         {/* Horizontal Scrolling Stats Cards */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
@@ -1163,7 +1154,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
           className="mb-4 sm:mb-6"
         >
           <ScrollArea className="w-full">
-            <div className="flex space-x-3 pb-2">
+            <div className="flex space-x-3 pb-2 pr-1">
               {[
                 { 
                   label: '総応募数', 
@@ -1208,7 +1199,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   transition={{ duration: 0.2, delay: index * 0.05 }}
                   className="flex-shrink-0"
                 >
-                  <Card className="p-3 text-center hover:shadow-md transition-shadow w-20 sm:w-24">
+                  <Card className="p-3 text-center hover:shadow-md transition-shadow min-w-[5.5rem] sm:min-w-[6rem]">
                     <div className={`inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg ${bgColor} mb-1.5`}>
                       <Icon className={`w-3 h-3 sm:w-4 sm:h-4 ${color}`} />
                     </div>
@@ -1224,95 +1215,94 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         </motion.div>
 
         {/* Desktop Filters - Compact */}
-        {!isMobile && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <Card className="p-3 sm:p-4 mb-4 sm:mb-6">
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                <div className="lg:col-span-2">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <Input
-                      placeholder="企業名、業界、職種、タグで検索..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-9"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="選考状況" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全ての状況</SelectItem>
-                      {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                        <SelectItem key={key} value={key}>
-                          <div className="flex items-center space-x-2">
-                            <config.icon className="w-4 h-4" />
-                            <span>{config.label}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="優先度" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全ての優先度</SelectItem>
-                      {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-                        <SelectItem key={key} value={key}>
-                          <div className="flex items-center space-x-2">
-                            <config.icon className="w-4 h-4" />
-                            <span>{config.label}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-full justify-between h-9">
-                        並び替え
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('desc'); }}>
-                        <Calendar className="w-4 h-4 mr-2" />
-                        応募日（新順）
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('asc'); }}>
-                        <Calendar className="w-4 h-4 mr-2" />
-                        応募日（古順）
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }}>
-                        企業名（A-Z）
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSortBy('priority'); setSortOrder('desc'); }}>
-                        優先度（高順）
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="hidden md:block"
+        >
+          <Card className="p-3 sm:p-4 mb-4 sm:mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              <div className="lg:col-span-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="企業名、業界、職種、タグで検索..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 h-9"
+                  />
                 </div>
               </div>
-            </Card>
-          </motion.div>
-        )}
+              
+              <div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="選考状況" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全ての状況</SelectItem>
+                    {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center space-x-2">
+                          <config.icon className="w-4 h-4" />
+                          <span>{config.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="優先度" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全ての優先度</SelectItem>
+                    {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center space-x-2">
+                          <config.icon className="w-4 h-4" />
+                          <span>{config.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between h-9">
+                      並び替え
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('desc'); }}>
+                      <Calendar className="w-4 h-4 mr-2" />
+                      応募日（新順）
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setSortBy('date'); setSortOrder('asc'); }}>
+                      <Calendar className="w-4 h-4 mr-2" />
+                      応募日（古順）
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }}>
+                      企業名（A-Z）
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setSortBy('priority'); setSortOrder('desc'); }}>
+                      優先度（高順）
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
 
         {/* Companies Grid - Compact */}
         <AnimatePresence mode="wait">
@@ -1324,7 +1314,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              <Card className="p-6 sm:p-8 text-center">
+              <Card className="p-6 sm:p-8 text-center rounded-none sm:rounded-lg">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Briefcase className="w-6 h-6 text-gray-400" />
                 </div>
@@ -1350,7 +1340,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
             >
               {filteredAndSortedCompanies.map((company, index) => (
                 <motion.div
@@ -1373,10 +1363,10 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
       {/* Company Detail Dialog */}
       <Dialog open={showCompanyDialog} onOpenChange={setShowCompanyDialog}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-4xl h-auto max-h-[88dvh] sm:max-h-[90vh] p-0 sm:p-0 flex flex-col overflow-y-auto rounded-2xl sm:rounded-lg">
           {selectedCompany && (
             <>
-              <DialogHeader className="pb-4 border-b flex-shrink-0 pr-10 sm:pr-2">
+              <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0 pr-10 sm:pr-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <DialogTitle className="text-xl sm:text-2xl truncate">{selectedCompany.name}</DialogTitle>
@@ -1435,7 +1425,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   </TabsList>
 
                   <div className="flex-1 overflow-hidden">
-                    <ScrollArea className="h-full">
+                    <ScrollArea className="h-full px-3 sm:px-4 py-3">
                       <TabsContent value="overview" className="mt-4 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <Card className="p-4">
@@ -1476,7 +1466,9 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                               {selectedCompany.jobDetails.salary && (
                                 <div className="flex justify-between items-center">
                                   <span className="text-sm text-gray-600">想定年収:</span>
-                                  <span className="text-sm font-medium">{selectedCompany.jobDetails.salary}</span>
+                                  <span className="text-sm font-medium">
+                                    {formatSalaryWithManEn(selectedCompany.jobDetails.salary)}
+                                  </span>
                                 </div>
                               )}
                               {selectedCompany.overallRating && (
@@ -1730,16 +1722,16 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
       {/* Add Company Dialog */}
       <Dialog open={showAddCompanyDialog} onOpenChange={setShowAddCompanyDialog}>
-        <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
-          <DialogHeader className="pb-4 border-b flex-shrink-0">
+        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-2xl h-auto max-h-[88dvh] sm:max-h-[85vh] p-0 sm:p-0 flex flex-col overflow-y-auto rounded-2xl sm:rounded-lg">
+          <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0">
             <DialogTitle>新しい企業を追加</DialogTitle>
             <DialogDescription>
               企業情報と応募したポジションの詳細を入力してください。
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 py-4">
-            <div className="space-y-4 px-2 sm:px-4">
+          <ScrollArea className="flex-1 py-4 px-3 sm:px-4">
+            <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-1 block">企業名 *</Label>
@@ -1810,7 +1802,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   <Input
                     value={companyForm.salary}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, salary: e.target.value }))}
-                    placeholder="例: 600-800万円"
+                    placeholder="例: 600-800（万円）"
                     className="h-9"
                   />
                 </div>
@@ -1867,7 +1859,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
             </div>
           </ScrollArea>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t flex-shrink-0">
+          <div className="flex justify-end space-x-3 px-3 sm:px-4 py-3 border-t flex-shrink-0">
             <Button 
               variant="outline" 
               onClick={() => {
@@ -1890,16 +1882,16 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
       {/* Edit Company Dialog */}
       <Dialog open={showEditCompanyDialog} onOpenChange={setShowEditCompanyDialog}>
-        <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
-          <DialogHeader className="pb-4 border-b flex-shrink-0">
+        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-2xl h-auto max-h-[88dvh] sm:max-h-[85vh] p-0 sm:p-0 flex flex-col overflow-y-auto rounded-2xl sm:rounded-lg">
+          <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0">
             <DialogTitle>企業情報を編集</DialogTitle>
             <DialogDescription>
               企業情報と応募したポジションの詳細を編集してください。
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 py-4">
-            <div className="space-y-4 px-2 sm:px-4">
+          <ScrollArea className="flex-1 py-4 px-3 sm:px-4">
+            <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-1 block">企業名 *</Label>
@@ -1970,7 +1962,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   <Input
                     value={companyForm.salary}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, salary: e.target.value }))}
-                    placeholder="例: 600-800万円"
+                    placeholder="例: 600-800（万円）"
                     className="h-9"
                   />
                 </div>

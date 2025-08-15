@@ -150,10 +150,6 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
     }
   };
 
-  const saveAll = async () => {
-    await saveAllToJson(visions);
-  };
-
   const scheduleSave = (nextState: Record<Timeframe, VisionData>) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -181,14 +177,8 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
             <h2 className="font-bold text-foreground">将来ビジョン設計</h2>
             <p className="text-sm text-muted-foreground">5年後、10年後、20年後の理想の姿を具体的に描いてみましょう</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Badge variant="outline">
-              完了率: {overallCompletion}%
-            </Badge>
-            <Button className="flex items-center space-x-2" onClick={saveAll} disabled={!userId || loading}>
-              {saving === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>{saving === 'saving' ? '保存中...' : saving === 'saved' ? '保存済み' : '保存'}</span>
-            </Button>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
+            {/* Completion rate badge removed */}
           </div>
         </div>
 
@@ -203,28 +193,30 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
         <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
           {Object.entries(visions).map(([timeframe, vision]) => (
             <div key={timeframe} className="p-4 bg-muted rounded-lg text-center">
-              <div className="text-lg font-bold text-foreground">{getCompletionRate(vision)}%</div>
-              <div className="text-sm text-muted-foreground">{timeframe}</div>
+              <div className="text-base sm:text-lg font-bold text-foreground">{getCompletionRate(vision)}%</div>
+              <div className="text-[11px] sm:text-sm text-muted-foreground">{timeframe}</div>
             </div>
           ))}
         </div>
       </Card>
 
       <Tabs value={activeTimeframe} onValueChange={(value) => setActiveTimeframe(value as Timeframe)}>
-        <TabsList className="grid w-full grid-cols-3 text-[13px] sm:text-base">
-          <TabsTrigger value="5年後" className="flex items-center space-x-2">
-            <Target className="w-4 h-4" />
-            <span>5年後</span>
-          </TabsTrigger>
-          <TabsTrigger value="10年後" className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4" />
-            <span>10年後</span>
-          </TabsTrigger>
-          <TabsTrigger value="20年後" className="flex items-center space-x-2">
-            <Eye className="w-4 h-4" />
-            <span>20年後</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex min-w-max gap-2 text-sm sm:text-base">
+            <TabsTrigger value="5年後" className="flex items-center space-x-2 px-3 py-2 whitespace-nowrap">
+              <Target className="w-4 h-4" />
+              <span>5年後</span>
+            </TabsTrigger>
+            <TabsTrigger value="10年後" className="flex items-center space-x-2 px-3 py-2 whitespace-nowrap">
+              <Calendar className="w-4 h-4" />
+              <span>10年後</span>
+            </TabsTrigger>
+            <TabsTrigger value="20年後" className="flex items-center space-x-2 px-3 py-2 whitespace-nowrap">
+              <Eye className="w-4 h-4" />
+              <span>20年後</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {Object.entries(visions).map(([timeframe, vision]) => (
           <TabsContent key={timeframe} value={timeframe as Timeframe} className="mt-6">
@@ -248,7 +240,7 @@ export function FutureVision({ onProgressUpdate }: FutureVisionProps) {
                         onChange={(e) => updateVision(field as keyof Omit<VisionData, 'timeframe'>, e.target.value)}
                         placeholder={prompts[field as keyof typeof prompts]}
                         rows={4}
-                        className="w-full px-2 py-2 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm sm:text-base"
+                        className="w-full px-2 py-2 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none leading-relaxed text-sm sm:text-base min-h-[96px] md:min-h-[120px] placeholder:text-muted-foreground"
                       />
                     </div>
                   ))}
