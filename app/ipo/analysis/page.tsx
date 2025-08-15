@@ -48,7 +48,8 @@ import { FutureVision } from '@/components/analysis/FutureVision';
 import { SimpleExperienceReflection } from '@/components/analysis/SimpleExperienceReflection';
 import { AnalysisOverview } from '@/components/analysis/AnalysisOverview';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -198,7 +199,10 @@ interface SimpleTrait {
 export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false));
+  const [isTablet, setIsTablet] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px) and (max-width: 1023px)').matches : false));
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [menuTop, setMenuTop] = useState<number>(0);
   const [progress, setProgress] = useState<AnalysisProgress>({
     aiChat: 0,
     lifeChart: 0,
@@ -228,6 +232,33 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     strengthItems: [] as SimpleTrait[],
     weaknessItems: [] as SimpleTrait[],
   });
+
+  // --- Physical route sync: /ipo/analysis/[section] ---
+  const routerNav = useRouter();
+  const pathname = usePathname();
+  const validToolIds = useMemo(() => new Set(analysisTools.map(t => t.id)), []);
+  const lastPathSection = useMemo(() => {
+    const p = (pathname || '').split('?')[0].split('#')[0];
+    const parts = p.split('/').filter(Boolean);
+    const idx = parts.findIndex(s => s === 'analysis');
+    const seg = idx !== -1 && parts[idx + 1] ? parts[idx + 1] : '';
+    return seg;
+  }, [pathname]);
+
+  // On pathname change -> reflect section into state
+  useEffect(() => {
+    if (!lastPathSection) return; // e.g., /ipo/analysis (no section)
+    if (validToolIds.has(lastPathSection) && lastPathSection !== activeTab) {
+      setActiveTab(lastPathSection);
+    }
+  }, [lastPathSection, validToolIds]);
+
+  // On activeTab change -> push physical route (keeps scroll)
+  useEffect(() => {
+    // Default overview route when no section in path
+    const next = `/ipo/analysis/${activeTab}`;
+    try { routerNav.push(next, { scroll: false }); } catch {}
+  }, [activeTab, routerNav]);
 
   // ===== 職務経歴書（職歴）セクション用 State =====
   const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([{
@@ -428,22 +459,36 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     }, 500); // debounce 500ms
   }, [userId]);
 
-  // Check if mobile (via media query)
+  // Responsive breakpoint detection (mobile / tablet)
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mq.matches);
-    if (mq.addEventListener) {
-      mq.addEventListener('change', handler);
+    const mobileQuery = window.matchMedia('(max-width: 767px)');
+    const tabletQuery = window.matchMedia('(min-width: 768px) and (max-width: 1023px)');
+
+    const handleMobileChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    const handleTabletChange = (e: MediaQueryListEvent) => setIsTablet(e.matches);
+
+    setIsMobile(mobileQuery.matches);
+    setIsTablet(tabletQuery.matches);
+
+    if (mobileQuery.addEventListener) {
+      mobileQuery.addEventListener('change', handleMobileChange);
+      tabletQuery.addEventListener('change', handleTabletChange);
     } else {
-      // Safari <14 fallback
-      mq.addListener(handler);
+      // Safari & legacy
+      // @ts-ignore
+      mobileQuery.addListener(handleMobileChange);
+      // @ts-ignore
+      tabletQuery.addListener(handleTabletChange);
     }
     return () => {
-      if (mq.removeEventListener) {
-        mq.removeEventListener('change', handler);
+      if (mobileQuery.removeEventListener) {
+        mobileQuery.removeEventListener('change', handleMobileChange);
+        tabletQuery.removeEventListener('change', handleTabletChange);
       } else {
-        mq.removeListener(handler);
+        // @ts-ignore
+        mobileQuery.removeListener(handleMobileChange);
+        // @ts-ignore
+        tabletQuery.removeListener(handleTabletChange);
       }
     };
   }, []);
@@ -1069,7 +1114,26 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   }), [sectionProgress.selfNote, progress.lifeChart, progress.futureVision, progress.strengthAnalysis, progress.experienceReflection]);
 
   const handleTabChange = useCallback((value: string) => {
-    // Prioritize UI state switch; defer non-urgent work
+  // Recalculate mobile menu position on open/resize/scroll
+  useEffect(() => {
+    if (!showMobileMenu) return;
+    const recalc = () => {
+      const btn = menuButtonRef.current;
+      if (!btn) {
+        setMenuTop(Math.round(window.scrollY + 80)); // fallback
+        return;
+      }
+      const rect = btn.getBoundingClientRect();
+      setMenuTop(Math.round(rect.bottom + window.scrollY));
+    };
+    recalc();
+    window.addEventListener('resize', recalc, { passive: true });
+    window.addEventListener('scroll', recalc, { passive: true });
+    return () => {
+      window.removeEventListener('resize', recalc);
+      window.removeEventListener('scroll', recalc);
+    };
+  }, [showMobileMenu]);
     startTransition(() => {
       setActiveTab(value);
       setShowMobileMenu(false);
@@ -1091,7 +1155,11 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <AnalysisOverview progress={progressForOverview} onNavigateToTool={setActiveTab} />;
+        return (
+          <div className="overview-density">
+            <AnalysisOverview progress={progressForOverview} onNavigateToTool={setActiveTab} />
+          </div>
+        );
       case 'aiChat':
         return (
           <AIChat
@@ -1311,7 +1379,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               ) : (
                 workExperiences.map((exp) => (
                   <Collapsible key={exp.id} open={exp.isOpen} onOpenChange={() => toggleCollapsible(exp.id)}>
-                    <div className="rounded-lg border bg-white p-3 md:p-4">
+                    <div className="rounded-lg border bg-white overflow-visible p-3 md:p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Building className="h-4 w-4 text-gray-500" />
@@ -1368,14 +1436,14 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                           </Select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
+                        <div className="grid min-w-0 grid-cols-2 gap-3">
+                          <div className="space-y-1 min-w-0">
                             <Label htmlFor={`startDate-${exp.id}`} className="text-sm">開始年月</Label>
-                            <Input id={`startDate-${exp.id}`} type="month" inputMode="numeric" placeholder="YYYY-MM" className="h-10 text-sm md:h-8 md:text-xs" value={exp.startDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'startDate', e.target.value)} />
+                            <Input id={`startDate-${exp.id}`} type="month" inputMode="numeric" placeholder="YYYY-MM" className="h-10 text-sm md:h-8 md:text-xs pr-12 min-w-0 appearance-none bg-clip-padding" value={exp.startDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'startDate', e.target.value)} />
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-1 min-w-0">
                             <Label htmlFor={`endDate-${exp.id}`} className="text-sm">終了年月</Label>
-                            <Input id={`endDate-${exp.id}`} type="month" inputMode="numeric" placeholder="YYYY-MM" className="h-10 text-sm md:h-8 md:text-xs" value={exp.endDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'endDate', e.target.value)} disabled={exp.isCurrent} />
+                            <Input id={`endDate-${exp.id}`} type="month" inputMode="numeric" placeholder="YYYY-MM" className="h-10 text-sm md:h-8 md:text-xs pr-12 min-w-0 appearance-none bg-clip-padding" value={exp.endDate} onChange={(e) => handleWorkExperienceChange(exp.id, 'endDate', e.target.value)} disabled={exp.isCurrent} />
                           </div>
                         </div>
 
@@ -1531,7 +1599,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
   if (loading) {
     return (
-      <div className="bg-background min-h-screen flex items-center justify-center">
+      <div className="bg-background min-h-[100svh] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">データを読み込んでいます...</p>
@@ -1542,7 +1610,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
   if (error) {
     return (
-      <div className="bg-background min-h-screen flex items-center justify-center p-4">
+      <div className="bg-background min-h-[100svh] flex items-center justify-center p-4">
         <Card className="p-8 max-w-md text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h3 className="font-bold text-foreground mb-2">エラーが発生しました</h3>
@@ -1557,7 +1625,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
   if (!userId && !loading) {
     return (
-      <div className="bg-background min-h-screen flex items-center justify-center p-4">
+      <div className="bg-background min-h-[100svh] flex items-center justify-center p-4">
         <Card className="p-8 max-w-md text-center">
           <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
           <h3 className="font-bold text-foreground mb-2">ログインが必要です</h3>
@@ -1570,70 +1638,165 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
   return (
     <div
-      className="bg-background min-h-screen md:pb-0 w-full max-w-[100vw] overflow-x-hidden"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 5rem)' }}
+      className="analysis-page-root bg-background min-h-[100svh] pb-0 w-full max-w-[100vw] overflow-x-hidden"
     >
       <style jsx global>{`
+        :root { --header-height: 48px; }
+        @media (min-width: 768px) { :root { --header-height: 64px; } }
         html, body, #__next { max-width: 100%; overflow-x: hidden; }
         * { box-sizing: border-box; }
         .no-horizontal-overflow { max-width: 100vw; overflow-x: hidden; }
+        @media (max-width: 767px) {
+          input, textarea, select { max-width: 100%; }
+          .rounded-lg.border.bg-white { border-radius: 0.5rem; }
+        }
+        .mobile-menu-surface { background: var(--card); }
+        /* ---- Mobile density/spacing tweaks ---- */
+        @media (max-width: 767px) {
+          /* Add breathing room between stacked sections inside the Overview */
+          .overview-density > * + * { margin-top: 12px; }
+          .overview-density .space-y-2 > * + * { margin-top: 10px !important; }
+          .overview-density .space-y-3 > * + * { margin-top: 12px !important; }
+          .overview-density .space-y-4 > * + * { margin-top: 14px !important; }
+
+          /* Slightly increase default padding inside small cards often rendered in Overview */
+          .overview-density .p-3 { padding: 14px !important; }
+          .overview-density .p-4 { padding: 16px !important; }
+
+          /* Make primary action buttons a touch taller for easier tapping */
+          .overview-density .h-9 { height: 42px !important; }
+          .overview-density .h-10 { height: 44px !important; }
+
+          /* Add a little gap below progress bars (commonly .h-2 or .h-3) */
+          .overview-density .h-2, 
+          .overview-density .h-3 { margin-bottom: 6px; }
+
+          /* General mobile spacing helper for any card-like white blocks inside Overview */
+          .overview-density .rounded-lg.border,
+          .overview-density .rounded-md.border {
+            margin-bottom: 12px;
+          }
+          /* Neutralize margin-bottom on the last visible card inside .main-mobile */
+          .main-mobile .rounded-lg.border:last-of-type,
+          .main-mobile .rounded-md.border:last-of-type {
+            margin-bottom: 0 !important;
+          }
+        }
+        @media (max-width: 767px) {
+          .main-mobile > * + * { margin-top: 12px; }
+          .main-mobile .rounded-lg.border,
+          .main-mobile .rounded-md.border {
+            margin-bottom: 12px;
+          }
+        }
+        /* Trim bottom whitespace: ensure the last content block doesn't add extra gap */
+        .main-mobile > :last-child,
+        .overview-density > :last-child {
+          margin-bottom: 0 !important;
+        }
+          @media (max-width: 767px) {
+            /* 最後のブロックの余白をゼロに */
+            .main-mobile > :last-child,
+            .overview-density > :last-child {
+              margin-bottom: 0 !important;
+            }
+            /* カード風コンポーネントの最後の余白もゼロに */
+            .main-mobile .card:last-child,
+            .main-mobile .rounded-lg.border:last-child,
+            .main-mobile .rounded-md.border:last-child {
+              margin-bottom: 0 !important;
+            }
+          }
+        /* --- Force-trim bottom padding/margins on this page, even if layout adds pb-XX --- */
+        .analysis-page-root,
+        .analysis-page-root main {
+          padding-bottom: 0 !important;
+          margin-bottom: 0 !important;
+        }
+        /* Neutralize common Tailwind pb utilities that may be applied by a parent layout */
+        .analysis-page-root :is(.pb-16, .pb-20, .pb-24, .pb-28) {
+          padding-bottom: 0 !important;
+        }
+        /* Ensure the last block in content has no trailing gap */
+        .analysis-page-root :is(.main-mobile, .overview-density) > :last-child {
+          margin-bottom: 0 !important;
+          padding-bottom: 0 !important;
+        }
+        /* As a final guard, trim any bottom spacer divs that rely on a fixed tabbar height */
+        .analysis-page-root [data-bottom-spacer],
+        .analysis-page-root .bottom-safe-spacer {
+          height: 0 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
       `}</style>
-      {/* Header (minimal) */}
-      <div className="bg-card border-b border-border sticky top-0 z-40 backdrop-blur-sm bg-card/80">
-        <div className="w-full max-w-[100vw] mx-auto px-4 sm:px-6 lg:px-6 py-2 md:py-4 min-h-14 flex items-center">
+      {/* Header */}
+      <header className="bg-card/95 backdrop-blur-sm border-b border-border sticky top-0 z-40">
+        <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate('/ipo/dashboard')}
-              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0"
+              className="p-2 hover:bg-muted/80 transition-colors"
               aria-label="ダッシュボードに戻る"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">自己分析</h1>
-              <p className="text-xs text-muted-foreground hidden md:block">AIと対話しながら自己分析を進めましょう</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="font-bold text-foreground text-lg sm:text-xl lg:text-2xl truncate">自己分析</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">AIと対話しながら自己分析を進めましょう</p>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Desktop Navigation + Content (render only on non-mobile to avoid double mounting) */}
-      {!isMobile && (
-        <div className="w-full max-w-[100vw] mx-auto px-4 sm:px-6 lg:px-6 py-6">
-          <div className="w-full max-w-full overflow-x-hidden grid grid-cols-1 md:grid-cols-12 lg:grid-cols-12 gap-6">
-            {/* Left Sidebar */}
-            <aside className="hidden md:block md:col-span-4 lg:col-span-4 min-w-0">
-              <div className="sticky top-[var(--header-height,64px)] space-y-3 min-w-0">
-                {/* Vertical menu */}
+      {/* Main Content */}
+      <main className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0 sm:pt-6 sm:pb-0 lg:pt-8 lg:pb-0">
+        {/* Desktop (lg+) */}
+        {!isMobile && !isTablet && (
+          <div className="grid lg:grid-cols-12 gap-6">
+            {/* Sidebar */}
+            <aside className="lg:col-span-4 xl:col-span-3">
+              <div className="sticky top-24 space-y-4">
                 <nav aria-label="分析ツールメニュー" className="bg-muted/30 rounded-xl border p-2">
-                  <ul className="flex flex-col">
+                  <ul className="space-y-1">
                     {filteredTools.map((tool) => {
                       const isActive = activeTab === tool.id;
                       const Icon = tool.icon;
                       return (
                         <li key={tool.id}>
-                          <button
-                            onClick={() => handleTabChange(tool.id)}
+                          <Link
+                            href={`/ipo/analysis/${tool.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleTabChange(tool.id);
+                              try { routerNav.push(`/ipo/analysis/${tool.id}`, { scroll: false }); } catch {}
+                            }}
                             aria-current={isActive ? 'page' : undefined}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
-                              isActive ? 'bg-background border border-border text-foreground' : 'hover:bg-white/60 text-muted-foreground'
+                            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                              isActive
+                                ? 'bg-background shadow-sm border border-border text-foreground'
+                                : 'hover:bg-background/50 text-muted-foreground hover:text-foreground'
                             }`}
+                            role="menuitem"
                           >
-                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-r ${tool.color}`}>
+                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-r ${tool.color} flex-shrink-0`}>
                               <Icon className="h-4 w-4 text-white" />
                             </span>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{tool.title}</div>
+                              <div className="font-medium text-sm truncate">{tool.title}</div>
                               <div className="text-xs text-muted-foreground truncate">{tool.subtitle}</div>
                             </div>
-                            {tool.badge && (
-                              <Badge className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none bg-sky-100 text-sky-700">
-                                {tool.badge}
-                              </Badge>
-                            )}
-                          </button>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-xs tabular-nums">{getToolProgressPct(tool.id)}%</span>
+                              {tool.badge && (
+                                <Badge className="rounded-full px-1.5 py-0.5 text-[10px] leading-none bg-sky-100 text-sky-700">
+                                  {tool.badge}
+                                </Badge>
+                              )}
+                            </div>
+                          </Link>
                         </li>
                       );
                     })}
@@ -1644,45 +1807,125 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                 </nav>
               </div>
             </aside>
-
-            {/* Right content */}
-            <div className="col-span-1 md:col-span-8 lg:col-span-8 min-w-0">
+            {/* Content */}
+            <section className="lg:col-span-8 xl:col-span-9 min-w-0">
               {renderContent()}
-            </div>
+            </section>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Mobile Content (render only on mobile to avoid double mounting) */}
-      {isMobile && (
-        <div className="px-3 sm:px-3 lg:px-3 pt-3 w-full max-w-[100vw] overflow-x-hidden no-horizontal-overflow">
-          <div className="sticky top-14 z-40 bg-background border-b pb-3 pt-2">
-            <div className="relative" aria-label="分析タブ">
-              <div className="h-12 w-full max-w-full min-w-0 overscroll-x-contain rounded-lg border flex items-center gap-2 overflow-x-auto snap-x snap-mandatory whitespace-nowrap px-1.5">
+        {/* Tablet (md only) */}
+        {!isMobile && isTablet && (
+          <div>
+            <div className="sticky top-20 z-30 bg-background/95 backdrop-blur-sm py-4 mb-6">
+              <div className="flex items-center gap-3 overflow-x-auto pb-2">
                 {analysisTools.map((tool) => {
                   const isActive = activeTab === tool.id;
+                  const Icon = tool.icon;
                   return (
-                    <button
+                    <Link
                       key={tool.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      onClick={() => handleTabChange(tool.id)}
-                      className={`snap-start shrink-0 flex items-center gap-2 px-3 py-3.5 rounded-full text-sm whitespace-nowrap min-w-[70px] transition-colors ${
-                        isActive ? 'bg-background text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'
+                      href={`/ipo/analysis/${tool.id}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleTabChange(tool.id);
+                        try { routerNav.push(`/ipo/analysis/${tool.id}`, { scroll: false }); } catch {}
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground'
                       }`}
+                      role="menuitem"
                     >
-                      <tool.icon className="w-5 h-5 shrink-0" />
-                      <span>{tool.subtitle || tool.title}</span>
-                    </button>
+                      <Icon className="h-4 w-4" />
+                      {tool.title}
+                      <span className="text-xs opacity-75">{getToolProgressPct(tool.id)}%</span>
+                    </Link>
                   );
                 })}
               </div>
             </div>
+            {renderContent()}
           </div>
-          <div className="pt-4 px-1 max-w-full overflow-x-hidden">{renderContent()}</div>
-        </div>
-      )}
+        )}
+
+        {/* Mobile (sm) */}
+        {isMobile && (
+          <div>
+            <div className="sticky top-20 z-30 bg-background/95 backdrop-blur-sm py-3 mb-6">
+              <div className="relative">
+                <Button
+                  ref={menuButtonRef}
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between h-10"
+                  onClick={() => setShowMobileMenu(!showMobileMenu)}
+                  aria-expanded={showMobileMenu}
+                  aria-haspopup="menu"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Menu className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{getCurrentTool().title}</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showMobileMenu ? 'rotate-180' : ''}`} />
+                </Button>
+                {showMobileMenu && (
+                  <>
+                    <div className="fixed inset-0 bg-black/20 z-[90] pointer-events-auto" onClick={() => setShowMobileMenu(false)} />
+                    <div
+                      className="fixed left-2 right-2 rounded-lg border bg-background shadow-lg p-1 z-[100] max-h-[60vh] overflow-auto pointer-events-auto"
+                      style={{ top: menuTop + 8 }}
+                    >
+                      <ul>
+                        {analysisTools.map((tool) => {
+                          const isActive = activeTab === tool.id;
+                          const Icon = tool.icon;
+                          return (
+                            <li key={tool.id}>
+                              <Link
+                                href={`/ipo/analysis/${tool.id}`}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleTabChange(tool.id);
+                                  try { routerNav.push(`/ipo/analysis/${tool.id}`, { scroll: false }); } catch {}
+                                }}
+                                className={`w-full flex items-center gap-3 px-3 py-3 rounded-md text-sm text-left transition-colors ${
+                                  isActive
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                                }`}
+                                role="menuitem"
+                              >
+                                <Icon className="w-4 h-4 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{tool.title}</div>
+                                  <div className="text-xs opacity-75 truncate">{tool.subtitle}</div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <span className="text-xs tabular-nums">{getToolProgressPct(tool.id)}%</span>
+                                  {tool.badge && (
+                                    <Badge className="rounded-full px-1.5 py-0.5 text-[10px] leading-none bg-sky-100 text-sky-700">
+                                      {tool.badge}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="px-2 main-mobile">
+              {renderContent()}
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
