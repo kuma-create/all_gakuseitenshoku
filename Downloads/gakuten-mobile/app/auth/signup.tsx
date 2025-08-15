@@ -1,4 +1,4 @@
-// app/auth/signup.tsx
+// app/auth/signup.tsx（学生専用）
 import { useState, useMemo } from "react";
 import {
   ActivityIndicator,
@@ -13,15 +13,12 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter, Link } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 
-type UserType = "student" | "company";
-
 export default function SignUp() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [userType, setUserType] = useState<UserType>("student");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,7 +47,8 @@ export default function SignUp() {
         email: email.trim().toLowerCase(),
         password,
         options: {
-          data: { user_type: userType }, // プロフィール用メタデータに種類を保存
+          // 学生専用としてメタデータ固定
+          data: { user_type: "student" },
           emailRedirectTo: undefined,
         },
       });
@@ -97,50 +95,12 @@ export default function SignUp() {
           <View style={{ padding: 20, borderBottomWidth: 1, borderColor: "#f3f4f6" }}>
             <Text style={{ fontSize: 22, fontWeight: "800" }}>アカウント登録</Text>
             <Text style={{ marginTop: 6, color: "#6b7280" }}>
-              必要情報を入力して、アカウントを作成しましょう
+              必要情報を入力して、学生アカウントを作成しましょう
             </Text>
           </View>
 
           {/* Content */}
           <View style={{ padding: 20 }}>
-            {/* Tabs */}
-            <View style={{ marginBottom: 16 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  borderWidth: 1,
-                  borderColor: "#e5e7eb",
-                  borderRadius: 10,
-                  overflow: "hidden",
-                }}
-              >
-                {(["student", "company"] as UserType[]).map((t) => {
-                  const active = userType === t;
-                  return (
-                    <Pressable
-                      key={t}
-                      onPress={() => setUserType(t)}
-                      style={{
-                        flex: 1,
-                        paddingVertical: 10,
-                        alignItems: "center",
-                        backgroundColor: active ? "#ef4444" : "#ffffff",
-                      }}
-                    >
-                      <Text style={{ color: active ? "#fff" : "#111827", fontWeight: "600" }}>
-                        {t === "student" ? "学生" : "企業"}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Text style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-                {userType === "student"
-                  ? "学生アカウントでは、求人検索、応募、企業とのメッセージングなどが可能です。"
-                  : "企業アカウントでは、求人掲載、応募者管理、学生とのメッセージングなどが可能です。"}
-              </Text>
-            </View>
-
             {/* Alerts */}
             {error ? (
               <View
@@ -172,7 +132,7 @@ export default function SignUp() {
               </View>
             ) : null}
 
-            {/* Form */}
+            {/* Form（学生のみ） */}
             <View style={{ gap: 12 }}>
               {/* Email */}
               <View>
