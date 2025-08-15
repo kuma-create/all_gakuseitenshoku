@@ -61,6 +61,24 @@ export default function IPOLayout() {
         }}
       />
       <Tabs.Screen
+        name="selection/index"
+        options={{
+          href: '/ipo/selection',
+          title: '選考管理',
+          tabBarIcon: ({ color }) => <Feather name="book" size={24} color={color} />,
+          tabBarItemStyle: { display: 'flex' },
+        }}
+      />      
+      <Tabs.Screen
+        name="library/index"
+        options={{
+          href: '/ipo/library',
+          title: 'ライブラリ',
+          tabBarIcon: ({ color }) => <Feather name="book" size={24} color={color} />,
+          tabBarItemStyle: { display: 'flex' },
+        }}
+      />           
+      <Tabs.Screen
         name="calendar/index"
         options={{
           href: '/ipo/calendar',
