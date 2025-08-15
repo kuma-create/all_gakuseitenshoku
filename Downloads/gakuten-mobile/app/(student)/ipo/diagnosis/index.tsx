@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 import React, { useState, useEffect, useCallback, startTransition } from "react";
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from "expo-router";
 import {
   Brain,
@@ -284,6 +285,7 @@ export default function DiagnosisPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState<DiagnosisResultRow[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [resTab, setResTab] = useState<'overview'|'analysis'|'careers'|'actions'>('overview');
   const router = useRouter();
 
   const progress = selectedDiagnosis && questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
@@ -553,64 +555,84 @@ export default function DiagnosisPage() {
   );
 
   // ---- SELECT SCREEN (mobile-first) ---------------------------------
+  const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 20 },
+    headerRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 },
+    outlineBtn: { height: 36, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    outlineBtnText: { fontSize: 12, color: '#111827' },
+    titleWrap: { alignItems: 'center', marginBottom: 16 },
+    heroIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: '#6366f1' },
+    title: { fontSize: 20, fontWeight: '700', color: '#111827', marginTop: 8 },
+    subtitle: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+    errorBadge: { marginTop: 8, alignSelf: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#f59e0b', backgroundColor: '#fffbeb' },
+    errorText: { fontSize: 11, color: '#b45309' },
+    card: { borderRadius: 14, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', padding: 14 },
+    cardRow: { flexDirection: 'row', alignItems: 'center' },
+    iconSquare: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    cardBody: { flex: 1, marginLeft: 12 },
+    cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+    cardDesc: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+    metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+    metaText: { fontSize: 11, color: '#6b7280' },
+    startText: { fontSize: 12, color: '#2563eb', fontWeight: '600' },
+    listGap: { rowGap: 12 },
+  });
+
   if (!selectedDiagnosis) {
     return (
-      <div className="bg-background min-h-screen">
-        <div className="w-full max-w-md mx-auto px-4 py-5">
-          <div className="flex justify-end mb-3">
-            <Button variant="outline" onClick={() => router.push("/ipo/diagnosis/result")} className="h-9 text-sm">
-              過去の診断結果
-            </Button>
-          </div>
-          <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-600 text-white rounded-full flex items-center justify-center mx-auto mb-3">
-              {React.createElement(Brain as any, { className: "w-8 h-8" })}
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">診断システム</h1>
-            <p className="text-sm text-gray-600">AI分析で強みと最適なキャリアパスを発見</p>
-            {loadError && (
-              <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 inline-block px-2 py-1 rounded">
-                {loadError}
-              </p>
-            )}
-          </motion.div>
+      <View style={styles.screen}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.headerRow}>
+            <Pressable style={styles.outlineBtn} onPress={() => router.push('/ipo/diagnosis/result')}>
+              <Text style={styles.outlineBtnText}>過去の診断結果</Text>
+            </Pressable>
+          </View>
 
-          <div className="grid grid-cols-1 gap-4">
+          <View style={styles.titleWrap}>
+            <View style={styles.heroIcon}>
+              {React.createElement(Brain as any, { size: 28, color: '#fff' })}
+            </View>
+            <Text style={styles.title}>診断システム</Text>
+            <Text style={styles.subtitle}>AI分析で強みと最適なキャリアパスを発見</Text>
+            {loadError ? (
+              <View style={styles.errorBadge}><Text style={styles.errorText}>{loadError}</Text></View>
+            ) : null}
+          </View>
+
+          <View style={styles.listGap}>
             {Object.entries(DIAGNOSIS_TYPES).map(([key, diagnosis], index) => {
-              const IconComponent = diagnosis.icon;
+              const IconComponent = diagnosis.icon as any;
+              const gradientColors: Record<string, string> = {
+                personality: '#8b5cf6',
+                values: '#ec4899',
+                career: '#3b82f6',
+                skills: '#22c55e',
+              };
               return (
-                <motion.div
-                  key={key}
-                  initial={{ y: 24, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.06 }}
-                  onClick={() => handleSelectDiagnosis(key as DiagnosisType)}
-                  className="cursor-pointer"
-                >
-                  <Card className="transition-all duration-200 active:scale-[0.99]">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 bg-gradient-to-br ${diagnosis.color} text-white rounded-xl flex items-center justify-center`}>
-                          {React.createElement(IconComponent as any, { className: "w-6 h-6" })}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-bold text-gray-900 truncate">{diagnosis.title}</h3>
-                          <p className="text-xs text-gray-600 line-clamp-2">{diagnosis.description}</p>
-                          <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
-                            <span className="flex items-center gap-1">{React.createElement(Users as any, { className: "w-3.5 h-3.5" })}{diagnosis.questions}問</span>
-                            <span className="flex items-center gap-1">{React.createElement(Clock as any, { className: "w-3.5 h-3.5" })}{diagnosis.duration}</span>
-                            <span className="text-blue-600 font-medium flex items-center gap-1">開始{React.createElement(ArrowRight as any, { className: "w-3.5 h-3.5" })}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                <Pressable key={key} onPress={() => handleSelectDiagnosis(key as DiagnosisType)}>
+                  <View style={styles.card}>
+                    <View style={styles.cardRow}>
+                      <View style={[styles.iconSquare, { backgroundColor: gradientColors[key as keyof typeof gradientColors] }]}>
+                        {React.createElement(IconComponent, { size: 24, color: '#fff' })}
+                      </View>
+                      <View style={styles.cardBody}>
+                        <Text style={styles.cardTitle}>{diagnosis.title}</Text>
+                        <Text style={styles.cardDesc}>{diagnosis.description}</Text>
+                        <View style={styles.metaRow}>
+                          <Text style={styles.metaText}> {diagnosis.questions}問</Text>
+                          <Text style={styles.metaText}>⏱ {diagnosis.duration}</Text>
+                          <Text style={styles.startText}>開始 →</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </Pressable>
               );
             })}
-          </div>
-        </div>
-      </div>
+          </View>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -657,240 +679,237 @@ export default function DiagnosisPage() {
   const strengthsSorted = (results?.strengths ?? []).slice().sort((a, b) => scoreOf(b) - scoreOf(a));
   const growthSorted = (results?.growthAreas ?? []).slice().sort((a, b) => scoreOf(a) - scoreOf(b));
 
-  // ---- RESULTS (mobile-first) ---------------------------------------
+  // ---- RESULTS (mobile-first, RN) ----------------------------------
   if (showResults && results) {
+    const rStyles = StyleSheet.create({
+      screen: { flex: 1, backgroundColor: '#f8fafc' },
+      container: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 20 },
+      center: { alignItems: 'center' },
+      hero: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
+      title: { fontSize: 20, fontWeight: '700', color: '#111827', textAlign: 'center', marginTop: 8 },
+      subtitle: { fontSize: 12, color: '#6b7280', textAlign: 'center', marginTop: 2, marginBottom: 8 },
+
+      topBtnRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
+      outlineBtn: { height: 36, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+      outlineBtnText: { fontSize: 12, color: '#111827' },
+
+      chipRowWrap: { marginTop: 4, marginBottom: 12 },
+      chipRow: { flexDirection: 'row', columnGap: 8, flexWrap: 'wrap' },
+      chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 9999, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff' },
+      chipActive: { backgroundColor: '#111827', borderColor: '#111827' },
+      chipText: { fontSize: 12, color: '#111827' },
+      chipTextActive: { color: '#fff' },
+
+      section: { borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', padding: 12, marginBottom: 12 },
+      secTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 8 },
+      badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+      badge: { borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#f8fafc', borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 3 },
+      badgeText: { fontSize: 11, color: '#111827' },
+      meter: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 9999, overflow: 'hidden', marginTop: 6 },
+      meterFill: { height: '100%', backgroundColor: '#3b82f6' },
+
+      actionsRow: { rowGap: 8 },
+      primaryBtn: { height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563eb' },
+      primaryText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+      twoCol: { flexDirection: 'row', columnGap: 8 },
+      ghostBtn: { flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+      ghostText: { fontSize: 14, color: '#111827' },
+    });
+
+
     return (
-      <div className="bg-background min-h-screen">
-        <div className="w-full max-w-md mx-auto px-4 py-5">
-          <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center mb-5">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 text-white rounded-full flex items-center justify-center mx-auto mb-3">
-              {React.createElement(CheckCircle as any, { className: "w-8 h-8" })}
-            </div>
-            <h1 className="text-xl font-bold text-gray-900 mb-1">{DIAGNOSIS_TYPES[results.type].title}結果</h1>
-            <p className="text-sm text-gray-600">あなたの特性と最適なキャリアパス</p>
-          </motion.div>
+      <View style={rStyles.screen}>
+        <ScrollView contentContainerStyle={rStyles.container}>
+          <View style={rStyles.hero}>{React.createElement(CheckCircle as any, { size: 28, color: '#fff' })}</View>
+          <Text style={rStyles.title}>{DIAGNOSIS_TYPES[results.type].title}結果</Text>
+          <Text style={rStyles.subtitle}>あなたの特性と最適なキャリアパス</Text>
 
-          <div className="flex justify-end mb-3">
-            <Button variant="outline" onClick={() => router.push("/ipo/diagnosis/result")} className="h-9 text-sm">
-              過去の診断結果
-            </Button>
-          </div>
+          <View style={rStyles.topBtnRow}>
+            <Pressable style={rStyles.outlineBtn} onPress={() => router.push('/ipo/diagnosis/result')}>
+              <Text style={rStyles.outlineBtnText}>過去の診断結果</Text>
+            </Pressable>
+          </View>
 
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4 text-[13px]">
-              <TabsTrigger value="overview">概要</TabsTrigger>
-              <TabsTrigger value="analysis">分析</TabsTrigger>
-              <TabsTrigger value="careers">適職</TabsTrigger>
-              <TabsTrigger value="actions">行動</TabsTrigger>
-            </TabsList>
+          {/* Tabs */}
+          <View style={rStyles.chipRowWrap}>
+            <View style={rStyles.chipRow}>
+              {[
+                {k:'overview', t:'概要'},
+                {k:'analysis', t:'分析'},
+                {k:'careers', t:'適職'},
+                {k:'actions', t:'行動'},
+              ].map(({k,t}) => (
+                <Pressable key={k} onPress={() => setResTab(k as any)} style={[rStyles.chip, resTab===k ? rStyles.chipActive: null]}>
+                  <Text style={[rStyles.chipText, resTab===k ? rStyles.chipTextActive: null]}>{t}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
-            <TabsContent value="overview" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <h3 className="text-base font-bold text-gray-900">特性スコア</h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="w-full overflow-x-auto">
-                    <MiniRadarChart data={toRadarData(results.scores)} />
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Overview */}
+          {resTab==='overview' && (
+            <>
+              <View style={rStyles.section}>
+                <Text style={rStyles.secTitle}>特性スコア</Text>
+                <View>
+                  <MiniRadarChart data={toRadarData(results.scores)} />
+                </View>
+              </View>
 
-              <div className="grid grid-cols-1 gap-4">
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-sm font-bold text-gray-900 flex items-center">{React.createElement(Star as any, { className: "w-4 h-4 text-yellow-500 mr-2" })}あなたの強み</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {strengthsSorted.length === 0 && <p className="text-xs text-gray-500">データが足りません</p>}
-                      {strengthsSorted.map((sKey, i) => {
-                        const s = scoreOf(sKey);
-                        return (
-                          <div key={i} className="rounded-md border p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-sm font-semibold text-gray-900">{jpLabel(sKey)}</div>
-                              <div className="text-xs text-gray-600">{s}</div>
-                            </div>
-                            <Progress value={s} className="h-2" />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
+              <View style={rStyles.section}>
+                <Text style={rStyles.secTitle}>あなたの強み</Text>
+                {strengthsSorted.length===0 ? (
+                  <Text style={{fontSize:12,color:'#6b7280'}}>データが足りません</Text>
+                ) : (
+                  strengthsSorted.map((sKey, i) => {
+                    const s = scoreOf(sKey);
+                    return (
+                      <View key={i} style={{ marginBottom: 10 }}>
+                        <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
+                          <Text style={{ fontSize:13, fontWeight:'600', color:'#111827' }}>{jpLabel(sKey)}</Text>
+                          <Text style={{ fontSize:12, color:'#6b7280' }}>{s}</Text>
+                        </View>
+                        <View style={rStyles.meter}><View style={[rStyles.meterFill,{ width: `${s}%` }]} /></View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
 
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-sm font-bold text-gray-900 flex items-center">{React.createElement(TrendingUp as any, { className: "w-4 h-4 text-blue-500 mr-2" })}成長できる分野</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {growthSorted.length === 0 && <p className="text-xs text-gray-500">データが足りません</p>}
-                      {growthSorted.map((gKey, i) => {
-                        const s = scoreOf(gKey);
-                        return (
-                          <div key={i} className="rounded-md border p-3 bg-orange-50/30">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-sm font-semibold text-gray-900">{jpLabel(gKey)}</div>
-                              <div className="text-xs text-gray-600">{s}</div>
-                            </div>
-                            <Progress value={s} className="h-2" />
-                          </div>
-                        );
-                      })}
-                      <p className="text-[10px] text-gray-500 mt-1">※ スコアが低いほど優先的に伸ばすべき領域です</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+              <View style={rStyles.section}>
+                <Text style={rStyles.secTitle}>成長できる分野</Text>
+                {growthSorted.length===0 ? (
+                  <Text style={{fontSize:12,color:'#6b7280'}}>データが足りません</Text>
+                ) : (
+                  growthSorted.map((gKey, i) => {
+                    const s = scoreOf(gKey);
+                    return (
+                      <View key={i} style={{ marginBottom: 10 }}>
+                        <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
+                          <Text style={{ fontSize:13, fontWeight:'600', color:'#111827' }}>{jpLabel(gKey)}</Text>
+                          <Text style={{ fontSize:12, color:'#6b7280' }}>{s}</Text>
+                        </View>
+                        <View style={rStyles.meter}><View style={[rStyles.meterFill,{ width: `${s}%`, backgroundColor:'#f59e0b' }]} /></View>
+                      </View>
+                    );
+                  })
+                )}
+                <Text style={{ fontSize:10, color:'#6b7280', marginTop:4 }}>※ スコアが低いほど優先的に伸ばすべき領域です</Text>
+              </View>
+            </>
+          )}
 
-            <TabsContent value="analysis" className="space-y-4">
-              <div className="grid grid-cols-1 gap-3">
-                {Object.entries(results.scores).map(([key, score], index) => (
-                  <motion.div key={key} initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: index * 0.05 }}>
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900 mb-1">{score}</div>
-                          <div className="text-xs text-gray-600 mb-3">{jpLabel(key)}</div>
-                          <Progress value={score} className="h-2" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
+          {/* Analysis */}
+          {resTab==='analysis' && (
+            <View style={rStyles.section}>
+              {Object.entries(results.scores).map(([key, score]) => (
+                <View key={key} style={{ marginBottom:10 }}>
+                  <View style={{ alignItems:'center' }}>
+                    <Text style={{ fontSize:22, fontWeight:'700', color:'#111827' }}>{score}</Text>
+                    <Text style={{ fontSize:12, color:'#6b7280', marginBottom:6 }}>{jpLabel(key)}</Text>
+                  </View>
+                  <View style={rStyles.meter}><View style={[rStyles.meterFill,{ width: `${score}%` }]} /></View>
+                </View>
+              ))}
+            </View>
+          )}
 
-              <Card>
-                <CardHeader>
-                  <h3 className="text-base font-bold text-gray-900">詳細な分析結果</h3>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {results.insights.map((insight, index) => (
-                      <motion.div key={index} initial={{ x: -14, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: index * 0.08 }} className="p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
-                        <p className="text-sm text-gray-700">{insight}</p>
-                      </motion.div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+          {/* Careers */}
+          {resTab==='careers' && (
+            <View style={{ rowGap:12 }}>
+              {results.recommendations.map((job, index) => (
+                <View key={index} style={rStyles.section}>
+                  <View style={{ flexDirection:'row', alignItems:'center', columnGap:10 }}>
+                    <View style={{ width:36, height:36, borderRadius:18, backgroundColor:'#22c55e', alignItems:'center', justifyContent:'center' }}>
+                      <Text style={{ color:'#fff', fontWeight:'700', fontSize:12 }}>#{index+1}</Text>
+                    </View>
+                    <View style={{ flex:1 }}>
+                      <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
+                        <Text style={{ fontSize:15, fontWeight:'700', color:'#111827' }} numberOfLines={1}>{job.title}</Text>
+                        <Text style={{ fontSize:12, color:'#16a34a', fontWeight:'700' }}>{job.match}%</Text>
+                      </View>
+                      <Text style={{ fontSize:12, color:'#6b7280', marginTop:2 }} numberOfLines={3}>{job.description}</Text>
+                    </View>
+                  </View>
+                  <View style={{ marginTop:8 }}>
+                    <Text style={{ fontSize:12, fontWeight:'700', color:'#111827', marginBottom:4 }}>マッチする理由</Text>
+                    <View style={rStyles.badgeRow}>
+                      {job.reasons.map((r,i)=>(
+                        <View key={i} style={rStyles.badge}><Text style={rStyles.badgeText}>{r}</Text></View>
+                      ))}
+                    </View>
+                  </View>
+                  <View style={{ marginTop:8 }}>
+                    <Text style={{ fontSize:12, fontWeight:'700', color:'#111827', marginBottom:4 }}>必要なスキル</Text>
+                    <View style={rStyles.badgeRow}>
+                      {job.requiredSkills.map((s,i)=>(
+                        <View key={i} style={[rStyles.badge,{ backgroundColor:'#fff' }]}><Text style={rStyles.badgeText}>{s}</Text></View>
+                      ))}
+                    </View>
+                  </View>
+                  <View style={{ flexDirection:'row', columnGap:12, marginTop:8 }}>
+                    <Text style={{ fontSize:11, color:'#6b7280' }}>平均年収: {job.averageSalary}</Text>
+                    <Text style={{ fontSize:11, color:'#6b7280' }}>成長率: {job.growthRate}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
 
-            <TabsContent value="careers" className="space-y-4">
-              <div className="space-y-3">
-                {results.recommendations.map((job, index) => (
-                  <motion.div key={index} initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: index * 0.06 }}>
-                    <Card className="overflow-hidden">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-white text-sm font-bold">#{index + 1}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-base font-bold text-gray-900 truncate">{job.title}</h3>
-                              <div className="flex items-center gap-1">
-                                <div className="font-bold text-green-600 text-sm">{job.match}%</div>
-                                <div className="text-[10px] text-gray-500">マッチ</div>
-                              </div>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-3 line-clamp-3">{job.description}</p>
-                            <div className="mb-2">
-                              <h4 className="text-sm font-bold text-gray-900 mb-1 flex items-center">マッチする理由</h4>
-                              <div className="flex flex-wrap gap-1">
-                                {job.reasons.map((r, i) => (
-                                  <Badge key={i} variant="secondary" className="text-[11px]">{r}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-bold text-gray-900 mb-1 flex items-center">必要なスキル</h4>
-                              <div className="flex flex-wrap gap-1">
-                                {job.requiredSkills.map((s, i) => (
-                                  <Badge key={i} variant="outline" className="text-[11px]">{s}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
-                              <span className="flex items-center">{React.createElement(Target as any, { className: "w-3.5 h-3.5 mr-1" })}平均年収: {job.averageSalary}</span>
-                              <span className="flex items-center">{React.createElement(TrendingUp as any, { className: "w-3.5 h-3.5 mr-1" })}成長率: {job.growthRate}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </TabsContent>
+          {/* Actions */}
+          {resTab==='actions' && (
+            <View style={{ rowGap:12 }}>
+              <View style={rStyles.section}>
+                <Text style={rStyles.secTitle}>次のステップ</Text>
+                <View style={{ rowGap:8 }}>
+                  {['業界研究を深める','スキルマップを作成','ネットワーキング開始'].map((t,i)=>(
+                    <View key={i} style={{ flexDirection:'row', columnGap:8, alignItems:'center' }}>
+                      <View style={{ width:24, height:24, borderRadius:12, backgroundColor:'#dbeafe', alignItems:'center', justifyContent:'center' }}><Text style={{ color:'#2563eb', fontSize:12, fontWeight:'700' }}>{i+1}</Text></View>
+                      <Text style={{ fontSize:13, color:'#374151' }}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View style={rStyles.section}>
+                <Text style={rStyles.secTitle}>中長期的な取り組み</Text>
+                <View style={{ rowGap:8 }}>
+                  {['資格・認定取得','実務経験を積む','ポートフォリオ構築'].map((t,i)=>(
+                    <View key={i} style={{ flexDirection:'row', columnGap:8, alignItems:'center' }}>
+                      <View style={{ width:24, height:24, borderRadius:12, backgroundColor:'#dcfce7', alignItems:'center', justifyContent:'center' }}><Text style={{ color:'#16a34a', fontSize:12, fontWeight:'700' }}>{i+1}</Text></View>
+                      <Text style={{ fontSize:13, color:'#374151' }}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
 
-            <TabsContent value="actions" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <h3 className="text-base font-bold text-gray-900">次のステップ</h3>
-                  <p className="text-xs text-gray-600">診断結果を活かして前進しましょう</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-gray-900">すぐに始められること</h4>
-                      <div className="space-y-2">
-                        {["業界研究を深める","スキルマップを作成","ネットワーキング開始"].map((t, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">{i+1}</div>
-                            <div className="text-sm text-gray-700">{t}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-gray-900">中長期的な取り組み</h4>
-                      <div className="space-y-2">
-                        {["資格・認定取得","実務経験を積む","ポートフォリオ構築"].map((t, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">{i+1}</div>
-                            <div className="text-sm text-gray-700">{t}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex flex-col gap-2 mt-4">
-            <Button onClick={() => startTransition(() => router.push("/ipo/library"))} className="h-11 text-sm flex items-center justify-center gap-2">
-              {React.createElement(BookOpen as any, { className: "w-4 h-4" })}
-              業界・職種を詳しく調べる
-            </Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={resetDiagnosis} className="h-11 text-sm">別の診断を受ける</Button>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  if (!sessionId && selectedDiagnosis) {
-                    const { data: sessionIns, error: sessionErr } = await supabase
-                      .from("diagnosis_sessions")
-                      .insert({ type: selectedDiagnosis })
-                      .select("id")
-                      .single();
-                    if (!sessionErr) setSessionId((sessionIns as any)?.id ?? null);
-                  }
-                  startTransition(() => router.push("/ipo/dashboard"));
-                }}
-                className="h-11 text-sm"
-              >
-                {React.createElement(Download as any, { className: "w-4 h-4" })}結果を保存
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      </div>
+          {/* bottom actions */}
+          <View style={[rStyles.actionsRow,{ marginTop:8 }] }>
+            <Pressable style={rStyles.primaryBtn} onPress={() => startTransition(() => router.push('/ipo/library'))}>
+              <Text style={rStyles.primaryText}>業界・職種を詳しく調べる</Text>
+            </Pressable>
+            <View style={rStyles.twoCol}>
+              <Pressable style={[rStyles.ghostBtn,{ flex:1 }]} onPress={resetDiagnosis}>
+                <Text style={rStyles.ghostText}>別の診断を受ける</Text>
+              </Pressable>
+              <Pressable style={[rStyles.ghostBtn,{ flex:1 }]} onPress={async ()=>{
+                if (!sessionId && selectedDiagnosis) {
+                  const { data: sessionIns, error: sessionErr } = await supabase
+                    .from('diagnosis_sessions')
+                    .insert({ type: selectedDiagnosis })
+                    .select('id')
+                    .single();
+                  if (!sessionErr) setSessionId((sessionIns as any)?.id ?? null);
+                }
+                startTransition(()=> router.push('/ipo/dashboard'))
+              }}>
+                <Text style={rStyles.ghostText}>結果を保存</Text>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -913,141 +932,115 @@ export default function DiagnosisPage() {
     );
   }
 
+  // Styles dedicated to the question screen
+  const qStyles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 20 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+    titleWrap: { flexShrink: 1, paddingRight: 12 },
+    title: { fontSize: 18, fontWeight: '700', color: '#111827' },
+    subtitle: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+    counterWrap: { alignItems: 'flex-end' },
+    counterNum: { fontSize: 18, fontWeight: '700', color: '#2563eb' },
+    counterLabel: { fontSize: 11, color: '#6b7280' },
+
+    progressWrap: { marginTop: 8 },
+    progressBar: { height: 8, backgroundColor: '#e5e7eb', borderRadius: 9999, overflow: 'hidden' },
+    progressFill: { height: '100%', backgroundColor: '#3b82f6' },
+    progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+    progressMetaText: { fontSize: 10, color: '#6b7280' },
+
+    card: { borderRadius: 14, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', padding: 18, marginTop: 12 },
+    iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 12 },
+    questionNo: { fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 8 },
+    questionText: { fontSize: 15, color: '#111827', lineHeight: 22, textAlign: 'center' },
+
+    optionBtn: { width: '100%', paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'space-between', flexDirection: 'row' },
+    optionText: { fontSize: 14, color: '#fff', fontWeight: '600' },
+    optionGap: { height: 10 },
+
+    navRow: { marginTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    backBtn: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 },
+    backText: { fontSize: 13, color: '#111827' },
+    dotsRow: { flexDirection: 'row', columnGap: 4 },
+    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#d1d5db' },
+  });
+
   return (
-    <div className="bg-background min-h-screen">
-      <div className="w-full max-w-md mx-auto px-4 py-5">
-        <motion.div initial={{ y: -12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">{DIAGNOSIS_TYPES[selectedDiagnosis!].title}</h1>
-              <p className="text-xs text-gray-600">{DIAGNOSIS_TYPES[selectedDiagnosis!].description}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-blue-600">{questions.length > 0 ? `${currentQuestion + 1}/${questions.length}` : "-/-"}</div>
-              <div className="text-[11px] text-gray-600">質問</div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Progress value={progress} className="h-2" />
-            <div className="flex justify-between text-[10px] text-gray-500">
-              <span>開始</span>
-              <span>{Math.round(progress)}% 完了</span>
-              <span>終了</span>
-            </div>
-          </div>
-        </motion.div>
+    <View style={qStyles.screen}>
+      <ScrollView contentContainerStyle={qStyles.container}>
+        {/* Header */}
+        <View style={qStyles.headerRow}>
+          <View style={qStyles.titleWrap}>
+            <Text style={qStyles.title}>{DIAGNOSIS_TYPES[selectedDiagnosis!].title}</Text>
+            <Text style={qStyles.subtitle}>{DIAGNOSIS_TYPES[selectedDiagnosis!].description}</Text>
+          </View>
+          <View style={qStyles.counterWrap}>
+            <Text style={qStyles.counterNum}>
+              {questions.length > 0 ? `${currentQuestion + 1}/${questions.length}` : '-/-'}
+            </Text>
+            <Text style={qStyles.counterLabel}>質問</Text>
+          </View>
+        </View>
 
-        {questions.length === 0 && (
-          <Card className="mb-4">
-            <CardContent className="p-4 text-center">
-              {loadError ? <div className="text-red-600 text-sm">{loadError}</div> : <div className="text-gray-600 text-sm">質問を読み込んでいます…</div>}
-            </CardContent>
-          </Card>
-        )}
+        {/* Progress */}
+        <View style={qStyles.progressWrap}>
+          <View style={qStyles.progressBar}>
+            <View style={[qStyles.progressFill, { width: `${Math.round(progress)}%` }]} />
+          </View>
+          <View style={qStyles.progressMeta}>
+            <Text style={qStyles.progressMetaText}>開始</Text>
+            <Text style={qStyles.progressMetaText}>{Math.round(progress)}% 完了</Text>
+            <Text style={qStyles.progressMetaText}>終了</Text>
+          </View>
+        </View>
 
-        <motion.div key={currentQuestion} initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -24, opacity: 0 }} transition={{ type: "spring", stiffness: 300, damping: 26 }}>
-          <Card className="overflow-hidden">
-            <CardContent className="p-5">
-              <div className="text-center mb-6">
-                <div className={`w-16 h-16 bg-gradient-to-br ${DIAGNOSIS_TYPES[selectedDiagnosis!].color} text-white rounded-full flex items-center justify-center mx-auto mb-4`}>
-                  {React.createElement(Brain as any, { className: "w-8 h-8" })}
-                </div>
-                <h2 className="text-lg font-bold text-gray-900 mb-3">質問 {currentQuestion + 1}</h2>
-                <p className="text-base text-gray-800 leading-relaxed">{currentQ.text}</p>
-              </div>
+        {/* Question Card */}
+        <View style={qStyles.card}>
+          <View style={qStyles.iconCircle}>
+            {React.createElement(Brain as any, { size: 28, color: '#fff' })}
+          </View>
+          <Text style={qStyles.questionNo}>質問 {currentQuestion + 1}</Text>
+          <Text style={qStyles.questionText}>{currentQ.text}</Text>
+        </View>
 
-              <div className="space-y-2.5">
-                {[
-                  { value: 5, label: "非常にそう思う", color: "from-green-500 to-green-600" },
-                  { value: 4, label: "そう思う", color: "from-green-400 to-green-500" },
-                  { value: 3, label: "どちらでもない", color: "from-gray-400 to-gray-500" },
-                  { value: 2, label: "そう思わない", color: "from-orange-400 to-orange-500" },
-                  { value: 1, label: "全くそう思わない", color: "from-red-500 to-red-600" },
-                ].map((option) => (
-                  <motion.button
-                    key={option.value}
-                    onClick={() => handleAnswer(option.value)}
-                    whileTap={{ scale: 0.98 }}
-                    className={`w-full p-4 rounded-2xl bg-gradient-to-r ${option.color} text-white font-medium transition-all duration-150 active:translate-y-[1px] flex items-center justify-between`}
-                  >
-                    <span className="text-sm">{option.label}</span>
-                    {React.createElement(ArrowRight as any, { className: "w-4 h-4 opacity-70" })}
-                  </motion.button>
-                ))}
-              </div>
+        {/* Options */}
+        <View style={{ marginTop: 12 }}>
+          {[
+            { value: 5, label: '非常にそう思う', bg: '#16a34a' },
+            { value: 4, label: 'そう思う', bg: '#22c55e' },
+            { value: 3, label: 'どちらでもない', bg: '#6b7280' },
+            { value: 2, label: 'そう思わない', bg: '#fb923c' },
+            { value: 1, label: '全くそう思わない', bg: '#ef4444' },
+          ].map((opt, idx) => (
+            <React.Fragment key={opt.value}>
+              <Pressable
+                onPress={() => handleAnswer(opt.value)}
+                style={[qStyles.optionBtn, { backgroundColor: opt.bg }]}
+              >
+                <Text style={qStyles.optionText}>{opt.label}</Text>
+                {React.createElement(ArrowRight as any, { size: 16, color: '#ffffffcc' })}
+              </Pressable>
+              {idx < 4 ? <View style={qStyles.optionGap} /> : null}
+            </React.Fragment>
+          ))}
+        </View>
 
-              <div className="mt-5 flex justify-between items-center">
-                {currentQuestion > 0 ? (
-                  <Button variant="ghost" size="sm" onClick={() => setCurrentQuestion((prev) => prev - 1)} className="flex items-center gap-1">
-                    {React.createElement(ArrowRight as any, { className: "w-4 h-4 rotate-180" })}
-                    <span className="text-sm">前へ</span>
-                  </Button>
-                ) : (
-                  <div />
-                )}
-                <div className="flex gap-1">
-                  {questions.map((_, idx) => (
-                    <div
-                      key={idx}
-                      className={`w-1.5 h-1.5 rounded-full ${idx === currentQuestion ? "bg-blue-500" : idx < currentQuestion ? "bg-green-500" : "bg-gray-300"}`}
-                    />
-                  ))}
-                </div>
-                <div />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* History drawer (kept for feature parity) */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowHistory(false)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-background shadow-xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <h2 className="text-sm font-semibold">過去の診断結果</h2>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setShowHistory(false); router.push("/ipo/diagnosis/result"); }}>一覧へ</Button>
-                <Button variant="ghost" size="icon" onClick={() => setShowHistory(false)} className="rounded-full" aria-label="Close history">
-                  {React.createElement(X as any, { className: "w-5 h-5" })}
-                </Button>
-              </div>
-            </div>
-            <div className="p-4 space-y-3 overflow-y-auto h-[calc(100%-44px)]">
-              {historyLoading && <div className="text-xs text-gray-600">読み込み中…</div>}
-              {historyError && <div className="text-xs text-red-600">{historyError}</div>}
-              {!historyLoading && !historyError && history.length === 0 && (
-                <div className="text-xs text-gray-600">過去の診断結果はまだありません。</div>
-              )}
-              {!historyLoading && history.length > 0 && (
-                <div className="space-y-2">
-                  {history.map((row) => (
-                    <Card key={row.id} className="hover:border-blue-300 transition">
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-[11px] text-gray-500">{new Date(row.created_at).toLocaleString("ja-JP")}</div>
-                            <div className="text-sm font-semibold mt-0.5">{DIAGNOSIS_TYPES[row.type].title}</div>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {Object.keys(row.scores || {}).slice(0, 3).map((k) => (
-                                <Badge key={k} variant="secondary" className="text-[11px]">
-                                  {k}: {Math.round(Number((row.scores as any)?.[k] ?? 0))}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => { setShowHistory(false); router.push(`/ipo/diagnosis/result/${row.id}`); }}>開く</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        {/* Bottom nav */}
+        <View style={qStyles.navRow}>
+          {currentQuestion > 0 ? (
+            <Pressable onPress={() => setCurrentQuestion((prev) => prev - 1)} style={qStyles.backBtn}>
+              <Text style={qStyles.backText}>← 前へ</Text>
+            </Pressable>
+          ) : <View />}
+          <View style={qStyles.dotsRow}>
+            {questions.map((_, idx) => (
+              <View key={idx} style={[qStyles.dot, idx === currentQuestion ? { backgroundColor: '#3b82f6' } : idx < currentQuestion ? { backgroundColor: '#10b981' } : null]} />
+            ))}
+          </View>
+          <View />
+        </View>
+      </ScrollView>
+    </View>
   );
 }

@@ -8,6 +8,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useRouter } from "expo-router";
 import { supabase } from "src/lib/supabase";
 
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+
 import { ArrowLeft, Clock, Brain, Heart, Target, Award, ChevronRight } from "lucide-react-native";
 // Workaround for type mismatch when multiple @types/react versions are present
 // Cast lucide icon to a generic React component type to avoid TS2786
@@ -16,64 +18,73 @@ const ArrowLeftIcon = ArrowLeft as unknown as SvgIconComponent;
 const ChevronRightIcon = ChevronRight as unknown as SvgIconComponent;
 const ClockIcon = Clock as unknown as SvgIconComponent;
 
-// --- Local minimal UI components (self-contained) ---
-type DivProps = React.HTMLAttributes<HTMLDivElement> & { children?: React.ReactNode };
-type ButtonVariant = "default" | "ghost" | "outline";
-type ButtonSize = "default" | "icon";
-type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  children?: React.ReactNode;
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-};
-type SpanProps = React.HTMLAttributes<HTMLSpanElement> & { children?: React.ReactNode };
+// --- Local minimal UI components (self-contained, RN) ---
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#fff' },
+  appBar: {
+    position: 'sticky' as any,
+    top: 0,
+    zIndex: 20,
+    borderBottomWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: 'rgba(255,255,255,0.95)'
+  },
+  appBarRow: { maxWidth: 640, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  appBarTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
+  appBarMeta: { marginLeft: 'auto', fontSize: 12, color: '#6b7280' },
 
-const cx = (...c: (string | undefined | false)[]) => c.filter(Boolean).join(" ");
+  tabsWrap: { width: '100%' },
+  tabsScroll: { paddingHorizontal: 12, paddingBottom: 8 },
+  tabsRow: { flexDirection: 'row', columnGap: 8 },
+  tabBtn: { borderWidth: 1, borderColor: '#111827', borderRadius: 9999, paddingHorizontal: 16, paddingVertical: 6 },
+  tabBtnActive: { backgroundColor: '#111827' },
+  tabText: { fontSize: 13, color: '#111827' },
+  tabTextActive: { color: '#fff' },
 
-const Card = ({ className, children, ...props }: DivProps) => (
-  <div className={cx("rounded-lg border bg-background text-foreground shadow-sm", className)} {...props}>
-    {children}
-  </div>
+  container: { maxWidth: 640, alignSelf: 'center', paddingHorizontal: 12, paddingBottom: 96, paddingTop: 12, rowGap: 12 },
+
+  card: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, backgroundColor: '#fff' },
+  cardContent: { padding: 12 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', columnGap: 12 },
+  iconCircle: { padding: 8, borderRadius: 9999 },
+  timeText: { fontSize: 12, color: '#6b7280' },
+  title: { marginTop: 2, fontSize: 16, fontWeight: '700', color: '#111827' },
+  badgesRow: { marginTop: 4, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  badge: { borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#f8fafc', borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 3 },
+  badgeText: { fontSize: 11, color: '#111827' },
+
+  loadMoreWrap: { paddingTop: 8, paddingBottom: 32, alignItems: 'center' },
+  loadMoreBtn: { width: '100%', maxWidth: 320, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  loadMoreText: { fontSize: 14, color: '#111827' },
+
+  errorCard: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff', borderRadius: 12 },
+  errorContent: { padding: 12 },
+  errorText: { fontSize: 13, color: '#dc2626' },
+
+  emptyCard: { borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', borderRadius: 12 },
+  emptyContent: { padding: 16 },
+  emptyText: { fontSize: 13, color: '#6b7280' },
+});
+
+const Card = ({ children }: { children?: React.ReactNode }) => <View style={styles.card}>{children}</View>;
+const CardContent = ({ children, style }: { children?: React.ReactNode; style?: any }) => (
+  <View style={[styles.cardContent, style]}>{children}</View>
 );
-const CardContent = ({ className, children, ...props }: DivProps) => (
-  <div className={cx(className)} {...props}>{children}</div>
+
+const Button = ({ children, onPress, disabled }: { children?: React.ReactNode; onPress?: () => void; disabled?: boolean }) => (
+  <Pressable style={[styles.loadMoreBtn, disabled ? { opacity: 0.5 } : null]} onPress={onPress} disabled={disabled}>
+    <Text style={styles.loadMoreText}>{children as any}</Text>
+  </Pressable>
 );
-const Button = ({ className, children, variant = "default", size = "default", ...props }: ButtonProps) => {
-  const base =
-    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3";
-  const byVariant: Record<ButtonVariant, string> = {
-    default: "border bg-background hover:bg-accent hover:text-accent-foreground",
-    ghost: "bg-transparent border-transparent hover:bg-accent",
-    outline: "border bg-background",
-  };
-  const bySize: Record<ButtonSize, string> = {
-    default: "",
-    icon: "h-9 w-9 p-0",
-  };
-  return (
-    <button
-      className={[base, byVariant[variant], bySize[size], className].filter(Boolean).join(" ")}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-};
-type BadgeVariant = "default" | "secondary";
-type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
-  children?: React.ReactNode;
-  variant?: BadgeVariant;
-};
-const Badge = ({ className, children, variant = "default", ...props }: BadgeProps) => (
-  <span
-    className={cx(
-      "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-      variant === "secondary" ? "bg-accent text-accent-foreground" : "",
-      className
-    )}
-    {...props}
-  >
-    {children}
-  </span>
+
+const Chip = ({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) => (
+  <Pressable onPress={onPress} style={[styles.tabBtn, active ? styles.tabBtnActive : null]}>
+    <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>{label}</Text>
+  </Pressable>
+);
+
+const Badge = ({ children }: { children?: React.ReactNode }) => (
+  <View style={styles.badge}><Text style={styles.badgeText}>{children as any}</Text></View>
 );
 
 type DiagnosisType = "personality" | "values" | "career" | "skills";
@@ -92,12 +103,16 @@ interface DiagnosisResultRow {
 
 const TYPE_LABELS: Record<
   DiagnosisType,
-  { title: string; icon: any; color: string }
+  { title: string; icon: any; bg: string }
 > = {
-  personality: { title: "性格診断", icon: Brain, color: "from-purple-400 to-purple-600" },
-  values: { title: "価値観診断", icon: Heart, color: "from-pink-400 to-pink-600" },
-  career: { title: "キャリア適性診断", icon: Target, color: "from-blue-400 to-blue-600" },
-  skills: { title: "スキル診断", icon: Award, color: "from-green-400 to-green-600" },
+  // purple
+  personality: { title: "性格診断", icon: Brain, bg: "#8B5CF6" },
+  // pink
+  values: { title: "価値観診断", icon: Heart, bg: "#F472B6" },
+  // blue
+  career: { title: "キャリア適性診断", icon: Target, bg: "#60A5FA" },
+  // green
+  skills: { title: "スキル診断", icon: Award, bg: "#22C55E" },
 };
 
 const PAGE_SIZE = 20;
@@ -183,53 +198,33 @@ export default function DiagnosisResultsListMobilePage() {
   const list = useMemo(() => rows, [rows]);
 
   return (
-    <div className="min-h-[100dvh] bg-background w-full overflow-x-hidden">
-      {/* Top App Bar */}
-      <div className="sticky top-0 z-20 backdrop-blur supports-[backdrop-filter]:bg-background/80 bg-background/95 border-b">
-        <div className="mx-auto max-w-screen-sm px-3 py-2 flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="戻る">
-            <ArrowLeftIcon className="w-5 h-5" />
-          </Button>
-          <h1 className="text-base font-semibold">診断結果一覧</h1>
-          <div className="ml-auto text-xs text-muted-foreground">最新順</div>
-        </div>
-        {/* Filter Tabs (local implementation) */}
-        <div className="w-full">
-          <div className="w-full overflow-x-auto no-scrollbar px-3 pb-2">
-            <div className="inline-flex gap-2" role="tablist" aria-label="診断種別フィルタ">
+    <View style={styles.screen}>
+      <View style={styles.appBar}>
+        <View style={styles.appBarRow}>
+          <Pressable onPress={() => router.push("/ipo/diagnosis")} accessibilityLabel="戻る">
+            <ArrowLeftIcon width={20} height={20} />
+          </Pressable>
+          <Text style={styles.appBarTitle}>診断結果一覧</Text>
+          <Text style={styles.appBarMeta}>最新順</Text>
+        </View>
+        <View style={styles.tabsWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
+            <View style={styles.tabsRow}>
               {TABS.map((t) => (
-                <Button
-                  key={t.key}
-                  role="tab"
-                  aria-selected={activeType === t.key}
-                  className={cx(
-                    "shrink-0 rounded-full border px-4 py-1 h-auto",
-                    activeType === t.key ? "bg-foreground text-background" : "bg-background text-foreground"
-                  )}
-                  onClick={() => onChangeType(t.key)}
-                >
-                  {t.label}
-                </Button>
+                <Chip key={t.key} label={t.label} active={activeType === t.key} onPress={() => onChangeType(t.key)} />
               ))}
-            </div>
-          </div>
-        </div>
-      </div>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
 
-      {/* Content */}
-      <div className="mx-auto max-w-screen-sm px-3 pb-24 pt-3 space-y-3">
-        {error && (
-          <Card>
-            <CardContent className="p-3 text-sm text-red-600">{error}</CardContent>
-          </Card>
+      <ScrollView contentContainerStyle={styles.container}>
+        {!!error && (
+          <Card><CardContent style={styles.errorContent}><Text style={styles.errorText}>{error}</Text></CardContent></Card>
         )}
 
         {list.length === 0 && !loading && !error && (
-          <Card>
-            <CardContent className="p-4 text-sm text-muted-foreground">
-              過去の診断結果はまだありません。
-            </CardContent>
-          </Card>
+          <Card><CardContent style={styles.emptyContent}><Text style={styles.emptyText}>過去の診断結果はまだありません。</Text></CardContent></Card>
         )}
 
         {list.map((row) => {
@@ -238,59 +233,39 @@ export default function DiagnosisResultsListMobilePage() {
             .map(([k, v]) => [k, Number(v)] as [string, number])
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3);
-
-          const Icon = label.icon;
+          const Icon = label.icon as any;
 
           return (
-            <Link key={row.id} href={`/ipo/diagnosis/result/${row.id}`} className="block">
-              <Card className="transition active:scale-[0.99]">
-                <CardContent className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-full bg-gradient-to-r ${label.color} shrink-0`}>
-                      <Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs text-muted-foreground">
-                        <ClockIcon className="inline-block w-3.5 h-3.5 mr-1 align-[-2px]" />
-                        {toJSTString(row.created_at)}
-                      </div>
-                      <div className="mt-0.5 text-base font-semibold truncate">{label.title}</div>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
+            <Pressable key={row.id} onPress={() => router.push(`/ipo/diagnosis/result/${row.id}`)}>
+              <Card>
+                <CardContent>
+                  <View style={styles.row}>
+                    <View style={[styles.iconCircle, { backgroundColor: label.bg }]}>
+                      <Icon width={18} height={18} color="#fff" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.timeText}>{toJSTString(row.created_at)}</Text>
+                      <Text style={styles.title}>{label.title}</Text>
+                      <View style={styles.badgesRow}>
                         {topScores.map(([k, v]) => (
-                          <Badge key={k} variant="secondary" className="text-[11px]">
-                            {k}: {Math.round(v)}%
-                          </Badge>
+                          <Badge key={k}>{`${k}: ${Math.round(v)}%`}</Badge>
                         ))}
-                      </div>
-                    </div>
-                    <ChevronRightIcon className="w-5 h-5 text-muted-foreground shrink-0 mt-1" />
-                  </div>
+                      </View>
+                    </View>
+                    <ChevronRightIcon width={20} height={20} />
+                  </View>
                 </CardContent>
               </Card>
-            </Link>
+            </Pressable>
           );
         })}
 
-        {/* Load more */}
-        <div className="pt-2 pb-8 flex justify-center">
-          <Button
-            className="w-full max-w-xs"
-            variant="outline"
-            onClick={() => load()}
-            disabled={loading || !hasMore}
-          >
-            {loading ? "読み込み中…" : hasMore ? "もっと見る" : "これ以上はありません"}
+        <View style={styles.loadMoreWrap}>
+          <Button onPress={() => load()} disabled={loading || !hasMore}>
+            {loading ? '読み込み中…' : hasMore ? 'もっと見る' : 'これ以上はありません'}
           </Button>
-        </div>
-      </div>
-
-      {/* iOS Safe Area */}
-      <div className="h-6 sm:h-8" />
-    </div>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
-
-/* ---------- Utility: hide scrollbar on tabs ---------- */
-// tailwind.css 等に以下のユーティリティを追加済みでない場合は、
-// .no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; } 
-// .no-scrollbar::-webkit-scrollbar{ display:none; }

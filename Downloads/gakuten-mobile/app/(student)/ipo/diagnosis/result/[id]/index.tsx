@@ -4,7 +4,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "src/lib/supabase";
 import type { PostgrestError } from "@supabase/supabase-js";
+
 import { ArrowLeft, Clock, Brain, Heart, Target, Award, Star, TrendingUp, CheckCircle, Lightbulb, Download, RotateCcw, BookOpen } from "lucide-react-native";
+
+// Radar chart component
+import * as _CareerRadarChart from "../../../../../../components/ipo/charts/CareerRadarChart";
 
 
 // ---- Types ----
@@ -47,6 +51,7 @@ function pct(n?: number | null) {
   return Math.max(0, Math.min(100, Math.round(v)));
 }
 
+
 const TYPE_META: Record<
   DiagnosisType,
   { title: string; colorFrom: string; colorTo: string; Icon: any }
@@ -56,6 +61,11 @@ const TYPE_META: Record<
   career: { title: "キャリア適性診断", colorFrom: "#60A5FA", colorTo: "#2563EB", Icon: Target },
   skills: { title: "スキル診断", colorFrom: "#34D399", colorTo: "#059669", Icon: Award },
 };
+
+// ---- Charts resolver (accept named or default export) ----
+const CareerRadarChart: any =
+  (_CareerRadarChart as any).CareerRadarChart ??
+  (_CareerRadarChart as any).default;
 
 function jpLabel(key: string) {
   const map: Record<string, string> = {
@@ -119,6 +129,15 @@ export default function DiagnosisResultMobile() {
       .map(([k, v]) => [k, Number(v)] as [string, number])
       .sort((a, b) => b[1] - a[1]);
   }, [row]);
+
+  // Object-shaped dataset expected by CareerRadarChart (Record<label, score>)
+  const radarDataObj = useMemo(() => {
+    const obj: Record<string, number> = {};
+    for (const [k, v] of scoresSorted) {
+      obj[jpLabel(k)] = pct(v);
+    }
+    return obj;
+  }, [scoresSorted]);
 
   const scoreOf = (cat: string) => {
     if (!row?.scores) return 0;
@@ -187,6 +206,22 @@ export default function DiagnosisResultMobile() {
         {tab === "overview" && (
           <View style={{ gap: 12 }}>
             {/* Scores list (mobile: simple stacked cards) */}
+            <Card>
+              <Text style={styles.cardTitle}>レーダーチャート</Text>
+              <View style={styles.chartWrap}>
+                {CareerRadarChart && Object.keys(radarDataObj).length > 0 ? (
+                  <CareerRadarChart
+                    width={260}
+                    height={260}
+                    size={260}
+                    max={100}
+                    data={radarDataObj}
+                  />
+                ) : (
+                  <Text style={styles.mutedSmall}>チャートコンポーネントが見つかりません</Text>
+                )}
+              </View>
+            </Card>
             <Card>
               <Text style={styles.cardTitle}>あなたの特性スコア</Text>
               <View style={{ gap: 10 }}>
@@ -569,4 +604,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111827",
   },
+  chartWrap: { alignItems: "center", justifyContent: "center", paddingTop: 6, paddingBottom: 6 },
 });

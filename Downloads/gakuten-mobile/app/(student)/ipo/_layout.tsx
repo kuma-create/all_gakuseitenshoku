@@ -14,7 +14,7 @@ export default function IPOLayout() {
     headerShown: false,
     tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
     tabBarButton: (p) => <HapticTab {...p} />,
-    tabBarBackground: () => <View />,
+    tabBarBackground: undefined,
     tabBarStyle: Platform.select({
       ios: { position: 'absolute' },
       default: {},
