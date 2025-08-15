@@ -3,6 +3,7 @@ import { Menu } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { supabase } from "../src/lib/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface AppHeaderProps {
   title: string;
@@ -13,6 +14,11 @@ export default function AppHeader({ title }: AppHeaderProps) {
   const [userName, setUserName] = useState<string>("");
 
   const [menuVisible, setMenuVisible] = useState(false);
+  const insets = useSafeAreaInsets();
+  const headerPaddingTop = Math.max(insets.top, 12);
+  const baseBarHeight = 56;
+  const headerHeight = baseBarHeight + headerPaddingTop;
+  const menuTop = headerHeight + 8;
 
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
@@ -99,7 +105,8 @@ export default function AppHeader({ title }: AppHeaderProps) {
           alignItems: "center",
           justifyContent: "center",
           paddingHorizontal: 16,
-          height: 56,
+          paddingTop: headerPaddingTop,
+          height: headerHeight,
           backgroundColor: "#f9fafb",
           borderBottomWidth: 1,
           borderBottomColor: "#e5e7eb",
@@ -146,7 +153,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
         <View
           style={{
             position: "absolute",
-            top: 64,
+            top: menuTop,
             right: 12,
             width: 240,
             backgroundColor: "#fff",

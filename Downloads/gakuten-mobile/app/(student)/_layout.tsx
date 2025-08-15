@@ -2,18 +2,17 @@
 import { Feather } from '@expo/vector-icons';
 import { Link, Slot, usePathname, useRouter } from "expo-router";
 import React from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AppHeader from "../../components/AppHeader";
+
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
-const HEADER_HEIGHT = 56;
 const BOTTOM_BAR_HEIGHT = 58;
 
 function BottomBar() {
   const pathname = usePathname();
 
-  // Expo Router: group segments like /(student) don't appear in the actual URL on web.
   // Normalize both the current pathname and hrefs by removing any /(group) parts.
   const normalize = (p: string) => {
     // remove route group segments: "/(xxx)"
@@ -54,9 +53,7 @@ function BottomBar() {
       <Link href={href} asChild>
         <Pressable style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 8 }}>
           <Feather name={iconName} size={iconSize} color={color} />
-          <Text style={{ fontSize, fontWeight, color }}>
-            {label}
-          </Text>
+          <Text style={{ fontSize, fontWeight, color }}>{label}</Text>
         </Pressable>
       </Link>
     );
@@ -87,20 +84,29 @@ function getTitle(pathname: string) {
 export default function StudentLayout() {
   const pathname = usePathname();
   const router = useRouter();
-  const hideBar = pathname.startsWith("/auth"); // 隠したいパスがあればここに追加
-  const hideHeader = pathname.startsWith("/auth");
+
+  // Normalize pathname to ignore route groups like /(student)
+  const normalize = (p: string) => {
+    let s = p.replace(/\/\([^/]+\)/g, ""); // remove /(group)
+    s = s.replace(/\/+/g, "/");
+    if (s.length > 1 && s.endsWith("/")) s = s.slice(0, -1);
+    if (!s.startsWith("/")) s = "/" + s;
+    if (s === "" || s === "//") s = "/";
+    return s;
+  };
+  const normPath = normalize(pathname);
+
+  // Hide bar/header on auth and on any /ipo path
+  const hideBar = normPath.startsWith("/auth") || normPath.startsWith("/ipo");
+  const hideHeader = normPath.startsWith("/auth");
   const title = getTitle(pathname);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       {!hideHeader && <AppHeader title={title} />}
-      
-      {/* コンテンツ領域：下部バーに隠れないように余白を確保 */}
       <View style={{ flex: 1 }}>
         <Slot />
       </View>
-
-      {/* 下部タブバー */}
       {!hideBar && <BottomBar />}
     </View>
   );
