@@ -97,3 +97,7 @@ next-env.d.ts
 # 環境変数ファイルはすべて無視
 .env
 .env.*
+/.env
+
+/gakuten-mobile/.env
+/Downloads/gakuten-mobile/.env
