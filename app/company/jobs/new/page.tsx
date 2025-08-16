@@ -37,17 +37,16 @@ import { Command, CommandItem } from "@/components/ui/command"
 // --- selectable job categories (single‑select) ---
 const JOB_CATEGORIES = [
   "エンジニア",
-  "研究・開発",
-  "品質管理",
-  "デザイナー",
   "営業",
-  "総務・人事",
-  "物流",
-  "生産管理",
   "コンサルタント",
+  "経営・経営企画",
+  "総務・人事",
   "経理・財務",
-  "企画・マーケティング",
-  "販売・サービス",
+  "企画",
+  "マーケティング",
+  "デザイナー",
+  "広報",
+  "その他",
 ] as const;
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { supabase } from "@/lib/supabase/client"
