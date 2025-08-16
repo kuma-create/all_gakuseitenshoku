@@ -30,6 +30,7 @@ next-env.d.ts
 *.DS_Store.DS_Store
 supabase/migrations/.DS_Store
 
+
 node_modules/
 **/node_modules/
 .pnpm-store/
@@ -43,3 +44,4 @@ tmp/
 !.yarn/plugins
 !.yarn/sdks
 !.yarn/versions
+
