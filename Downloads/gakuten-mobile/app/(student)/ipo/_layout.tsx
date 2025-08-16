@@ -1,29 +1,32 @@
 // app/(student)/ipo/_layout.tsx
 import { Tabs } from 'expo-router';
-import { View, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { useColorScheme } from 'hooks/useColorScheme';
 import { Colors } from 'constants/Colors';
 import { HapticTab } from 'components/HapticTab';
-import { IconSymbol } from 'components/ui/IconSymbol';
 import { Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function IPOLayout() {
   const colorScheme = useColorScheme();
   const common: BottomTabNavigationOptions = {
     headerShown: false,
     tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+    tabBarInactiveTintColor: '#9CA3AF', // gray-400
     tabBarButton: (p) => <HapticTab {...p} />,
-    tabBarBackground: undefined,
+    // フッターは透過させない
     tabBarStyle: Platform.select({
-      ios: { position: 'absolute' },
-      default: {},
+      ios: { position: 'absolute', backgroundColor: '#fff', borderTopColor: '#e5e7eb', borderTopWidth: 1 },
+      default: { backgroundColor: '#fff', borderTopColor: '#e5e7eb', borderTopWidth: 1 },
     }),
+    tabBarLabelStyle: { fontSize: 11 },
     tabBarItemStyle: { display: 'none' },
   };
 
   return (
     <Tabs screenOptions={common}>
+      {/* ホーム */}
       <Tabs.Screen
         name="dashboard"
         options={{
@@ -33,60 +36,74 @@ export default function IPOLayout() {
           tabBarItemStyle: { display: 'flex' },
         }}
       />
+
+      {/* 自己分析 */}
       <Tabs.Screen
         name="analysis/index"
         options={{
           href: '/ipo/analysis',
           title: '自己分析',
-          tabBarIcon: ({ color }) => <Feather name="search" size={24} color={color} />,
+          // 近いアイコンとして "cpu" を使用（Feather に brain は無いため）
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="brain" size={24} color={color} />
+          ),
           tabBarItemStyle: { display: 'flex' },
         }}
       />
+
+      {/* 選考状況 */}
+      <Tabs.Screen
+        name="selection/index"
+        options={{
+          href: '/ipo/selection',
+          title: '選考状況',
+          tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={24} color={color} />,
+          tabBarItemStyle: { display: 'flex' },
+        }}
+      />
+
+      {/* 対策 */}
       <Tabs.Screen
         name="case/index"
         options={{
           href: '/ipo/case',
-          title: 'ケース',
-          tabBarIcon: ({ color }) => <Feather name="mail" size={24} color={color} />,
+          title: '対策',
+          tabBarIcon: ({ color }) => <Feather name="target" size={24} color={color} />,
           tabBarItemStyle: { display: 'flex' },
         }}
       />
+
+      {/* 調べる */}
+      <Tabs.Screen
+        name="library/index"
+        options={{
+          href: '/ipo/library',
+          title: '調べる',
+          tabBarIcon: ({ color }) => <Feather name="search" size={24} color={color} />,
+          tabBarItemStyle: { display: 'flex' },
+        }}
+      />
+
+      {/* 診断 */}
       <Tabs.Screen
         name="diagnosis/index"
         options={{
           href: '/ipo/diagnosis',
           title: '診断',
-          tabBarIcon: ({ color }) => <Feather name="message-circle" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="activity" size={24} color={color} />,
           tabBarItemStyle: { display: 'flex' },
         }}
       />
-      <Tabs.Screen
-        name="selection/index"
-        options={{
-          href: '/ipo/selection',
-          title: '選考管理',
-          tabBarIcon: ({ color }) => <Feather name="book" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
-        }}
-      />      
-      <Tabs.Screen
-        name="library/index"
-        options={{
-          href: '/ipo/library',
-          title: 'ライブラリ',
-          tabBarIcon: ({ color }) => <Feather name="book" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
-        }}
-      />           
+      {/* カレンダー */}
       <Tabs.Screen
         name="calendar/index"
         options={{
           href: '/ipo/calendar',
-          title: 'カレンダー',
-          tabBarIcon: ({ color }) => <Feather name="book" size={24} color={color} />,
+          title: '予定',
+          tabBarIcon: ({ color }) => <Feather name="calendar" size={24} color={color} />,
           tabBarItemStyle: { display: 'flex' },
         }}
-      />
+      />      
     </Tabs>
   );
 }
