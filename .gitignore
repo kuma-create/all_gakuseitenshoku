@@ -42,3 +42,28 @@ yarn-error.*
 app-example
 
 Downloads/studentjobdashboard85/
+
+# builds & caches
+.next/
+dist/
+.out/
+.eslintcache
+.turbo/
+.vercel/
+coverage/
+
+# platform builds
+ios/build/
+android/app/build/
+
+# node
+node_modules/
+
+# expo
+.expo/
+.expo-shared/
+
+# misc
+.DS_Store
+*.log
+.env
