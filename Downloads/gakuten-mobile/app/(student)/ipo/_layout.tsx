@@ -12,7 +12,7 @@ export default function IPOLayout() {
   const colorScheme = useColorScheme();
   const common: BottomTabNavigationOptions = {
     headerShown: false,
-    tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+    tabBarActiveTintColor: '#3B82F6', // blue-500
     tabBarInactiveTintColor: '#9CA3AF', // gray-400
     tabBarButton: (p) => <HapticTab {...p} />,
     // フッターは透過させない

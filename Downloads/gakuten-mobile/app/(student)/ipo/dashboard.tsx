@@ -23,8 +23,23 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // If you already have a shared supabase client for mobile, prefer that import.
-// Fallback: dynamic import inside effect as done on web.
 let supabaseClient: any = null;
+// --- Supabase client (Expo): persist session in AsyncStorage ---
+if (!supabaseClient) {
+  const { createClient } = require("@supabase/supabase-js");
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (supabaseUrl && supabaseKey) {
+    supabaseClient = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        storage: AsyncStorage as any,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    });
+  }
+}
 
 // Simple progress bar for RN
 const ProgressBar = ({ progress }: { progress: number }) => {
@@ -102,6 +117,7 @@ interface CareerScoreBreakdown {
 
 export default function IPOMobileDashboard() {
   const router = useRouter();
+  const [isAuthed, setIsAuthed] = useState<boolean>(true);
 
   const [peerReviews, setPeerReviews] = useState<PeerReview[]>([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -143,27 +159,21 @@ export default function IPOMobileDashboard() {
           setCompletedOnboardingSteps(JSON.parse(savedProgress));
         }
 
-        // Initialize Supabase (mobile uses env; do not depend on web alias)
-        try {
-          const mod = await import("@supabase/supabase-js");
-          const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-          const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-          if (supabaseUrl && supabaseKey) {
-            supabaseClient = mod.createClient(supabaseUrl, supabaseKey);
-          }
-        } catch {}
-
+        // Supabase client is now initialized above
         if (!supabaseClient) {
           setLoading(false);
           return;
         }
 
-        const { data: auth } = await supabaseClient.auth.getUser();
-        const user = auth?.user;
+        // Auth: get session and user
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const user = session?.user ?? null;
         if (!user) {
+          setIsAuthed(false);
           setLoading(false);
           return;
         }
+        setIsAuthed(true);
 
         // Peer Reviews
         const { data: reviewRows, error: reviewErr } = await supabaseClient
@@ -281,17 +291,45 @@ export default function IPOMobileDashboard() {
     );
   }
 
-  const breakdown: CareerScoreBreakdown = careerScore?.breakdown ?? {
-    Communication: 0,
-    Logic: 0,
-    Leadership: 0,
-    Fit: 0,
-    Vitality: 0,
+  // Not logged in -> show CTA instead of empty defaults
+  if (!supabaseClient) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <Text style={{ fontSize: 16, marginBottom: 12 }}>セットアップが未完了です。</Text>
+        <Text style={{ color: "#6B7280", textAlign: "center" }}>環境変数 EXPO_PUBLIC_SUPABASE_URL / ANON_KEY を設定してください。</Text>
+      </View>
+    );
+  }
+
+  // helper for clamping and rounding
+  const clamp05 = (n: any) => Math.max(0, Math.min(5, Number(n ?? 0)));
+  const round1  = (n: number) => Math.round(n * 10) / 10;
+
+  const raw = careerScore?.breakdown ?? {
+    Communication: 0, Logic: 0, Leadership: 0, Fit: 0, Vitality: 0,
+  };
+
+  const breakdown: CareerScoreBreakdown = {
+    Communication: round1(clamp05(raw.Communication)),
+    Logic:         round1(clamp05(raw.Logic)),
+    Leadership:    round1(clamp05(raw.Leadership)),
+    Fit:           round1(clamp05(raw.Fit)),
+    Vitality:      round1(clamp05(raw.Vitality)),
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        {/* Login required prompt */}
+        {!isAuthed && (
+          <View style={{ marginBottom: 16, backgroundColor: "#FEF3C7", borderColor: "#FDE68A", borderWidth: 1, borderRadius: 12, padding: 16 }}>
+            <Text style={{ fontWeight: "800", marginBottom: 6 }}>ログインが必要です</Text>
+            <Text style={{ color: "#6B7280", marginBottom: 12 }}>データ連携にはサインインしてください。</Text>
+            <TouchableOpacity onPress={() => router.push("/(student)/login" as any)} style={{ backgroundColor: "#111827", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, alignSelf: "flex-start" }}>
+              <Text style={{ color: "#fff", fontWeight: "700" }}>ログインへ</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {/* Header */}
         <View style={{ marginBottom: 16 }}>
           <Text style={{ fontSize: 24, fontWeight: "800", color: "#111827" }}></Text>
@@ -359,13 +397,13 @@ export default function IPOMobileDashboard() {
                 : `${scoreChange > 0 ? "+" : ""}${scoreChange}（前回比）`
             }
             icon={<Text style={{ fontSize: 28 }}>📈</Text>}
-            progress={careerScore?.overall ?? 0}
+            progress={Math.max(0, Math.min(100, careerScore?.overall ?? 0))}
           />
           <MetricCard
             label="自己分析完了度"
             value={`${analysisCompletion}%`}
             icon={<Text style={{ fontSize: 28 }}>📊</Text>}
-            progress={analysisCompletion}
+            progress={Math.max(0, Math.min(100, analysisCompletion))}
           />
         </View>
 
@@ -377,12 +415,12 @@ export default function IPOMobileDashboard() {
                 <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>キャリアスコア詳細</Text>
                 <Text style={{ color: "#6B7280", marginTop: 4 }}>5つの軸であなたの強みを可視化</Text>
               </View>
-              <TouchableOpacity
+              {/*<TouchableOpacity
                 onPress={() => setShowScoreInfo(true)}
                 style={{ borderColor: "#D1D5DB", borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
               >
                 <Text>詳細を見る</Text>
-              </TouchableOpacity>
+              </TouchableOpacity>*/}
             </View>
           </View>
           <View style={{ padding: 16 }}>
@@ -396,7 +434,9 @@ export default function IPOMobileDashboard() {
             <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
               {Object.entries(breakdown).map(([key, value]) => (
                 <View key={key} style={{ width: "48%", marginBottom: 10, alignItems: "center" }}>
-                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#1D4ED8" }}>{value}</Text>
+                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#1D4ED8" }}>
+                    {Number(value).toFixed(1)}
+                  </Text>
                   <Text style={{ color: "#374151", marginTop: 4 }}>{key}</Text>
                 </View>
               ))}

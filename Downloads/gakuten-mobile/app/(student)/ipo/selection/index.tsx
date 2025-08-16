@@ -24,6 +24,8 @@ import {
   XCircle,
   Award,
   CheckCircle,
+  Eye,
+  Pencil,
 } from "lucide-react-native";
 import { supabase } from 'src/lib/supabase';
 
@@ -109,10 +111,33 @@ const PRIORITY_LABEL = {
   low: "練習",
 };
 
+const STAT_COLORS = {
+  total: { dot: "#60A5FA", text: "#1D4ED8" },      // blue
+  inProgress: { dot: "#FBBF24", text: "#B45309" }, // amber
+  offer: { dot: "#34D399", text: "#047857" },      // green
+  rejected: { dot: "#F87171", text: "#B91C1C" },   // red
+} as const;
+
 
 /* ------------------------------------------------------------------
    モバイル版 選考管理ページ
 ------------------------------------------------------------------- */
+
+function sizeToLabel(size: Company["size"]) {
+  if (size === "startup") return "スタートアップ";
+  if (size === "sme") return "中小";
+  if (size === "large") return "大企業";
+  if (size === "megacorp") return "メガベンチャー";
+  return "-";
+}
+
+const Row = ({ label, value }: { label: string; value?: string }) => (
+  <View style={{ flexDirection: "row" }}>
+    <Text style={{ width: 72, color: "#6B7280", fontSize: 12 }}>{label}:</Text>
+    <Text style={{ flex: 1, color: "#111827", fontSize: 12 }}>{value || "-"}</Text>
+  </View>
+);
+
 export default function SelectionIndex() {
   const router = useRouter();
 
@@ -130,6 +155,27 @@ export default function SelectionIndex() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  // 編集モーダル
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Company | null>(null);
+  const [editForm, setEditForm] = useState({
+    id: "" as string,
+    name: "",
+    industry: "",
+    size: "large" as Company["size"],
+    location: "",
+    priority: "medium" as Company["priority"],
+    jobTitle: "",
+    salary: "",
+    description: "",
+    notes: "",
+    tags: "",
+  });
+
+  // 詳細モーダル
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<Company | null>(null);
+  const [detailTab, setDetailTab] = useState<"overview" | "stages" | "notes">("overview");
 
   // 追加フォーム
   const [form, setForm] = useState({
@@ -291,6 +337,86 @@ export default function SelectionIndex() {
         : 0,
   }), [companies]);
 
+  // 企業情報の更新（編集モーダル）
+  const handleUpdateCompany = useCallback(async () => {
+    if (!editTarget) return;
+    if (!editForm.name.trim() || !editForm.jobTitle.trim()) return;
+
+    try {
+      const nowDate = new Date().toISOString().split("T")[0];
+      await supabase
+        .from("ipo_selection_companies")
+        .update({
+          name: editForm.name,
+          industry: editForm.industry || null,
+          size: editForm.size,
+          location: editForm.location || null,
+          priority: editForm.priority,
+          notes: editForm.notes || null,
+          last_update: nowDate,
+          job_title: editForm.jobTitle,
+          job_salary: editForm.salary || null,
+          job_description: editForm.description || null,
+          tags: editForm.tags ? editForm.tags.split(",").map((t) => t.trim()) : [],
+        })
+        .eq("id", editTarget.id);
+
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.id === editTarget.id
+            ? {
+                ...c,
+                name: editForm.name,
+                industry: editForm.industry,
+                size: editForm.size,
+                location: editForm.location,
+                priority: editForm.priority,
+                notes: editForm.notes,
+                lastUpdate: nowDate,
+                jobDetails: {
+                  ...c.jobDetails,
+                  title: editForm.jobTitle,
+                  salary: editForm.salary,
+                  description: editForm.description,
+                },
+                tags: editForm.tags ? editForm.tags.split(",").map((t) => t.trim()) : [],
+              }
+            : c,
+        ),
+      );
+
+      setEditOpen(false);
+      setEditTarget(null);
+    } catch (e) {
+      // 失敗してもローカル更新は反映
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.id === editTarget.id
+            ? {
+                ...c,
+                name: editForm.name,
+                industry: editForm.industry,
+                size: editForm.size,
+                location: editForm.location,
+                priority: editForm.priority,
+                notes: editForm.notes,
+                jobDetails: {
+                  ...c.jobDetails,
+                  title: editForm.jobTitle,
+                  salary: editForm.salary,
+                  description: editForm.description,
+                },
+                tags: editForm.tags ? editForm.tags.split(",").map((t) => t.trim()) : [],
+              }
+            : c,
+        ),
+      );
+      setEditOpen(false);
+      setEditTarget(null);
+    }
+  }, [editForm, editTarget]);
+
+  // 新規企業の追加
   const handleAddCompany = useCallback(async () => {
     if (!form.name.trim() || !form.jobTitle.trim()) return;
     const nowDate = new Date().toISOString().split("T")[0];
@@ -309,9 +435,7 @@ export default function SelectionIndex() {
           notes: form.notes || null,
           last_update: nowDate,
           overall_rating: null,
-          tags: form.tags
-            ? form.tags.split(",").map((t) => t.trim())
-            : [],
+          tags: form.tags ? form.tags.split(",").map((t) => t.trim()) : [],
           job_title: form.jobTitle,
           job_salary: form.salary || null,
           job_description: form.description || null,
@@ -423,6 +547,10 @@ export default function SelectionIndex() {
           borderWidth: 1,
           borderColor: "#E5E7EB",
           marginBottom: 12,
+          shadowColor: "#000",
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 },
         }}
       >
         {/* ヘッダ */}
@@ -435,20 +563,415 @@ export default function SelectionIndex() {
               {item.jobDetails.title}
             </Text>
           </View>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 9999,
+                backgroundColor: "#EEF2FF",
+                borderWidth: 1,
+                borderColor: "#E0E7FF",
+                marginRight: 8,
+              }}
+            >
+              <Icon size={14} color="#1F2937" />
+              <Text style={{ marginLeft: 4, fontSize: 12 }}>
+                {STATUS_LABEL[item.status]}
+              </Text>
+            </View>
+            {/* 編集ボタン -> /ipo/selection/[id]/edit */}
+            <TouchableOpacity
+              onPress={() => {
+                setEditTarget(item);
+                setEditForm({
+                  id: item.id,
+                  name: item.name,
+                  industry: item.industry || "",
+                  size: item.size,
+                  location: item.location || "",
+                  priority: item.priority,
+                  jobTitle: item.jobDetails.title || "",
+                  salary: item.jobDetails.salary || "",
+                  description: item.jobDetails.description || "",
+                  notes: item.notes || "",
+                  tags: item.tags?.join(",") || "",
+                });
+                setEditOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="編集"
+              style={{ padding: 6, marginRight: 6 }}
+            >
+              <Pencil size={16} color="#374151" />
+            </TouchableOpacity>
+      {/* 企業編集（ポップアップ） */}
+      <Modal visible={editOpen} animationType="slide" transparent>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.2)",
+            justifyContent: "flex-end",
+          }}
+        >
           <View
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingHorizontal: 8,
-              paddingVertical: 4,
-              borderRadius: 8,
-              backgroundColor: "#F3F4F6",
+              backgroundColor: "#fff",
+              padding: 16,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: "90%",
             }}
           >
-            <Icon size={14} color="#111827" />
-            <Text style={{ marginLeft: 4, fontSize: 12 }}>
-              {STATUS_LABEL[item.status]}
+            <Text style={{ fontWeight: "700", fontSize: 16 }}>企業情報を編集</Text>
+            <Text style={{ color: "#6B7280", fontSize: 12, marginTop: 2 }}>
+              企業情報と応募したポジションの詳細を編集してください。
             </Text>
+
+            {[
+              { k: "name", ph: "企業名 *" },
+              { k: "jobTitle", ph: "職種 *" },
+              { k: "industry", ph: "業界" },
+              { k: "location", ph: "所在地" },
+              { k: "salary", ph: "想定年収（例: 600-800（万円））" },
+              { k: "tags", ph: "タグ（カンマ区切り）" },
+            ].map((f) => (
+              <View
+                key={f.k}
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 10,
+                }}
+              >
+                <TextInput
+                  placeholder={f.ph}
+                  value={(editForm as any)[f.k]}
+                  onChangeText={(t) => setEditForm((p) => ({ ...(p as any), [f.k]: t }))}
+                />
+              </View>
+            ))}
+
+            {/* 優先度（3択） */}
+            <View style={{ marginTop: 10 }}>
+              <Text style={{ fontSize: 12, color: "#6B7280" }}>優先度</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {(["high", "medium", "low"] as const).map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setEditForm((p) => ({ ...p, priority: v }))}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      borderRadius: 9999,
+                      borderWidth: 1,
+                      borderColor: editForm.priority === v ? "#2563EB" : "#E5E7EB",
+                      backgroundColor: editForm.priority === v ? "#DBEAFE" : "#FFFFFF",
+                      marginRight: 8,
+                      marginTop: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12 }}>{PRIORITY_LABEL[v]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* 職務内容 / メモ */}
+            <View
+              style={{
+                backgroundColor: "#F3F4F6",
+                borderRadius: 10,
+                paddingHorizontal: 10,
+                paddingVertical: 10,
+                marginTop: 10,
+                minHeight: 80,
+              }}
+            >
+              <TextInput
+                placeholder="職務内容"
+                value={editForm.description}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, description: t }))}
+                multiline
+              />
+            </View>
+
+            <View
+              style={{
+                backgroundColor: "#F3F4F6",
+                borderRadius: 10,
+                paddingHorizontal: 10,
+                paddingVertical: 10,
+                marginTop: 10,
+                minHeight: 80,
+              }}
+            >
+              <TextInput
+                placeholder="メモ"
+                value={editForm.notes}
+                onChangeText={(t) => setEditForm((p) => ({ ...p, notes: t }))}
+                multiline
+              />
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setEditOpen(false);
+                  setEditTarget(null);
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  alignItems: "center",
+                }}
+              >
+                <Text>キャンセル</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleUpdateCompany}
+                disabled={!editForm.name.trim() || !editForm.jobTitle.trim()}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: !editForm.name.trim() || !editForm.jobTitle.trim()
+                    ? "#93C5FD"
+                    : "#2563EB",
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>更新</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+            {/* 詳細（ポップアップ） */}
+            <TouchableOpacity
+              onPress={() => {
+                setDetailTarget(item);
+                setDetailTab("overview");
+                setDetailOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="詳細を見る"
+              style={{ padding: 6 }}
+            >
+              <Eye size={16} color="#374151" />
+            </TouchableOpacity>
+        {/* 企業詳細（ポップアップ） */}
+        <Modal visible={detailOpen} animationType="slide" transparent>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
+            <View
+              style={{
+                backgroundColor: "#fff",
+                padding: 16,
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                maxHeight: "92%",
+              }}
+            >
+              {/* ヘッダ */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text numberOfLines={1} style={{ fontWeight: "800", fontSize: 18 }}>
+                    {detailTarget?.name ?? ""}
+                  </Text>
+                  <Text numberOfLines={1} style={{ color: "#6B7280", marginTop: 2 }}>
+                    {(detailTarget?.industry || "-") + " ・ " + (detailTarget?.jobDetails.title || "-")}
+                  </Text>
+                </View>
+                {/* 右上：編集ショートカット */}
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!detailTarget) return;
+                    setEditTarget(detailTarget);
+                    setEditForm({
+                      id: detailTarget.id,
+                      name: detailTarget.name,
+                      industry: detailTarget.industry || "",
+                      size: detailTarget.size,
+                      location: detailTarget.location || "",
+                      priority: detailTarget.priority,
+                      jobTitle: detailTarget.jobDetails.title || "",
+                      salary: detailTarget.jobDetails.salary || "",
+                      description: detailTarget.jobDetails.description || "",
+                      notes: detailTarget.notes || "",
+                      tags: detailTarget.tags?.join(",") || "",
+                    });
+                    setDetailOpen(false);
+                    setEditOpen(true);
+                  }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    backgroundColor: "#F3F4F6",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                  }}
+                >
+                  <Text style={{ fontWeight: "700" }}>編集</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* タブ */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  marginTop: 12,
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 8,
+                  padding: 4,
+                }}
+              >
+                {[
+                  { key: "overview", label: "概要" },
+                  { key: "stages", label: "選考段階" },
+                  { key: "notes", label: "メモ" },
+                ].map((t) => (
+                  <TouchableOpacity
+                    key={t.key}
+                    onPress={() => setDetailTab(t.key as any)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      alignItems: "center",
+                      borderRadius: 6,
+                      backgroundColor: detailTab === t.key ? "#FFFFFF" : "transparent",
+                      borderWidth: detailTab === t.key ? 1 : 0,
+                      borderColor: "#E5E7EB",
+                    }}
+                  >
+                    <Text style={{ fontWeight: "600", fontSize: 12 }}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 本文 */}
+              <ScrollView style={{ marginTop: 12 }} contentContainerStyle={{ paddingBottom: 20 }}>
+                {detailTab === "overview" && detailTarget ? (
+                  <View>
+                    {/* 2カラム風カード（縦積み） */}
+                    <View style={{ flexDirection: "row", gap: 12 }}>
+                      {/* 左：企業情報 */}
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: "#FFFFFF",
+                          borderWidth: 1,
+                          borderColor: "#E5E7EB",
+                          borderRadius: 12,
+                          padding: 12,
+                        }}
+                      >
+                        <Text style={{ fontWeight: "700", marginBottom: 8 }}>企業情報</Text>
+                        <View style={{ gap: 8 }}>
+                          <Row label="業界" value={detailTarget.industry || "-"} />
+                          <Row label="規模" value={sizeToLabel(detailTarget.size)} />
+                          <Row label="所在地" value={detailTarget.location || "-"} />
+                          <Row label="応募日" value={detailTarget.appliedDate || "-"} />
+                        </View>
+                      </View>
+
+                      {/* 右：職務情報 */}
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: "#FFFFFF",
+                          borderWidth: 1,
+                          borderColor: "#E5E7EB",
+                          borderRadius: 12,
+                          padding: 12,
+                        }}
+                      >
+                        <Text style={{ fontWeight: "700", marginBottom: 8 }}>職務情報</Text>
+                        <View style={{ gap: 8 }}>
+                          <Row label="職種" value={detailTarget.jobDetails.title || "-"} />
+                          <Row label="職務内容" value={detailTarget.jobDetails.description || "-"} />
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
+                {detailTab === "stages" && detailTarget ? (
+                  <View>
+                    {detailTarget.stages.length === 0 ? (
+                      <Text style={{ color: "#6B7280" }}>選考段階の記録はありません</Text>
+                    ) : (
+                      detailTarget.stages.map((s) => (
+                        <View
+                          key={s.id}
+                          style={{
+                            backgroundColor: "#FFFFFF",
+                            borderWidth: 1,
+                            borderColor: "#E5E7EB",
+                            borderRadius: 12,
+                            padding: 12,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <Text style={{ fontWeight: "700" }}>{s.name}</Text>
+                          <Text style={{ color: "#6B7280", marginTop: 4 }}>
+                            {s.date || "-"} {s.time || ""}
+                          </Text>
+                          {s.feedback ? (
+                            <Text style={{ marginTop: 8 }}>FB: {s.feedback}</Text>
+                          ) : null}
+                        </View>
+                      ))
+                    )}
+                  </View>
+                ) : null}
+
+                {detailTab === "notes" && detailTarget ? (
+                  <View
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      borderWidth: 1,
+                      borderColor: "#E5E7EB",
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <Text style={{ fontWeight: "700", marginBottom: 8 }}>メモ</Text>
+                    <Text style={{ color: "#374151" }}>
+                      {detailTarget.notes?.trim() ? detailTarget.notes : "メモはありません"}
+                    </Text>
+                  </View>
+                ) : null}
+              </ScrollView>
+
+              {/* フッター（閉じる） */}
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setDetailOpen(false)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text>閉じる</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
           </View>
         </View>
 
@@ -463,14 +986,14 @@ export default function SelectionIndex() {
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Building size={14} color="#6B7280" />
             <Text style={{ color: "#6B7280", marginLeft: 6, fontSize: 12 }}>
-              {item.industry}
+              {item.industry || "-"}
             </Text>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={{ color: "#9CA3AF", marginHorizontal: 6, fontSize: 12 }}>・</Text>
             <Text style={{ color: "#6B7280", fontSize: 12 }}>
-              {PRIORITY_LABEL[item.priority]}
+              {item.stages[item.currentStage]?.name || "新しい段階"}
             </Text>
           </View>
+          <View style={{ width: 24 }} />
         </View>
 
         {/* 進捗 */}
@@ -492,7 +1015,7 @@ export default function SelectionIndex() {
           </View>
           <View
             style={{
-              height: 6,
+              height: 4,
               borderRadius: 9999,
               backgroundColor: "#E5E7EB",
               overflow: "hidden",
@@ -502,9 +1025,9 @@ export default function SelectionIndex() {
             <View
               style={{
                 width: `${progress}%`,
-                height: 6,
+                height: 4,
                 borderRadius: 9999,
-                backgroundColor: "#2563EB",
+                backgroundColor: "#3B82F6",
               }}
             />
           </View>
@@ -515,12 +1038,11 @@ export default function SelectionIndex() {
           style={{
             marginTop: 8,
             flexDirection: "row",
-            justifyContent: "space-between",
+            justifyContent: "flex-start",
             alignItems: "center",
           }}
         >
           <Text style={{ color: "#6B7280", fontSize: 12 }}>{item.lastUpdate}</Text>
-          <Text style={{ color: "#111827", fontSize: 12 }}>詳細を見る ›</Text>
         </View>
       </TouchableOpacity>
     );
@@ -591,7 +1113,7 @@ export default function SelectionIndex() {
             backgroundColor: "#F3F4F6",
             borderRadius: 10,
             paddingHorizontal: 10,
-            paddingVertical: 8,
+            paddingVertical: 6,
           }}
         >
           <Search size={16} color="#6B7280" />
@@ -604,52 +1126,88 @@ export default function SelectionIndex() {
         </View>
       </View>
 
-      {/* ステータスカード（横スクロール） */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ paddingHorizontal: 12, paddingTop: 12 }}
-      >
-        {[
-          { label: "総応募数", value: stats.total, Icon: Building },
-          { label: "選考中", value: stats.inProgress, Icon: Timer },
-          { label: "内定", value: stats.offers, Icon: Award },
-          { label: "不合格", value: stats.rejected, Icon: XCircle },
-          { label: "平均評価", value: stats.averageRating, Icon: Star },
-        ].map(({ label, value, Icon }, i) => (
-          <View
-            key={label}
-            style={{
-              width: 90,
-              backgroundColor: "#FFFFFF",
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              borderRadius: 12,
-              padding: 10,
-              alignItems: "center",
-              marginRight: 8,
-            }}
-          >
+      {/* ステータスカード（4分割グリッド／固定配置） */}
+      <View style={{ paddingHorizontal: 12, paddingTop: 6 }}>
+        {(() => {
+          const items = [
+            { key: "total",      label: "総応募数", value: stats.total,      Icon: Building,    tint: "#EFF6FF", iconColor: "#3B82F6", countColor: "#1D4ED8" },
+            { key: "inProgress", label: "選考中",   value: stats.inProgress, Icon: Timer,       tint: "#FFF7ED", iconColor: "#F59E0B", countColor: "#B45309" },
+            { key: "offer",      label: "内定",     value: stats.offers,     Icon: CheckCircle, tint: "#ECFDF5", iconColor: "#10B981", countColor: "#047857" },
+            { key: "rejected",   label: "不合格",   value: stats.rejected,   Icon: XCircle,     tint: "#FEF2F2", iconColor: "#EF4444", countColor: "#B91C1C" },
+          ] as const;
+
+          return (
             <View
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                backgroundColor: "#F3F4F6",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 6,
+                flexDirection: "row",
+                flexWrap: "wrap",
+                marginHorizontal: -6,
               }}
             >
-              <Icon size={16} color="#111827" />
+              {items.map(({ key, label, value, Icon, tint, iconColor, countColor }) => (
+                <View key={key} style={{ width: "25%", paddingHorizontal: 6, marginBottom: 8 }}>
+                  <View
+                    style={{
+                      height: 90,
+                      backgroundColor: "#FFFFFF",
+                      borderWidth: 1,
+                      borderColor: "#E5E7EB",
+                      borderRadius: 12,
+                      paddingVertical: 10,
+                      paddingHorizontal: 8,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      shadowColor: "#000",
+                      shadowOpacity: 0.06,
+                      shadowRadius: 8,
+                      shadowOffset: { width: 0, height: 2 },
+                    }}
+                  >
+                    {/* top icon */}
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        backgroundColor: tint,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Icon size={14} color={iconColor} />
+                    </View>
+
+                    {/* count */}
+                    <Text
+                      style={{
+                        fontWeight: "700",
+                        fontSize: 18,
+                        lineHeight: 22,
+                        color: countColor,
+                      }}
+                    >
+                      {String(value)}
+                    </Text>
+
+                    {/* label */}
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: "#6B7280",
+                        marginTop: 2,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                </View>
+              ))}
             </View>
-            <Text style={{ fontWeight: "700", fontSize: 18 }}>{String(value)}</Text>
-            <Text style={{ fontSize: 12, color: "#4B5563", marginTop: 2 }}>
-              {label}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
+          );
+        })()}
+      </View>
 
       {/* リスト */}
       <View style={{ flex: 1, padding: 12 }}>
