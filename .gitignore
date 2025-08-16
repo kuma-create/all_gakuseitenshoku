@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+**/node_modules/
 
 # next.js
 /.next/
@@ -28,4 +29,19 @@ next-env.d.ts
 
 *.DS_Store.DS_Store
 supabase/migrations/.DS_Store
+
+
+node_modules/
+**/node_modules/
+.pnpm-store/
+.next/
+dist/
+build/
+tmp/
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
 
