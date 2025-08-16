@@ -59,8 +59,7 @@
     "vaul": "latest",
     "zod": "^3.24.1",
     "@supabase/supabase-js": "latest",
-    "@supabase/auth-helpers-nextjs": "latest",
-    "https:": "latest"
+    "@supabase/auth-helpers-nextjs": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
@@ -69,5 +68,7 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
-  }
+  },
+  
+  "packageManager": "pnpm@10.0.0"
 }
