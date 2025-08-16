@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "middleware": {},
+  "functions": {
+    "/auth/set/route": {
+      "files": [
+        "server/server-reference-manifest.js",
+        "server/app/auth/set/route_client-reference-manifest.js",
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/app/auth/set/route.js"
+      ],
+      "name": "app/auth/set/route",
+      "page": "/auth/set/route",
+      "matchers": [
+        {
+          "regexp": "^/auth/set$",
+          "originalSource": "/auth/set"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "development",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "T/pFXmR36Jp6k8oUQpm9mxFqZ9qR3nrh4Vb0qSc2/N0="
+      }
+    }
+  },
+  "sortedMiddleware": []
+}

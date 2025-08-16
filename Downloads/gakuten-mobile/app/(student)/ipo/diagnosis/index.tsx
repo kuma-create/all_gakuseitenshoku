@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 import React, { useState, useEffect, useCallback, startTransition } from "react";
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Animated } from 'react-native';
 import { useRouter } from "expo-router";
 import {
   Brain,
@@ -21,155 +21,135 @@ import {
   Clock,
   X,
 } from "lucide-react-native";
+import { Svg, Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
 
 
-// ---- minimal local UI (no external components) --------------------
-const cn = (...a: Array<string | false | null | undefined>) => a.filter(Boolean).join(" ");
-
-type DivProps = React.HTMLAttributes<HTMLDivElement> & { className?: string };
-type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "default" | "outline" | "ghost";
-  size?: "sm" | "md" | "icon";
-};
-
-// Card
-const Card = ({ className, ...props }: DivProps) => (
-  <div {...props} className={cn("rounded-xl border bg-white shadow-sm", className)} />
+// Card (RN)
+const Card = ({ style, children }: { style?: any; children?: React.ReactNode }) => (
+  <View style={[{ borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff', shadowColor: '#00000020', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2 }, style]}>
+    {children}
+  </View>
 );
-const CardHeader = ({ className, ...props }: DivProps) => (
-  <div {...props} className={cn("px-4 pt-4", className)} />
+const CardHeader = ({ style, children }: { style?: any; children?: React.ReactNode }) => (
+  <View style={[{ paddingHorizontal: 16, paddingTop: 16 }, style]}>{children}</View>
 );
-const CardContent = ({ className, ...props }: DivProps) => (
-  <div {...props} className={cn("px-4 pb-4", className)} />
+const CardContent = ({ style, children }: { style?: any; children?: React.ReactNode }) => (
+  <View style={[{ paddingHorizontal: 16, paddingBottom: 16 }, style]}>{children}</View>
 );
 
-// Button
-const Button = ({ className, variant = "default", size = "md", ...props }: BtnProps) => (
-  <button
-    {...props}
-    className={cn(
-      "inline-flex items-center justify-center rounded-md text-sm font-medium transition",
-      size === "sm" && "h-8 px-3",
-      size === "md" && "h-10 px-4",
-      size === "icon" && "h-10 w-10",
-      variant === "default" && "bg-blue-600 text-white hover:bg-blue-700",
-      variant === "outline" && "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50",
-      variant === "ghost" && "text-gray-700 hover:bg-gray-100",
-      className
-    )}
-  />
-);
-
-// Badge
-type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
-  className?: string;
-  variant?: "default" | "secondary" | "outline";
-};
-const Badge = ({ className, children, variant = "default", ...props }: BadgeProps) => {
-  const base = "inline-flex items-center rounded-md px-2 py-0.5 text-xs";
-  const styles =
-    variant === "secondary"
-      ? "bg-gray-100 text-gray-700 border border-gray-200"
-      : variant === "outline"
-      ? "bg-transparent text-gray-700 border border-gray-300"
-      : "bg-blue-50 text-blue-700 border border-blue-200";
+const Button = ({
+  variant = 'default',
+  size = 'md',
+  onPress,
+  children,
+  style,
+}: {
+  variant?: 'default' | 'outline' | 'ghost';
+  size?: 'sm' | 'md' | 'icon';
+  onPress?: () => void;
+  children?: React.ReactNode;
+  style?: any;
+}) => {
+  const base = { alignItems: 'center', justifyContent: 'center', borderRadius: 8 } as const;
+  const sizeStyle = size === 'sm' ? { height: 32, paddingHorizontal: 12 } : size === 'icon' ? { height: 40, width: 40 } : { height: 40, paddingHorizontal: 16 };
+  const variantStyle =
+    variant === 'outline'
+      ? { borderWidth: 1, borderColor: '#d1d5db', backgroundColor: '#fff' }
+      : variant === 'ghost'
+      ? { backgroundColor: 'transparent' }
+      : { backgroundColor: '#2563eb' };
+  const textColor = variant === 'default' ? '#fff' : '#111827';
   return (
-    <span {...props} className={cn(base, styles, className)}>
-      {children}
-    </span>
+    <Pressable onPress={onPress} style={[base, sizeStyle, variantStyle, style]}>
+      {typeof children === 'string' ? <Text style={{ color: textColor, fontSize: 14, fontWeight: '600' }}>{children}</Text> : children}
+    </Pressable>
   );
 };
 
-// Progress
-const Progress = ({ value = 0, className }: { value?: number; className?: string }) => (
-  <div className={cn("w-full rounded-full bg-gray-200", className)}>
-    <div
-      className="h-full rounded-full bg-blue-500"
-      style={{ width: `${Math.max(0, Math.min(100, value))}%`, height: "100%" }}
-    />
-  </div>
+const Badge = ({ children, variant = 'default', style }: { children?: React.ReactNode; variant?: 'default' | 'secondary' | 'outline'; style?: any }) => {
+  const base = { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 } as const;
+  const variantStyle =
+    variant === 'secondary'
+      ? { backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb' }
+      : variant === 'outline'
+      ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#d1d5db' }
+      : { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' };
+  const textColor = variant === 'default' ? '#1d4ed8' : '#374151';
+  return (
+    <View style={[base, variantStyle, style]}>
+      {typeof children === 'string' ? <Text style={{ fontSize: 12, color: textColor }}>{children}</Text> : children}
+    </View>
+  );
+};
+
+const Progress = ({ value = 0, height = 8, style }: { value?: number; height?: number; style?: any }) => (
+  <View style={[{ width: '100%', borderRadius: 9999, backgroundColor: '#e5e7eb', overflow: 'hidden', height }, style]}>
+    <View style={{ width: `${Math.max(0, Math.min(100, value))}%`, height: '100%', backgroundColor: '#3b82f6' }} />
+  </View>
 );
 
-// Tabs (very small implementation for this page)
+// Tabs (RN minimal)
 type TabsCtxType = { value: string; setValue: (v: string) => void };
 const TabsCtx = React.createContext<TabsCtxType | null>(null);
-const Tabs = ({ defaultValue, className, children }: { defaultValue: string; className?: string; children: React.ReactNode }) => {
+const Tabs = ({ defaultValue, children, style }: { defaultValue: string; children: React.ReactNode; style?: any }) => {
   const [value, setValue] = React.useState(defaultValue);
   return (
-    <div className={className}>
+    <View style={style}>
       <TabsCtx.Provider value={{ value, setValue }}>{children}</TabsCtx.Provider>
-    </div>
+    </View>
   );
 };
-const TabsList = ({ className, ...props }: DivProps) => (
-  <div {...props} className={cn("rounded-lg bg-gray-100 p-1", className)} />
+const TabsList = ({ style, children }: { style?: any; children?: React.ReactNode }) => (
+  <View style={[{ borderRadius: 8, backgroundColor: '#f3f4f6', padding: 4 }, style]}>{children}</View>
 );
-const TabsTrigger = ({ value, children, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) => {
+const TabsTrigger = ({ value, children, style }: { value: string; children?: React.ReactNode; style?: any }) => {
   const ctx = React.useContext(TabsCtx)!;
   const active = ctx.value === value;
   return (
-    <button
-      {...props}
-      onClick={(e) => {
-        props.onClick?.(e);
-        ctx.setValue(value);
-      }}
-      className={cn(
-        "w-full rounded-md px-3 py-2 text-sm",
-        active ? "bg-white shadow-sm" : "text-gray-600 hover:bg-white/60",
-        className
-      )}
-    >
-      {children}
-    </button>
+    <Pressable onPress={() => ctx.setValue(value)} style={[{ width: '100%', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: active ? '#fff' : 'transparent' }, style]}>
+      {typeof children === 'string' ? <Text style={{ color: active ? '#111827' : '#4b5563', fontSize: 14 }}>{children}</Text> : children}
+    </Pressable>
   );
 };
-const TabsContent = ({ value, className, children }: { value: string; className?: string; children: React.ReactNode }) => {
+const TabsContent = ({ value, children, style }: { value: string; children?: React.ReactNode; style?: any }) => {
   const ctx = React.useContext(TabsCtx)!;
   if (ctx.value !== value) return null;
-  return <div className={className}>{children}</div>;
+  return <View style={style}>{children}</View>;
 };
 
-// Lightweight radar chart (SVG)
 const MiniRadarChart = ({ data }: { data: Record<string, number> }) => {
   const entries = Object.entries(data);
   const size = 220;
   const c = size / 2;
   const r = c - 20;
-  if (entries.length === 0) return <div className="text-xs text-gray-500">データがありません</div>;
+  if (entries.length === 0) return <Text style={{ fontSize: 12, color: '#6b7280' }}>データがありません</Text>;
   const toPoint = (i: number, v: number) => {
     const angle = (Math.PI * 2 * i) / entries.length - Math.PI / 2;
     const rr = (Math.max(0, Math.min(100, v)) / 100) * r;
     return [c + rr * Math.cos(angle), c + rr * Math.sin(angle)];
   };
-  const poly = entries.map(([_, v], i) => toPoint(i, Number(v))).map(([x, y]) => `${x},${y}`).join(" ");
-
+  const points = entries.map(([_, v], i) => toPoint(i, Number(v))).map(([x, y]) => `${x},${y}`).join(' ');
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-xs mx-auto">
-      {/* grid */}
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {[0.25, 0.5, 0.75, 1].map((p, idx) => (
-        <circle key={idx} cx={c} cy={c} r={r * p} fill="none" stroke="#e5e7eb" />
+        <Circle key={idx} cx={c} cy={c} r={r * p} fill="none" stroke="#e5e7eb" />
       ))}
-      {/* axes */}
       {entries.map((_, i) => {
         const [x, y] = toPoint(i, 100);
-        return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke="#e5e7eb" />;
+        return <Line key={i} x1={c} y1={c} x2={x} y2={y} stroke="#e5e7eb" />;
       })}
-      {/* polygon */}
-      <polygon points={poly} fill="rgba(59,130,246,0.25)" stroke="#3b82f6" />
-      {/* labels */}
+      <Polygon points={points} fill="rgba(59,130,246,0.25)" stroke="#3b82f6" />
       {entries.map(([k], i) => {
         const [x, y] = toPoint(i, 112);
         return (
-          <text key={k} x={x} y={y} fontSize="10" textAnchor="middle" dominantBaseline="middle" fill="#374151">
+          <SvgText key={k} x={x} y={y} fontSize="10" textAnchor="middle" alignmentBaseline="middle" fill="#374151">
             {k}
-          </text>
+          </SvgText>
         );
       })}
-    </svg>
+    </Svg>
   );
 };
-import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "src/lib/supabase";
 
@@ -496,63 +476,39 @@ export default function DiagnosisPage() {
   }, []);
 
   // ---- UI Parts (tuned for MOBILE) ----------------------------------
-  const ProcessingAnimation = () => (
-    <div className="bg-background min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-md mx-auto px-4 text-center">
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mb-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center mx-auto">
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
-              {React.createElement(Brain as any, { className: "w-10 h-10 text-white" })}
-            </motion.div>
-          </div>
-        </motion.div>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={animationStep}
-            initial={{ y: 12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -12, opacity: 0 }}
-            transition={{ duration: 0.35 }}
-          >
-            {animationStep === 0 && (
-              <>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">回答を分析中…</h2>
-                <p className="text-sm text-gray-600">あなたの特性を分析しています</p>
-              </>
-            )}
-            {animationStep === 1 && (
-              <>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">パターン解析中…</h2>
-                <p className="text-sm text-gray-600">回答パターンから抽出しています</p>
-              </>
-            )}
-            {animationStep === 2 && (
-              <>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">適職をマッチング中…</h2>
-                <p className="text-sm text-gray-600">最適な職種を検索しています</p>
-              </>
-            )}
-            {animationStep === 3 && (
-              <>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">レポート作成中…</h2>
-                <p className="text-sm text-gray-600">結果をまとめています</p>
-              </>
-            )}
-          </motion.div>
-        </AnimatePresence>
-        <div className="mt-5">
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <motion.div
-              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
-              initial={{ width: "0%" }}
-              animate={{ width: `${(animationStep + 1) * 25}%` }}
-              transition={{ duration: 0.4 }}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const ProcessingAnimation = () => {
+    const [w] = useState(new Animated.Value(0));
+    useEffect(() => {
+      Animated.timing(w, { toValue: (animationStep + 1) * 25, duration: 400, useNativeDriver: false }).start();
+    }, [animationStep]);
+    const stepText =
+      animationStep === 0
+        ? { title: '回答を分析中…', sub: 'あなたの特性を分析しています' }
+        : animationStep === 1
+        ? { title: 'パターン解析中…', sub: '回答パターンから抽出しています' }
+        : animationStep === 2
+        ? { title: '適職をマッチング中…', sub: '最適な職種を検索しています' }
+        : { title: 'レポート作成中…', sub: '結果をまとめています' };
+    const widthInterpolated = w.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
+    return (
+      <View style={{ flex: 1, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: '100%', maxWidth: 380, paddingHorizontal: 16 }}>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center' }}>
+              <Brain size={36} color="#fff" />
+            </View>
+          </View>
+          <View style={{ alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>{stepText.title}</Text>
+            <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{stepText.sub}</Text>
+          </View>
+          <View style={{ width: '100%', height: 8, backgroundColor: '#e5e7eb', borderRadius: 9999, overflow: 'hidden' }}>
+            <Animated.View style={{ height: '100%', backgroundColor: '#6366f1', width: widthInterpolated }} />
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   // ---- SELECT SCREEN (mobile-first) ---------------------------------
   const styles = StyleSheet.create({
@@ -917,18 +873,20 @@ export default function DiagnosisPage() {
   const currentQ = questions[currentQuestion];
   if (!currentQ) {
     return (
-      <div className="bg-background min-h-screen">
-        <div className="w-full max-w-md mx-auto px-4 py-5">
-          <Card className="mb-4">
-            <CardContent className="p-4 text-center">
-              {loadError ? <div className="text-red-600 text-sm">{loadError}</div> : <div className="text-gray-600 text-sm">質問が表示できません。時間をおいて再度お試しください。</div>}
+      <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        <ScrollView contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 20 }}>
+          <Card style={{ marginBottom: 12 }}>
+            <CardContent>
+              <Text style={{ textAlign: 'center', fontSize: 12, color: loadError ? '#dc2626' : '#4b5563' }}>
+                {loadError ? loadError : '質問が表示できません。時間をおいて再度お試しください。'}
+              </Text>
             </CardContent>
           </Card>
-          <div className="text-center">
-            <Button variant="outline" size="sm" onClick={resetDiagnosis}>診断を選び直す</Button>
-          </div>
-        </div>
-      </div>
+          <View style={{ alignItems: 'center' }}>
+            <Button variant="outline" size="sm" onPress={resetDiagnosis}>診断を選び直す</Button>
+          </View>
+        </ScrollView>
+      </View>
     );
   }
 
