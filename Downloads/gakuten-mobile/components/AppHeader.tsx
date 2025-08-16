@@ -86,15 +86,25 @@ export default function AppHeader({ title }: AppHeaderProps) {
     openMenu();
   };
 
-  const menuItems: { label: string; onPress: () => void }[] = [
-    { label: "プロフィール編集", onPress: () => navigateAndClose("/profile/edit") },
-    { label: "職務経歴書を編集", onPress: () => navigateAndClose("/resume/edit") },
-    { label: "スカウト", onPress: () => navigateAndClose("/scout") },
-    { label: "応募履歴", onPress: () => navigateAndClose("/applications") },
-    { label: "チャット", onPress: () => navigateAndClose("/chat") },
-    { label: "IPO大学ダッシュボード", onPress: () => navigateAndClose("/ipo/dashboard") },
-    { label: "設定", onPress: () => navigateAndClose("/settings") },
-    { label: "ヘルプ/お問い合わせ", onPress: () => navigateAndClose("/help") },
+  const menuItems: { label: React.ReactNode; onPress: () => void }[] = [
+    {
+      label: (
+        <Image
+          source={require("../assets/images/logo5.png")}
+          style={{ width: 160, height: 80, resizeMode: "contain" }}
+        />
+      ),
+      onPress: () => navigateAndClose("/"),
+    },
+    {
+      label: (
+        <Image
+          source={require("../assets/images/IPO_logo2.png")}
+          style={{ width: 160, height: 80, resizeMode: "contain" }}
+        />
+      ),
+      onPress: () => navigateAndClose("/ipo/dashboard"),
+    },
   ];
 
   return (
@@ -139,7 +149,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
             />
           </Pressable>
         </View>
-        <View style={{ position: "absolute", right: 16 }}>
+        <View style={{ position: "absolute", right: 16, top: headerPaddingTop, height: baseBarHeight, justifyContent: "center" }}>
           <Pressable onPress={handleMenuPress} style={{ padding: 8 }} accessibilityRole="button" accessibilityLabel="メニューを開く">
             <Menu size={24} color="#000" />
           </Pressable>
@@ -182,7 +192,11 @@ export default function AppHeader({ title }: AppHeaderProps) {
                 style={{ paddingVertical: 12, paddingHorizontal: 14 }}
                 accessibilityRole="button"
               >
-                <Text style={{ fontSize: 16, color: "#111827" }}>{item.label}</Text>
+                {typeof item.label === "string" ? (
+                  <Text style={{ fontSize: 16, color: "#111827" }}>{item.label}</Text>
+                ) : (
+                  item.label
+                )}
               </TouchableOpacity>
             ))}
             <View style={{ height: 8 }} />

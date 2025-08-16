@@ -12,12 +12,42 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 
 // NOTE: プロジェクトのエイリアス事情があるため、相対 import を推奨
 // 既存クライアントのパスに合わせて変更してください。
 // 例) "../../src/lib/supabase" など。今は安全のため相対にしています。
 import { supabase } from "../../src/lib/supabase";
+
+// ---- Storage helpers (RN AsyncStorage / Web localStorage fallback)
+async function getItem(key: string): Promise<string | null> {
+  try {
+    // Try AsyncStorage (RN)
+    return await AsyncStorage.getItem(key);
+  } catch {
+    try {
+      // Fallback for web
+      // @ts-ignore
+      return globalThis?.localStorage?.getItem?.(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function setItem(key: string, value: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, value);
+  } catch {
+    try {
+      // @ts-ignore
+      globalThis?.localStorage?.setItem?.(key, value);
+    } catch {
+      // ignore
+    }
+  }
+}
 
 // ------------------------------
 // 型
@@ -51,6 +81,7 @@ export default function StudentHome() {
   const [cardsLoading, setCardsLoading] = useState(true);
 
   const [phaseOpen, setPhaseOpen] = useState(false);
+  const [registeredAt, setRegisteredAt] = useState<Date | null>(null);
 
   // ---- 認証チェック
   useEffect(() => {
@@ -58,6 +89,11 @@ export default function StudentHome() {
       const { data } = await supabase.auth.getUser();
       const uid = data.user?.id ?? null;
       setUserId(uid);
+
+      // 登録日（ユーザー作成日）を保存
+      const created = data.user?.created_at ? new Date(data.user.created_at) : null;
+      setRegisteredAt(created);
+
       setAuthChecked(true);
       if (!uid) {
         router.replace("/auth/login");
@@ -135,24 +171,52 @@ export default function StudentHome() {
     })();
   }, [userId]);
 
-  // ---- フェーズモーダル：未回答 or 30日超で表示
+  // ---- フェーズモーダル：登録日から1ヶ月ごとに表示 ----
   useEffect(() => {
-    const last = globalThis?.localStorage?.getItem?.("phaseLastRespondedAt");
-    if (!last) {
-      setPhaseOpen(true);
-      return;
-    }
-    const lastDate = new Date(last);
-    const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
-    if (Date.now() - lastDate.getTime() > THIRTY_DAYS) setPhaseOpen(true);
-  }, []);
+    if (!registeredAt) return;
+
+    (async () => {
+      try {
+        const last = await getItem("phaseLastRespondedAt");
+        const now = new Date();
+
+        // 登録日から直近の「月次アニバーサリー（日付基準）」を求める
+        const anniv = new Date(registeredAt);
+        anniv.setHours(0, 0, 0, 0);
+
+        while (true) {
+          const next = new Date(anniv);
+          next.setMonth(next.getMonth() + 1);
+          if (next > now) break; // nextが未来になったタイミングで直近のannivが確定
+          anniv.setMonth(anniv.getMonth() + 1);
+        }
+
+        // まだ回答履歴がなければ開く
+        if (!last) {
+          setPhaseOpen(true);
+          return;
+        }
+
+        const lastDate = new Date(last);
+        // 直近のアニバーサリー以降に回答していなければ開く（= 今月分が未回答）
+        if (lastDate < anniv) {
+          setPhaseOpen(true);
+        } else {
+          setPhaseOpen(false);
+        }
+      } catch {
+        // 何かあれば念のため表示
+        setPhaseOpen(true);
+      }
+    })();
+  }, [registeredAt]);
 
   const handlePhaseSelect = useCallback(async (choice: string) => {
     if (!userId) return;
     await supabase.from("student_profiles").update({ phase_status: choice }).eq("user_id", userId);
     try {
-      globalThis?.localStorage?.setItem?.("phaseStatus", choice);
-      globalThis?.localStorage?.setItem?.("phaseLastRespondedAt", new Date().toISOString());
+      await setItem("phaseStatus", choice);
+      await setItem("phaseLastRespondedAt", new Date().toISOString());
     } catch {}
     setPhaseOpen(false);
   }, [userId]);
@@ -439,7 +503,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
         )}
         {offers.map((offer) => (
           <Link key={offer.id} href={`/scouts/${offer.id}`} asChild>
-            <Pressable style={{ position: "relative", flexDirection: "row", gap: 12, padding: 12, borderWidth: 1, borderColor: "#f3f4f6", borderRadius: 12, backgroundColor: "#fff", marginBottom: 8 }}>
+            <Pressable style={{ position: "relative", flexDirection: "row", gap: 12, padding: 12, borderWidth: 1, borderColor: "#f3f4f6", borderRadius: 12, backgroundColor: "#fff", marginBottom: 8, overflow: "hidden" }}>
               {!offer.is_read && (
                 <View style={{ position: "absolute", right: 12, top: 12, width: 8, height: 8, backgroundColor: "#ef4444", borderRadius: 9999 }} />
               )}
@@ -453,10 +517,16 @@ function OffersCard({ offers }: { offers: Scout[] }) {
                 )}
               </View>
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={{ fontWeight: "700" }}>{offer.company_name ?? "名称未設定の企業"}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <Text style={{ fontWeight: "700", flexShrink: 1 }} numberOfLines={1} ellipsizeMode="tail">
+                    {offer.company_name ?? "名称未設定の企業"}
+                  </Text>
                   {!!offer.position && (
-                    <Text style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 9999, backgroundColor: "#f3f4f6", color: "#6b7280", fontSize: 12 }}>
+                    <Text
+                      style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 9999, backgroundColor: "#f3f4f6", color: "#6b7280", fontSize: 12, flexShrink: 0 }}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {offer.position}
                     </Text>
                   )}

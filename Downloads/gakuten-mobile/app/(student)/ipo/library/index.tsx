@@ -596,95 +596,97 @@ export default function LibraryScreen() {
   // ---------- List (Grid on web) ----------
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.h1}>業界・職種ライブラリ</Text>
-        <Text style={styles.subtitle}>500社以上の詳細データと社員インタビューで、あなたの理想のキャリアを見つけよう</Text>
-
-        {/* Search & Filters */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <SearchIcon size={18} color="#9ca3af" style={{ marginRight: 6 }} />
-            <TextInput
-              placeholder="業界名・職種名・スキルで検索..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={styles.input}
-              returnKeyType="search"
-            />
-          </View>
-          <View style={styles.pickersRow}>
-            <View style={styles.pickerWrap}>
-              <Picker selectedValue={selectedFilter} onValueChange={(v) => setSelectedFilter(v)}>
-                <Picker.Item label="すべて" value="all" />
-                <Picker.Item label="業界" value="industry" />
-                <Picker.Item label="職種" value="occupation" />
-              </Picker>
+      <FlatList
+        data={itemsLoading ? [] : filteredAndSortedItems}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => (
+          <Pressable onPress={() => handleItemClick(item)} style={styles.card}>
+            <View style={styles.cardTopRow}>
+              {item.imageUrl ? (
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.cardImage}
+                  onError={() => { /* ignore, icon will remain */ }}
+                />
+              ) : null}
+              <View style={[styles.iconSquare, !item.imageUrl ? {} : { display: "none" }]}>{item.icon}</View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.badgeSmall}><Text style={styles.badgeSmallText}>{item.type === "industry" ? "業界" : "職種"}</Text></View>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+              </View>
+              <View style={styles.rowStart}>
+                {getTrendIcon(item.trend)}
+                <Pressable
+                  style={styles.heartBtn}
+                  onPress={() => toggleFavorite(item.id)}
+                  disabled={saving || !isAuthed}
+                >
+                  <Heart size={18} color={userData.favorites.includes(item.id) ? "#ef4444" : "#9ca3af"} fill={userData.favorites.includes(item.id) ? "#ef4444" : "none"} />
+                </Pressable>
+              </View>
             </View>
-            <View style={styles.pickerWrap}>
-              <Picker selectedValue={sortBy} onValueChange={(v) => setSortBy(v)}>
-                <Picker.Item label="トレンド順" value="trend" />
-                <Picker.Item label="年収順" value="salary" />
-                <Picker.Item label="名前順" value="name" />
-              </Picker>
+            <Text style={styles.cardDesc}>{truncateText(item.description, 120)}</Text>
+            <View style={styles.tagWrap}>
+              {item.tags.slice(0, 3).map((t, i) => (
+                <View key={`${t}-${i}`} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
+              ))}
+              {item.tags.length > 3 && (
+                <View style={styles.tag}><Text style={styles.tagText}>+{item.tags.length - 3}</Text></View>
+              )}
             </View>
-          </View>
-        </View>
-
-        {/* Items */}
-        {itemsLoading ? (
-          <ActivityIndicator size="large" />
-        ) : filteredAndSortedItems.length === 0 ? (
-          <View style={{ alignItems: "center", paddingVertical: 32 }}>
-            <AlertCircle size={48} color="#9ca3af" />
-            <Text style={{ marginTop: 8, fontSize: 16 }}>検索結果が見つかりません</Text>
-            <Text style={{ color: "#6b7280" }}>別のキーワードで検索してみてください</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredAndSortedItems}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingBottom: 24 }}
-            renderItem={({ item }) => (
-              <Pressable onPress={() => handleItemClick(item)} style={styles.card}>
-                <View style={styles.cardTopRow}>
-                  {item.imageUrl ? (
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={styles.cardImage}
-                      onError={() => { /* ignore, icon will remain */ }}
-                    />
-                  ) : null}
-                  <View style={[styles.iconSquare, !item.imageUrl ? {} : { display: "none" }]}>{item.icon}</View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.badgeSmall}><Text style={styles.badgeSmallText}>{item.type === "industry" ? "業界" : "職種"}</Text></View>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                  </View>
-                  <View style={styles.rowStart}>
-                    {getTrendIcon(item.trend)}
-                    <Pressable
-                      style={styles.heartBtn}
-                      onPress={(e) => { toggleFavorite(item.id) }}
-                      disabled={saving || !isAuthed}
-                    >
-                      <Heart size={18} color={userData.favorites.includes(item.id) ? "#ef4444" : "#9ca3af"} fill={userData.favorites.includes(item.id) ? "#ef4444" : "none"} />
-                    </Pressable>
-                  </View>
-                </View>
-                <Text style={styles.cardDesc}>{truncateText(item.description, 120)}</Text>
-                <View style={styles.tagWrap}>
-                  {item.tags.slice(0, 3).map((t, i) => (
-                    <View key={`${t}-${i}`} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
-                  ))}
-                  {item.tags.length > 3 && (
-                    <View style={styles.tag}><Text style={styles.tagText}>+{item.tags.length - 3}</Text></View>
-                  )}
-                </View>
-                <View style={styles.rightIcon}><ChevronRight size={16} color="#2563eb" /></View>
-              </Pressable>
-            )}
-          />
+            <View style={styles.rightIcon}><ChevronRight size={16} color="#2563eb" /></View>
+          </Pressable>
         )}
-      </ScrollView>
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.h1}>業界・職種ライブラリ</Text>
+            <Text style={styles.subtitle}>500社以上の詳細データと社員インタビューで、あなたの理想のキャリアを見つけよう</Text>
+
+            {/* Search & Filters */}
+            <View style={styles.searchRow}>
+              <View style={styles.searchBox}>
+                <SearchIcon size={18} color="#9ca3af" style={{ marginRight: 6 }} />
+                <TextInput
+                  placeholder="業界名・職種名・スキルで検索..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  style={styles.input}
+                  returnKeyType="search"
+                />
+              </View>
+              <View style={styles.pickersRow}>
+                <View style={styles.pickerWrap}>
+                  <Picker selectedValue={selectedFilter} onValueChange={(v) => setSelectedFilter(v)}>
+                    <Picker.Item label="すべて" value="all" />
+                    <Picker.Item label="業界" value="industry" />
+                    <Picker.Item label="職種" value="occupation" />
+                  </Picker>
+                </View>
+                <View style={styles.pickerWrap}>
+                  <Picker selectedValue={sortBy} onValueChange={(v) => setSortBy(v)}>
+                    <Picker.Item label="トレンド順" value="trend" />
+                    <Picker.Item label="年収順" value="salary" />
+                    <Picker.Item label="名前順" value="name" />
+                  </Picker>
+                </View>
+              </View>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          itemsLoading ? (
+            <ActivityIndicator size="large" />
+          ) : (
+            <View style={{ alignItems: "center", paddingVertical: 32 }}>
+              <AlertCircle size={48} color="#9ca3af" />
+              <Text style={{ marginTop: 8, fontSize: 16 }}>検索結果が見つかりません</Text>
+              <Text style={{ color: "#6b7280" }}>別のキーワードで検索してみてください</Text>
+            </View>
+          )
+        }
+      />
     </View>
   );
 }

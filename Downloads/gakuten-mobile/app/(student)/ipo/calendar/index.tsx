@@ -539,7 +539,7 @@ export default function CalendarScreen() {
     <SafeAreaView style={styles.safe}>
       {loading && (
         <View style={{ padding: 16 }}>
-          <View style={styles.loadingCard}> 
+          <View style={styles.loadingCard}>
             <ActivityIndicator />
             <Text style={{ marginTop: 8 }}>読み込み中...</Text>
           </View>
@@ -547,21 +547,45 @@ export default function CalendarScreen() {
       )}
       {!!error && !loading && (
         <View style={{ padding: 16 }}>
-          <View style={styles.errorCard}> 
+          <View style={styles.errorCard}>
             <Text style={{ color: '#b91c1c' }}>{error}</Text>
           </View>
         </View>
       )}
 
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <Header />
-        <Stats />
-        <SearchFilter />
-        <TabsBar />
-        {activeTab === 'events' && renderEventsList()}
-        {activeTab === 'week' && renderWeek()}
-        {activeTab === 'month' && renderMonth()}
-      </ScrollView>
+      {/* Use a single FlatList and move header content into ListHeaderComponent to avoid nesting VirtualizedLists inside a ScrollView */}
+      {(() => {
+        const listData = activeTab === 'events' ? filteredEvents : activeTab === 'week' ? weekEvents : events;
+        const Empty = () => (
+          <View style={styles.emptyCard}>
+            <CalendarIcon size={activeTab === 'week' ? 40 : 48} color={'#9ca3af'} />
+            <Text style={activeTab === 'week' ? styles.emptyTitleSm : styles.emptyTitle}>
+              {activeTab === 'week' ? '予定がありません' : '該当するイベントがありません'}
+            </Text>
+            <Text style={styles.emptySub}>
+              {activeTab === 'week' ? 'この週のイベントはまだ登録されていません。' : '検索条件を変更してお試しください。'}
+            </Text>
+          </View>
+        );
+        return (
+          <FlatList
+            data={[...listData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())}
+            keyExtractor={(item) => item.id}
+            renderItem={EventItem}
+            contentContainerStyle={{ padding: 16, paddingBottom: 20, gap: 12 }}
+            ListHeaderComponent={
+              <>
+                <Header />
+                <Stats />
+                <SearchFilter />
+                <TabsBar />
+                {activeTab === 'week' && <WeekHeader />}
+              </>
+            }
+            ListEmptyComponent={Empty}
+          />
+        );
+      })()}
 
       {/* Detail Modal */}
       <Modal visible={showDetail} animationType="slide" onRequestClose={() => setShowDetail(false)}>
@@ -579,7 +603,7 @@ export default function CalendarScreen() {
                 return (
                   <View>
                     <View style={[styles.modalAccent, { backgroundColor: cat.tint }]} />
-                    <View style={styles.modalHeaderRow}> 
+                    <View style={styles.modalHeaderRow}>
                       <View style={[styles.iconWrap, { backgroundColor: cat.tint }]}> 
                         <IconComp size={28} color={'#fff'} />
                       </View>
@@ -591,7 +615,7 @@ export default function CalendarScreen() {
                           {selectedEvent.location ? ` ・ ${selectedEvent.location}` : ''}
                         </Text>
                         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                          <View style={[styles.badge, { backgroundColor: cat.chipBg, borderColor: cat.tint }]}>
+                          <View style={[styles.badge, { backgroundColor: cat.chipBg, borderColor: cat.tint }]}> 
                             <Text style={[styles.badgeText, { color: '#111827' }]}>{cat.label}</Text>
                           </View>
                           {!!selectedEvent.isRegistered && (
