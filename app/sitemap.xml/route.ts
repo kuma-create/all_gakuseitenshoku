@@ -41,6 +41,7 @@ export async function GET() {
     { path: "/media", changefreq: "daily", priority: "0.8", lastmod: BUILD_TIME },
     { path: "/internships", changefreq: "daily", priority: "0.8", lastmod: BUILD_TIME },
     { path: "/jobs", changefreq: "daily", priority: "0.8", lastmod: BUILD_TIME },
+    { path: "/ipo", changefreq: "weekly", priority: "0.9", lastmod: BUILD_TIME },
   ];
 
   /* ---------- 2. Dynamic URLs ---------- */
