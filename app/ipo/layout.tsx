@@ -4,6 +4,21 @@ import { useRouter, usePathname } from "next/navigation";
 import { Layout } from "@/components/Layout";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
+export async function generateMetadata() {
+  return {
+    title: "IPO大学｜就活管理をAIと一緒に一元管理",
+    description: "就活対策からキャリアの悩み解決も！キャリア形成を自分のペースですることができる全ての学生向けのサービスです。",
+    openGraph: {
+      title: "IPO大学｜就活管理をAIと一緒に一元管理",
+      description: "就活対策からキャリアの悩み解決も！キャリア形成を自分のペースですることができる全ての学生向けのサービスです。",
+      url: "https://gakuten.co.jp/ipo",
+      siteName: "IPO大学",
+      locale: "ja_JP",
+      type: "website",
+    },
+  };
+}
+
 export default function IPOLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
