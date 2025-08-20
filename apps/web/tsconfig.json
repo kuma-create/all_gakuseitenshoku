@@ -1,13 +1,13 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "jsx": "preserve",
-    "incremental": true,
     "types": ["node", "next"],
+    "baseUrl": ".",  
     "paths": {
       "@/*": ["./*"],
       "@/app/*": ["./app/*"],
       "@/components/*": ["./components/*"],
+      "@/components/ui/*": ["./components/ui/*", "./components/shadcn/ui/*"],
       "@/lib/*": ["./lib/*"],
       "@/utils/*": ["./utils/*"],
       "@/styles/*": ["./styles/*"]
