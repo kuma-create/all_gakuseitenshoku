@@ -711,8 +711,10 @@ export default function ApplicantsPage() {
                           <div className="flex flex-col md:flex-row md:items-center w-full">
                             <div className="flex items-center mb-3 md:mb-0 md:mr-4">
                               <Avatar className="h-12 w-12 mr-3">
-                                <AvatarImage src={applicant.avatar ?? "/placeholder.svg"} alt={applicant.name} />
-                                <AvatarFallback>{(applicant.name ?? "?").charAt(0)}</AvatarFallback>
+                                <AvatarImage src={applicant.avatar ?? undefined} alt={applicant.name} />
+                                <AvatarFallback className="bg-red-400 text-white">
+                                  <User className="h-5 w-5" />
+                                </AvatarFallback>
                               </Avatar>
                               <div>
                                 <h3 className="font-medium text-lg">{applicant.name}</h3>

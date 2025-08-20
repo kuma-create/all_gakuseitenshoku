@@ -108,6 +108,7 @@ export default function NewJobPage() {
     travelExpense   : "",
     nearestStation  : "",
     applicationDeadline: "",
+    // status: "非公開", // これの型は: "非公開" | "公開" | "会員のみ公開"
     status: "非公開",
 
     /* intern only */
@@ -444,32 +445,33 @@ export default function NewJobPage() {
       if (!companyId) throw new Error("会社IDの取得に失敗しました")
     
       /* 2) selections へ INSERT  */
-      const payload: Database["public"]["Tables"]["jobs"]["Insert"] = {
-        id                   : crypto.randomUUID(),
-        company_id           : companyId,
-        user_id              : user.id, // 👈 追加: RLS 用
-        selection_type       : selectionType,
-        // 一覧表示用カテゴリ
-        category             :
-          selectionType === "internship_short" || selectionType === "intern_long"
-            ? "インターン"
-            : selectionType === "event"
-            ? "イベント"
-            : "本選考",
-        title                : formData.title,
-        description          : formData.description,
-        department           : formData.departments.length
-                                 ? formData.departments.join(",")
-                                 : null,
-        requirements         : formData.requirements || null,
-        location             : formData.location || null,
-        work_type            : formData.employmentType,
-        salary_range         : formData.salary || null,
-        cover_image_url      : formData.coverImageUrl,
-        published            : formData.status === "公開",
-        application_deadline : formData.applicationDeadline || null,
-        start_date           : formData.startDate || null,
-      };
+    const payload: Database["public"]["Tables"]["jobs"]["Insert"] = {
+      id                   : crypto.randomUUID(),
+      company_id           : companyId,
+      user_id              : user.id, // 👈 追加: RLS 用
+      selection_type       : selectionType,
+      // 一覧表示用カテゴリ
+      category             :
+        selectionType === "internship_short" || selectionType === "intern_long"
+          ? "インターン"
+          : selectionType === "event"
+          ? "イベント"
+          : "本選考",
+      title                : formData.title,
+      description          : formData.description,
+      department           : formData.departments.length
+                               ? formData.departments.join(",")
+                               : null,
+      requirements         : formData.requirements || null,
+      location             : formData.location || null,
+      work_type            : formData.employmentType,
+      salary_range         : formData.salary || null,
+      cover_image_url      : formData.coverImageUrl,
+      published            : formData.status === "公開" || formData.status === "会員のみ公開",
+      member_only          : formData.status === "会員のみ公開",
+      application_deadline : formData.applicationDeadline || null,
+      start_date           : formData.startDate || null,
+    };
 
       const jobId = payload.id;    // ← 新しく追加
     
@@ -777,7 +779,7 @@ export default function NewJobPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
             <Card>
-              <CardHeader>
+            <CardHeader>
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-5 w-5 text-primary" />
                   <CardTitle>基本情報</CardTitle>
@@ -921,6 +923,24 @@ export default function NewJobPage() {
                     className="mt-1 min-h-[100px]"
                     placeholder="必須スキル、経験年数、学歴、資格などの応募要件を記入してください。"
                   />
+                </div>
+
+                {/* 公開設定セレクト */}
+                <div>
+                  <Label htmlFor="status">公開設定</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => handleSelectChange("status", value)}
+                  >
+                    <SelectTrigger id="status" className="mt-1">
+                      <SelectValue placeholder="公開設定を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="非公開">非公開</SelectItem>
+                      <SelectItem value="公開">公開</SelectItem>
+                      <SelectItem value="会員のみ公開">公開（会員のみ閲覧可能）</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -1715,6 +1735,16 @@ export default function NewJobPage() {
                     </Label>
                   </div>
                   <div className="flex items-center space-x-3 space-y-0">
+                    <RadioGroupItem value="会員のみ公開" id="membersOnly" />
+                    <Label htmlFor="membersOnly" className="flex items-center cursor-pointer">
+                      <Eye className="mr-2 h-4 w-4 text-blue-600" />
+                      公開（会員のみ閲覧可能）
+                      <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">
+                        会員限定
+                      </Badge>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 space-y-0">
                     <RadioGroupItem value="非公開" id="private" />
                     <Label htmlFor="private" className="flex items-center cursor-pointer">
                       <EyeOff className="mr-2 h-4 w-4 text-gray-500" />
@@ -1726,7 +1756,8 @@ export default function NewJobPage() {
                   </div>
                 </RadioGroup>
                 <p className="text-sm text-muted-foreground mt-3">
-                  「公開」を選択すると、すぐに求人が公開されます。「非公開」を選択すると、下書きとして保存され、後で公開することができます。
+                  「公開」を選択すると、すぐに求人が公開されます。「会員のみ公開」を選択すると、ログイン済みの学生にのみ表示されます。
+                  「非公開」を選択すると、下書きとして保存され、後で公開することができます。
                 </p>
               </CardContent>
             </Card>

@@ -2610,6 +2610,7 @@ export type Database = {
           id: string
           is_recommended: boolean
           location: string | null
+          member_only: boolean
           published: boolean | null
           published_until: string | null
           requirements: string | null
@@ -2632,6 +2633,7 @@ export type Database = {
           id?: string
           is_recommended?: boolean
           location?: string | null
+          member_only?: boolean
           published?: boolean | null
           published_until?: string | null
           requirements?: string | null
@@ -2654,6 +2656,7 @@ export type Database = {
           id?: string
           is_recommended?: boolean
           location?: string | null
+          member_only?: boolean
           published?: boolean | null
           published_until?: string | null
           requirements?: string | null

@@ -1,11 +1,63 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Lightbulb, Heart, Brain, Target, HelpCircle } from 'lucide-react';
+import { Send, Bot, User, Lightbulb, Heart, Brain, Target, HelpCircle, Trash2 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { motion, AnimatePresence } from 'framer-motion';
+// --- Local persistence keys (per user) ---
+const storageKeys = (userId: string) => ({
+  messages: `aichat:${userId}:messages`, // (legacy) single-thread messages
+  meta: `aichat:${userId}:meta`,         // { threadId, chatMode, interactionMode }
+  threads: `aichat:${userId}:threads`,   // Thread[]
+});
+
+// Serialize/deserialize Message[] for storage
+const serializeMessages = (msgs: Message[]) =>
+  msgs.map((m) => ({ ...m, timestamp: (m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp)).toISOString() }));
+
+const deserializeMessages = (raw: any): Message[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((m) => ({ ...m, timestamp: new Date(m.timestamp) }))
+    .filter((m) => m && typeof m.id === 'string' && m.content);
+};
+
+const persistThreads = (keys: ReturnType<typeof storageKeys>, ts: Thread[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      keys.threads,
+      JSON.stringify(ts.map(t => ({ ...t, messages: serializeMessages(t.messages) })))
+    );
+  } catch {}
+};
+
+interface Thread {
+  id: string;
+  title?: string;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+  mode?: string;     // chatMode at creation
+  messages: Message[];
+}
+
+const makeThread = (id: string, mode: string, messages: Message[] = []): Thread => ({
+  id,
+  title: titleFromMessages(messages),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  mode,
+  messages,
+});
+
+// --- Helpers for thread title/preview based on first user message ---
+const getFirstUserMessage = (msgs: Message[] = []) => msgs.find(m => m.type === 'user');
+const titleFromMessages = (msgs: Message[]) => {
+  const u = getFirstUserMessage(msgs);
+  return u?.content?.slice(0, 24) || '新しいスレッド';
+};
 
 interface AIChatProps {
   userId: string;
@@ -112,11 +164,14 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
   });
   const [sessionStartTime] = useState(Date.now());
   const [threadId, setThreadId] = useState<string | null>(null);
-  
+  const [threads, setThreads] = useState<Thread[]>([]);
+  // keys for localStorage (scoped by user)
+  const keys = storageKeys(userId);
   // Responsive max height for the scroll area (handles mobile keyboards/safe areas)
   // 初期値はundefined（後で計算）
   const [listMaxHeight, setListMaxHeight] = useState<number | undefined>(undefined);
   const [footerHeight, setFooterHeight] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -274,22 +329,133 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
   const initializeChat = async () => {
     try {
       setLoading(true);
-      const welcomeMessage: Message = {
-        id: 'welcome',
-        type: 'ai',
-        content: 'こんにちは！AIアシスタントです。\n\nどんなことを話してみたいですか？\n\n- 最近感じていること\n- 過去の印象深い経験\n- 自分の性格について\n\nリラックスして、思ったことを自由にお話しください 😊',
-        timestamp: new Date(),
-        category: '導入',
-        emoji: '🤖',
-        questions: ['最近どんなことを考えていますか？', '今日の気分はどうですか？']
-      };
-      setMessages([welcomeMessage]);
+      if (typeof window !== 'undefined') {
+        try {
+          // 1) Load threads list (new format)
+          const rawThreads = window.localStorage.getItem(keys.threads);
+          if (rawThreads) {
+            const parsed: Thread[] = JSON.parse(rawThreads);
+            const normalized = parsed.map(t => ({
+              ...t,
+              messages: deserializeMessages(t.messages),
+            }));
+            setThreads(normalized);
+            // Normalize thread titles after loading
+            setThreads(prev => prev.map(th => ({
+              ...th,
+              title: th.title && th.title !== '新しいスレッド' ? th.title : titleFromMessages(th.messages)
+            })));
+            // prefer last updated as current
+            const latest = [...normalized].sort((a,b)=>new Date(b.updatedAt).getTime()-new Date(a.updatedAt).getTime())[0];
+            if (latest) {
+              setThreadId(latest.id);
+              setMessages(latest.messages || []);
+              setChatMode(latest.mode || chatMode);
+            }
+          } else {
+            // 2) Legacy migration from single-thread storage
+            const rawMsgs = window.localStorage.getItem(keys.messages);
+            const rawMeta = window.localStorage.getItem(keys.meta);
+            let legacyMsgs: Message[] = [];
+            let legacyThreadId: string | null = null;
+            if (rawMsgs) legacyMsgs = deserializeMessages(JSON.parse(rawMsgs));
+            if (rawMeta) {
+              const meta = JSON.parse(rawMeta) || {};
+              if (typeof meta.threadId === 'string') legacyThreadId = meta.threadId;
+              if (typeof meta.chatMode === 'string') setChatMode(meta.chatMode);
+              if (meta.interactionMode === 'free' || meta.interactionMode === 'fill') setInteractionMode(meta.interactionMode);
+            }
+            const tid = legacyThreadId || `t-${Date.now()}`;
+            const t = makeThread(tid, chatMode, legacyMsgs);
+            setThreads([t]);
+            setThreadId(tid);
+            setMessages(legacyMsgs.length ? legacyMsgs : []);
+            // write new format
+            window.localStorage.setItem(keys.threads, JSON.stringify([{...t, messages: serializeMessages(t.messages)}]));
+          }
+        } catch (e) {
+          console.warn('AIChat: restore/migrate failed', e);
+        }
+      }
+      // 3) If still no messages (fresh user), seed with welcome
+      if ((messages?.length || 0) === 0) {
+        const welcomeMessage: Message = {
+          id: 'welcome',
+          type: 'ai',
+          content:
+            'こんにちは！AIアシスタントです。\n\nどんなことを話してみたいですか？\n\n- 最近感じていること\n- 過去の印象深い経験\n- 自分の性格について\n\nリラックスして、思ったことを自由にお話しください 😊',
+          timestamp: new Date(),
+          category: '導入',
+          emoji: '🤖',
+          questions: ['最近どんなことを考えていますか？', '今日の気分はどうですか？'],
+        };
+        setMessages([welcomeMessage]);
+        const tid = threadId || `t-${Date.now()}`;
+        if (!threadId) setThreadId(tid);
+        // ユーザーの最初の入力が来るまでは threads には登録しない
+      }
     } catch (error) {
       console.error('Error initializing chat:', error);
     } finally {
       setLoading(false);
     }
   };
+  // --- Persist to localStorage whenever state changes ---
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      // update threads with current thread's messages
+      if (threadId) {
+        setThreads((prev) => {
+          const hasUser = !!getFirstUserMessage(messages);
+          if (!hasUser) {
+            // ユーザー発言がない場合はスレッドを保存しない
+            return prev;
+          }
+          const idx = prev.findIndex(t => t.id === threadId);
+          const nowIso = new Date().toISOString();
+          const updatedThread: Thread = idx >= 0
+            ? { ...prev[idx], messages, updatedAt: nowIso, mode: chatMode, title: prev[idx].title || titleFromMessages(messages) }
+            : makeThread(threadId, chatMode, messages);
+          const next = idx >= 0 ? Object.assign([...prev], { [idx]: updatedThread }) as Thread[] : [...prev, updatedThread];
+          // write to storage
+          window.localStorage.setItem(keys.threads, JSON.stringify(next.map(t => ({...t, messages: serializeMessages(t.messages)}))));
+          // keep legacy keys for backward compatibility (optional)
+          window.localStorage.setItem(keys.messages, JSON.stringify(serializeMessages(messages)));
+          window.localStorage.setItem(keys.meta, JSON.stringify({ threadId, chatMode, interactionMode }));
+          return next;
+        });
+      }
+    } catch {}
+  }, [messages, threadId, chatMode, interactionMode, keys.threads, keys.messages, keys.meta]);
+
+  // --- Cross-tab sync: listen to storage events and update state ---
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (ev: StorageEvent) => {
+      if (!ev.key) return;
+      if (ev.key === keys.threads && ev.newValue) {
+        try {
+          const parsed: Thread[] = JSON.parse(ev.newValue);
+          const normalized = parsed.map(t => ({...t, messages: deserializeMessages(t.messages)}));
+          setThreads(normalized);
+          // if current thread exists, refresh its messages
+          const cur = threadId ? normalized.find(t=>t.id===threadId) : null;
+          if (cur) setMessages(cur.messages || []);
+        } catch {}
+      }
+      if (ev.key === keys.meta && ev.newValue) {
+        try {
+          const meta = JSON.parse(ev.newValue) || {};
+          if (typeof meta.threadId === 'string') setThreadId(meta.threadId);
+          if (typeof meta.chatMode === 'string') setChatMode(meta.chatMode);
+          if (meta.interactionMode === 'free' || meta.interactionMode === 'fill') setInteractionMode(meta.interactionMode);
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [keys.threads, keys.meta, threadId]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isTyping) return;
@@ -303,6 +469,8 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
     };
 
     const newMessages = [...messages, userMessage];
+    // --- Update thread title if first message in thread ---
+    setThreads(prev => prev.map(t => t.id===threadId ? { ...t, title: t.title || titleFromMessages([...messages, userMessage]), updatedAt: new Date().toISOString() } : t));
     setMessages(newMessages);
     setInputText('');
     setIsTyping(true);
@@ -481,6 +649,75 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
 
   const currentMode = getCurrentMode();
 
+  // -- Chat History helpers --
+  const scrollToMessage = (mid: string) => {
+    const el = document.getElementById(`msg-${mid}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setShowHistory(false);
+    }
+  };
+
+  const exportJSON = () => {
+    try {
+      const blob = new Blob([
+        JSON.stringify(serializeMessages(messages), null, 2)
+      ], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'aichat-history.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn('export failed', e);
+    }
+  };
+
+  // --- Thread operations ---
+  const startNewThread = () => {
+    const tid = `t-${Date.now()}`;
+    setThreadId(tid);
+    setMessages([]); // ユーザー初回入力までは threads に登録しない
+    setShowHistory(false);
+  };
+
+  const switchThread = (tid: string) => {
+    const t = threads.find(th => th.id === tid);
+    if (!t) return;
+    setThreadId(tid);
+    setChatMode(t.mode || chatMode);
+    setMessages(t.messages || []);
+    setShowHistory(false);
+  };
+
+  const deleteThread = (tid: string) => {
+    if (!confirm('このスレッドを削除します。よろしいですか？\n（この操作は取り消せません）')) return;
+    setThreads(prev => {
+      const next = prev.filter(t => t.id !== tid);
+      // If the current thread was deleted, switch to the latest remaining thread or clear
+      if (tid === threadId) {
+        const latest = [...next].sort((a,b)=> new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+        if (latest) {
+          setThreadId(latest.id);
+          setChatMode(latest.mode || chatMode);
+          setMessages(latest.messages || []);
+        } else {
+          setThreadId(null);
+          setMessages([]);
+        }
+      }
+      persistThreads(keys, next);
+      // keep legacy meta pointing to current selection
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(keys.meta, JSON.stringify({ threadId: tid === threadId ? (next[0]?.id ?? null) : threadId, chatMode, interactionMode }));
+        } catch {}
+      }
+      return next;
+    });
+  };
+
   const canShowApplyActions = (idx: number) => {
     const msg = messages[idx];
     const isLatestAi = idx === messages.length - 1 && msg?.type === 'ai';
@@ -540,11 +777,11 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
             </div>
             <Progress value={progressPercent} className="h-2" />
           </div>
-          <div className="flex items-center gap-2 mt-2 md:mt-0">
+          <div className="grid grid-cols-2 gap-2 mt-2 md:mt-0 sm:flex sm:items-center sm:flex-wrap">
             <Button
               variant={interactionMode === 'free' ? 'default' : 'outline'}
               size="sm"
-              className="text-xs sm:text-sm px-2 py-1"
+              className="text-xs sm:text-sm px-2 h-9 sm:h-8 w-full sm:w-auto"
               onClick={() => setInteractionMode('free')}
             >
               壁打ちモード
@@ -552,23 +789,33 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
             <Button
               variant={interactionMode === 'fill' ? 'default' : 'outline'}
               size="sm"
-              className="text-xs sm:text-sm px-2 py-1"
+              className="text-xs sm:text-sm px-2 h-9 sm:h-8 w-full sm:w-auto"
               onClick={() => setInteractionMode('fill')}
             >
               空欄を埋めるモード
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs sm:text-sm px-2 h-9 sm:h-8 col-span-2 w-full sm:w-auto"
+              onClick={() => setShowHistory(true)}
+              title="これまでの会話を一覧で表示"
+            >
+              履歴
             </Button>
           </div>
         </div>
       </div>
       <div
         ref={scrollRef}
-        className="p-2 space-y-3 min-h-0 overflow-y-auto overscroll-contain flex-1"
+        className="px-3 py-2 space-y-3 min-h-0 overflow-y-auto overscroll-contain flex-1"
         style={{ maxHeight: listMaxHeight }}
       >
           <AnimatePresence>
             {messages.map((message, index) => (
               <motion.div 
-                key={message.id} 
+                key={message.id}
+                id={`msg-${message.id}`}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 initial={{ opacity: 0, y: 20, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -684,7 +931,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                         )}
                       </div>
                       <span className="text-xs opacity-50">
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   </div>
@@ -730,10 +977,70 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
           <div ref={messagesEndRef} />
         </div>
 
+      {showHistory && (
+        <div className="fixed inset-0 z-[100] bg-black/30" onClick={() => setShowHistory(false)}>
+          <div
+            className="absolute right-0 top-0 h-full w-full sm:w-[min(90vw,360px)] bg-background shadow-2xl border-l p-3 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium"></div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="text-xs px-2 h-8" onClick={exportJSON}>エクスポート</Button>
+                <Button variant="outline" size="sm" className="text-xs px-2 h-8" onClick={startNewThread}>新しいスレッド</Button>
+                <Button variant="default" size="sm" className="text-xs px-2 h-8" onClick={() => setShowHistory(false)}>閉じる</Button>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground mb-2">スレッド単位で表示しています</div>
+            <div className="flex-1 overflow-y-auto divide-y">
+              {threads.length === 0 && (
+                <div className="text-sm text-muted-foreground p-4">スレッドはまだありません。</div>
+              )}
+              {[...threads]
+                .filter(t => !!getFirstUserMessage(t.messages))
+                .sort((a,b)=> new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                .map((t) => (
+                <div
+                  key={t.id}
+                  role="button"
+                  tabIndex={0}
+                  className={`w-full text-left p-3 hover:bg-muted/50 focus:bg-muted/70 rounded cursor-pointer ${t.id===threadId ? 'bg-muted/40' : ''}`}
+                  onClick={() => switchThread(t.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchThread(t.id); } }}
+                  title={`${new Date(t.updatedAt).toLocaleString()}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium text-sm truncate">{t.title || '無題のスレッド'}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-[11px] opacity-70">{new Date(t.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      <button
+                        type="button"
+                        aria-label="スレッドを削除"
+                        className="p-1 rounded hover:bg-destructive/10"
+                        onClick={(e) => { e.stopPropagation(); deleteThread(t.id); }}
+                        title="スレッドを削除"
+                      >
+                        <Trash2 className="w-4 h-4 opacity-70" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-1">{t.messages.length} 件のメッセージ</div>
+                  {(() => { const firstU = getFirstUserMessage(t.messages); return (
+                    <div className="text-xs line-clamp-2 mt-1 text-muted-foreground">
+                      {firstU ? firstU.content : '（最初のユーザー入力はまだありません）'}
+                    </div>
+                  ); })()}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
         {/* Enhanced Input Area */}
         <div
           ref={footerRef}
-          className="sticky bottom-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border p-2 pb-[env(safe-area-inset-bottom)]"
+          className="sticky bottom-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border p-3 sm:p-2 pb-[env(safe-area-inset-bottom)]"
         >
           {/* 端末下部のナビゲーション分を確保（見えないスペーサー） */}
           <div aria-hidden className="pointer-events-none h-0" style={{ height: getBottomNavHeight() ? 0 : 0 }} />
@@ -745,7 +1052,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                 onChange={(e) => {
                   setInputText(e.target.value);
                   e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
                 }}
                 onKeyPress={handleKeyPress}
                 onFocus={() => {
@@ -754,7 +1061,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                   }, 0);
                 }}
                 placeholder={placeholderText}
-                className="w-full px-4 py-2 bg-input-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder-muted-foreground resize-none min-h-[44px] max-h-[120px] text-sm"
+                className="w-full px-4 py-2 bg-input-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder-muted-foreground resize-none min-h-[44px] max-h-[160px] text-sm"
                 rows={1}
                 disabled={isTyping}
                 maxLength={1000}
@@ -767,7 +1074,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
             <Button
               onClick={handleSendMessage}
               disabled={!inputText.trim() || isTyping}
-              className="p-2 sm:p-3 shrink-0"
+              className="p-2 sm:p-3 shrink-0 min-w-10"
               size="lg"
             >
               <Send className="w-4 h-4" />
