@@ -1,5 +1,6 @@
 // app/(student)/index.tsx
 import { Link, router } from "expo-router";
+import type { Href } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +15,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import { Feather } from "@expo/vector-icons";
 
 // NOTE: プロジェクトのエイリアス事情があるため、相対 import を推奨
 // 既存クライアントのパスに合わせて変更してください。
@@ -391,8 +393,8 @@ function ProfileCard({ userId }: { userId: string }) {
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
           ) : (
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-              <Text>🙂</Text>
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#f87171" }}>
+              <Feather name="user" size={28} color="#ffffff" />
             </View>
           )}
           {saving && (
@@ -567,7 +569,7 @@ function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
   );
 }
 
-function StatCard({ title, desc, value, loading, href }: { title: string; desc: string; value: number; loading: boolean; href: string }) {
+function StatCard({ title, desc, value, loading, href }: { title: string; desc: string; value: number; loading: boolean; href: Href }) {
   return (
     <Link href={href} asChild>
       <Pressable style={{ flex: 1 }}>
