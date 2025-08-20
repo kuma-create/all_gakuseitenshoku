@@ -207,7 +207,7 @@ export default function ScoutTabScreen() {
 
           // 楽観的更新 + チャットへ
           setScouts(prev => prev.map(s => (s.id === id ? { ...s, status: "accepted", chatRoomId: chat.id } : s)));
-          router.push("/(student)/chats/" + chat.id);
+          router.push({ pathname: "/(student)/chat/[id]", params: { id: String(chat.id) } });
         } else if (next === "declined") {
           const { error } = await supabase
             .from("scouts")
@@ -252,7 +252,7 @@ export default function ScoutTabScreen() {
       activeOpacity={0.8}
       onPress={() => {
         if (item.status !== "declined" && item.status !== "expired") {
-          router.push(`/(student)/scouts/${item.id}`);
+          router.push({ pathname: "/(student)/scouts/[id]", params: { id: String(item.id) } });
         }
       }}
       style={[styles.card, (item.status === "declined" || item.status === "expired") && { opacity: 0.6 }]}
@@ -311,11 +311,11 @@ export default function ScoutTabScreen() {
           </>
         )}
         {item.status === "accepted" && item.chatRoomId && (
-          <TouchableOpacity style={[styles.button, styles.primaryBlue]} onPress={() => router.push(`/(student)/chats/${item.chatRoomId}`)}>
+          <TouchableOpacity style={[styles.button, styles.primaryBlue]} onPress={() => router.push({ pathname: "/(student)/chat/[id]", params: { id: String(item.chatRoomId) } })}>
             <Text style={[styles.buttonText, { color: "#fff" }]}>チャットを開く</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={[styles.button, styles.solid]} onPress={() => router.push(`/(student)/scouts/${item.id}`)}>
+        <TouchableOpacity style={[styles.button, styles.solid]} onPress={() => router.push({ pathname: "/(student)/scouts/[id]", params: { id: String(item.id) } })}>
           <Text style={styles.buttonText}>詳細を見る</Text>
         </TouchableOpacity>
       </View>
