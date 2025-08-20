@@ -62,6 +62,7 @@ type FormData = {
   nearestStation: string
   remunerationType: "hourly" | "commission",
   commissionRate: string,
+  minDailyHours: string,
   /* Event */
   eventDate: string
   capacity: string
@@ -150,7 +151,7 @@ const fetchJob = async (id: string) => {
       fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
       event_details:event_details!job_id (event_date, capacity, venue, format),
-      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits, remuneration_type, commission_rate, is_paid)
+      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits, remuneration_type, commission_rate, is_paid, min_daily_hours)
     `)
     .eq("id", id)
     .single()
@@ -202,6 +203,10 @@ const fetchJob = async (id: string) => {
         ? (internLong.remuneration_type as "hourly" | "commission")
         : "hourly",
     commissionRate: internLong.commission_rate ?? "",
+    minDailyHours:
+      internLong.min_daily_hours !== undefined && internLong.min_daily_hours !== null
+        ? String(internLong.min_daily_hours)
+        : "",
 
     /* Event */
     eventDate : event.event_date ?? "",
@@ -319,6 +324,7 @@ export default function JobEditPage() {
     nearestStation  : "",
     remunerationType   : "hourly",
     commissionRate     : "",
+    minDailyHours      : "",
     /* イベント専用 */
     eventDate: "",
     capacity: "",
@@ -362,6 +368,7 @@ export default function JobEditPage() {
           nearestStation    : jobData.nearestStation,
           remunerationType    : jobData.remunerationType,
           commissionRate      : jobData.commissionRate,
+          minDailyHours       : jobData.minDailyHours ?? "",
           /* Event */
           eventDate : jobData.eventDate,
           capacity  : jobData.capacity,
@@ -478,6 +485,13 @@ export default function JobEditPage() {
         newErrors.workDaysPerWeek = "数字で入力してください（例: 3）";
       }
 
+      // minDailyHours validation
+      if (!formData.minDailyHours.trim()) {
+        newErrors.minDailyHours = "1日の最低稼働時間は必須です";
+      } else if (parseNumber(formData.minDailyHours) === null) {
+        newErrors.minDailyHours = "数字で入力してください（例: 4）";
+      }
+
       if (formData.remunerationType === "hourly") {
         if (!formData.hourlyWage.trim()) {
           newErrors.hourlyWage = "時給は必須です";
@@ -499,6 +513,13 @@ export default function JobEditPage() {
         newErrors.workDaysPerWeek = "勤務日数は必須です";
       } else if (parseNumber(formData.workDaysPerWeek) === null) {
         newErrors.workDaysPerWeek = "数字で入力してください（例: 3）";
+      }
+
+      // minDailyHours validation
+      if (!formData.minDailyHours.trim()) {
+        newErrors.minDailyHours = "1日の最低稼働時間は必須です";
+      } else if (parseNumber(formData.minDailyHours) === null) {
+        newErrors.minDailyHours = "数字で入力してください（例: 4）";
       }
 
       if (formData.remunerationType === "hourly") {
@@ -626,6 +647,7 @@ export default function JobEditPage() {
             travel_expense      : formData.travelExpense || null,
             nearest_station     : formData.nearestStation || null,
             benefits            : formData.benefits || null,
+            min_daily_hours     : parseNumber(formData.minDailyHours),
           };
           break;
         case "event":
@@ -1266,8 +1288,8 @@ export default function JobEditPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* 勤務時間 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 勤務時間・週あたり勤務日数・1日の最低稼働時間 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="workingHours" className="flex items-center gap-1">
                       勤務時間<span className="text-red-500">*</span>
@@ -1304,6 +1326,26 @@ export default function JobEditPage() {
                       <p className="text-sm text-red-500 mt-1">
                         {errors.workDaysPerWeek}
                       </p>
+                    )}
+                  </div>
+
+                  {/* 1日の最低稼働時間 */}
+                  <div>
+                    <Label htmlFor="minDailyHours" className="flex items-center gap-1">
+                      1日の最低稼働時間<span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="minDailyHours"
+                      name="minDailyHours"
+                      type="number"
+                      min="1"
+                      value={formData.minDailyHours}
+                      onChange={handleInputChange}
+                      className={`mt-1 ${errors.minDailyHours ? "border-red-500" : ""}`}
+                      placeholder="例: 4"
+                    />
+                    {errors.minDailyHours && (
+                      <p className="text-sm text-red-500 mt-1">{errors.minDailyHours}</p>
                     )}
                   </div>
                 </div>
@@ -1792,6 +1834,15 @@ export default function JobEditPage() {
                             value={
                               formData.workDaysPerWeek
                                 ? `週${formData.workDaysPerWeek}日`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="1日の最低稼働時間"
+                            value={
+                              formData.minDailyHours
+                                ? `${formData.minDailyHours}時間/日`
                                 : "応相談"
                             }
                           />

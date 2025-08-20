@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Check } from "lucide-react"
+import { Check, User } from "lucide-react"
 import clsx from "clsx"
 import type { Database } from "@/lib/supabase/types"
 import { Card, CardContent } from "@/components/ui/card"
@@ -195,8 +195,8 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                   {stu.avatar_url ? (
                     <AvatarImage src={stu.avatar_url} alt={stu.full_name ?? ""} />
                   ) : null}
-                  <AvatarFallback>
-                    {stu.avatar_url ? null : company?.slice(0, 2) ?? "👤"}
+                  <AvatarFallback className="bg-red-500 text-white">
+                    {stu.avatar_url ? null : <User className="h-5 w-5" />}
                   </AvatarFallback>
                 </Avatar>
 
