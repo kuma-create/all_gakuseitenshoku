@@ -1,7 +1,7 @@
-import React from "react";
-import { View, Text, Pressable, Alert } from "react-native";
-import { supabase } from "@/src/lib/supabase";
 import { router } from "expo-router";
+import React from "react";
+import { Alert, Pressable, Text, View } from "react-native";
+import { supabase } from "../../src/lib/supabase";
 
 export default function SettingsScreen() {
   const onLogout = async () => {
@@ -38,3 +38,5 @@ export default function SettingsScreen() {
     </View>
   );
 }
+
+

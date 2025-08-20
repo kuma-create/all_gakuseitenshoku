@@ -8,7 +8,8 @@
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
     "typeRoots": ["./node_modules/@types", "./node_modules/next/types"],
     "types": ["node", "next"],
     "resolveJsonModule": true,
@@ -21,9 +22,19 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["apps/web/*"],
+      "@/app/*": ["apps/web/app/*"],
+      "@/components/*": ["apps/web/components/*"],
+      "@/lib/*": ["apps/web/lib/*"],
+      "@/utils/*": ["apps/web/utils/*"],
+      "@/styles/*": ["apps/web/styles/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "apps/web/next-env.d.ts",
+    "apps/web/**/*.ts",
+    "apps/web/**/*.tsx",
+    "apps/web/.next/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }
