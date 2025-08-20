@@ -1,12 +1,36 @@
 {
   "name": "gakuten-monorepo",
   "private": true,
-  "packageManager": "pnpm@10",
-  "workspaces": ["apps/*", "packages/*"],
+  "packageManager": "pnpm@10.13.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev:web": "pnpm --filter ./apps/web dev",
     "build": "pnpm --filter ./apps/web build",
     "start:web": "pnpm --filter ./apps/web start",
     "dev:mobile": "pnpm --filter ./apps/mobile start"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@expo/cli": "0.25.0",
+    "@expo/metro": "0.1.1",
+    "@expo/metro-config": "0.21.2",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "babel-preset-expo": "~13.0.0",
+    "metro": "0.83.1",
+    "metro-config": "0.83.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "metro": "0.83.1",
+      "metro-config": "0.83.1",
+      "@expo/metro-config": "0.21.2",
+      "@expo/cli": "0.25.0",
+      "@expo/metro": "0.1.1",
+      "@babel/core": "^7.24.9",
+      "babel-preset-expo": "~13.0.0"
+    }
   }
 }
