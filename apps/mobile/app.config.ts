@@ -1,16 +1,56 @@
 import 'dotenv/config';
+import { ExpoConfig } from '@expo/config';
 
-export default {
-  expo: {
-    name: "Gakuten",
-    slug: "gakuten",
-    scheme: "gakuten",           // Deep Link 用
-    ios: { bundleIdentifier: "co.gakuten.app" },
-    android: { package: "co.gakuten.app" },
-    extra: {
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+const config: ExpoConfig = {
+  name: "Gakuten",                 // ← 必要なら 'gakuten-mobile' に変更可
+  slug: "gakuten",
+  scheme: "gakuten",               // Deep Link 用（必要に応じて変更）
+  version: "1.0.0",
+  orientation: "portrait",
+  userInterfaceStyle: "automatic",
+  newArchEnabled: true,
+
+  icon: "./assets/images/icon.png",
+
+  ios: {
+    bundleIdentifier: "co.gakuten.app",
+    supportsTablet: true,
+  },
+
+  android: {
+    package: "co.gakuten.app",
+    edgeToEdgeEnabled: true,
+    adaptiveIcon: {
+      foregroundImage: "./assets/images/adaptive-icon.png",
+      backgroundColor: "#ffffff",
     },
-    plugins: ["expo-router"],
+  },
+
+  web: {
+    bundler: "metro",
+    output: "static",
+    favicon: "./assets/images/favicon.png",
+  },
+
+  plugins: [
+    "expo-router",
+    [
+      "expo-splash-screen",
+      {
+        image: "./assets/images/splash-icon.png",
+        imageWidth: 200,
+        resizeMode: "contain",
+        backgroundColor: "#ffffff",
+      },
+    ],
+  ],
+
+  experiments: { typedRoutes: true },
+
+  extra: {
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   },
 };
+
+export default { expo: config };
