@@ -587,7 +587,7 @@ export default function ApplicantDetailPage() {
       // Notify system admin when status becomes 内定 or 不採用
       if (newStatus === "内定" || newStatus === "不採用") {
         try {
-          await fetch("/api/applicants/status-notify", {
+          await fetch("/api/applicants", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
