@@ -546,7 +546,7 @@ function OffersCard({ offers }: { offers: Scout[] }) {
         ))}
       </View>
 
-      <Link href="/(student)/offers" asChild>
+      <Link href="/(student)/scouts" asChild>
         <Pressable style={{ padding: 14, borderTopWidth: 1, borderTopColor: "#f3f4f6", alignItems: "center" }}>
           <Text style={{ color: "#ef4444", fontWeight: "700" }}>全てのオファーを見る</Text>
         </Pressable>

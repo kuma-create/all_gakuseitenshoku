@@ -6,7 +6,7 @@ import { useLocalSearchParams, Link, router } from "expo-router";
 import { ArrowLeft, Clock } from "lucide-react-native";
 
 import { supabase } from "src/lib/supabase";
-import type { Database } from "@/lib/supabase/types";
+import type { Database } from "src/lib/supabase/types";
 
 /* 型 ------------------------------------------------------------------ */
 type ChallengeRow = Database["public"]["Tables"]["challenges"]["Row"];

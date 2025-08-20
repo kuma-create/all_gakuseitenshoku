@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Clock } from 'lucide-react-native';
-import { supabase } from '@/lib/supabase';
+import { supabase } from 'src/lib/supabase';
 
 // --- Minimal types ---
 type ChallengeCard = {

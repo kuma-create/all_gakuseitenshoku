@@ -18,7 +18,7 @@ import {
 
 // Supabase クライアントのパスはプロジェクトに合わせて調整
 // import { supabase } from "@/src/lib/supabase";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "src/lib/supabase";
 
 /* ---------- types ---------- */
 

@@ -5,7 +5,7 @@
    - 依存：expo-router, @supabase/supabase-js, react-native
    - 注意：`@/lib/supabase` のパスはプロジェクトに合わせてください
 -------------------------------------------------------------- */
-import { supabase } from "@/lib/supabase"; // ← 必要に応じて修正 (@/src/lib/supabase 等)
+import { supabase } from "src/lib/supabase"; // ← 必要に応じて修正 (@/src/lib/supabase 等)
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";

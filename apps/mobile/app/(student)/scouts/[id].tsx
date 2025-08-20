@@ -1,7 +1,7 @@
 
 
 // app/(student)/scouts/[id].tsx — スカウト詳細（モバイル）
-import { supabase } from "@/lib/supabase";
+import { supabase } from "src/lib/supabase";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
