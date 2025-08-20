@@ -54,6 +54,19 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   start_date?: string | null
   end_date?: string | null
   event_format?: string | null
+  ,
+  // intern_long details (optional)
+  intern_long_details?: {
+    hourly_wage?: number | null
+    remuneration_type?: string | null
+    commission_rate?: string | null
+    work_days_per_week?: number | null
+  } | null
+  // flattened for convenience
+  il_hourly_wage?: number | null
+  il_remuneration_type?: string | null
+  il_commission_rate?: string | null
+  il_work_days_per_week?: number | null
 }
 
 
@@ -111,6 +124,12 @@ const getSelectionLabel = (type?: string | null) => {
   const key = (type ?? "fulltime").trim() as keyof typeof SELECTION_LABELS
   return SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime
 }
+
+/* 判定: 長期インターンか */
+const isInternLong = (type?: string | null) => {
+  const key = (type ?? "").trim();
+  return key === "intern_long" || key === "internship_long";
+};
 
 /* 年収フィルターの選択肢 */
 const SALARY_OPTIONS = [
@@ -295,6 +314,12 @@ companies!jobs_company_id_fkey (
 ),
 job_tags!job_tags_job_id_fkey (
   tag
+),
+intern_long_details:intern_long_details!intern_long_details_job_id_fkey (
+  hourly_wage,
+  remuneration_type,
+  commission_rate,
+  work_days_per_week
 )
 `,
         )
@@ -322,6 +347,20 @@ job_tags!job_tags_job_id_fkey (
               return { salary_min: min, salary_max: max }
             })(),
             salary_range: row.salary_range ?? null,
+            // flatten intern_long details for easier rendering
+            ...(row as any).intern_long_details
+              ? {
+                  il_hourly_wage: (row as any).intern_long_details.hourly_wage ?? null,
+                  il_remuneration_type: (row as any).intern_long_details.remuneration_type ?? null,
+                  il_commission_rate: (row as any).intern_long_details.commission_rate ?? null,
+                  il_work_days_per_week: (row as any).intern_long_details.work_days_per_week ?? null,
+                }
+              : {
+                  il_hourly_wage: null,
+                  il_remuneration_type: null,
+                  il_commission_rate: null,
+                  il_work_days_per_week: null,
+                },
           }
         })
         setJobs(normalized)
@@ -1034,12 +1073,29 @@ function JobGrid({
                       <MapPin size={14} />
                       <span>{j.location}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Briefcase size={14} />
-                      <span>
-                        {j.salary_min ?? "-"}万 – {j.salary_max ?? "応相談"}万
-                      </span>
-                    </div>
+                    { isInternLong(j.selection_type) ? (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Briefcase size={14} />
+                          <span>
+                            {j.il_remuneration_type === "hourly"
+                              ? (j.il_hourly_wage != null ? `${j.il_hourly_wage}円／時` : "時給")
+                              : (j.il_commission_rate ? `歩合 ${j.il_commission_rate}` : "歩合")}
+                          </span>
+                        </div>
+                        {j.il_work_days_per_week != null && (
+                          <div className="flex items-center gap-1">
+                            <Clock size={14} />
+                            <span>{`週${j.il_work_days_per_week}日`}</span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <MapPin size={14} />
+                        <span>{j.location || "-"}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -1112,8 +1168,22 @@ function JobGrid({
                 </div>
               </div>
 
-              <div className="text-xs text-gray-500">
-                {j.salary_min ?? "-"}万 – {j.salary_max ?? "応相談"}万
+              <div className="text-xs text-gray-500 flex gap-3 items-center">
+                { isInternLong(j.selection_type) ? (
+                  <>
+                    <span>
+                      {j.il_remuneration_type === "hourly"
+                        ? (j.il_hourly_wage != null ? `${j.il_hourly_wage}円／時` : "時給")
+                        : (j.il_commission_rate ? `歩合 ${j.il_commission_rate}` : "歩合")}
+                    </span>
+                    {j.il_work_days_per_week != null && (
+                      <span>{`週${j.il_work_days_per_week}日`}</span>
+                    )}
+                    <span className="inline-flex items-center gap-1"><MapPin size={12} />{j.location}</span>
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1"><MapPin size={12} />{j.location || "-"}</span>
+                )}
               </div>
             </div>
           </Link>

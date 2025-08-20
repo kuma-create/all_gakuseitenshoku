@@ -121,6 +121,7 @@ export default function NewJobPage() {
     hourlyWage      : "",
     remunerationType: "hourly", // "hourly" | "commission"
     commissionRate  : "",
+    minDailyHours   : "",
 
     /* event only */
     eventDate: "",
@@ -351,6 +352,12 @@ export default function NewJobPage() {
       if (!formData.workDaysPerWeek.trim())
         newErrors.workDaysPerWeek = "週あたり勤務日数を入力してください";
 
+      if (!formData.minDailyHours.trim()) {
+        newErrors.minDailyHours = "1日の最低稼働時間を入力してください";
+      } else if (parseNumber(formData.minDailyHours) === null) {
+        newErrors.minDailyHours = "数字で入力してください（例: 4）";
+      }
+
       if (formData.remunerationType === "hourly") {
         if (!formData.hourlyWage.trim()) {
           newErrors.hourlyWage = "時給を入力してください";
@@ -536,6 +543,7 @@ export default function NewJobPage() {
               travel_expense     : formData.travelExpense || null,
               nearest_station    : formData.nearestStation || null,
               benefits           : formData.benefits || null,
+              min_daily_hours    : parseNumber(formData.minDailyHours),
               start_date          : formData.startDate || null,
             } as Database["public"]["Tables"]["intern_long_details"]["Insert"]
           );
@@ -743,6 +751,7 @@ export default function NewJobPage() {
                         hourlyWage      : "",
                         remunerationType: "hourly",
                         commissionRate  : "",
+                        minDailyHours   : "",
                         /* event only */
                         eventDate: "",
                         capacity: "",
@@ -1159,6 +1168,25 @@ export default function NewJobPage() {
                         </p>
                       )}
                     </div>
+                    {/* 1日の最低稼働時間 */}
+                    <div>
+                      <Label htmlFor="minDailyHours" className="flex items-center gap-1">
+                        1日の最低稼働時間<span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="minDailyHours"
+                        name="minDailyHours"
+                        type="number"
+                        min="1"
+                        value={formData.minDailyHours}
+                        onChange={handleInputChange}
+                        className={`mt-1 ${errors.minDailyHours ? "border-red-500" : ""}`}
+                        placeholder="例: 4"
+                      />
+                      {errors.minDailyHours && (
+                        <p className="text-sm text-red-500 mt-1">{errors.minDailyHours}</p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1442,6 +1470,15 @@ export default function NewJobPage() {
                             value={
                               formData.workDaysPerWeek
                                 ? `週${formData.workDaysPerWeek}日`
+                                : "応相談"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="1日の最低稼働時間"
+                            value={
+                              formData.minDailyHours
+                                ? `${formData.minDailyHours}時間/日`
                                 : "応相談"
                             }
                           />

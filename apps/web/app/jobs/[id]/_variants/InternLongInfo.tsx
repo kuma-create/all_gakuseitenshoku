@@ -151,6 +151,13 @@ export default function InternInfo({
       ? internship.working_hours
       : "-";
 
+  const minDailyHoursRaw =
+    typeof internship.min_daily_hours === "number"
+      ? internship.min_daily_hours
+      : null;
+  const minDailyHoursDisplay =
+    typeof minDailyHoursRaw === "number" ? `${minDailyHoursRaw}時間/日` : "-";
+
   const isNew =
     job?.created_at &&
     new Date(job.created_at).getTime() >
@@ -239,6 +246,11 @@ export default function InternInfo({
                   icon={<Clock size={16} />}
                   label="週あたりの勤務日数"
                   value={workingDaysDisplay}
+                />
+                <SummaryItem
+                  icon={<Clock size={16} />}
+                  label="1日の最低稼働時間"
+                  value={minDailyHoursDisplay}
                 />
                 <SummaryItem
                   icon={<Briefcase size={16} />}

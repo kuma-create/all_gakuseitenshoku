@@ -7,6 +7,7 @@ import {
   GraduationCap,
   MapPin,
   Send,
+  User,
 } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -50,11 +51,11 @@ export default function StudentSummary({ student, onScout }: Props) {
       <div className="text-center space-y-3">
         <Avatar className="h-24 w-24 mx-auto">
           <AvatarImage
-            src={student.avatar_url ?? "/placeholder.svg"}
+            src={student.avatar_url ?? undefined}
             alt={student.full_name ?? ""}
           />
-          <AvatarFallback>
-            {student.full_name?.slice(0, 2) ?? "👤"}
+          <AvatarFallback className="bg-red-600 text-white">
+            <User className="h-8 w-8" />
           </AvatarFallback>
         </Avatar>
         <h2 className="text-xl font-bold">{student.full_name}</h2>

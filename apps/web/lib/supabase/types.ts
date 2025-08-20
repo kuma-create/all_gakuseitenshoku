@@ -1593,6 +1593,7 @@ export type Database = {
           id: string
           is_paid: boolean
           job_id: string | null
+          min_daily_hours: number | null
           min_duration_months: string | null
           nearest_station: string | null
           remuneration_type: string
@@ -1611,6 +1612,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           job_id?: string | null
+          min_daily_hours?: number | null
           min_duration_months?: string | null
           nearest_station?: string | null
           remuneration_type?: string
@@ -1629,6 +1631,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           job_id?: string | null
+          min_daily_hours?: number | null
           min_duration_months?: string | null
           nearest_station?: string | null
           remuneration_type?: string
@@ -4492,6 +4495,15 @@ export type Database = {
         Row: {
           cnt: number | null
           job_title: string | null
+        }
+        Relationships: []
+      }
+      monthly_student_inflow: {
+        Row: {
+          academic_year_jp: number | null
+          graduation_year: number | null
+          month_ja: string | null
+          signups: number | null
         }
         Relationships: []
       }

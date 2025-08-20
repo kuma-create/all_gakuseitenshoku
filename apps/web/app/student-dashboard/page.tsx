@@ -28,7 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 import {
   Briefcase, Mail, MessageSquare, ChevronRight,
-  Edit, Camera, BellDot, Menu,
+  Edit, Camera, BellDot, Menu, User,
 } from "lucide-react";
 
 /* ---------- 型 ---------- */
@@ -461,12 +461,21 @@ function AvatarBlock({
 }) {
   return (
     <div className="relative h-16 w-16">
-      <Image
-        src={url ?? "/placeholder-avatar.png"}
-        alt="Avatar"
-        fill
-        className="rounded-full object-cover"
-      />
+      {url ? (
+        <Image
+          src={url}
+          alt="Avatar"
+          fill
+          className="rounded-full object-cover"
+        />
+      ) : (
+        <div
+          aria-label="Default avatar"
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white"
+        >
+          <User className="h-8 w-8" />
+        </div>
+      )}
       <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-white p-1 shadow">
         <Camera className="h-4 w-4" />
         <input
@@ -533,7 +542,7 @@ function GrandPrixCard({ events }: { events: GrandPrix[] }) {
         ))}
       </CardContent>
       <CardFooter className="justify-end bg-gray-50">
-        <LinkButton href="/grandprix">一覧を見る</LinkButton>
+        <LinkButton href="/ipo/case">一覧を見る</LinkButton>
       </CardFooter>
     </Card>
   );
