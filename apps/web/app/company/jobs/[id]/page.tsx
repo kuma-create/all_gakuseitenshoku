@@ -139,6 +139,7 @@ const fetchJob = async (id: string) => {
       salary_range,
       cover_image_url,
       published,
+      member_only,
       views,
       company_id,
       created_at,
@@ -157,28 +158,29 @@ const fetchJob = async (id: string) => {
     .single()
 
   if (error || !data) throw error ?? new Error("Job not found")
+  const d = data as any;
 
-  const full   = (data.fulltime_details ?? {}) as any
-  const intern = (data.internship_details ?? {}) as any
-  const event  = (data.event_details ?? {}) as any
-  const internLong = (data.intern_long_details ?? {}) as any
+  const full      = (d.fulltime_details ?? {}) as any
+  const intern    = (d.internship_details ?? {}) as any
+  const event     = (d.event_details ?? {}) as any
+  const internLong= (d.intern_long_details ?? {}) as any
 
   return {
-    id        : data.id,
-    title     : data.title,
-    description: data.description ?? "",
-    requirements: data.requirements ?? "",
-    department : data.department ?? "",
-    employmentType: data.work_type ?? "",
+    id        : d.id,
+    title     : d.title,
+    description: d.description ?? "",
+    requirements: d.requirements ?? "",
+    department : d.department ?? "",
+    employmentType: d.work_type ?? "",
     benefits       : full.benefits        ?? "",
-    applicationDeadline: data.application_deadline ?? "",
-    location   : data.location ?? "",
+    applicationDeadline: d.application_deadline ?? "",
+    location   : d.location ?? "",
     workingDays: full.working_days ?? "",
-    salary     : data.salary_range ?? "",
-    coverImageUrl: data.cover_image_url ?? "",
+    salary     : d.salary_range ?? "",
+    coverImageUrl: d.cover_image_url ?? "",
 
     /* Internship */
-    startDate       : data.start_date ?? intern.start_date ?? "",
+    startDate       : d.start_date ?? intern.start_date ?? "",
     endDate         : intern.end_date ?? "",
     durationWeeks   : intern.duration_weeks ?? "",
     allowance       : intern.allowance ?? "",
@@ -218,13 +220,13 @@ const fetchJob = async (id: string) => {
 
     /* 共通プレビュー */
     // Removed duplicate schedule property to resolve ts(1117)
-    selectionType : data.selection_type ?? "fulltime",
-    status        : data.published ? "公開" : "非公開",
+    selectionType : d.selection_type ?? "fulltime",
+    status        : d.published ? (d.member_only ? "会員のみ公開" : "公開") : "非公開",
     applicants    : 0,
-    views         : data.views ?? 0,
-    companyId     : data.company_id,
-    createdAt     : data.created_at,
-    // updatedAt     : data.updated_at, // removed, as updated_at is not selected
+    views         : d.views ?? 0,
+    companyId     : d.company_id,
+    createdAt     : d.created_at,
+    // updatedAt     : d.updated_at, // removed, as updated_at is not selected
   }
 }
 
@@ -588,7 +590,8 @@ export default function JobEditPage() {
                              ? formData.departments.join(",")
                              : null,
         work_type        : formData.employmentType,
-        published        : formData.status === "公開",
+        published        : formData.status === "公開" || formData.status === "会員のみ公開",
+        member_only      : formData.status === "会員のみ公開",
         application_deadline: toIsoOrNull(formData.applicationDeadline),
         /* 追加: カテゴリと開始日 */
         category           :
@@ -1594,6 +1597,11 @@ export default function JobEditPage() {
                     <Eye className="mr-1 h-3 w-3" />
                     公開中
                   </Badge>
+                ) : formData.status === "会員のみ公開" ? (
+                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                    <Eye className="mr-1 h-3 w-3" />
+                    会員限定公開
+                  </Badge>
                 ) : (
                   <Badge variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-200">
                     <EyeOff className="mr-1 h-3 w-3" />
@@ -1609,6 +1617,14 @@ export default function JobEditPage() {
                     <Eye className="mr-2 h-4 w-4 text-green-600" />
                     公開
                     <span className="text-sm text-gray-500 ml-2">（学生に表示されます）</span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="会員のみ公開" id="membersOnly" />
+                  <Label htmlFor="membersOnly" className="flex items-center cursor-pointer">
+                    <Eye className="mr-2 h-4 w-4 text-blue-600" />
+                    公開（会員のみ閲覧可能）
+                    <span className="text-sm text-gray-500 ml-2">（ログイン済み学生のみ表示）</span>
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">

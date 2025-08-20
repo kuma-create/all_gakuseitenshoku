@@ -24,6 +24,7 @@ import {
   Star,
   User,
   Target,
+  AlertTriangle,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -282,7 +283,15 @@ const statusOptions = [
   { value: "二次面接済み", label: "二次面接済み", color: "bg-indigo-500" },
   { value: "内定", label: "内定", color: "bg-green-500" },
   { value: "不採用", label: "不採用", color: "bg-red-500" },
-]
+] as const
+
+type StatusValue = typeof statusOptions[number]["value"];
+
+const STATUS_VALUES = new Set<StatusValue>(statusOptions.map(s => s.value));
+const toStatusValue = (val: unknown): StatusValue => {
+  const v = typeof val === "string" ? (val as StatusValue) : "未対応";
+  return STATUS_VALUES.has(v) ? v : "未対応";
+};
 
 type IconType = ComponentType<{ className?: string }>;
 
@@ -314,9 +323,11 @@ export default function ApplicantDetailPage() {
   // React state for applicant and loading
   const [applicant, setApplicant] = useState<Applicant | null>(null)
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState<string>("未対応")
+  const [status, setStatus] = useState<StatusValue>("未対応")
   const [isScoutDialogOpen, setIsScoutDialogOpen] = useState(false)
   const [scoutMessage, setScoutMessage] = useState("")
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<StatusValue | null>(null);
 
   // ── Fetch applicant from Supabase ───────────────────────────────────────────
   useEffect(() => {
@@ -476,34 +487,37 @@ export default function ApplicantDetailPage() {
             console.error("Resume fetch/transform error:", e)
           }
         }
-        /* --------------------------------------------------------------
-         * auth.users からメールアドレスを取得
-         * applicants_view に email が無い場合を補完する
-         * ※ auth スキーマの RLS を許可している必要があります
-         * -------------------------------------------------------------- */
-        /* eslint-disable @typescript-eslint/no-unsafe-call */
-        if (!finalApplicant.contact.email && userId) {
-          try {
-            const { data: authUser, error: authErr } = await (supabase as any)
-              // auth スキーマを明示して users テーブルを参照
-              .schema("auth")
-              .from("users")
-              .select("email")
-              .eq("id", userId)
-              .maybeSingle();
+        // Supabase REST disallows non-public schema (PGRST106), so this block is disabled.
+        if (false) {
+          /* --------------------------------------------------------------
+           * auth.users からメールアドレスを取得
+           * applicants_view に email が無い場合を補完する
+           * ※ auth スキーマの RLS を許可している必要があります
+           * -------------------------------------------------------------- */
+          /* eslint-disable @typescript-eslint/no-unsafe-call */
+          if (!finalApplicant.contact.email && userId) {
+            try {
+              const { data: authUser, error: authErr } = await (supabase as any)
+                // auth スキーマを明示して users テーブルを参照
+                .schema("auth")
+                .from("users")
+                .select("email")
+                .eq("id", userId)
+                .maybeSingle();
 
-            if (!authErr && authUser?.email) {
-              finalApplicant.contact.email = authUser.email;
-            } else if (authErr) {
-              console.warn("auth.users email fetch error:", authErr);
+              if (!authErr && authUser?.email) {
+                finalApplicant.contact.email = authUser.email;
+              } else if (authErr) {
+                console.warn("auth.users email fetch error:", authErr);
+              }
+            } catch (e) {
+              console.error("auth.users email fetch exception:", e);
             }
-          } catch (e) {
-            console.error("auth.users email fetch exception:", e);
           }
+          /* eslint-enable @typescript-eslint/no-unsafe-call */
         }
-        /* eslint-enable @typescript-eslint/no-unsafe-call */
         setApplicant(finalApplicant)
-        setStatus(finalApplicant.status)
+        setStatus(toStatusValue(finalApplicant.status))
       }
       setLoading(false)
     }
@@ -511,11 +525,101 @@ export default function ApplicantDetailPage() {
   }, [applicantId])
   // ───────────────────────────────────────────────────────────────────────────
 
-  const handleStatusChange = (newStatus: string) => {
-    setStatus(newStatus)
-    // Here you would typically call an API to update the status
-    console.log(`Status updated to: ${newStatus}`)
-  }
+  const handleStatusChange = async (newStatus: StatusValue) => {
+    // Optimistic UI update
+    const prev = status;
+    setStatus(newStatus);
+
+    try {
+      const now = new Date().toISOString();
+
+      // 1) Try to update by application primary key (URL param is application id in most flows)
+      let { data, error } = await supabase
+        .from("applications")
+        .update({ status: newStatus })
+        .eq("id", applicantId)
+        .select("id");
+
+      // 1b) Some schemas may use application_id as the PK/unique key
+      if ((!data || data.length === 0) && !error) {
+        const res = await supabase
+          .from("applications")
+          .update({ status: newStatus })
+          .eq("application_id", applicantId)
+          .select("id");
+        data = res.data ?? data;
+        error = res.error ?? error;
+      }
+
+      // 2) If no row was updated (or RLS prevented access), fall back to resolving the latest application by student_id
+      if ((!data || data.length === 0) && !error) {
+        // applicant.id may be application_id / student_id / user_id depending on how it was fetched.
+        // We attempt student_id fallback using the currently shown applicant.
+        const studentKey = applicant?.id ?? null;
+
+        if (studentKey) {
+          const { data: latestApp, error: findErr } = await supabase
+            .from("applications")
+            .select("id")
+            .eq("student_id", studentKey)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!findErr && latestApp?.id) {
+            const { error: updErr } = await supabase
+              .from("applications")
+              .update({ status: newStatus, updated_at: now })
+              .eq("id", latestApp.id);
+
+            if (updErr) throw updErr;
+          } else if (findErr) {
+            throw findErr;
+          }
+        }
+      }
+
+      if (error) {
+        // If the first update errored, throw to revert UI and log
+        throw error;
+      }
+
+      // Notify system admin when status becomes 内定 or 不採用
+      if (newStatus === "内定" || newStatus === "不採用") {
+        try {
+          await fetch("/api/applicants/status-notify", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              application_id: applicantId,
+              new_status: newStatus,
+            }),
+          });
+        } catch (notifyErr) {
+          // Non-blocking: log only
+          console.warn("status-notify API error:", notifyErr);
+        }
+      }
+
+      console.log(`Status persisted to Supabase: ${newStatus}`);
+    } catch (e) {
+      console.error("Failed to update status in Supabase:", e);
+      // Revert optimistic update on failure
+      setStatus(prev);
+    }
+  };
+
+  // 確認モーダルを用いたステータス選択
+  const handleSelectStatus = (next: StatusValue) => {
+    if (next === "内定" || next === "不採用") {
+      setPendingStatus(next);
+      setConfirmOpen(true);
+      return;
+    }
+    void handleStatusChange(next);
+  };
 
   const navigateToChat = () => {
     if (applicant && applicant.chatId) {
@@ -561,13 +665,19 @@ export default function ApplicantDetailPage() {
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-sm">
-              <LazyImage
-                src={applicant.profileImage || "/placeholder.svg"}
-                alt={applicant.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 96px, 96px"
-              />
+              {applicant.profileImage ? (
+                <LazyImage
+                  src={applicant.profileImage}
+                  alt={applicant.name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 96px, 96px"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-red-400 text-white">
+                  <User className="h-10 w-10" />
+                </div>
+              )}
             </div>
             <div className="flex-1">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
@@ -929,7 +1039,7 @@ export default function ApplicantDetailPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56">
                     {statusOptions.map((option) => (
-                      <DropdownMenuItem key={option.value} onClick={() => handleStatusChange(option.value)}>
+                      <DropdownMenuItem key={option.value} onClick={() => handleSelectStatus(option.value)}>
                         <Badge className={`${option.color} text-white mr-2 px-2 py-0.5`}>{option.label}</Badge>
                       </DropdownMenuItem>
                     ))}
@@ -1003,6 +1113,48 @@ export default function ApplicantDetailPage() {
           </Button>
         </div>
       </div>
+
+      {/* Confirm Modal for 内定/不採用 */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              確認
+            </DialogTitle>
+            <DialogDescription>
+              {pendingStatus === "内定"
+                ? "選考ステータスを「内定」に変更します。よろしいですか？"
+                : pendingStatus === "不採用"
+                ? "選考ステータスを「不採用」に変更します。よろしいですか？"
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmOpen(false);
+                setPendingStatus(null);
+              }}
+            >
+              キャンセル
+            </Button>
+            <Button
+              variant={pendingStatus === "不採用" ? "destructive" : "default"}
+              onClick={async () => {
+                if (pendingStatus) {
+                  await handleStatusChange(pendingStatus);
+                }
+                setConfirmOpen(false);
+                setPendingStatus(null);
+              }}
+            >
+              変更する
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
