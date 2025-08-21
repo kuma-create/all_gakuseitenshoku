@@ -12,7 +12,7 @@ const isSafari =
   !/Chrome/.test(navigator.userAgent);
 import {
   User, FileText, Target, Edit, Save, X, CheckCircle2, AlertCircle,
-  GraduationCap, Code, ChevronUp, Info, Loader2,
+  GraduationCap, Code, ChevronUp, Info, Loader2, ChevronsUpDown, Check,
 } from "lucide-react"
 import { z } from "zod"
 import { toast } from "@/components/ui/use-toast"
@@ -37,6 +37,15 @@ import { Input }    from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label }    from "@/components/ui/label"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import SkillPicker from "@/components/SkillPicker"
 import QualificationPicker from "@/components/QualificationPicker"
@@ -305,6 +314,54 @@ export default function StudentProfilePage() {
   const [tab, setTab] = useState<"basic" | "pr" | "pref">("basic")
   const [fieldErrs, setFieldErrs] =
     useState<Partial<Record<keyof FormValues, string>>>({})
+
+  // 4つのマスタを統合して大学名候補を作成
+  const [universities, setUniversities] = useState<string[]>([]);
+  useEffect(() => {
+    // 4つのマスタを統合して大学名候補を作成
+    const sources = [
+      "/universities_graduate.json",
+      "/universities_national.json",
+      "/universities_private.json",
+      "/universities_public.json",
+    ] as const;
+
+    Promise.all(
+      sources.map((url) =>
+        fetch(url)
+          .then((res) => (res.ok ? res.json() : []))
+          .catch(() => [])
+      )
+    )
+      .then((all) => {
+        const merged = all.flatMap((raw: any) => {
+          const arr =
+            Array.isArray(raw)
+              ? raw
+              : raw?.universities ??
+                raw?.data ??
+                [];
+          return Array.isArray(arr) ? arr : [];
+        });
+
+        const cleaned = Array.from(
+          new Set(
+            merged
+              .map((v) => (typeof v === "string" ? v.trim() : ""))
+              .filter((v) => v.length > 0)
+          )
+        ).sort((a, b) => a.localeCompare(b, "ja"));
+
+        if (cleaned.length) setUniversities(cleaned);
+      })
+      .catch((err) => {
+        console.warn("universities fetch failed:", err);
+      });
+  }, []);
+
+  // combobox UI state for university field
+  const [uniOpen, setUniOpen] = useState(false);
+  const [uniQuery, setUniQuery] = useState("");
 
   /* ── required keys per tab (saving scope) ─────────────────────────── */
   const TAB_REQUIRED: Record<typeof tab, (keyof FormValues)[]> = {
@@ -678,14 +735,100 @@ export default function StudentProfilePage() {
             <CollapsibleContent className="animate-accordion-down">
               <Card className="border-t-0">
                 <CardContent className="space-y-4 p-4">
-                  <FieldInput
-                    id="university"
-                    label="大学名"
-                    value={profile.university ?? ''}
-                    onChange={(v) => updateMark({ university: v })}
-                    onBlur={handleBlur}
-                    error={fieldErrs.university}
-                  />
+                  {/* 大学名（/public/universities_jp.json を参照・入力後に候補表示） */}
+                  {/* 大学名（検索コンボボックス） */}
+                  <div className="space-y-1">
+                    <Label htmlFor="university" className="text-xs sm:text-sm">
+                      大学名<span className="text-red-500">*</span>
+                    </Label>
+                    <Popover open={uniOpen} onOpenChange={setUniOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          id="university"
+                          type="button"
+                          className={`flex h-10 w-full items-center justify-between rounded-md border px-3 text-left text-sm ${
+                            fieldErrs.university ? "border-red-500" : "border-input"
+                          } ${profile.university ? "text-gray-900 font-medium" : "text-gray-400"}`}
+                          aria-expanded={uniOpen}
+                        >
+                          <span className={`${profile.university ? "" : "text-gray-400"}`}>
+                            {profile.university || "大学名を入力して検索"}
+                          </span>
+                          <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <div className="px-2 py-2">
+                            <CommandInput
+                              placeholder="大学名を入力"
+                              value={uniQuery}
+                              onValueChange={(v) => setUniQuery(v)}
+                              className="h-9 text-sm"
+                              autoFocus
+                            />
+                          </div>
+                          {!uniQuery.trim() ? (
+                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                              1文字以上入力すると候補が表示されます
+                            </div>
+                          ) : (
+                            <CommandList className="max-h-64 overflow-y-auto">
+                              <CommandEmpty className="py-6 text-center text-sm">
+                                候補が見つかりません
+                              </CommandEmpty>
+                              <CommandGroup heading="候補">
+                                {universities
+                                  .filter((u) => u.toLowerCase().includes(uniQuery.trim().toLowerCase()))
+                                  .slice(0, 200)
+                                  .map((u) => (
+                                    <CommandItem
+                                      key={u}
+                                      value={u}
+                                      onSelect={() => {
+                                        updateMark({ university: u });
+                                        setUniQuery("");
+                                        setUniOpen(false);
+                                        // 保存トリガ
+                                        handleBlur();
+                                      }}
+                                      className="text-sm"
+                                    >
+                                      <Check
+                                        className={`mr-2 h-4 w-4 ${
+                                          profile.university === u ? "opacity-100" : "opacity-0"
+                                        }`}
+                                      />
+                                      {u}
+                                    </CommandItem>
+                                  ))}
+                              </CommandGroup>
+                              {/* 自由入力の使用 */}
+                              {uniQuery.trim() && (
+                                <CommandGroup>
+                                  <CommandItem
+                                    value={`use-${uniQuery.trim()}`}
+                                    onSelect={() => {
+                                      updateMark({ university: uniQuery.trim() });
+                                      setUniQuery("");
+                                      setUniOpen(false);
+                                      handleBlur();
+                                    }}
+                                    className="text-sm"
+                                  >
+                                    「{uniQuery.trim()}」を使用
+                                  </CommandItem>
+                                </CommandGroup>
+                              )}
+                            </CommandList>
+                          )}
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {fieldErrs.university && (
+                      <p className="text-xs text-red-500">{fieldErrs.university}</p>
+                    )}
+                  </div>
                   <FieldInput
                     id="faculty"
                     label="学部/研究科"
