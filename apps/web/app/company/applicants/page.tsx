@@ -94,13 +94,8 @@ const STATUS_OPTIONS = [
   { value: "一次面接済", color: "bg-purple-100 text-purple-800 hover:bg-purple-100" },
   { value: "二次面接調整中", color: "bg-violet-100 text-violet-800 hover:bg-violet-100" },
   { value: "二次面接済", color: "bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-100" },
-  { value: "最終面接調整中", color: "bg-pink-100 text-pink-800 hover:bg-pink-100" },
-  { value: "最終面接済", color: "bg-rose-100 text-rose-800 hover:bg-rose-100" },
   { value: "内定", color: "bg-green-100 text-green-800 hover:bg-green-100" },
-  { value: "内定辞退", color: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" },
   { value: "不採用", color: "bg-red-100 text-red-800 hover:bg-red-100" },
-  { value: "チャット中", color: "bg-cyan-100 text-cyan-800 hover:bg-cyan-100" },
-  { value: "スカウト承諾", color: "bg-teal-100 text-teal-800 hover:bg-teal-100" },
 ]
 
 
@@ -364,10 +359,6 @@ export default function ApplicantsPage() {
             "一次面接済",
             "二次面接調整中",
             "二次面接済",
-            "最終面接調整中",
-            "最終面接済",
-            "チャット中",
-            "スカウト承諾",
           ].includes(a.status)) ||
         (statusFilter === "passed" && a.status === "内定") ||
         (statusFilter === "rejected" && ["不採用", "内定辞退"].includes(a.status))
@@ -440,18 +431,19 @@ export default function ApplicantsPage() {
     }
   }
 
-  /* --- バルク操作（例: ステータス更新） --- */
-  const bulkUpdateStatus = async (status: string) => {
-    if (selectedApplicantIds.length === 0) return
-    const enumStatus = status as Database["public"]["Enums"]["application_status"];
-    await supabase
-      .from("applications")
-      .update({ status: enumStatus })
-      .in("id", selectedApplicantIds);
+  /* --- [DISABLED] ステータス変更機能（コメントアウト） ---
+const bulkUpdateStatus = async (status: string) => {
+  if (selectedApplicantIds.length === 0) return
+  const enumStatus = status as Database["public"]["Enums"]["application_status"];
+  await supabase
+    .from("applications")
+    .update({ status: enumStatus })
+    .in("id", selectedApplicantIds);
 
-    // mutate to revalidate
-    setSelectedApplicantIds([])
-  }
+  // mutate to revalidate
+  setSelectedApplicantIds([])
+}
+*/
 
   /** 会社⇔学生のチャットを開く（既存がなければ作成） */
   const openChat = async (studentId: string, jobId: string | null) => {
@@ -680,10 +672,6 @@ export default function ApplicantsPage() {
                           "一次面接済",
                           "二次面接調整中",
                           "二次面接済",
-                          "最終面接調整中",
-                          "最終面接済",
-                          "チャット中",
-                          "スカウト承諾",
                         ].includes(a.status) && key === "inProgress"
                       )
                     }).length
@@ -752,35 +740,12 @@ export default function ApplicantsPage() {
                       {/* 右側: ステータス & アクション */}
                       <div className="bg-gray-50 p-4 md:p-6 md:w-64 flex flex-col justify-between border-t md:border-t-0 md:border-l">
                         <div>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Badge
-                                className={`cursor-pointer text-sm px-3 py-1.5 mb-4 ${getStatusBadgeVariant(applicant.status)}`}
-                              >
-                                {applicant.status}
-                              </Badge>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>選考ステータスの変更</DialogTitle>
-                                <DialogDescription>
-                                  {applicant.name} さんのステータスを変更します
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="grid grid-cols-2 gap-2 mt-4">
-                                {STATUS_OPTIONS.map((opt) => (
-                                  <Button
-                                    key={opt.value}
-                                    variant="outline"
-                                    className={opt.color}
-                                    onClick={() => bulkUpdateStatus(opt.value)}
-                                  >
-                                    {opt.value}
-                                  </Button>
-                                ))}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                          {/* [DISABLED] ステータス変更ダイアログ → 読み取り専用表示 */}
+                          <Badge
+                            className={`text-sm px-3 py-1.5 mb-4 ${getStatusBadgeVariant(applicant.status)}`}
+                          >
+                            {applicant.status}
+                          </Badge>
 
                           <p className="text-sm text-gray-500 mb-1">応募求人</p>
                           <p className="font-medium mb-4">{applicant.jobTitle}</p>
