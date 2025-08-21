@@ -43,6 +43,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+import type { Database } from "@/lib/supabase/types"
+
 
 // 型: Applicant
 type Applicant = {
@@ -273,21 +275,23 @@ const transformApplicantRow = (row: any): Applicant => ({
   chatId: row.chat_id ?? null,
 })
 
-// Status options
+// Status options (UI)
 const statusOptions = [
   { value: "未対応", label: "未対応", color: "bg-gray-500" },
   { value: "書類選考中", label: "書類選考中", color: "bg-blue-500" },
   { value: "一次面接調整中", label: "一次面接調整中", color: "bg-purple-500" },
-  { value: "一次面接済み", label: "一次面接済み", color: "bg-indigo-500" },
+  { value: "一次面接済", label: "一次面接済", color: "bg-indigo-500" },
   { value: "二次面接調整中", label: "二次面接調整中", color: "bg-purple-500" },
-  { value: "二次面接済み", label: "二次面接済み", color: "bg-indigo-500" },
+  { value: "二次面接済", label: "二次面接済", color: "bg-indigo-500" },
   { value: "内定", label: "内定", color: "bg-green-500" },
   { value: "不採用", label: "不採用", color: "bg-red-500" },
-] as const
+] as const satisfies readonly { value: DbStatus; label: string; color: string }[];
 
-type StatusValue = typeof statusOptions[number]["value"];
+// Use DB as the source of truth for application status
+type DbStatus = NonNullable<Database["public"]["Tables"]["applications"]["Update"]["status"]>;
+type StatusValue = DbStatus;
 
-const STATUS_VALUES = new Set<StatusValue>(statusOptions.map(s => s.value));
+const STATUS_VALUES = new Set<DbStatus>(statusOptions.map((s) => s.value as DbStatus));
 const toStatusValue = (val: unknown): StatusValue => {
   const v = typeof val === "string" ? (val as StatusValue) : "未対応";
   return STATUS_VALUES.has(v) ? v : "未対応";
