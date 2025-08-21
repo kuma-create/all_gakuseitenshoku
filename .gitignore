@@ -45,3 +45,7 @@ tmp/
 !.yarn/sdks
 !.yarn/versions
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
