@@ -89,6 +89,7 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   job_tags?: { tag: string }[] | null
   event_date?: string | null
   event_format?: string | null
+  member_only?: boolean | null
 }
 
 const SALARY_MAX = 1200
@@ -208,6 +209,7 @@ export default function JobsPage({
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobRow[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   const [events, setEvents] = useState<EventRow[]>([]);
 
@@ -269,6 +271,17 @@ export default function JobsPage({
       }
     }
   }, [])
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (active) setIsLoggedIn(!!data.session);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
   const [view, setView] = useState<"grid" | "list">("grid")
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
@@ -347,8 +360,9 @@ export default function JobsPage({
 
   /* ---------------- fetch ----------------- */
   useEffect(() => {
+    setLoading(true)
     ;(async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("jobs")
         .select(
           `
@@ -363,6 +377,7 @@ salary_range,
 application_deadline,
 location,
 cover_image_url,
+member_only,
 companies!jobs_company_id_fkey (
   name,
   industry,
@@ -374,8 +389,16 @@ job_tags!job_tags_job_id_fkey (
 `,
         )
         .eq("published", true)
-        .order("created_at", { ascending: false })
-        .returns<JobRow[]>()
+        // 会員限定（member_only=true）の求人は、ログインユーザーのみに表示
+        // 未ログインの場合は member_only=false のみ取得
+        // （最終的にはRLSでの制御推奨）
+      if (!isLoggedIn) {
+        // Not logged in: only show public jobs (member_only=false)
+        // @ts-ignore – query is typed above
+        query = query.eq('member_only', false)
+      }
+
+      const { data, error } = await query.returns<JobRow[]>()
 
       if (error) {
         console.error("jobs fetch error", error)
@@ -421,7 +444,7 @@ job_tags!job_tags_job_id_fkey (
       }
       setLoading(false)
     })()
-  }, [])
+  }, [isLoggedIn])
 
   /* ------------- derived options ---------- */
   // industries computed from jobs is no longer needed; use INDUSTRY_OPTIONS for options
