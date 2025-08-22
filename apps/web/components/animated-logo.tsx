@@ -28,7 +28,7 @@ export function AnimatedLogo() {
 
   return (
     <Link href="/" className="flex items-center">
-      <svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="https://www.w3.org/2000/svg">
         <text x="10" y="40" fontFamily="serif" fontSize="32" fontWeight="bold" fill="white">
           学生転職
         </text>

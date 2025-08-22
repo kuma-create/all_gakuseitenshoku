@@ -5,7 +5,7 @@ export default function ScoutLoading() {
     <div className="flex h-full w-full items-center justify-center">
       <svg
         className="animate-spin h-8 w-8 text-indigo-600"
-        xmlns="http://www.w3.org/2000/svg"
+        xmlns="https://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
         aria-label="読み込み中"
