@@ -63,7 +63,33 @@ export async function GET(req: Request) {
   try {
     assertCronAuth(req);
 
-    const { startUtcIso, endUtcIso, jstLabelDate } = getJstYesterdayBounds();
+    // Allow overriding the target day via query: ?force_date=YYYY-MM-DD (JST)
+    const url = new URL(req.url);
+    const forceDate = url.searchParams.get('force_date');
+    let startUtcIso: string;
+    let endUtcIso: string;
+    let jstLabelDate: string;
+
+    if (forceDate) {
+      // Compute [00:00, 24:00) for the specified JST date, then convert to UTC
+      const [yStr, mStr, dStr] = forceDate.split('-');
+      const y = parseInt(yStr, 10);
+      const m = parseInt(mStr, 10);
+      const d = parseInt(dStr, 10);
+      // midnight JST for the day and the next day (expressed as UTC with +0, then shift -9h later)
+      const startJst = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+      const endJst = new Date(Date.UTC(y, m - 1, d + 1, 0, 0, 0));
+      const startUtc = new Date(startJst.getTime() - 9 * 60 * 60 * 1000);
+      const endUtc = new Date(endJst.getTime() - 9 * 60 * 60 * 1000);
+      startUtcIso = startUtc.toISOString();
+      endUtcIso = endUtc.toISOString();
+      jstLabelDate = forceDate;
+    } else {
+      const b = getJstYesterdayBounds();
+      startUtcIso = b.startUtcIso;
+      endUtcIso = b.endUtcIso;
+      jstLabelDate = b.jstLabelDate;
+    }
 
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,9 +99,10 @@ export async function GET(req: Request) {
 
     // NOTE: We only *refer* to student_profiles.last_sign_in_at as requested.
     // Select a few commonly present fields; if some do not exist, keep null-safe rendering below.
+    // Using columns per schema: id, full_name (text), phone (text), last_sign_in_at (timestamptz)
     const { data, error } = await supabase
       .from('student_profiles')
-      .select('id, user_id, last_sign_in_at')
+      .select('id, full_name, phone, last_sign_in_at')
       .gte('last_sign_in_at', startUtcIso)
       .lt('last_sign_in_at', endUtcIso)
       .order('last_sign_in_at', { ascending: false });
@@ -87,31 +114,45 @@ export async function GET(req: Request) {
 
     const rows = data ?? [];
 
+    const studentIds = Array.from(new Set(rows.map((r: any) => r.id).filter(Boolean)));
+
+    // NOTE: Email source moved to the view `student_with_email` (student_id, email)
+    let emailByStudentId = new Map<string, string>();
+    if (studentIds.length > 0) {
+      const { data: rowsEmail, error: emailErr } = await supabase
+        .from('student_with_email')
+        .select('student_id, email')
+        .in('student_id', studentIds);
+      if (emailErr) {
+        console.error('student_with_email fetch error:', emailErr);
+      } else if (rowsEmail) {
+        for (const r of rowsEmail as any[]) {
+          if (r.student_id) emailByStudentId.set(r.student_id, r.email || '');
+        }
+      }
+    }
+
     // Build email body
     const count = rows.length;
     const header = `昨日（${jstLabelDate}）にログインがあった学生アカウント一覧`;
 
-    const linesText = rows.map((r, i) => {
-      const name = (r as any).display_name || '';
-      const email = (r as any).email || '';
-      const id = r.id;
-      const ts = toJstString((r as any).last_sign_in_at ?? null);
-      return `${i + 1}. ID:${id}  名前:${name}  メール:${email}  最終ログイン:${ts}`.trim();
+    const linesText = rows.map((r: any) => {
+      const name = r.full_name || '';
+      const phone = r.phone || '';
+      const email = emailByStudentId.get(r.id) || '';
+      return `名前:${name}  メール:${email}  電話:${phone}`.trim();
     });
 
     const rowsHtml = rows
-      .map((r, i) => {
-        const name = (r as any).display_name || '';
-        const email = (r as any).email || '';
-        const id = r.id;
-        const ts = toJstString((r as any).last_sign_in_at ?? null);
+      .map((r: any) => {
+        const name = r.full_name || '';
+        const phone = r.phone || '';
+        const email = emailByStudentId.get(r.id) || '';
         return `
           <tr>
-            <td style="padding:4px 8px;">${i + 1}</td>
-            <td style="padding:4px 8px;">${id}</td>
             <td style="padding:4px 8px;">${name}</td>
             <td style="padding:4px 8px;">${email}</td>
-            <td style="padding:4px 8px;">${ts}</td>
+            <td style="padding:4px 8px;">${phone}</td>
           </tr>`;
       })
       .join('');
@@ -124,11 +165,9 @@ export async function GET(req: Request) {
         <table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
           <thead>
             <tr>
-              <th style="padding:4px 8px;">#</th>
-              <th style="padding:4px 8px;">ID</th>
               <th style="padding:4px 8px;">名前</th>
               <th style="padding:4px 8px;">メール</th>
-              <th style="padding:4px 8px;">最終ログイン(JST)</th>
+              <th style="padding:4px 8px;">電話番号</th>
             </tr>
           </thead>
           <tbody>
