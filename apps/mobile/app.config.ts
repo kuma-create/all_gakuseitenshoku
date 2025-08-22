@@ -39,7 +39,7 @@ const config: ExpoConfig = {
     [
       "expo-splash-screen",
       {
-        image: "./assets/images/splash-icon.png",
+        image: "./assets/images/icon.png",
         imageWidth: 200,
         resizeMode: "contain",
         backgroundColor: "#ffffff",
@@ -50,6 +50,9 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
 
   extra: {
+    eas: {
+      projectId: "213d1db4-baff-444d-a719-698ac7945c51",
+    },
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   },
