@@ -15,11 +15,13 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: "co.gakuten.app",
     supportsTablet: true,
+    buildNumber: "1",
   },
 
   android: {
     package: "co.gakuten.app",
     edgeToEdgeEnabled: true,
+    versionCode: 1,
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#ffffff",
