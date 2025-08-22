@@ -21,7 +21,7 @@ const config: ExpoConfig = {
     package: "co.gakuten.app",
     edgeToEdgeEnabled: true,
     adaptiveIcon: {
-      foregroundImage: "./assets/images/adaptive-icon.png",
+      foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#ffffff",
     },
   },
