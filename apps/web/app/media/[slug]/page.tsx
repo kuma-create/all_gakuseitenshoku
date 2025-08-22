@@ -21,6 +21,10 @@ import {
   Search,
   Star,
   FolderOpen,
+  FileText,
+  Mail,
+  Send,
+  CheckCircle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -404,6 +408,40 @@ export default async function MediaDetailPage(
                 )}
               </div>
 
+              {/* CTA BLOCK: conversion buttons */}
+              <div className="px-4 md:px-8 pb-4">
+                <div className="bg-white border border-amber-200/60 rounded-2xl p-6 shadow-[0_6px_24px_-8px_rgba(0,0,0,.12)]">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                    <div>
+                      <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">無料登録で「非公開・優先選考」にアクセス</h3>
+                      <p className="text-sm text-gray-600 mt-1">長期インターン経験を評価。あなたに合う新卒求人を最短でご案内。</p>
+                      <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 学生向け限定求人をまとめて確認</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> スカウト優先・選考短縮のチャンス</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 退会いつでもOK・費用はずっと無料</li>
+                      </ul>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 md:shrink-0">
+                      <Button asChild className="rounded-full h-11 px-5 text-sm font-semibold shadow-sm">
+                        <Link href="/signup" aria-label="60秒で無料会員登録" className="flex items-center gap-2">
+                          <FileText className="w-4 h-4" /> 60秒で無料登録
+                        </Link>
+                      </Button>
+                      <Button asChild variant="secondary" className="rounded-full h-11 px-5 text-sm font-semibold">
+                        <Link href="/jobs" aria-label="求人を探す" className="flex items-center gap-2">
+                          <Search className="w-4 h-4" /> 求人を探す
+                        </Link>
+                      </Button>
+                      <Button asChild variant="outline" className="rounded-full h-11 px-5 text-sm font-semibold">
+                        <Link href="/contact" aria-label="まずは相談" className="flex items-center gap-2">
+                          <Mail className="w-4 h-4" /> まずは相談
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* FOOTER */}
               <footer className="px-8 pb-8 border-t border-gray-100 pt-8">
                 {post.media_posts_tags.length > 0 && (
@@ -440,6 +478,35 @@ export default async function MediaDetailPage(
 
           {/* ----- SIDEBAR ----- */}
           <aside className="lg:col-span-1 sticky top-32 space-y-6">
+            {/* Desktop CV panel (sidebar) */}
+            <Card className="hidden lg:block bg-white/90 backdrop-blur-sm border border-amber-200/60 shadow-[0_6px_24px_-8px_rgba(0,0,0,.12)]">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-extrabold text-gray-900 mb-1 leading-snug">無料登録で「非公開・優先選考」にアクセス</h3>
+                <p className="text-sm text-gray-600 mb-3">長期インターン経験を評価。あなたに合う新卒求人を最短でご案内。</p>
+                <ul className="mb-4 space-y-1 text-sm text-gray-700">
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 学生向け限定求人をまとめて確認</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> スカウト優先・選考短縮のチャンス</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 退会いつでもOK</li>
+                </ul>
+                <div className="flex flex-col gap-2">
+                  <Button asChild className="w-full rounded-full h-11 text-sm font-semibold">
+                    <Link href="/signup" aria-label="60秒で無料会員登録" className="flex items-center justify-center gap-2">
+                      <FileText className="w-4 h-4" /> 60秒で無料登録
+                    </Link>
+                  </Button>
+                  <Button asChild variant="secondary" className="w-full rounded-full h-11 text-sm font-semibold">
+                    <Link href="/jobs" aria-label="求人を探す" className="flex items-center justify-center gap-2">
+                      <Search className="w-4 h-4" /> 求人を探す
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full rounded-full h-11 text-sm font-semibold">
+                    <Link href="/contact" aria-label="まずは相談" className="flex items-center justify-center gap-2">
+                      <Mail className="w-4 h-4" /> まずは相談
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {related.length > 0 && (
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
@@ -523,6 +590,26 @@ export default async function MediaDetailPage(
           </aside>
         </div>
       </div>
+    {/* Sticky CV bar (mobile only) */}
+    <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur border-t border-gray-200 md:hidden">
+      <div className="container mx-auto px-4 py-3 grid grid-cols-3 gap-2">
+        <Button asChild className="rounded-full w-full">
+          <Link href="/signup" className="flex items-center justify-center gap-1 text-sm">
+            <FileText className="w-4 h-4" /> 登録
+          </Link>
+        </Button>
+        <Button asChild variant="secondary" className="rounded-full w-full">
+          <Link href="/jobs" className="flex items-center justify-center gap-1 text-sm">
+            <Search className="w-4 h-4" /> 求人
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="rounded-full w-full">
+          <Link href="/contact" className="flex items-center justify-center gap-1 text-sm">
+            <Send className="w-4 h-4" /> 相談
+          </Link>
+        </Button>
+      </div>
+    </div>
     </div>
   );
 }
