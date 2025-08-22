@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import {
   View,
   Text,
@@ -9,11 +10,67 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  NativeModules,
   ActivityIndicator,
+  Modal,
+  Share,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Send, Bot, User, Lightbulb, Heart, Brain, Target, HelpCircle } from 'lucide-react-native';
 
 // ===== Types =====
+
+// Guess LAN host when running on native (Expo Go / dev build)
+function guessLanHost() {
+  try {
+    const scriptURL: string | undefined = (NativeModules as any)?.SourceCode?.scriptURL;
+    // e.g. http://192.168.0.183:8081/index.bundle?platform=ios&dev=true
+    const m = scriptURL?.match(/:\/\/([^:\/]+):\d+/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+// --- Thread / Local persistence helpers (mobile) ---
+const storageKeys = (userId: string) => ({
+  threads: `aichat:${userId}:threads`,   // Thread[]
+  meta: `aichat:${userId}:meta`,         // { threadId, chatMode, interactionMode }
+});
+
+interface Thread {
+  id: string;
+  title?: string;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+  mode?: string;     // chatMode at creation
+  messages: Message[];
+}
+
+const serializeMessages = (msgs: Message[]) =>
+  msgs.map((m) => ({ ...m, timestamp: (m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp)).toISOString() }));
+
+const deserializeMessages = (raw: any): Message[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((m) => ({ ...m, timestamp: new Date(m.timestamp) }))
+    .filter((m) => m && typeof m.id === 'string' && m.content);
+};
+
+const makeThread = (id: string, mode: string, messages: Message[] = []): Thread => ({
+  id,
+  title: titleFrom(messages),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  mode,
+  messages,
+});
+
+const firstUser = (msgs: Message[] = []) => msgs.find((m) => m.type === 'user');
+const titleFrom = (msgs: Message[]) => {
+  const u = firstUser(msgs);
+  return u?.content?.split(/\n|。/)[0]?.slice(0, 24) || '新しいスレッド';
+};
 interface AIChatProps {
   userId: string;
   onProgressUpdate: (progress: number) => void;
@@ -45,6 +102,8 @@ interface AIChatProps {
   }>;
   /** （任意）サーバーのベースURL。未指定時は相対パス */
   baseUrl?: string;
+  /** （任意）Supabaseのaccess_token（RN側の認証をAPIへ伝播するため） */
+  supabaseAccessToken?: string;
 }
 
 interface Message {
@@ -110,6 +169,7 @@ export function AIChat({
   sectionProgress,
   weights,
   baseUrl,
+  supabaseAccessToken,
 }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -128,6 +188,18 @@ export function AIChat({
   });
   const [sessionStartTime] = useState(Date.now());
   const [threadId, setThreadId] = useState<string | null>(null);
+
+  // ===== Debug / API status =====
+  const [apiStatus, setApiStatus] = useState<'idle' | 'requesting' | 'live' | 'mock' | 'error'>('idle');
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [lastRequestMs, setLastRequestMs] = useState<number | null>(null);
+  const [lastEndpoint, setLastEndpoint] = useState<string | null>(null);
+
+  const [internalAccessToken, setInternalAccessToken] = useState<string | null>(null);
+
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const keys = useMemo(() => storageKeys(userId), [userId]);
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
@@ -182,24 +254,86 @@ export function AIChat({
   }, [sectionProgress, weights, messages, stats.insightsGenerated, stats.deepThoughts]);
 
   useEffect(() => {
+    // If token is provided via props, prefer it and stop here
+    if (supabaseAccessToken) {
+      setInternalAccessToken(null);
+      return;
+    }
+    const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    if (!SUPABASE_URL || !SUPABASE_ANON) return;
+
+    const supa = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON);
+    let mounted = true;
+
+    // initial fetch
+    supa.auth.getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        const tok = data?.session?.access_token || null;
+        setInternalAccessToken(tok);
+      })
+      .catch(() => {});
+
+    // subscribe updates
+    const { data: sub } = supa.auth.onAuthStateChange((_event, session) => {
+      setInternalAccessToken(session?.access_token || null);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription?.unsubscribe();
+    };
+  }, [supabaseAccessToken]);
+
+  useEffect(() => {
     // 自動スクロール
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages, isTyping]);
 
-  const initializeChat = () => {
+  const initializeChat = async () => {
     setLoading(true);
-    const welcome: Message = {
-      id: 'welcome',
-      type: 'ai',
-      content:
-        'こんにちは！私はあなたの自己分析をサポートするAIアシスタントです。\n\n今日はどんなことを話してみたいですか？どんな小さなことでも大丈夫です。\n\n• 最近感じていること\n• 将来の不安や期待\n• 過去の印象深い経験\n• 自分の性格について\n\nリラックスして、思ったことを自由にお話しください 😊',
-      timestamp: new Date(),
-      category: '導入',
-      emoji: '🤖',
-      questions: ['最近どんなことを考えていますか？', '今日の気分はどうですか？'],
-    };
-    setMessages([welcome]);
-    setLoading(false);
+    try {
+      // restore threads
+      const rawThreads = await AsyncStorage.getItem(keys.threads);
+      if (rawThreads) {
+        try {
+          const parsed: Thread[] = JSON.parse(rawThreads);
+          const normalized = parsed.map((t) => ({ ...t, messages: deserializeMessages(t.messages) }));
+          setThreads(normalized);
+          // prefer last updated thread
+          const latest = [...normalized].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+          if (latest) {
+            setThreadId(latest.id);
+            setMessages(latest.messages || []);
+            if (typeof latest.mode === 'string') setChatMode(latest.mode as any);
+          }
+        } catch (e) {
+          console.warn('AIChat: restore threads failed', e);
+        }
+      }
+      // if still no messages, seed welcome (do not persist until first user message)
+      if ((messages?.length || 0) === 0) {
+        const welcome: Message = {
+          id: 'welcome',
+          type: 'ai',
+          content:
+            'こんにちは！私はあなたの自己分析をサポートするAIアシスタントです。\n\n今日はどんなことを話してみたいですか？どんな小さなことでも大丈夫です。\n\n• 最近感じていること\n• 将来の不安や期待\n• 過去の印象深い経験\n• 自分の性格について\n\nリラックスして、思ったことを自由にお話しください 😊',
+          timestamp: new Date(),
+          category: '導入',
+          emoji: '🤖',
+          questions: ['最近どんなことを考えていますか？', '今日の気分はどうですか？'],
+        };
+        setMessages([welcome]);
+      }
+    } finally {
+      setLoading(false);
+      // reset API status debug if present
+      setApiStatus?.('idle' as any);
+      setLastError?.(null as any);
+      setLastRequestMs?.(null as any);
+      setLastEndpoint?.(null as any);
+    }
   };
 
   const analyzeEmotionalState = (list: Message[]): ChatStats['emotionalState'] => {
@@ -243,9 +377,15 @@ export function AIChat({
     };
 
     const newList = [...messages, userMessage];
+    // if first user message in this thread, set a title
+    setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, title: t.title || titleFrom(newList), updatedAt: new Date().toISOString() } : t)));
     setMessages(newList);
     setInputText('');
     setIsTyping(true);
+
+    setApiStatus('requesting');
+    setLastError(null);
+    setLastRequestMs(null);
 
     try {
       const ai = await fetchAIResponse(newList, chatMode).catch(() => null);
@@ -263,6 +403,51 @@ export function AIChat({
       updateStats(updated);
     } catch (e) {
       setIsTyping(false);
+    }
+  };
+  // --- Thread operations (mobile) ---
+  const startNewThread = () => {
+    const tid = `t-${Date.now()}`;
+    setThreadId(tid);
+    setMessages([]); // until first user input, do not persist
+    setShowHistory(false);
+  };
+
+  const switchThread = (tid: string) => {
+    const t = threads.find((th) => th.id === tid);
+    if (!t) return;
+    setThreadId(tid);
+    setChatMode((t.mode as any) || chatMode);
+    setMessages(t.messages || []);
+    setShowHistory(false);
+  };
+
+  const deleteThread = async (tid: string) => {
+    setThreads((prev) => {
+      const next = prev.filter((t) => t.id !== tid);
+      if (tid === threadId) {
+        const latest = [...next].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+        if (latest) {
+          setThreadId(latest.id);
+          setChatMode((latest.mode as any) || chatMode);
+          setMessages(latest.messages || []);
+        } else {
+          setThreadId(null);
+          setMessages([]);
+        }
+      }
+      AsyncStorage.setItem(keys.threads, JSON.stringify(next.map((t) => ({ ...t, messages: serializeMessages(t.messages) }))));
+      AsyncStorage.setItem(keys.meta, JSON.stringify({ threadId: tid === threadId ? (next[0]?.id ?? null) : threadId, chatMode, interactionMode }));
+      return next;
+    });
+  };
+
+  const exportCurrentThread = async () => {
+    try {
+      const data = JSON.stringify(serializeMessages(messages), null, 2);
+      await Share.share({ message: data, title: 'AI Chat History', url: '' });
+    } catch (e) {
+      console.warn('export failed', e);
     }
   };
 
@@ -348,14 +533,78 @@ export function AIChat({
         mode,
         threadId,
       };
-      const url = `${baseUrl || ''}/api/aichat`;
-      const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!resp.ok) return null;
+      // Build API base URL; adjust for native so 'localhost' becomes LAN IP
+      const webFallback = process.env.EXPO_PUBLIC_WEB_BASE_URL || '';
+
+      const rawBase = (baseUrl ?? webFallback ?? '').trim();
+      let apiBase = rawBase.replace(/\/+$/, '');
+
+      if (Platform.OS !== 'web') {
+        const host = guessLanHost();
+        if (host) {
+          apiBase = apiBase
+            .replace('localhost', host)
+            .replace('127.0.0.1', host);
+        }
+      }
+
+      if (!apiBase) {
+        setLastError('API base URL is empty (set EXPO_PUBLIC_WEB_BASE_URL or pass baseUrl)');
+        setApiStatus('error');
+        console.groupEnd();
+        return null;
+      }
+
+      // Guard: on native, still pointing at localhost → unreachable from device
+      if (Platform.OS !== 'web' && /^(https?:\/\/)(localhost|127\.0\.0\.1)(:\d+)?/i.test(apiBase)) {
+        setLastError('On device: replace localhost with your LAN IP (e.g. http://192.168.x.x:3000)');
+        setApiStatus('error');
+        console.groupEnd();
+        return null;
+      }
+      const url = `${apiBase}/api/aichat`;
+      const startedAt = Date.now();
+      console.group('[AIChat] API call');
+      console.log('POST', url);
+      console.log('payload', payload);
+      // Require Authorization: Bearer (no API key fallback for mode B)
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+      const effectiveToken = supabaseAccessToken || internalAccessToken;
+      if (!effectiveToken) {
+        setLastError('Not signed in: Supabase access token is missing.');
+        setApiStatus('error');
+        console.groupEnd();
+        return null;
+      }
+      headers['Authorization'] = `Bearer ${effectiveToken}`;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const duration = Date.now() - startedAt;
+      setLastRequestMs(duration);
+      setLastEndpoint(url);
+      if (!resp || !resp.ok) {
+        const statusText = resp ? `${resp.status} ${resp.statusText}` : 'no response';
+        console.warn('[AIChat] API error', statusText);
+        setLastError(statusText);
+        setApiStatus('error');
+        console.groupEnd();
+        return null;
+      }
       const json: any = await resp.json();
+      console.log('response', json);
+      console.groupEnd();
       const data = json?.content ? json : json?.data ? json.data : null;
-      if (!data || !data.content) return null;
+      if (!data || !data.content) {
+        setLastError('No content in response');
+        setApiStatus('error');
+        return null;
+      }
       if (data.threadId && data.threadId !== threadId) setThreadId(data.threadId);
       const categories = ['自己理解', '価値観', '経験分析', '将来設計', '感情整理', '人間関係', 'キャリア', '成長', '挑戦'];
+      setApiStatus('live');
       return {
         id: `${Date.now() + 1}`,
         type: 'ai',
@@ -366,7 +615,11 @@ export function AIChat({
         insights: data.insights,
         questions: data.questions,
       };
-    } catch (e) {
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      console.error('[AIChat] API exception', msg);
+      setLastError(msg);
+      setApiStatus('error');
       return null;
     }
   };
@@ -415,6 +668,9 @@ export function AIChat({
       <View style={styles.container}>
         {/* Top bar */}
         <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => setShowHistory(true)} style={styles.smallBtn}>
+            <Text style={styles.smallBtnText}>履歴</Text>
+          </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <View style={styles.rowBetween}> 
               <Text style={styles.topLabel}>自己分析の空欄補充率</Text>
@@ -423,6 +679,25 @@ export function AIChat({
             <View style={styles.progressOuter}>
               <View style={[styles.progressInner, { width: `${progressPercent}%` }]} />
             </View>
+          </View>
+          {/* API status badge */}
+          <View style={styles.statusWrap}>
+            <Text
+              style={[
+                styles.statusPill,
+                apiStatus === 'live' && { backgroundColor: '#DCFCE7', color: '#166534', borderColor: '#86EFAC' },
+                apiStatus === 'requesting' && { backgroundColor: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' },
+                apiStatus === 'mock' && { backgroundColor: '#FEF9C3', color: '#92400E', borderColor: '#FDE68A' },
+                apiStatus === 'error' && { backgroundColor: '#FEE2E2', color: '#991B1B', borderColor: '#FCA5A5' },
+                apiStatus === 'idle' && { backgroundColor: '#F3F4F6', color: '#374151', borderColor: '#E5E7EB' },
+              ]}
+            >
+              {apiStatus === 'live' ? 'LIVE' :
+               apiStatus === 'requesting' ? 'REQUESTING' :
+               apiStatus === 'mock' ? 'MOCK' :
+               apiStatus === 'error' ? 'ERROR' : 'IDLE'}
+            </Text>
+            {!!lastRequestMs && <Text style={styles.statusMeta}>{lastRequestMs}ms</Text>}
           </View>
           <View style={styles.modeButtons}>
             <SmallButton onPress={() => setInteractionMode('free')} active={interactionMode === 'free'} label="壁打ち" />
@@ -441,7 +716,7 @@ export function AIChat({
                 <View style={[styles.bubble, m.type === 'user' ? styles.bubbleUser : styles.bubbleAI]}>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                     {!!m.emoji && <Text style={styles.emoji}>{m.emoji}</Text>}
-                    <Text style={styles.msgText}>{m.content}</Text>
+                    <Text style={[styles.msgText, m.type === 'user' ? { color: '#F9FAFB' } : null]}>{m.content}</Text>
                   </View>
 
                   {!!m.insights && (
@@ -521,10 +796,68 @@ export function AIChat({
             </TouchableOpacity>
           </View>
           <View style={styles.hintRow}>
-            <Text style={styles.hintText}>Enterで送信 • Shift+Enterで改行（物理キーボード時）</Text>
+            <Text style={styles.hintText}>
+              Enterで送信 • Shift+Enterで改行（物理キーボード時）
+              {lastEndpoint ? ` • API: ${lastEndpoint}` : ''}
+              {lastError ? ` • エラー: ${lastError}` : ''}
+              {(supabaseAccessToken || internalAccessToken) ? ' • Auth: Bearer' : ' • Auth: none'}
+            </Text>
             <Text style={styles.hintBadge}>{interactionMode === 'free' ? '壁打ちモード' : '空欄を埋めるモード'}</Text>
           </View>
         </View>
+
+        {/* History Modal */}
+        <Modal visible={showHistory} transparent animationType="fade" onRequestClose={() => setShowHistory(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.historySheet}>
+              <View style={styles.historyHeader}>
+                <Text style={styles.historyTitle}>スレッド履歴</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={startNewThread} style={styles.tag}>
+                    <Text style={styles.tagText}>新規スレッド</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={exportCurrentThread} style={styles.tag}>
+                    <Text style={styles.tagText}>エクスポート</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowHistory(false)} style={styles.tag}>
+                    <Text style={styles.tagText}>閉じる</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <ScrollView style={{ maxHeight: 420 }}>
+                {threads.length === 0 && (
+                  <View style={{ padding: 16 }}>
+                    <Text style={styles.muted}>スレッドはまだありません。</Text>
+                  </View>
+                )}
+                {[...threads]
+                  .filter((t) => !!firstUser(t.messages))
+                  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                  .map((t) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      onPress={() => switchThread(t.id)}
+                      style={[styles.threadItem, t.id === threadId && styles.threadItemActive]}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text numberOfLines={1} style={styles.threadTitle}>{t.title || '無題のスレッド'}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={styles.threadMeta}>{new Date(t.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                          <TouchableOpacity onPress={() => deleteThread(t.id)} style={styles.deleteBtn}>
+                            <Text style={styles.deleteBtnText}>削除</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <Text numberOfLines={2} style={styles.threadPreview}>
+                        {firstUser(t.messages)?.content || '（最初のユーザー入力はまだありません）'}
+                      </Text>
+                      <Text style={styles.threadCount}>{t.messages.length} 件のメッセージ</Text>
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         {/* Mode selector (simple) */}
         <View style={styles.modeRow}>
@@ -617,6 +950,24 @@ const styles = StyleSheet.create({
   modeChipActive: { backgroundColor: '#111827' },
   modeText: { fontSize: 12, color: '#111827' },
   modeTextActive: { color: '#fff' },
+
+  // API status
+  statusWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 6 },
+  statusPill: { fontSize: 10, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, color: '#374151', backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+  statusMeta: { fontSize: 10, color: '#6B7280' },
+  // History modal
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', padding: 12, justifyContent: 'flex-end' },
+  historySheet: { backgroundColor: '#fff', borderRadius: 16, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: '#E5E7EB', maxHeight: '80%' },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  historyTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  threadItem: { paddingVertical: 10, paddingHorizontal: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB', marginBottom: 8 },
+  threadItemActive: { backgroundColor: '#EEF2FF', borderColor: '#C7D2FE' },
+  threadTitle: { fontSize: 13, color: '#111827', maxWidth: 200 },
+  threadPreview: { fontSize: 12, color: '#6B7280', marginTop: 4 },
+  threadMeta: { fontSize: 11, color: '#6B7280' },
+  threadCount: { fontSize: 11, color: '#6B7280', marginTop: 4 },
+  deleteBtn: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, backgroundColor: '#FEE2E2', borderWidth: StyleSheet.hairlineWidth, borderColor: '#FCA5A5' },
+  deleteBtnText: { fontSize: 11, color: '#991B1B', fontWeight: '600' },
 });
 
 export default AIChat;

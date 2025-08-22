@@ -293,7 +293,12 @@ export default function JobSearchPage() {
   /* ---------------- fetch ----------------- */
   useEffect(() => {
     ;(async () => {
-      const { data, error } = await supabase
+      // 判定: ログイン状態
+      const { data: sessionData } = await supabase.auth.getSession()
+      const isLoggedIn = !!sessionData.session
+
+      // ビルダーで組み立て（会員限定制御対応）
+      let queryBuilder = supabase
         .from("jobs")
         .select(
           `
@@ -307,6 +312,7 @@ salary_range,
 selection_type,
 location,
 cover_image_url,
+member_only,
 companies!jobs_company_id_fkey (
   name,
   industry,
@@ -324,6 +330,13 @@ intern_long_details:intern_long_details!intern_long_details_job_id_fkey (
 `,
         )
         .eq("published", true)
+
+      if (!isLoggedIn) {
+        // 未ログインは公開求人のみ
+        queryBuilder = queryBuilder.eq("member_only", false)
+      }
+
+      const { data, error } = await queryBuilder
         .order("created_at", { ascending: false })
         .returns<JobRow[]>()
 

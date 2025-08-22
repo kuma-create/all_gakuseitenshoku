@@ -61,7 +61,7 @@ function toJstString(iso: string | null): string {
 
 export async function GET(req: Request) {
   try {
-    // assertCronAuth(req);
+    assertCronAuth(req);
 
     const { startUtcIso, endUtcIso, jstLabelDate } = getJstYesterdayBounds();
 
