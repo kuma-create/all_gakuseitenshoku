@@ -67,7 +67,8 @@ function Section({
       <Container>
         {heading ? (
           <div className="mb-8">
-            <h2 className="text-[clamp(20px,4.5vw,36px)] font-sans tracking-tight leading-snug text-neutral-900">{heading}</h2>            {sub ? <p className="mt-3 text-sm sm:text-base text-neutral-600 leading-relaxed">{sub}</p> : null}
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-sans tracking-tight leading-snug text-neutral-900">{heading}</h2>
+            {sub ? <p className="mt-3 text-sm sm:text-base text-neutral-600 leading-relaxed">{sub}</p> : null}
           </div>
         ) : null}
         {children}
@@ -93,8 +94,8 @@ function CTAButton({
     "inline-flex items-center justify-center rounded-full px-6 py-3.5 min-h-11 text-sm sm:text-base font-semibold transition shadow-sm hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400";
   const styles =
     variant === "primary"
-      ? "bg-gradient-to-r from-rose-600 to-pink-500 text-white hover:from-rose-700 hover:to-pink-600"
-      : "ring-1 ring-inset ring-rose-300 text-rose-700 hover:bg-rose-50";
+      ? "bg-gradient-to-r from-blue-500 to-rose-500 text-white hover:from-blue-600 hover:to-rose-600"
+      : "ring-1 ring-inset ring-blue-600 text-blue-700 hover:bg-blue-50";
   return (
     <Link href={href} data-ga={ga} className={`${base} ${styles} ${className}`}>
       {children}
@@ -220,77 +221,16 @@ function HeroVisual({ src, alt = "アプリのUIプレビュー" }: { src?: stri
 function StructuredData() {
   const data = {
     "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebPage",
-        "@id": "https://gakuten.co.jp/lp/students/27",
-        "url": "https://gakuten.co.jp/lp/students/27",
-        "name": "27卒向け｜アルバイト・長期インターン経験を武器に就活 | 学生転職 × IPO大学",
-        "inLanguage": "ja",
-        "isPartOf": { "@id": "https://gakuten.co.jp/#website" },
-        "about": "27卒向け。アルバイト・長期インターンの実績を職務経歴として提示し、逆スカウト・選考に直結させる就活サービス。",
-        "primaryImageOfPage": {
-          "@type": "ImageObject",
-          "url": "https://gakuten.co.jp/og/lp-students-27.png",
-          "width": 1200,
-          "height": 630
-        }
-      },
-      {
-        "@type": "FAQPage",
-        "@id": "https://gakuten.co.jp/lp/students/27#faq",
-        "mainEntity": [
-          { "@type": "Question", "name": "今からでも間に合いますか？", "acceptedAnswer": { "@type": "Answer", "text": "診断→ES→ケース→スカウトの順で、まず1週間で土台を作れます。以降は週次で振り返りと改善を回していきます。" } },
-          { "@type": "Question", "name": "難関志望でも使えますか？", "acceptedAnswer": { "@type": "Answer", "text": "ケース/PM/データ演習と面接練習で解像度を上げます。ポートフォリオや逆質問の作り込みまで伴走します。" } },
-          { "@type": "Question", "name": "費用はかかりますか？", "acceptedAnswer": { "@type": "Answer", "text": "学生は無料です。追加費用はありません。" } },
-          { "@type": "Question", "name": "対象となる学生は？", "acceptedAnswer": { "@type": "Answer", "text": "長期インターン/アルバイトの経験がある方はもちろん、これから経験を積みたい方も歓迎です。文理不問・地方在住でも利用可能です。" } },
-          { "@type": "Question", "name": "スカウトはどれくらいで届きますか？", "acceptedAnswer": { "@type": "Answer", "text": "プロフィールの完成度により異なりますが、完成後1〜2週間で届き始めるケースが多いです（成果を保証するものではありません）。" } },
-          { "@type": "Question", "name": "個人情報の扱いは？", "acceptedAnswer": { "@type": "Answer", "text": "厳重に管理し、マッチング以外の目的には利用しません。氏名の非公開設定や、いつでもデータの削除が可能です。" } }
-        ]
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https://gakuten.co.jp/lp/students/27#breadcrumbs",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "ホーム",
-            "item": "https://gakuten.co.jp/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "学生向けLP",
-            "item": "https://gakuten.co.jp/lp/students"
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
-            "name": "27卒向け",
-            "item": "https://gakuten.co.jp/lp/students/27"
-          }
-        ]
-      },
-      {
-        "@type": "Organization",
-        "@id": "https://gakuten.co.jp/#organization",
-        "name": "Make Culture Inc.",
-        "url": "https://gakuten.co.jp/",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://gakuten.co.jp/logo.png"
-        },
-        "sameAs": []
-      },
-      {
-        "@type": "WebSite",
-        "@id": "https://gakuten.co.jp/#website",
-        "url": "https://gakuten.co.jp/",
-        "name": "学生転職 × IPO大学",
-        "inLanguage": "ja"
-      }
-    ]};
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "今からでも間に合いますか？", "acceptedAnswer": { "@type": "Answer", "text": "診断→ES→ケース→スカウトの順で、まず1週間で土台を作れます。以降は週次で振り返りと改善を回していきます。" } },
+      { "@type": "Question", "name": "難関志望でも使えますか？", "acceptedAnswer": { "@type": "Answer", "text": "ケース/PM/データ演習と面接練習で解像度を上げます。ポートフォリオや逆質問の作り込みまで伴走します。" } },
+      { "@type": "Question", "name": "費用はかかりますか？", "acceptedAnswer": { "@type": "Answer", "text": "学生は無料です。追加費用はありません。" } },
+      { "@type": "Question", "name": "対象となる学生は？", "acceptedAnswer": { "@type": "Answer", "text": "長期インターン/アルバイトの経験がある方はもちろん、これから経験を積みたい方も歓迎です。文理不問・地方在住でも利用可能です。" } },
+      { "@type": "Question", "name": "スカウトはどれくらいで届きますか？", "acceptedAnswer": { "@type": "Answer", "text": "プロフィールの完成度により異なりますが、完成後1〜2週間で届き始めるケースが多いです（成果を保証するものではありません）。" } },
+      { "@type": "Question", "name": "個人情報の扱いは？", "acceptedAnswer": { "@type": "Answer", "text": "厳重に管理し、マッチング以外の目的には利用しません。氏名の非公開設定や、いつでもデータの削除が可能です。" } }
+    ]
+  };
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />;
 }
 
@@ -314,7 +254,6 @@ export default function Page() {
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 33vw"
-              loading="lazy"
             />
           ) : (
             <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-r ${accent}`}>
@@ -339,11 +278,11 @@ export default function Page() {
       </div>
 
       {/* Announcement Bar */}
-      <div className="hidden md:block w-full bg-gradient-to-r from-blue-600 via-sky-500 to-rose-500 text-white">
+      <div className="w-full bg-gradient-to-r from-blue-600 via-sky-500 to-rose-500 text-white md:hidden">
         <Container className="flex h-10 items-center justify-between gap-4 text-[13px]">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20">🎓</span>
-            <span className="opacity-95 font-medium">学生向けサポートが充実。はじめてでも安心。</span>
+            <span className="opacity-95">学生向けサポートが充実。はじめてでも安心。</span>
           </div>
           <div className="hidden sm:flex items-center gap-3">
             <Link href="#faq" className="underline underline-offset-2">よくある質問</Link>
@@ -356,14 +295,10 @@ export default function Page() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur shadow-sm">
         <Container className="flex h-16 items-center justify-between">
-          <Link href="/" className="inline-flex items-center" aria-label="IPO大学 × 学生転職">
-            <Image
-              src="/logo.png"
-              alt="IPO大学 × 学生転職"
-              width={140}
-              height={32}
-              className="h-7 w-auto sm:h-8"
-            />
+          <Link href="/" className="font-sans text-lg sm:text-xl tracking-tight" aria-label="IPO大学 × 学生転職">
+            <span className="text-neutral-900">IPO大学</span>
+            <span className="mx-2 text-neutral-400">×</span>
+            <span className="text-neutral-900">学生転職</span>
           </Link>
           <nav aria-label="主要" className="hidden md:flex items-center gap-6 text-sm text-neutral-700">
             <Link href="#about" className="hover:text-neutral-900">サービス紹介</Link>
@@ -374,64 +309,19 @@ export default function Page() {
             <CTAButton href="/signup" variant="primary" ga="click_signup_header">新規登録（1分）</CTAButton>
           </nav>
         </Container>
-        <div className="hidden border-t border-neutral-200 bg-white/80">
-          <Container className="py-2">
-            <div className="flex gap-3 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <Link href="#about"   className="whitespace-nowrap text-sm text-neutral-700 px-3 py-1.5 rounded-full ring-1 ring-inset ring-neutral-200">サービス紹介</Link>
-              <Link href="#voices"  className="whitespace-nowrap text-sm text-neutral-700 px-3 py-1.5 rounded-full ring-1 ring-inset ring-neutral-200">体験談</Link>
-              <Link href="#compare" className="whitespace-nowrap text-sm text-neutral-700 px-3 py-1.5 rounded-full ring-1 ring-inset ring-neutral-200">他社との違い</Link>
-              <Link href="#faq"     className="whitespace-nowrap text-sm text-neutral-700 px-3 py-1.5 rounded-full ring-1 ring-inset ring-neutral-200">FAQ</Link>
-              <Link href="/login"   className="whitespace-nowrap text-sm text-neutral-700 px-3 py-1.5 rounded-full ring-1 ring-inset ring-neutral-200">ログイン</Link>
-            </div>
-          </Container>
-        </div>
       </header>
-
-      {/* Breadcrumbs for internal linking & UX */}
-      <nav aria-label="breadcrumb" className="bg-white/80 border-b border-neutral-200">
-        <Container className="py-2 text-xs text-neutral-600">
-          <ol className="flex items-center gap-1">
-            <li>
-              <Link href="/" className="hover:underline">ホーム</Link>
-              <span className="mx-1 text-neutral-300">/</span>
-            </li>
-            <li>
-              <Link href="/lp/students" className="hover:underline">学生向けLP</Link>
-              <span className="mx-1 text-neutral-300">/</span>
-            </li>
-            <li aria-current="page" className="text-neutral-800 font-medium">27卒向け</li>
-          </ol>
-        </Container>
-      </nav>
 
       {/* Hero – dynamic type + card stack visual */}
       <Section id="hero" className="pt-10 md:pt-16 pb-8 md:pb-14">
         <div className="grid items-center gap-10 md:grid-cols-12">
           <div className="md:col-span-6 lg:col-span-5" data-ga="view_hero">
             <Kicker>27卒向け / 就活・長期インターン</Kicker>
-            <div className="mt-4 flex items-end gap-3 md:block">
-              <h1 className="flex-1 text-[clamp(28px,8vw,56px)] font-sans leading-[1.12] tracking-tight">
-                <span className="block">長期インターン</span>
-                <span className="block">バイトの経験を、</span>
-                <span className="relative inline-block">
-                  <span className="block bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">就活の武器に。</span>
-                  <span aria-hidden className="absolute left-0 right-0 -bottom-1 h-2 rounded bg-rose-200/50"></span>
-                </span>
-                <span className="mt-2 block text-neutral-800 text-[clamp(18px,4.5vw,26px)] font-normal">ハイキャリア就活サービス</span>
-              </h1>
-              {/* モバイルのみ表示するスマホ画像 */}
-              <div className="shrink-0 block md:hidden">
-                <Image
-                  src="/phone_gakuten.png"
-                  alt="スマホUIのプレビュー"
-                  width={260}
-                  height={520}
-                  className="h-56 w-auto"
-                  loading="eager"
-                  sizes="(max-width: 768px) 60vw"
-                />
-              </div>
-            </div>
+            <h1 className="mt-4 text-[32px] sm:text-5xl md:text-6xl font-sans leading-[1.12] tracking-tight">
+              <span className="block">長期インターン</span>
+              <span className="block">バイトの経験を、</span>
+              <span className="block text-rose-700">就活の武器に。</span>
+              <span className="mt-2 block text-neutral-800 text-xl sm:text-2xl md:text-[26px] font-normal">ハイキャリア就活サービス</span>
+            </h1>
             <p className="mt-6 text-neutral-600 max-w-2xl leading-relaxed">
               長期インターン/アルバイトの実務を“職務経歴書”として整理。<br />
               IPO大学で自己分析→プロフィールに同期し、スカウト/選考へつなげます。
@@ -440,32 +330,16 @@ export default function Page() {
               <CTAButton href="/signup" variant="primary" ga="click_signup_hero">新規登録（1分）</CTAButton>
               <CTAButton href="#about" variant="secondary" ga="click_more_hero">サービスを見る</CTAButton>
             </div>
-              <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-neutral-700">
-                <li className="flex items-center gap-1.5">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-white">
-                    <CheckIcon className="h-3.5 w-3.5" />
-                  </span>
-                  <span>登録1分で開始</span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-white">
-                    <CheckIcon className="h-3.5 w-3.5" />
-                  </span>
-                  <span>学生は完全無料</span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-white">
-                    <CheckIcon className="h-3.5 w-3.5" />
-                  </span>
-                  <span>非公開求人あり</span>
-                </li>
-              </ul>
-              <p className="mt-2 text-[12px] text-neutral-500">※ プロフィールは後から編集できます。まずは仮登録でOK。</p>
-          </div>
-          <div className="hidden md:col-span-6 md:block lg:col-span-7">
-            <div className="relative">
-              <HeroVisual src="/gakutentop.png" alt="アプリのUIプレビュー" />
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Pill>登録1分</Pill>
+              <Pill>学生は無料</Pill>
+              <Pill>非公開求人あり</Pill>
+              <Pill>個人情報は厳重管理</Pill>
             </div>
+            <Note>※ 登録は無料です。登録後、プロフィールはいつでも編集できます。</Note>
+          </div>
+          <div className="md:col-span-6 lg:col-span-7">
+            <HeroVisual src="/gakutentop.png" alt="アプリのUIプレビュー" />
           </div>
         </div>
       </Section>
@@ -489,7 +363,7 @@ export default function Page() {
         className="py-8 md:py-10"
       >
         {/* 3列×上段、2列×下段のバランス配置（12分割グリッド） */}
-        <div className="grid gap-3 sm:gap-3.5 md:gap-4 md:grid-cols-12">
+        <div className="grid gap-3 md:gap-4 md:grid-cols-12">
           {/* 1 */}
           <div className="md:col-span-4 self-stretch">
             <div className="h-full rounded-2xl bg-white/70 ring-1 ring-neutral-200/60 p-3 shadow-sm flex flex-col">
@@ -519,9 +393,9 @@ export default function Page() {
           {/* 4 */}
           <div className="md:col-span-6 self-stretch">
             <div className="h-full rounded-2xl bg-white/70 ring-1 ring-neutral-200/60 p-3 shadow-sm flex flex-col">
-              <IllustrationSlot src="/get.png" alt="面接・内定" compact className="w-full" />
-              <h3 className="mt-3 text-base font-semibold text-neutral-900">内定まで一直線の伴走</h3>
+              <h3 className="text-base font-semibold text-neutral-900">内定まで一直線の伴走</h3>
               <p className="mt-1.5 text-sm text-neutral-600 leading-relaxed">経験起点で、選考対策→面接→内定まで一気通貫で支援します。</p>
+              <div className="mt-2.5"><IllustrationSlot src="/get.png" alt="面接・内定" compact className="w-full" /></div>
             </div>
           </div>
           {/* 5 */}
@@ -529,7 +403,7 @@ export default function Page() {
             <div className="h-full rounded-2xl bg-white/70 ring-1 ring-neutral-200/60 p-3 shadow-sm flex flex-col">
               <IllustrationSlot src="/long.png" alt="長期インターンを武器化" compact className="w-full" />
               <h3 className="mt-3 text-base font-semibold text-neutral-900">長期インターンを武器化</h3>
-              <p className="mt-1.5 text-sm text-neutral-600 leading-relaxed">実務経験を“職務経歴”として明快に提示できます。</p>
+              <p className="mt-1 text-sm text-neutral-600 leading-relaxed">実務経験を“職務経歴”として明快に提示できます。</p>
             </div>
           </div>
         </div>
@@ -549,9 +423,9 @@ export default function Page() {
       >
         <div className="grid gap-6 md:grid-cols-3">
           {[
-            { title: "経験を“職務経歴”に", body: <>長期インターン等の実務を、職務経歴として端的に言語化。採用担当に「任せられること」を伝えます。詳しくは<Link href="/lp/gakuten" className="underline underline-offset-2 ml-1">IPO大学の使い方</Link>へ。</> },
-            { title: "IPO大学で鍛え・形にする", body: <>経験・自己分析・演習を一元管理。面談対策やケース対策までこの場で完結。学習の流れは<Link href="/lp/gakuten" className="underline underline-offset-2 ml-1">こちら</Link>。</> },
-            { title: "学生転職で掴む", body: <>経験×適性マッチで逆スカウト/イベントを優先表示。料金や掲載については<Link href="/lp/fee" className="underline underline-offset-2 ml-1">料金ページ</Link>と<Link href="/lp/company" className="underline underline-offset-2 ml-1">企業向けLP</Link>をご確認ください。</> },
+            { title: "経験を“職務経歴”に", body: "長期インターン等の実務を、職務経歴として端的に言語化。採用担当に「任せられること」を伝えます。" },
+            { title: "IPO大学で鍛え・形にする", body: "経験・自己分析・演習を一元管理。面談対策やケース対策までこの場で完結。" },
+            { title: "学生転職で掴む", body: "経験×適性マッチで逆スカウト/イベントを優先表示。内定まで伴走します。" },
           ].map((c) => (
             <div key={c.title} className="rounded-xl border border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-lg font-semibold text-neutral-900">{c.title}</h3>
@@ -578,7 +452,6 @@ export default function Page() {
                   fill
                   className="object-contain"
                   sizes="(max-width: 768px) 100vw, 50vw"
-                  loading="lazy"
                 />
               </div>
             </div>
@@ -646,8 +519,8 @@ export default function Page() {
               <tr>
                 <th scope="col" className="px-4 py-3.5 text-left font-semibold sticky left-0 bg-neutral-50">項目</th>
                 <th scope="col" className="px-4 py-3.5 text-center font-semibold">学生転職 × IPO大学</th>
-                <th scope="col" className="px-4 py-4 text-center font-semibold">一般的な就活サイトA</th>
-                <th scope="col" className="px-4 py-4 text-center font-semibold">一般的な就活サイトB</th>
+                <th scope="col" className="px-4 py-3.5 text-center font-semibold">一般的な就活サイトA</th>
+                <th scope="col" className="px-4 py-3.5 text-center font-semibold">一般的な就活サイトB</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -739,7 +612,7 @@ export default function Page() {
         sub="非公開求人・特別選考枠も多数ご用意。"
         className="py-12 md:py-16 bg-neutral-50"
       >
-        <div className="hidden md:block rounded-xl border border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+        <div className="rounded-xl border border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
             {[
               "salesmarker.png",
@@ -758,70 +631,11 @@ export default function Page() {
                     width={160}
                     height={48}
                     className="object-contain max-h-10 w-auto"
-                    loading="lazy"
-                    sizes="(max-width: 640px) 33vw, 160px"
                   />
                 </div>
               );
             })}
           </div>
-        </div>
-        {/* Logo marquee – 多数の企業があることを視覚的に示す */}
-        <div className="mt-4 rounded-xl border border-neutral-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 p-3 shadow-sm">
-          <div
-            className="relative overflow-hidden"
-            style={{
-              // 両端をフェードさせるマスク
-              WebkitMaskImage:
-                "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
-              maskImage:
-                "linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)",
-            }}
-          >
-            <div className="flex items-center gap-8 animate-[logo-scroll_28s_linear_infinite]">
-              {[
-                "salesmarker.png",
-                "geniee.jpg",
-                "ma.png",
-                "データX.png",
-                "yappli.png",
-                "sansan.png",
-              ]
-                .concat([
-                  "salesmarker.png",
-                  "geniee.jpg",
-                  "ma.png",
-                  "データX.png",
-                  "yappli.png",
-                  "sansan.png",
-                ]) // 連結して長尺に
-                .map((file, i) => {
-                  const alt = file.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
-                  return (
-                    <div key={`marquee-${i}`} className="shrink-0">
-                      <div className="flex h-12 w-[140px] items-center justify-center rounded-md border border-neutral-200 bg-white">
-                        <Image
-                          src={`/logo/${file}`}
-                          alt={alt}
-                          width={120}
-                          height={36}
-                          className="object-contain max-h-8 w-auto"
-                          loading="lazy"
-                          sizes="120px"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              {/* and more タイル */}
-              <div className="shrink-0">
-                <div className="flex h-12 w-[140px] items-center justify-center rounded-md border border-dashed border-rose-300 bg-rose-50/50 text-rose-700 text-xs font-semibold">
-                  and more
-                </div>
-              </div>
-            </div>
-          </div>
-          <p className="mt-2 text-center text-xs text-neutral-500">※ 上記は一例です。非公開含め多数の企業と接点があります。</p>
         </div>
       </Section>
 
@@ -931,12 +745,6 @@ export default function Page() {
           </div>
         </Container>
       </footer>
-      <style>{`
-        @keyframes logo-scroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
     </main>
   );
 }

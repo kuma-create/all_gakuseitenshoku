@@ -282,7 +282,7 @@ export default async function MediaPostPreviewPage(
                 {/* AUTHOR (SEO only, hidden) */}
                 {post.media_authors && (
                   <div className="hidden" aria-hidden="true">
-                    <span itemProp="author" itemScope itemType="http://schema.org/Person">
+                    <span itemProp="author" itemScope itemType="https://schema.org/Person">
                       <meta itemProp="name" content={post.media_authors.display_name} />
                       {post.media_authors.avatar_url && (
                         <meta itemProp="image" content={post.media_authors.avatar_url} />
