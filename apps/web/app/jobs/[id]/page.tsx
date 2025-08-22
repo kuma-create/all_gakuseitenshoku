@@ -78,19 +78,78 @@ export async function generateMetadata(
 
   const origin = await getOrigin();
   const canonical = origin ? `${origin}/jobs/${id}` : undefined;
+  const ogImageAbs = ogImage
+    ? (ogImage.startsWith("http") ? ogImage : (origin ? `${origin}${ogImage}` : ogImage))
+    : undefined;
 
   return {
     title,
     description,
+    robots: { index: true, follow: true },
     openGraph: {
-      title, description, type: "website",
-      url: canonical, images: ogImage ? [ogImage] : undefined,
+      title,
+      description,
+      type: "article",
+      url: canonical,
+      siteName: "学生転職",
+      locale: "ja_JP",
+      images: ogImageAbs ? [ogImageAbs] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImageAbs ? [ogImageAbs] : undefined,
     },
     alternates: canonical ? { canonical } : undefined,
   };
 }
 
-/* 本体はクライアントへ委譲 */
-export default function Page({ params }: { params: Params }) {
-  return <ClientPage id={params.id} />;
+export default async function Page({ params }: { params: Params }) {
+  // ここで軽量にタイトル等だけを再取得（構造化データ用）。
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const id = params.id;
+  let jp: any = null;
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/selections_view?id=eq.${encodeURIComponent(id)}&select=id,title,description,selection_type,application_deadline,location,salary_range,company:companies(name)`,
+      { headers: { apikey: supabaseAnon, Authorization: `Bearer ${supabaseAnon}` }, next: { revalidate: 60 } }
+    );
+    if (res.ok) {
+      const rows = await res.json();
+      jp = Array.isArray(rows) ? rows[0] : null;
+    }
+  } catch {}
+
+  const jsonLd = jp
+    ? {
+        "@context": "https://schema.org",
+        "@type": "JobPosting",
+        title: jp.title,
+        description: jp.description ?? `${jp.title} の募集要項です。`,
+        hiringOrganization: jp?.company?.name
+          ? { "@type": "Organization", name: jp.company.name }
+          : undefined,
+        datePosted: undefined,
+        validThrough: jp.application_deadline || undefined,
+        employmentType: selectionLabel(jp.selection_type),
+        jobLocation: jp.location
+          ? { "@type": "Place", address: { "@type": "PostalAddress", addressLocality: jp.location } }
+          : undefined,
+        baseSalary: jp.salary_range ? { "@type": "MonetaryAmount", value: String(jp.salary_range) } : undefined,
+      }
+    : null;
+
+  return (
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      <ClientPage id={params.id} />
+    </>
+  );
 }
