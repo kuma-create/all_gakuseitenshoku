@@ -1,186 +1,116 @@
-import Link from "next/link";
+import path from "node:path";
+import fs from "node:fs/promises";
 
-export default function TermsPage() {
+// 置き場所: apps/web/public/terms/ 配下にPDFやExcel等を置くと自動で一覧化されます
+// 例) public/terms/01_利用規約_学生向け.pdf など
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) return "0B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"]; 
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  return `${value % 1 === 0 ? value : value.toFixed(1)}${sizes[i]}`;
+}
+
+async function listTermFiles() {
+  // Try multiple candidates because process.cwd() can be repo root or apps/web
+  const candidates = [
+    path.join(process.cwd(), "public/terms"),
+    path.join(process.cwd(), "apps/web/public/terms"),
+  ];
+
+  let dir: string | null = null;
+  for (const c of candidates) {
+    try {
+      await fs.access(c);
+      dir = c;
+      break;
+    } catch (_) {
+      // continue
+    }
+  }
+
+  if (!dir) {
+    return [] as { name: string; size: number; href: string }[];
+  }
+
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const files = await Promise.all(
+      entries
+        .filter((e) => e.isFile())
+        .filter((e) => /\.(pdf|docx?|xlsx?|csv|txt)$/i.test(e.name))
+        .map(async (e) => {
+          const fp = path.join(dir!, e.name);
+          const st = await fs.stat(fp);
+          return {
+            name: e.name,
+            size: st.size,
+            href: `/terms/${encodeURIComponent(e.name)}`,
+          };
+        })
+    );
+
+    files.sort((a, b) => a.name.localeCompare(b.name, "ja"));
+    return files;
+  } catch (e) {
+    return [] as { name: string; size: number; href: string }[];
+  }
+}
+
+export default async function TermsPage() {
+  const files = await listTermFiles();
+
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1>利用規約</h1>
-      <article className="prose lg:prose-lg space-y-6">
+      <h1 className="mb-6">利用規約（ファイル一覧）</h1>
 
-        <h2>1. 総則</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>
-            <strong>適用範囲</strong>：本規約は、本サービスの利用に関して
-            株式会社Make&nbsp;Culture（以下「当社」といいます）とユーザーとの
-            間で成立する一切の契約関係に適用されます。
-            個別サービス規程・ガイドラインがある場合は、
-            当該規程が本規約の一部を構成し、両者に矛盾があるときは
-            個別規程が優先します。
-          </li>
-          <li>
-            <strong>定義</strong>：本規約で使用する主な用語は次のとおりです。
-            <ul className="list-disc pl-6 space-y-1">
-              <li>「本サービス」：当社が提供する就職マッチングプラットフォーム「学生転職」</li>
-              <li>「学生ユーザー」：求職を目的として本サービスを利用する学生または若手既卒者</li>
-              <li>「企業ユーザー」：採用活動を目的として本サービスを利用する法人・個人事業主</li>
-              <li>「登録情報」：ユーザーが本サービスに登録・入力した一切の情報</li>
-              <li>「スカウト」：企業ユーザーが学生ユーザーに対し送付する応募勧誘メッセージ</li>
-            </ul>
-          </li>
+      {files.length === 0 ? (
+        <div className="rounded-md border p-4 text-sm text-gray-600">
+          <p>
+            公開用ファイルが見つかりませんでした。<br />
+            <code className="rounded bg-muted px-1 py-0.5">public/terms</code> または
+            <code className="rounded bg-muted px-1 py-0.5">apps/web/public/terms</code>
+            にPDFやExcel等を配置してください。
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {files.map((f, idx) => {
+            const label = f.name
+              .replace(/_/g, " ")
+              .replace(/\.(pdf|docx?|xlsx?|csv|txt)$/i, "");
+            const ext = f.name.split(".").pop()?.toUpperCase();
+            return (
+              <li key={f.name} className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground w-8 shrink-0">
+                  {String(idx + 1).padStart(2, "0")}.
+                </span>
+                <a
+                  href={f.href}
+                  download
+                  className="underline-offset-2 hover:underline break-all"
+                >
+                  {label}
+                  {ext ? `（${ext}:${formatBytes(f.size)}）` : `（${formatBytes(f.size)}）`}
+                </a>
+                <a
+                  href={f.href}
+                  download
+                  className="ml-2 rounded bg-emerald-600 px-2.5 py-1 text-xs text-white hover:opacity-90"
+                >
+                  ダウンロード
+                </a>
+              </li>
+            );
+          })}
         </ul>
+      )}
 
-        <h2>2. ユーザー登録とアカウント</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>
-            <strong>学生ユーザーの登録資格</strong>：大学・大学院・短大・専門学校等に
-            在籍中または卒業後 3&nbsp;年以内の者に限ります。
-            未成年者は親権者の同意が必要です。
-          </li>
-          <li>
-            <strong>企業ユーザーの登録</strong>：当社所定の審査および契約手続を経て
-            企業アカウントを発行します。
-          </li>
-          <li>
-            <strong>アカウント管理責任</strong>：ID・パスワードはユーザー自身の責任で
-            管理し、第三者への共有・譲渡を禁止します。
-            不正利用により生じた損害について当社は責任を負いません。
-          </li>
-          <li>
-            <strong>登録情報の真実性・最新性</strong>：ユーザーは常に正確かつ最新の情報を
-            提供・維持しなければなりません。
-            虚偽情報が判明した場合、当社はアカウントを停止できます。
-          </li>
-          <li>
-            <strong>アカウントの複数保有禁止</strong>：ユーザー 1&nbsp;名につき
-            1&nbsp;アカウントのみ保有できます。
-          </li>
-        </ul>
-
-        <h2>3. 本サービスの提供と利用</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>
-            <strong>サービス内容</strong>：求人検索・閲覧、スカウト受信、チャット、
-            面接日程調整等を提供します。当社はプラットフォーム提供者であり、
-            雇用契約の当事者・保証人ではありません。
-          </li>
-          <li>
-            <strong>料金</strong>：学生ユーザーは無料で利用できます。
-            企業ユーザーは別途締結する契約に従い料金が発生します。
-            当社または企業が学生から金銭を徴収することはありません。
-          </li>
-          <li>
-            <strong>プロフィール公開</strong>：学生のプロフィールは原則企業に公開されますが、
-            ユーザーは公開範囲を設定できます。
-          </li>
-        </ul>
-
-        <h2>4. 禁止事項（ユーザー共通）</h2>
-        <p>ユーザーは以下の行為を行ってはなりません。</p>
-        <ul className="list-disc pl-6 space-y-1">
-          <li>法令または公序良俗に反する行為</li>
-          <li>他人になりすます行為、虚偽情報の登録</li>
-          <li>当社・他ユーザー・第三者の権利侵害（知的財産・プライバシー等）</li>
-          <li>誹謗中傷・ハラスメント・差別的表現</li>
-          <li>営利・勧誘目的の不正利用（ネットワークビジネス、宗教勧誘、出会い目的等）</li>
-          <li>スパム行為や無差別スカウト・応募</li>
-          <li>個人情報の不正取得・不正利用</li>
-          <li>リバースエンジニアリング・サービス改変</li>
-          <li>システムへの不正アクセスや過度な負荷行為</li>
-          <li>反社会的勢力への利益供与または関与</li>
-        </ul>
-
-        <h2>5. 企業ユーザー向け特則</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>
-            <strong>求人情報の掲載</strong>：真実かつ最新の求人情報を掲載し、
-            内容に誤りがあれば速やかに修正・削除してください。
-          </li>
-          <li>
-            <strong>企業特有の禁止事項</strong>：採用と無関係な目的での連絡、
-            内定辞退ペナルティの提示、学生への金銭負担要求、差別的選考などを禁止します。
-          </li>
-          <li>
-            <strong>データ取扱い義務</strong>：取得した学生情報は採用選考目的に限り利用し、
-            法令に基づき安全に管理してください。
-          </li>
-          <li>
-            <strong>料金と支払い</strong>：料金プラン・支払条件は
-            別途契約または管理画面の表示に従います。
-            支払遅延時には遅延損害金が発生し、当社はサービスを停止できます。
-          </li>
-        </ul>
-
-        <h2>6. ユーザーコンテンツと権利</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>
-            <strong>権利帰属</strong>：ユーザーが投稿したコンテンツの著作権等は
-            原則投稿者に帰属しますが、当社はサービス運営・宣伝のために
-            無償で利用できる非独占的ライセンスを取得します。
-          </li>
-          <li>
-            <strong>保証と削除</strong>：ユーザーは投稿コンテンツについて
-            第三者の権利を侵害していないことを保証し、
-            当社は違反コンテンツを通知なく削除できます。
-          </li>
-        </ul>
-
-        <h2>7. プライバシーと個人情報保護</h2>
-        <p>
-          ユーザーの個人情報は
-          <Link href="/privacy-policy">プライバシーポリシー</Link>
-          に従って取り扱われます。
-          学生情報は学生本人の同意に基づき企業に提供されます。
-        </p>
-
-        <h2>8. 当社の免責事項</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>
-            <strong>サービス品質</strong>：本サービスは現状有姿で提供され、
-            その完全性・正確性・特定目的適合性を保証しません。
-          </li>
-          <li>
-            <strong>ユーザー間トラブル</strong>：ユーザー間の紛争について
-            当社は原則責任を負いません。
-          </li>
-          <li>
-            <strong>損害賠償の制限</strong>：
-            当社の賠償責任は直接かつ通常の損害に限られ、
-            上限はユーザーが過去 12&nbsp;ヶ月に当社へ支払った金額を超えません。
-          </li>
-          <li>
-            <strong>サービス停止</strong>：システム障害・保守・天災等により
-            サービスを停止する場合があります。
-          </li>
-        </ul>
-
-        <h2>9. 利用契約の終了</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>
-            <strong>任意退会</strong>：ユーザーは設定画面からいつでも退会できます。
-            退会後、データは引き継がれません。
-          </li>
-          <li>
-            <strong>当社による解除</strong>：
-            規約違反等の場合、当社は通知なくアカウントを停止・削除できます。
-          </li>
-          <li>
-            <strong>サービス終了</strong>：当社は 30&nbsp;日前までに通知のうえ
-            本サービスを終了できます。
-          </li>
-        </ul>
-
-        <h2>10. 雑則</h2>
-        <ul className="list-disc pl-6 space-y-2">
-          <li>本サービスに関する知的財産権は当社またはライセンサーに帰属します。</li>
-          <li>ユーザーは契約上の地位・権利義務を第三者に譲渡できません。</li>
-          <li>本規約の一部が無効となっても、その他の規定は有効に存続します。</li>
-          <li>
-            本規約の準拠法は日本法とし、
-            紛争が生じた場合は東京地方裁判所を第一審の専属管轄裁判所とします。
-          </li>
-        </ul>
-
-        <p className="text-sm text-gray-500">制定日：2025 年 6 月 11 日</p>
-      </article>
+      <p className="mt-8 text-xs text-gray-500">
+        * 表示されているリンクをクリックすると、その場でダウンロードまたはブラウザで閲覧できます。
+      </p>
     </main>
   );
 }
