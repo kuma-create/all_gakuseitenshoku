@@ -170,9 +170,9 @@ export default function Header() {
     : userType === "admin" ? adminMain
     : studentMain;
 
-  // --- IPO専用分岐（/ipoページではヘッダーを描画しない） ---
-  const isIpo = pathname.startsWith("/ipo");
-  if (isIpo) {
+  // --- IPO専用分岐（/ipo または /lp/students/27 ページではヘッダーを描画しない） ---
+  const isIpoOrLpStudents27 = pathname.startsWith("/ipo") || pathname.startsWith("/lp/students/27");
+  if (isIpoOrLpStudents27) {
     return null;
   }
 

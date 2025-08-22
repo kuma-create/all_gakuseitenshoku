@@ -22,17 +22,15 @@ const inter = Inter({ subsets: ["latin"] });
 
 /* ---------- メタデータ ---------- */
 export const metadata: Metadata = {
-  title:
-    "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
+  metadataBase: new URL("https://gakuten.co.jp"),
+  title: {
+    default: "学生転職",
+    template: "%s | 学生転職",
+  },
   description:
     "学生転職は学生時代の職歴を評価し、企業からスカウトが届く逆求人型就活サービスです。職務経歴書テンプレートや就活グランプリで市場価値を高め、ハイキャリアのスタートを切りましょう。",
-  metadataBase: new URL("https://gakuten.co.jp"),
-  alternates: {
-    canonical: "https://gakuten.co.jp/",
-  },
   openGraph: {
-    title:
-      "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
+    title: "学生転職",
     description:
       "職歴を活かしてハイレベルな就活を。学生転職は学生向けのスカウト型オファーサービスです。",
     url: "https://gakuten.co.jp/",
@@ -50,8 +48,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title:
-      "学生転職 | 長期インターン・アルバイト経験を活かす逆求人型就活サービス",
+    title: "学生転職",
     description:
       "学生時代の職歴を活かしてハイキャリア就活を実現。プロフィール登録で企業から直接スカウト。",
     images: ["/ogp.png"],
