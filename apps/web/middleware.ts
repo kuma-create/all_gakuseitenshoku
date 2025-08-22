@@ -9,6 +9,30 @@ import { createMiddlewareClient }          from "@supabase/auth-helpers-nextjs";
 import type { Database }                   from "@/lib/supabase/types";
 import dayjs                           from "dayjs";
 
+// --- CORS helpers for API preflight ---
+const MW_ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function mwPickOrigin(originHeader?: string | null) {
+  const origin = originHeader || '';
+  if (!origin) return '*';
+  if (MW_ALLOWED_ORIGINS.length === 0) return origin; // allow any during local if not set
+  return MW_ALLOWED_ORIGINS.includes(origin) ? origin : MW_ALLOWED_ORIGINS[0];
+}
+
+function mwCorsHeaders(originHeader?: string | null) {
+  const allowOrigin = mwPickOrigin(originHeader);
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Vary': 'Origin',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
+  } as Record<string, string>;
+}
+
 /* ---------- Supabase cookie name (v2) ---------- */
 // Supabase v2 stores auth in a single cookie: sb-<projectRef>-auth-token
 const projectRef =
@@ -63,6 +87,12 @@ const PUBLIC_PREFIXES = [
 
 /* ------------------------------------------------------------------ */
 export async function middleware(req: NextRequest) {
+  // === Allow API CORS preflight to pass through at middleware level ===
+  if (req.method === 'OPTIONS' && req.nextUrl.pathname.startsWith('/api/')) {
+    const headers = mwCorsHeaders(req.headers.get('origin'));
+    return new NextResponse(null, { status: 204, headers });
+  }
+
   // ----- PUBLIC: /lp marketing pages -----
   if (req.nextUrl.pathname.startsWith("/lp")) {
     return NextResponse.next(); // Skip auth & redirects for anything under /lp
@@ -117,8 +147,8 @@ const hasAuthCookie =
   }
 
   /* ---------- ② ここで初めて Supabase Session を取得 ---------- */
-  const res      = NextResponse.next({ request: req });
-  const supabase = createMiddlewareClient<Database>({ req, res });
+  const res      = NextResponse.next();
+  const supabase = createMiddlewareClient<Database>({ req: req as any, res: res as any });
 
   let session = null;
   try {

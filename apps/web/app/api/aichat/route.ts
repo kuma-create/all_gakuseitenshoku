@@ -29,6 +29,36 @@ type ResumeRow = {
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+// --- CORS helpers ---
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+function pickOrigin(originHeader?: string | null) {
+  const origin = originHeader || '';
+  if (!origin) return '*';
+  if (ALLOWED_ORIGINS.length === 0) return origin; // allow any during local if not set
+  return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+}
+
+function corsHeaders(originHeader?: string | null) {
+  const allowOrigin = pickOrigin(originHeader);
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Vary': 'Origin',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
+  } as Record<string, string>;
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const headers = corsHeaders(req.headers.get('origin'));
+  return new NextResponse(null, { status: 204, headers });
+}
 
 export const runtime = 'nodejs'; // DBアクセス&認証のため Node 実行
 
@@ -133,40 +163,95 @@ function sanitizeRows(rows: Jsonish[] | null) {
   });
 }
 
+function getSupabaseForRequest(req: NextRequest) {
+  // Prefer Authorization header from mobile/native clients; fall back to cookie-based auth.
+  const authz = req.headers.get('authorization') || req.headers.get('Authorization');
+  if (authz && authz.toLowerCase().startsWith('bearer ')) {
+    const token = authz.slice(7).trim();
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { persistSession: false, detectSessionInUrl: false },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      }
+    );
+  }
+  // Cookie-based (web) fallback
+  return createRouteHandlerClient({ cookies });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { messages, mode, threadId } = await req.json();
+    const headers = corsHeaders(req.headers.get('origin'));
 
     if (!Array.isArray(messages)) {
-      return NextResponse.json({ error: 'Invalid payload: messages must be an array' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid payload: messages must be an array' }, { status: 400, headers });
     }
 
-    // 認証ユーザーを取得（RLS 前提）
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr) return NextResponse.json({ error: 'auth_error', detail: String(authErr.message || authErr) }, { status: 401 });
-    if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-    const uid = user.id;
+    // 認証（Bearer 優先 → Cookie フォールバック）
+    let uid: string | null = null;
+    let supabase: any;
+
+    const authz = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const m = authz.match(/^Bearer\s+(.+)$/i);
+    const bearer = m ? m[1].trim() : '';
+
+    if (bearer) {
+      // 1) Bearer トークンでユーザーを検証（Cookie 不要）
+      const supabaseForVerify = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false, detectSessionInUrl: false } }
+      );
+      const { data: userRes, error: authErr } = await supabaseForVerify.auth.getUser(bearer);
+      if (authErr) return NextResponse.json({ error: 'auth_error', detail: String(authErr.message || authErr) }, { status: 401, headers });
+      if (!userRes?.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers });
+      uid = userRes.user.id;
+
+      // RLS 付きの DB アクセスのため、Authorization ヘッダを付けたクライアントを用意
+      supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: { persistSession: false, detectSessionInUrl: false },
+          global: { headers: { Authorization: `Bearer ${bearer}` } },
+        }
+      );
+    } else {
+      // 2) Cookie ベース（同一オリジン Web 用）
+      supabase = getSupabaseForRequest(req);
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr) return NextResponse.json({ error: 'auth_error', detail: String(authErr.message || authErr) }, { status: 401, headers });
+      if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers });
+      uid = user.id;
+    }
+
+    if (!uid) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers });
+    }
+    const userId: string = uid as string;
 
     // 1) student_profiles
     const { data: prof } = await supabase
       .from('student_profiles')
       .select(ALLOWED.student_profiles.join(','))
-      .or(`user_id.eq.${uid},id.eq.${uid}`)
+      .or(`user_id.eq.${userId},id.eq.${userId}`)
       .maybeSingle();
 
     // 2) 進捗
     const { data: prog } = await supabase
       .from('ipo_analysis_progress')
       .select(ALLOWED.ipo_analysis_progress.join(','))
-      .eq('user_id', uid)
+      .eq('user_id', userId)
       .maybeSingle();
 
     // 3) レジュメ
     const { data: resm } = await supabase
       .from('resumes')
       .select(ALLOWED.resumes.join(','))
-      .eq('user_id', uid)
+      .eq('user_id', userId)
       .maybeSingle();
 
     // --- Explicit local casts ---
@@ -188,17 +273,17 @@ export async function POST(req: NextRequest) {
       tSelectionStages,
       tCalendarEvents,
     ] = await Promise.all([
-      safeReadTable(supabase, 'ipo_experiences', uid, ['role','context','impact','result']),
-      safeReadTable(supabase, 'ipo_future_vision', uid, ['vision','goal','why','how']),
-      safeReadTable(supabase, 'ipo_life_chart_events', uid, ['event','emotion']),
-      safeReadTable(supabase, 'ipo_strengths', uid, ['trait','evidence']),
-      safeReadTable(supabase, 'ipo_weaknesses', uid, ['trait','risk','improvement']),
-      safeReadTable(supabase, 'ipo_library_items', uid, ['industry','job','skills']),
-      safeReadTable(supabase, 'ipo_library_user_data', uid, ['favorites','searchHistory']),
-      safeReadTable(supabase, 'ipo_selection_companies', uid, ['company_name','priority','reason']),
-      safeReadTable(supabase, 'ipo_selection_contacts', uid, ['contact','channel','note']),
-      safeReadTable(supabase, 'ipo_selection_stages', uid, ['stage','status','next_action']),
-      safeReadTable(supabase, 'ipo_calendar_events', uid, ['title','location']),
+      safeReadTable(supabase, 'ipo_experiences', userId, ['role','context','impact','result']),
+      safeReadTable(supabase, 'ipo_future_vision', userId, ['vision','goal','why','how']),
+      safeReadTable(supabase, 'ipo_life_chart_events', userId, ['event','emotion']),
+      safeReadTable(supabase, 'ipo_strengths', userId, ['trait','evidence']),
+      safeReadTable(supabase, 'ipo_weaknesses', userId, ['trait','risk','improvement']),
+      safeReadTable(supabase, 'ipo_library_items', userId, ['industry','job','skills']),
+      safeReadTable(supabase, 'ipo_library_user_data', userId, ['favorites','searchHistory']),
+      safeReadTable(supabase, 'ipo_selection_companies', userId, ['company_name','priority','reason']),
+      safeReadTable(supabase, 'ipo_selection_contacts', userId, ['contact','channel','note']),
+      safeReadTable(supabase, 'ipo_selection_stages', userId, ['stage','status','next_action']),
+      safeReadTable(supabase, 'ipo_calendar_events', userId, ['title','location']),
     ]);
 
     const extra = {
@@ -266,7 +351,7 @@ export async function POST(req: NextRequest) {
 
     if (!resp.ok) {
       const detail = await resp.text();
-      return NextResponse.json({ error: 'OpenAI error', detail }, { status: 502 });
+      return NextResponse.json({ error: 'OpenAI error', detail }, { status: 502, headers });
     }
 
     const data = await resp.json();
@@ -288,10 +373,11 @@ export async function POST(req: NextRequest) {
     if (/学び|気づき|発見|振り返り/.test(content)) insights.push('気づきが具体化されています');
     if (/次(の|に)|行動|ステップ|試す/.test(content)) insights.push('次の行動が明確になりました');
 
-    const outThreadId = threadId || `thr_${uid}`; // ユーザー単位でスレッドIDを安定化
+    const outThreadId = threadId || `thr_${userId}`; // ユーザー単位でスレッドIDを安定化
 
-    return NextResponse.json({ content, category, insights, questions: undefined, threadId: outThreadId });
+    return NextResponse.json({ content, category, insights, questions: undefined, threadId: outThreadId }, { headers });
   } catch (e: any) {
-    return NextResponse.json({ error: 'Unexpected server error', detail: String(e?.message || e) }, { status: 500 });
+    const headers = corsHeaders(null);
+    return NextResponse.json({ error: 'Unexpected server error', detail: String(e?.message || e) }, { status: 500, headers });
   }
 }

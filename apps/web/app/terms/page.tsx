@@ -4,12 +4,6 @@ export default function TermsPage() {
   return (
     <main className="container mx-auto px-4 py-8">
       <h1>利用規約</h1>
-      <button
-        onClick={() => window.open("/api/terms-pdf", "_blank")}
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-      >
-        PDFをダウンロード
-      </button>
       <article className="prose lg:prose-lg space-y-6">
 
         <h2>1. 総則</h2>
