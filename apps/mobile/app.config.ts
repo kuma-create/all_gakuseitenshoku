@@ -1,4 +1,12 @@
 import 'dotenv/config';
+// Resolve optional plugin safely (works locally & on EAS)
+let secureStorePlugin: string | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  secureStorePlugin = require.resolve('expo-secure-store/plugin');
+} catch {
+  secureStorePlugin = null;
+}
 import { ExpoConfig } from '@expo/config';
 
 const config: ExpoConfig = {
@@ -8,7 +16,7 @@ const config: ExpoConfig = {
   version: "1.0.0",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
-  newArchEnabled: true,
+  newArchEnabled: false,
 
   icon: "./assets/images/icon.png",
 
@@ -35,15 +43,15 @@ const config: ExpoConfig = {
   },
 
   plugins: [
-    "expo-secure-store",
-    "expo-router",
+    ...(secureStorePlugin ? [secureStorePlugin] : []),
+    'expo-router',
     [
-      "expo-splash-screen",
+      'expo-splash-screen',
       {
-        image: "./assets/images/icon.png",
+        image: './assets/images/icon.png',
         imageWidth: 200,
-        resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        resizeMode: 'contain',
+        backgroundColor: '#ffffff',
       },
     ],
   ],
