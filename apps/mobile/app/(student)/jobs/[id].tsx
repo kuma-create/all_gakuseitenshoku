@@ -7,6 +7,43 @@
 ──────────────────────────────────────────────────────────────── */
 
 import { Feather } from "@expo/vector-icons";
+/**
+ * 企業ロゴが無いときに表示するデフォルトアイコン（独自作成）
+ * Feather の briefcase を赤系トーンで包んだ角丸ブロック
+ */
+function CompanyDefaultIcon({
+  size,
+  borderRadius,
+  style,
+  accessibilityLabel = "企業アイコン",
+}: {
+  size: number;
+  borderRadius: number;
+  style?: any;
+  accessibilityLabel?: string;
+}) {
+  return (
+    <View
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius,
+          backgroundColor: "#fee2e2", // 赤系の薄い背景
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: "#e5e7eb",
+        },
+        style,
+      ]}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="image"
+    >
+      <Feather name="briefcase" size={Math.floor(size * 0.52)} color="#dc2626" />
+    </View>
+  );
+}
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -469,13 +506,15 @@ function HeaderBlock({ job, company, tags }: { job: Job; company: Company; tags:
       <View style={{ height: 96, backgroundColor: "#dc2626", opacity: 0.9 }} />
       <View style={{ marginTop: -24, padding: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Image
-            source={
-              company?.logo ? { uri: company.logo } : require("../../../assets/images/placeholder-avatar.png")
-            }
-            style={styles.logo}
-            resizeMode="cover"
-          />
+          {company?.logo ? (
+            <Image
+              source={{ uri: company.logo }}
+              style={styles.logo}
+              resizeMode="cover"
+            />
+          ) : (
+            <CompanyDefaultIcon size={72} borderRadius={12} style={{ marginRight: 12, borderWidth: 3, borderColor: "#fff", backgroundColor: "#fff" }} />
+          )}
           <View style={{ flex: 1, paddingTop: 8 }}>
             <Text style={styles.jobTitle} numberOfLines={3}>
               {normalizeTitle(job?.title)}
@@ -572,13 +611,15 @@ function CompanyCard({ company }: { company: Company }) {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>企業情報</Text>
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-        <Image
-          source={
-            company?.logo ? { uri: company.logo } : require("../../../assets/images/placeholder-avatar.png")
-          }
-          style={styles.companyLogo}
-          resizeMode="cover"
-        />
+        {company?.logo ? (
+          <Image
+            source={{ uri: company.logo }}
+            style={styles.companyLogo}
+            resizeMode="cover"
+          />
+        ) : (
+          <CompanyDefaultIcon size={56} borderRadius={8} />
+        )}
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.companyName}>{company?.name ?? "企業名"}</Text>
           {!!company?.industry && <Text style={styles.mutedSmall}>{company.industry}</Text>}
@@ -605,15 +646,15 @@ function RelatedCard({ related }: { related: RelatedJob[] }) {
             onPress={() => router.push(`/jobs/${rel.id}`)}
             style={styles.relatedItem}
           >
-            <Image
-              source={
-                rel.company?.logo
-                  ? { uri: rel.company.logo }
-                  : require("../../../assets/images/placeholder-avatar.png")
-              }
-              style={styles.relatedLogo}
-              resizeMode="cover"
-            />
+            {rel.company?.logo ? (
+              <Image
+                source={{ uri: rel.company.logo }}
+                style={styles.relatedLogo}
+                resizeMode="cover"
+              />
+            ) : (
+              <CompanyDefaultIcon size={40} borderRadius={6} style={{ marginRight: 12 }} />
+            )}
             <View style={{ flex: 1 }}>
               <Text style={styles.relatedTitle}>{rel.title ?? "—"}</Text>
               <Text style={styles.mutedSmall}>{rel.company?.name ?? "—"}</Text>
