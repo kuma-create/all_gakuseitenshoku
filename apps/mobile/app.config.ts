@@ -35,6 +35,7 @@ const config: ExpoConfig = {
   },
 
   plugins: [
+    "expo-secure-store",
     "expo-router",
     [
       "expo-splash-screen",
