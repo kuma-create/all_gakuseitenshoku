@@ -1,37 +1,37 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// --- FIX: force-patch autolinking import (expo.core -> expo.modules.core) OR drop it if class is missing
+def genAutolinkDir = "$project.buildDir/generated/autolinking/src/main/java/com/facebook/react"
+def pkgList = file("$genAutolinkDir/PackageList.java")
 
-buildscript {
-  repositories {
-    google()
-    mavenCentral()
-  }
-  dependencies {
-    classpath('com.android.tools.build:gradle')
-    classpath('com.facebook.react:react-native-gradle-plugin')
-    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
-  }
-}
+tasks.register("patchAutolinking") {
+  dependsOn("generateAutolinkingPackageList")
+  doLast {
+    if (pkgList.exists()) {
+      def txt = pkgList.getText("UTF-8")
+      def fixed = txt
+        // 1) legacy wrong import → correct package
+        .replace("import expo.core.ExpoModulesPackage;", "import expo.modules.core.ExpoModulesPackage;")
 
-def reactNativeAndroidDir = new File(
-  providers.exec {
-    workingDir(rootDir)
-    commandLine("node", "--print", "require.resolve('react-native/package.json')")
-  }.standardOutput.asText.get().trim(),
-  "../android"
-)
+      // 2) If correct class still doesn't exist in this SDK, drop the import & instantiation safely
+      if (!fileTree("${rootDir}").matching { include "**/expo-modules-core*/**/*.jar", "**/expo-modules-core*/**/*.aar" }.files.any { it.name.contains("expo-modules-core") }) {
+        fixed = fixed
+          .replaceAll(/\n\s*import\s+expo\.modules\.core\.ExpoModulesPackage;\n/, "\n")
+          .replaceAll(/\n\s*new\s+ExpoModulesPackage\(\),?\n/, "\n")
+      }
 
-allprojects {
-  repositories {
-    maven {
-      // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-      url(reactNativeAndroidDir)
+      if (txt != fixed) {
+        pkgList.write(fixed, "UTF-8")
+        println("[fix] Patched PackageList.java (import path and/or removed ExpoModulesPackage)")
+      } else {
+        println("[fix] PackageList.java already correct (no patch needed)")
+      }
+    } else {
+      println("[fix] PackageList.java not found (yet) at: " + pkgList.path)
     }
-
-    google()
-    mavenCentral()
-    maven { url 'https://www.jitpack.io' }
   }
 }
 
-apply plugin: "expo-root-project"
-apply plugin: "com.facebook.react.rootproject"
+// Ensure patch runs before Java compile in all build variants
+tasks.matching { it.name in ["compileReleaseJavaWithJavac", "compileDebugJavaWithJavac", "compileReleaseSources", "compileDebugSources"] }.configureEach {
+  it.dependsOn("patchAutolinking")
+}
+// --- END FIX
