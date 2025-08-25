@@ -1,4 +1,8 @@
-// settings.gradle — Expo SDK 53 / RN 0.79 — Expo autolinking only (no RN settings plugin)
+// settings.gradle — RN settings plugin ONLY (disable Expo settings plugin)
+// Rationale: expo-modules-autolinking v2.x settings plugin not present in this install.
+// Prebuild済みのため、まずは RN 側のみで評価/ビルドを通します。
+
+import org.gradle.api.GradleException
 
 pluginManagement {
   repositories {
@@ -7,20 +11,28 @@ pluginManagement {
     mavenCentral()
   }
 
-  // include only Expo autolinking gradle plugin from local node_modules
-  def androidDir = rootDir
-  def mobileDir  = androidDir.toPath().resolve("..").toFile()
-  def nm         = new File(mobileDir, "node_modules")
-  if (!nm.exists()) throw new RuntimeException("node_modules not found at: " + nm.absolutePath)
+  // Resolve @react-native/gradle-plugin via Node (pnpm対応)
+  def rnGradlePluginDir = new File(
+    providers.exec {
+      workingDir(rootDir)
+      commandLine(
+        "node", "--print",
+        "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"
+      )
+    }.standardOutput.asText.get().trim()
+  ).getParentFile()
+  if (!rnGradlePluginDir.exists()) {
+    throw new GradleException("@react-native/gradle-plugin not found. Install in apps/mobile: pnpm add -D @react-native/gradle-plugin@0.79.5")
+  }
+  includeBuild(rnGradlePluginDir.absolutePath)
 
-  def expoPlugin = new File(nm, "expo-modules-autolinking/android/expo-gradle-plugin")
-  if (!expoPlugin.exists()) throw new RuntimeException("Expo autolinking gradle plugin not found at: " + expoPlugin.absolutePath)
-  includeBuild(expoPlugin.absolutePath)
+  // NOTE: Expo settings plugin intentionally NOT included to avoid missing/compile errors.
 }
 
 plugins {
-  // Use Expo autolinking settings plugin only
-  id("expo-autolinking-settings")
+  id("com.facebook.react.settings")
+  // DO NOT add Expo plugin here
 }
 
+rootProject.name = "android"
 include(":app")

@@ -1,43 +1,33 @@
-// Module: app/build.gradle — align package with Manifest (co.gakuten.app)
+// Top-level build file for the Android project (project-level)
+// Gradle 8.6 / AGP 8.5.2 / Kotlin 1.9.24
 
-plugins {
-  id 'com.android.application'
-  id 'org.jetbrains.kotlin.android'
-}
-
-android {
-  namespace "co.gakuten.app"
-  compileSdkVersion rootProject.ext.compileSdkVersion
-
-  defaultConfig {
-    applicationId "co.gakuten.app"
-    minSdkVersion rootProject.ext.minSdkVersion
-    targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 1
-    versionName "1.0"
-  }
-
-  buildTypes {
-    release {
-      minifyEnabled false
-      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-    }
-    debug {
-      // keep default
-    }
-  }
-
-  compileOptions {
-    sourceCompatibility JavaVersion.VERSION_17
-    targetCompatibility JavaVersion.VERSION_17
-  }
-  kotlinOptions {
-    jvmTarget = '17'
+buildscript {
+  repositories { google(); mavenCentral() }
+  dependencies {
+    classpath 'com.android.tools.build:gradle:8.5.2'
+    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
   }
 }
 
-dependencies {
-  implementation 'androidx.core:core-ktx:1.13.1'
-  implementation 'androidx.appcompat:appcompat:1.7.0'
-  implementation 'com.google.android.material:material:1.12.0'
+ext {
+  buildToolsVersion = (findProperty('android.buildToolsVersion') ?: '34.0.0')
+  minSdkVersion     = (findProperty('android.minSdkVersion') ?: 24) as int
+  compileSdkVersion = (findProperty('android.compileSdkVersion') ?: 34) as int
+  targetSdkVersion  = (findProperty('android.targetSdkVersion') ?: 34) as int
+  ndkVersion        = (findProperty('android.ndkVersion') ?: '26.3.11579264')
+}
+
+// RN maven repo（フルパス）
+def reactNativeAndroidDir = new File(
+  "/Users/chibaheitarou/hei-gakuseitenshoku/all_gakuseitenshoku/apps/mobile/node_modules/react-native",
+  "android"
+)
+
+allprojects {
+  repositories {
+    maven { url(reactNativeAndroidDir) }
+    google()
+    mavenCentral()
+    maven { url 'https://www.jitpack.io' }
+  }
 }

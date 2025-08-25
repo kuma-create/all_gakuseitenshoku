@@ -1,9 +1,0 @@
-# Gradle Wrapper properties — pinned for Expo SDK 53 / RN 0.79
-# Known-good with expo-modules-autolinking 2.1.x
-# (This file is auto-managed; do not edit during CI.)
-
-distributionBase=GRADLE_USER_HOME
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-distributionPath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip
