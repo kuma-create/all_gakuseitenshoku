@@ -1,83 +1,43 @@
-// Top-level build file for the Android project (ROOT)
+// Module: app/build.gradle — align package with Manifest (co.gakuten.app)
 
-buildscript {
-  ext {
-    // Expo SDK 53 defaults
-    buildToolsVersion = findProperty('android.buildToolsVersion') ?: '35.0.0'
-    minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '24')
-    compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '35')
-    targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '35')
-    ndkVersion = findProperty('android.ndkVersion') ?: '27.1.12297006'
-    kotlinVersion = findProperty('android.kotlinVersion') ?: '2.0.21'
-  }
-  repositories {
-    google()
-    mavenCentral()
-  }
-  dependencies {
-    classpath('com.android.tools.build:gradle:8.6.0')
-    classpath('com.facebook.react:react-native-gradle-plugin')
-    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
-  }
+plugins {
+  id 'com.android.application'
+  id 'org.jetbrains.kotlin.android'
 }
 
-// Resolve RN android maven dir
+android {
+  namespace "co.gakuten.app"
+  compileSdkVersion rootProject.ext.compileSdkVersion
 
-def reactNativeAndroidDir = new File(
-  providers.exec {
-    workingDir(rootDir)
-    commandLine("node", "--print", "require.resolve('react-native/package.json')")
-  }.standardOutput.asText.get().trim(),
-  "../android"
-)
-
-allprojects {
-  repositories {
-    maven { url(reactNativeAndroidDir) }
-    google()
-    mavenCentral()
-    maven { url 'https://www.jitpack.io' }
+  defaultConfig {
+    applicationId "co.gakuten.app"
+    minSdkVersion rootProject.ext.minSdkVersion
+    targetSdkVersion rootProject.ext.targetSdkVersion
+    versionCode 1
+    versionName "1.0"
   }
-}
 
-apply plugin: "expo-root-project"
-apply plugin: "com.facebook.react.rootproject"
-
-// --- FIX: force-patch autolinking import (expo.core -> expo.modules.core) OR drop it if class is missing
-// (Runs in root project, targets app module generated sources.)
-
-def genAutolinkDir = "$project.buildDir/generated/autolinking/src/main/java/com/facebook/react"
-
-tasks.register("patchAutolinkingRoot") {
-  dependsOn(":app:generateAutolinkingPackageList")
-  doLast {
-    def pkgList = file("$genAutolinkDir/PackageList.java")
-    if (pkgList.exists()) {
-      def txt = pkgList.getText("UTF-8")
-      def fixed = txt.replace("import expo.core.ExpoModulesPackage;", "import expo.modules.core.ExpoModulesPackage;")
-      // If the correct class still isn't present on classpath, drop import & constructor entry
-      if (!fileTree("${rootDir}").matching { include "**/expo-modules-core*/**/*.jar", "**/expo-modules-core*/**/*.aar" }.files.any { it.name.contains("expo-modules-core") }) {
-        fixed = fixed
-          .replaceAll(/\n\s*import\s+expo\.modules\.core\.ExpoModulesPackage;\n/, "\n")
-          .replaceAll(/\n\s*new\s+ExpoModulesPackage\(\),?\n/, "\n")
-      }
-      if (txt != fixed) {
-        pkgList.write(fixed, "UTF-8")
-        println("[fix] (root) Patched PackageList.java: import path and/or removed ExpoModulesPackage")
-      } else {
-        println("[fix] (root) PackageList.java already correct")
-      }
-    } else {
-      println("[fix] (root) PackageList.java not found yet at: ${pkgList.path}")
+  buildTypes {
+    release {
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+    debug {
+      // keep default
     }
   }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+  kotlinOptions {
+    jvmTarget = '17'
+  }
 }
 
-tasks.matching { it.name in [
-  "compileReleaseJavaWithJavac", "compileDebugJavaWithJavac",
-  "compileReleaseSources", "compileDebugSources"
-] }.configureEach {
-  it.dependsOn(":app:patchAutolinking")
-  it.dependsOn("patchAutolinkingRoot")
+dependencies {
+  implementation 'androidx.core:core-ktx:1.13.1'
+  implementation 'androidx.appcompat:appcompat:1.7.0'
+  implementation 'com.google.android.material:material:1.12.0'
 }
-// --- END FIX

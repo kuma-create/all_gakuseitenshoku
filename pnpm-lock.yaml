@@ -180,6 +180,12 @@ importers:
       eslint-config-expo:
         specifier: ~9.2.0
         version: 9.2.0(eslint@9.34.0(jiti@1.21.7))(typescript@5.8.3)
+      expo-modules-autolinking:
+        specifier: 2.1.14
+        version: 2.1.14
+      react-native-gradle-plugin:
+        specifier: ^0.71.19
+        version: 0.71.19
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.17(ts-node@10.9.2(@types/node@24.3.0)(typescript@5.8.3))
@@ -7621,6 +7627,9 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
+
+  react-native-gradle-plugin@0.71.19:
+    resolution: {integrity: sha512-1dVk9NwhoyKHCSxcrM6vY6cxmojeATsBobDicX0ZKr7DgUF2cBQRTKsimQFvzH8XhOVXyH8p4HyDSZNIFI8OlQ==}
 
   react-native-is-edge-to-edge@1.1.7:
     resolution: {integrity: sha512-EH6i7E8epJGIcu7KpfXYXiV2JFIYITtq+rVS8uEb+92naMRBdxhTuS8Wn2Q7j9sqyO0B+Xbaaf9VdipIAmGW4w==}
@@ -17634,6 +17643,8 @@ snapshots:
       invariant: 2.2.4
       react: 19.0.0
       react-native: 0.79.5(@babel/core@7.28.3)(@types/react@19.0.14)(react@19.0.0)
+
+  react-native-gradle-plugin@0.71.19: {}
 
   react-native-is-edge-to-edge@1.1.7(react-native@0.79.5(@babel/core@7.28.3)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0):
     dependencies:

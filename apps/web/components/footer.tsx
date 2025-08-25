@@ -60,7 +60,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="/lp/students/27" className="hover:text-red-600">
+                <a href="/ipo" className="hover:text-red-600">
                   IPO大学
                 </a>
               </li>
