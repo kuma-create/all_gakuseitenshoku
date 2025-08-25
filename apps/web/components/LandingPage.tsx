@@ -271,7 +271,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
     // Prefetch likely next pages to reduce click latency
     try {
       router.prefetch('/ipo/analysis');
-      router.prefetch('/ipo/dashboard');
+      router.prefetch('/ipo-signup');
     } catch (_) {
       // no-op if router isn't available in some envs
     }
@@ -448,7 +448,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
   const handleGetStarted = () => {
     if (isPending) return;
     startTransition(() => {
-      navigate('/ipo/dashboard');
+      navigate('/ipo-signup');
     });
   };
 
@@ -546,7 +546,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                 <>
                   <button
                     className="text-gray-700 hover:text-gray-900 font-medium transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 px-2 py-1 sm:px-3 sm:py-1.5 text-sm sm:text-base"
-                    onClick={() => navigate('/ipo/dashboard')}
+                    onClick={() => navigate('/ipo-signup')}
                   >
                     ログイン
                   </button>
@@ -698,7 +698,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                     <Button
                       size="lg"
                       className={`bg-gradient-to-r ${feature.gradient} hover:opacity-90 shadow-lg hover:shadow-xl transition-all duration-300 text-lg px-8 py-4`}
-                      onClick={() => navigate(features.find(f => f.icon === feature.icon)?.route || '/ipo/dashboard')}
+                      onClick={() => navigate(features.find(f => f.icon === feature.icon)?.route || '/ipo-signup')}
                     >
                       今すぐ試す
                       <ArrowRight className="ml-2 w-5 h-5" />

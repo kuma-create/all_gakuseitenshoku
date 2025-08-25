@@ -50,8 +50,8 @@ export default function Footer() {
             <h3 className="font-medium mb-3">コンテンツ</h3>
             <ul className="space-y-2 text-sm text-gray-600">
               <li>
-                <a href="/grandprix" className="hover:text-red-600">
-                  就活GP
+                <a href="/lp/students/gakuten" className="hover:text-red-600">
+                  学転インターン
                 </a>
               </li>
               <li>
@@ -60,8 +60,8 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-red-600">
-                  学転AIアドバイザー
+                <a href="/ipo" className="hover:text-red-600">
+                  IPO大学
                 </a>
               </li>
               <li>

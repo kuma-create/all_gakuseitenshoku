@@ -83,6 +83,7 @@ const PUBLIC_PREFIXES = [
   "/chat",
   "/resume",
   "/companies",
+  "/ipo-signup",
 ];
 
 /* ------------------------------------------------------------------ */

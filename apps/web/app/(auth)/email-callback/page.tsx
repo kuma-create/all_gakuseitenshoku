@@ -9,6 +9,8 @@ import { Loader2, AlertCircle } from "lucide-react";
 export default function EmailCallbackPage() {
   const router  = useRouter();
   const search  = useSearchParams();
+  const service = search.get("service") || undefined;
+  const isIPO = service === "ipo";
   const [status, setStatus] =
     useState<"loading" | "success" | "error">("loading");
 
@@ -20,6 +22,8 @@ export default function EmailCallbackPage() {
   useEffect(() => {
     (async () => {
       const isSignup = search.get("type") === "signup";  // signup フロー判定（早期に定義）
+      const service = search.get("service") || undefined;
+      const isIPO = service === "ipo";
       /* ----- 0) すでにセッションがあれば即リダイレクト ----- */
       const {
         data: { session: initialSession },
@@ -31,7 +35,11 @@ export default function EmailCallbackPage() {
           router.replace(nextPath0);
         } else {
           // signup フローなら onboarding、magiclink 等はダッシュボードへ
-          router.replace(isSignup ? "/onboarding/profile" : "/student-dashboard");
+          router.replace(
+            isSignup
+              ? (isIPO ? "/ipo/onboarding" : "/onboarding/profile")
+              : (isIPO ? "/ipo/dashboard" : "/student-dashboard")
+          );
         }
         return;
       }
@@ -100,7 +108,11 @@ export default function EmailCallbackPage() {
       }
 
       /* ---------- 4) デフォルト遷移先 ---------- */
-      router.replace(isSignup ? "/onboarding/profile" : "/student-dashboard");
+      router.replace(
+        isSignup
+          ? (isIPO ? "/ipo/onboarding" : "/onboarding/profile")
+          : (isIPO ? "/ipo/dashboard" : "/student-dashboard")
+      );
     })();
   }, [router, search]);
 
@@ -126,7 +138,7 @@ export default function EmailCallbackPage() {
         </p>
         <button
           className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-          onClick={() => router.push("/login")}
+          onClick={() => router.push(isIPO ? "/ipo/dashboard" : "/login")}
         >
           ログイン画面へ戻る
         </button>

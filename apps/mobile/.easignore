@@ -1,0 +1,8 @@
+../apps/web/**
+../apps/**/.next/**
+../packages/**
+node_modules/**
+.expo/**
+.expo-shared/**
+dist/**
+build/**
