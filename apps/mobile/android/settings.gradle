@@ -1,6 +1,5 @@
-// settings.gradle — RN settings plugin ONLY (disable Expo settings plugin)
-// Rationale: expo-modules-autolinking v2.x settings plugin not present in this install.
-// Prebuild済みのため、まずは RN 側のみで評価/ビルドを通します。
+// settings.gradle — Minimal & Stable: React Native settings plugin ONLY
+// （Expo の設定プラグイン/スクリプトは一旦すべて外す）
 
 import org.gradle.api.GradleException
 
@@ -11,27 +10,31 @@ pluginManagement {
     mavenCentral()
   }
 
-  // Resolve @react-native/gradle-plugin via Node (pnpm対応)
+  // apps/mobile を起点に Node 解決（pnpm/monorepo 対応）
+  def appDir = rootDir.getParentFile()
+
+  // Resolve @react-native/gradle-plugin via Node and include as build
   def rnGradlePluginDir = new File(
     providers.exec {
       workingDir(rootDir)
       commandLine(
         "node", "--print",
-        "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"
+        "require.resolve('@react-native/gradle-plugin/package.json', { paths: ['" + appDir.absolutePath.replace('\\', '\\\\') + "'] })"
       )
     }.standardOutput.asText.get().trim()
   ).getParentFile()
   if (!rnGradlePluginDir.exists()) {
-    throw new GradleException("@react-native/gradle-plugin not found. Install in apps/mobile: pnpm add -D @react-native/gradle-plugin@0.79.5")
+    throw new GradleException("@react-native/gradle-plugin not found. Run in apps/mobile: pnpm add -D @react-native/gradle-plugin@0.79.5")
   }
   includeBuild(rnGradlePluginDir.absolutePath)
-
-  // NOTE: Expo settings plugin intentionally NOT included to avoid missing/compile errors.
 }
 
 plugins {
   id("com.facebook.react.settings")
-  // DO NOT add Expo plugin here
+}
+
+extensions.configure(com.facebook.react.ReactSettingsExtension){ ex ->
+  ex.autolinkLibrariesFromCommand()
 }
 
 rootProject.name = "android"
