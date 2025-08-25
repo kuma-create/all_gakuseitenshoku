@@ -11,8 +11,8 @@ android {
   compileSdkVersion 34
 
   defaultConfig {
-    // applicationId は AndroidManifest.xml の package から自動検出（RN Gradle Plugin）
-    minSdkVersion 23
+    applicationId "co.gakuten.app" 
+    minSdkVersion 24
     targetSdkVersion 34
     versionCode 1
     versionName "1.0"
@@ -29,4 +29,14 @@ android {
 
 dependencies {
   implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
+  implementation("com.facebook.react:react-android")
+}
+
+
+// Ensure React Native Gradle Plugin can read android.packageName and resolve CLI paths
+react {
+  // point RN Gradle Plugin to the monorepo app root (../ = apps/mobile)
+  root = file("..")
+  // explicitly point to the RN CLI (prevents cwd confusion)
+  cliFile = file("../node_modules/react-native/cli.js")
 }
