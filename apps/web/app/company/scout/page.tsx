@@ -150,8 +150,8 @@ export default function ScoutPage() {
   const [desiredWorkLocation, setDesiredWorkLocation] = useState<string>("all")
   /** オファー済み除外フラグ */
   const [excludeOffer, setExcludeOffer] = useState<boolean>(false)
-  /** 並び替え: score = マッチ度 / recent = 登録が新しい順 / name = 氏名順 */
-  const [sortBy, setSortBy] = useState<"score" | "recent" | "name">("score")
+  /** 並び替え: score = マッチ度 / recent = 登録が新しい順 / name = 氏名順 / lastLogin = 最終ログイン日順 */
+  const [sortBy, setSortBy] = useState<"score" | "recent" | "name" | "lastLogin">("score")
 
   /** 履歴書の経験職種(jobType)フィルタ */
   const [experienceJobTypes, setExperienceJobTypes] = useState<string[]>([])
@@ -568,6 +568,8 @@ export default function ScoutPage() {
           return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
         case "name":
           return (a.full_name ?? "").localeCompare(b.full_name ?? "", "ja")
+        case "lastLogin":
+          return new Date(b.last_sign_in_at ?? 0).getTime() - new Date(a.last_sign_in_at ?? 0).getTime()
         default:
           return 0
       }
@@ -637,136 +639,191 @@ export default function ScoutPage() {
         >
           <div className="flex h-full overflow-hidden">
             {/* ── Sidebar ───────────────────────────── */}
-            <aside className="w-80 shrink-0 border-r px-6 py-4 space-y-6 overflow-y-auto">
-              {/* フリーワード検索 */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="学生を検索..."
-                  className="pl-10"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+            <aside
+              className="w-80 shrink-0 border-r px-4 py-4 overflow-y-auto sticky top-0 self-start h-[calc(100vh-120px)]"
+            >
+              {/* Sidebar Title */}
+              <div className="mb-3">
+                <h3 className="text-base font-semibold">絞り込み</h3>
+                <p className="text-xs text-muted-foreground">条件を選んで学生一覧を絞り込めます</p>
               </div>
 
-            {/* 並び替え */}
-            <div>
-              <h4 className="font-semibold mb-2">並び替え</h4>
-              <select
-                className="w-full border rounded px-2 py-1 text-sm"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as "score" | "recent" | "name")}
-              >
-                <option value="score">入力率順</option>
-                <option value="recent">新着順</option>
-              </select>
-            </div>
+              {/* Reset (top quick) */}
+              <div className="mb-3">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setExcludeOffer(false)
+                    setSearch("")
+                    setGradYears([])
+                    setStatuses([])
+                    setSelectedMajor("all")
+                    setHasInternship(false)
+                    setSkills([])
+                    setQualificationsFilter([])
+                    setDesiredPosition("all")
+                    setDesiredWorkLocation("all")
+                    setGenders([])
+                    setPositionFilters([])
+                    setPhaseFilter("all")
+                    setSortBy("score")
+                  }}
+                >
+                  すべてリセット
+                </Button>
+              </div>
 
-            {/* オファー済み除外 */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="exclude-offer"
-                checked={excludeOffer}
-                onCheckedChange={(v) => setExcludeOffer(!!v)}
-              />
-              <label htmlFor="exclude-offer" className="text-sm">
-                オファー済を除く
-              </label>
-            </div>
-            
-
-            {/* フェーズ */}
-            <div>
-              <h4 className="font-semibold mb-2">フェーズ</h4>
-              <select
-                className="w-full border rounded px-2 py-1 text-sm"
-                value={phaseFilter}
-                onChange={(e) => setPhaseFilter(e.target.value)}
-              >
-                <option value="all">全て</option>
-                {Object.entries(PHASE_OPTIONS).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 卒業年 */}
-            <div>
-              <h4 className="font-semibold mb-2">卒業年</h4>
-              {availableGradYears.map((yr) => (
-                <div key={yr} className="flex items-center space-x-2 mb-1">
-                  <Checkbox
-                    id={`yr-${yr}`}
-                    checked={gradYears.includes(yr)}
-                    onCheckedChange={(v) =>
-                      setGradYears((prev) =>
-                        v ? [...prev, yr] : prev.filter((y) => y !== yr),
-                      )
-                    }
+              {/* フリーワード検索 */}
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="フリーワード検索"
+                    className="pl-10"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                   />
-                  <label htmlFor={`yr-${yr}`} className="text-sm">
-                    {yr}卒
-                  </label>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            {/* 性別 */}
-            <div>
-              <h4 className="font-semibold mb-2">性別</h4>
-              {GENDER_OPTIONS.map((g) => (
-                <div key={g} className="flex items-center mb-1">
-                  <Checkbox
-                    id={`gender-${g}`}
-                    checked={genders.includes(g)}
-                    onCheckedChange={(v) =>
-                      setGenders((prev) =>
-                        v ? Array.from(new Set([...prev, g])) : prev.filter(x => x !== g)
-                      )
-                    }
-                  />
-                  <label htmlFor={`gender-${g}`} className="ml-2 text-sm">{g}</label>
+              {/* 並び替え */}
+              <details className="group mb-3" open>
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">並び替え</summary>
+                <div className="pl-1">
+                  <select
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as "score" | "recent" | "name" | "lastLogin")}
+                  >
+                    <option value="score">入力率順</option>
+                    <option value="recent">新着順</option>
+                    <option value="lastLogin">最終ログイン日順</option>
+                  </select>
                 </div>
-              ))}
-            </div>
+              </details>
+
+              {/* オファー済み */}
+              <details className="group mb-3" open>
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">オファー</summary>
+                <div className="pl-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="exclude-offer"
+                      checked={excludeOffer}
+                      onCheckedChange={(v) => setExcludeOffer(!!v)}
+                    />
+                    <label htmlFor="exclude-offer" className="text-sm">
+                      オファー済を除く
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              {/* フェーズ */}
+              <details className="group mb-3" open>
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">フェーズ</summary>
+                <div className="pl-1">
+                  <select
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={phaseFilter}
+                    onChange={(e) => setPhaseFilter(e.target.value)}
+                  >
+                    <option value="all">全て</option>
+                    {Object.entries(PHASE_OPTIONS).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              </details>
+
+              {/* 卒業年 */}
+              <details className="group mb-3" open>
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">卒業年</summary>
+                <div className="pl-1 space-y-1">
+                  {availableGradYears.map((yr) => (
+                    <div key={yr} className="flex items-center space-x-2 mb-1">
+                      <Checkbox
+                        id={`yr-${yr}`}
+                        checked={gradYears.includes(yr)}
+                        onCheckedChange={(v) =>
+                          setGradYears((prev) =>
+                            v ? [...prev, yr] : prev.filter((y) => y !== yr),
+                          )
+                        }
+                      />
+                      <label htmlFor={`yr-${yr}`} className="text-sm">
+                        {yr}卒
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </details>
+
+              {/* 性別 */}
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">性別</summary>
+                <div className="pl-1">
+                  {GENDER_OPTIONS.map((g) => (
+                    <div key={g} className="flex items-center mb-1">
+                      <Checkbox
+                        id={`gender-${g}`}
+                        checked={genders.includes(g)}
+                        onCheckedChange={(v) =>
+                          setGenders((prev) =>
+                            v ? Array.from(new Set([...prev, g])) : prev.filter(x => x !== g)
+                          )
+                        }
+                      />
+                      <label htmlFor={`gender-${g}`} className="ml-2 text-sm">{g}</label>
+                    </div>
+                  ))}
+                </div>
+              </details>
 
               {/* 専攻 */}
-              <div>
-                <h4 className="font-semibold mb-2">専攻</h4>
-                <select
-                  className="w-full border rounded px-2 py-1 text-sm"
-                  value={selectedMajor}
-                  onChange={(e) => setSelectedMajor(e.target.value)}
-                >
-                  <option value="all">全て</option>
-                  {[...new Set(
-                    students
-                      .map((s) => s.major)
-                      .filter((m): m is string => m != null),
-                  )].map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 地域セクション削除 */}
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">専攻</summary>
+                <div className="pl-1">
+                  <select
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={selectedMajor}
+                    onChange={(e) => setSelectedMajor(e.target.value)}
+                  >
+                    <option value="all">全て</option>
+                    {[...new Set(
+                      students
+                        .map((s) => s.major)
+                        .filter((m): m is string => m != null),
+                    )].map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              </details>
 
               {/* インターン経験 */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="intern"
-                  checked={hasInternship}
-                  onCheckedChange={(v) => setHasInternship(!!v)}
-                />
-                <label htmlFor="intern" className="text-sm">
-                  インターン経験あり
-                </label>
-              </div>
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">経験</summary>
+                <div className="pl-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="intern"
+                      checked={hasInternship}
+                      onCheckedChange={(v) => setHasInternship(!!v)}
+                    />
+                    <label htmlFor="intern" className="text-sm">
+                      インターン経験あり
+                    </label>
+                  </div>
+                </div>
+              </details>
 
               {/* 経験職種 */}
-              <div>
-                <h4 className="font-semibold mb-2">経験職種</h4>
-                {[
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">経験職種</summary>
+                <div className="pl-1">
+                  {[
                     "エンジニア",
                     "営業",
                     "コンサルタント",
@@ -777,134 +834,151 @@ export default function ScoutPage() {
                     "マーケティング",
                     "デザイナー",
                     "広報",
-                    "その他",                
+                    "その他",
                   ].map((jt) => (
-                  <div key={jt} className="flex items-center mb-1">
-                    <Checkbox
-                      id={`jobType-${jt}`}
-                      checked={experienceJobTypes.includes(jt)}
-                      onCheckedChange={(v) => {
-                        setExperienceJobTypes((prev) =>
-                          v ? [...prev, jt] : prev.filter((x) => x !== jt)
-                        )
-                      }}
-                    />
-                    <label htmlFor={`jobType-${jt}`} className="ml-2 text-sm">
-                      {jt}
-                    </label>
-                  </div>
-                ))}
-              </div>
+                    <div key={jt} className="flex items-center mb-1">
+                      <Checkbox
+                        id={`jobType-${jt}`}
+                        checked={experienceJobTypes.includes(jt)}
+                        onCheckedChange={(v) => {
+                          setExperienceJobTypes((prev) =>
+                            v ? [...prev, jt] : prev.filter((x) => x !== jt)
+                          )
+                        }}
+                      />
+                      <label htmlFor={`jobType-${jt}`} className="ml-2 text-sm">
+                        {jt}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </details>
 
               {/* 役職・ポジション */}
-              <div>
-                <h4 className="font-semibold mb-2">役職・ポジション</h4>
-                {POSITION_OPTIONS.map((pos) => (
-                  <div key={pos} className="flex items-center mb-1">
-                    <Checkbox
-                     id={`position-${pos}`}
-                      checked={positionFilters.includes(pos)}
-                      onCheckedChange={(v) =>
-                        setPositionFilters(prev =>
-                          v ? [...prev, pos] : prev.filter(x => x !== pos)
-                        )
-                      }
-                    />
-                    <label htmlFor={`position-${pos}`} className="ml-2 text-sm">
-                      {pos}
-                    </label>
-                 </div>
-                ))}
-              </div>
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">役職・ポジション</summary>
+                <div className="pl-1">
+                  {POSITION_OPTIONS.map((pos) => (
+                    <div key={pos} className="flex items-center mb-1">
+                      <Checkbox
+                        id={`position-${pos}`}
+                        checked={positionFilters.includes(pos)}
+                        onCheckedChange={(v) =>
+                          setPositionFilters(prev =>
+                            v ? [...prev, pos] : prev.filter(x => x !== pos)
+                          )
+                        }
+                      />
+                      <label htmlFor={`position-${pos}`} className="ml-2 text-sm">
+                        {pos}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </details>
 
               {/* ステータス */}
-              <div>
-                <h4 className="font-semibold mb-2">ステータス</h4>
-                {["未スカウト", "送信済み"].map((st) => (
-                  <div key={st} className="flex items-center space-x-2 mb-1">
-                    <Checkbox
-                      id={`st-${st}`}
-                      checked={statuses.includes(st)}
-                      onCheckedChange={(v) =>
-                        setStatuses((prev) =>
-                          v ? [...prev, st] : prev.filter((s) => s !== st),
-                        )
-                      }
-                    />
-                    <label htmlFor={`st-${st}`} className="text-sm">{st}</label>
-                  </div>
-                ))}
-              </div>
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">スカウト状況</summary>
+                <div className="pl-1">
+                  {["未スカウト", "送信済み"].map((st) => (
+                    <div key={st} className="flex items-center space-x-2 mb-1">
+                      <Checkbox
+                        id={`st-${st}`}
+                        checked={statuses.includes(st)}
+                        onCheckedChange={(v) =>
+                          setStatuses((prev) =>
+                            v ? [...prev, st] : prev.filter((s) => s !== st),
+                          )
+                        }
+                      />
+                      <label htmlFor={`st-${st}`} className="text-sm">{st}</label>
+                    </div>
+                  ))}
+                </div>
+              </details>
 
               {/* スキル */}
-              <h4 className="font-semibold mb-2">スキル</h4>
-              <SkillPicker
-                values={skills}
-                onChange={setSkills}
-              />
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">スキル</summary>
+                <div className="pl-1">
+                  <SkillPicker
+                    values={skills}
+                    onChange={setSkills}
+                  />
+                </div>
+              </details>
 
               {/* 資格 */}
-              <div>
-                <h4 className="font-semibold mb-2">資格</h4>
-                <QualificationPicker
-                  values={qualificationsFilter}
-                  onChange={setQualificationsFilter}
-                />
-              </div>
+              <details className="group mb-6">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">資格</summary>
+                <div className="pl-1">
+                  <QualificationPicker
+                    values={qualificationsFilter}
+                    onChange={setQualificationsFilter}
+                  />
+                </div>
+              </details>
 
               {/* 希望職種 */}
-              <div>
-                <h4 className="font-semibold mb-2">希望職種</h4>
-                <select
-                  className="w-full border rounded px-2 py-1 text-sm"
-                  value={desiredPosition}
-                  onChange={(e) => setDesiredPosition(e.target.value)}
-                >
-                  <option value="all">全て</option>
-                  {availableDesiredPositions.map((pos) => (
-                    <option key={pos} value={pos}>{pos}</option>
-                  ))}
-                </select>
-              </div>
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">希望職種</summary>
+                <div className="pl-1">
+                  <select
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={desiredPosition}
+                    onChange={(e) => setDesiredPosition(e.target.value)}
+                  >
+                    <option value="all">全て</option>
+                    {availableDesiredPositions.map((pos) => (
+                      <option key={pos} value={pos}>{pos}</option>
+                    ))}
+                  </select>
+                </div>
+              </details>
 
               {/* 希望勤務地 */}
-              <div>
-                <h4 className="font-semibold mb-2">希望勤務地</h4>
-                <select
-                  className="w-full border rounded px-2 py-1 text-sm"
-                  value={desiredWorkLocation}
-                  onChange={(e) => setDesiredWorkLocation(e.target.value)}
+              <details className="group mb-6">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">希望勤務地</summary>
+                <div className="pl-1">
+                  <select
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={desiredWorkLocation}
+                    onChange={(e) => setDesiredWorkLocation(e.target.value)}
+                  >
+                    <option value="all">全て</option>
+                    {availableDesiredWorkLocations.map((loc) => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+              </details>
+
+              {/* Reset (bottom) */}
+              <div className="mt-auto sticky bottom-0 bg-white pt-3 pb-2 border-t">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setExcludeOffer(false)
+                    setSearch("")
+                    setGradYears([])
+                    setStatuses([])
+                    setSelectedMajor("all")
+                    setHasInternship(false)
+                    setSkills([])
+                    setQualificationsFilter([])
+                    setDesiredPosition("all")
+                    setDesiredWorkLocation("all")
+                    setGenders([])
+                    setPositionFilters([])
+                    setPhaseFilter("all")
+                    setSortBy("score")
+                  }}
                 >
-                  <option value="all">全て</option>
-                  {availableDesiredWorkLocations.map((loc) => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
+                  リセット
+                </Button>
               </div>
-
-              
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setExcludeOffer(false)
-                  setSearch("")
-                  setGradYears([])
-                  setStatuses([])
-                  setSelectedMajor("all")
-                  setHasInternship(false)
-                  setSkills([])
-                  setQualificationsFilter([])
-                  setDesiredPosition("all")
-                  setDesiredWorkLocation("all")
-                  setGenders([])  // 性別フィルタクリア
-                  setPositionFilters([])
-                  setPhaseFilter("all")
-                }}
-              >
-                リセット
-              </Button>
             </aside>
 
             {/* ── 学生リスト ─────────────────── */}

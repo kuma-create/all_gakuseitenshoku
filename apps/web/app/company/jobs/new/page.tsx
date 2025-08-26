@@ -126,6 +126,7 @@ export default function NewJobPage() {
 
     /* event only */
     eventDate: "",
+    eventTime: "",
     capacity: "",
     venue: "",
     format: "onsite",
@@ -222,14 +223,15 @@ export default function NewJobPage() {
         } else if (base.selection_type === "event") {
           const { data: child } = await supabase
             .from("event_details")
-            .select(`event_date, capacity, venue, format`)
+            .select(`event_date, event_time, capacity, venue, format`)
             .eq("job_id", copyId)
             .maybeSingle();
 
           if (child) {
             setFormData(prev => ({
               ...prev,
-              eventDate : child.event_date ?? "",
+              eventDate : child.event_date ? String(child.event_date).slice(0,10) : "",
+              eventTime : child.event_time ? String(child.event_time).slice(0,5) : "",
               capacity  : child.capacity?.toString() ?? "",
               venue     : child.venue ?? "",
               format    : child.format ?? "onsite",
@@ -373,7 +375,7 @@ export default function NewJobPage() {
 
     // event 必須
     if (selectionType === "event") {
-      if (!formData.eventDate.trim()) newErrors.eventDate = "開催日を入力してください"
+      if (!formData.eventDate.trim()) newErrors.eventDate = "開催日時を入力してください"
       if (!formData.capacity.trim())  newErrors.capacity  = "定員を入力してください"
     }
 
@@ -557,6 +559,7 @@ export default function NewJobPage() {
             job_id: jobId,               // 紐づく求人ID
             selection_id: jobId,         // NOT NULL 制約用（jobs.id と同値で OK）
             event_date: formData.eventDate || null,
+            event_time: formData.eventTime || null,
             capacity: formData.capacity ? Number(formData.capacity) : null,
             venue: formData.venue || null,
             format: formData.format,
@@ -756,6 +759,7 @@ export default function NewJobPage() {
                         minDailyHours   : "",
                         /* event only */
                         eventDate: "",
+                        eventTime: "",
                         capacity: "",
                         venue: "",
                         format: "onsite",
@@ -908,7 +912,7 @@ export default function NewJobPage() {
                     value={formData.description}
                     onChange={handleInputChange}
                     className={`mt-1 min-h-[150px] ${errors.description ? "border-red-500" : ""}`}
-                    placeholder="職務内容の詳細を記入してください。具体的な業務内容、プロジェクト、チーム構成などを含めると良いでしょう。"
+                    placeholder="内容の詳細を記入してください。具体的な業務内容、プロジェクト、チーム構成などを含めると良いでしょう。"
                   />
                   {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
                 </div>
@@ -1275,23 +1279,66 @@ export default function NewJobPage() {
                       <Label htmlFor="eventDate" className="flex items-center gap-1">
                         開催日<span className="text-red-500">*</span>
                       </Label>
-                      <Input id="eventDate" name="eventDate" type="date"
-                        value={formData.eventDate} onChange={handleInputChange} className="mt-1"/>
+                      <Input
+                        id="eventDate"
+                        name="eventDate"
+                        type="date"
+                        value={formData.eventDate}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
                     </div>
                     <div>
                       <Label htmlFor="capacity" className="flex items-center gap-1">
                         定員<span className="text-red-500">*</span>
                       </Label>
-                      <Input id="capacity" name="capacity"
-                        value={formData.capacity} onChange={handleInputChange} className="mt-1"
-                        placeholder="例: 50"/>
+                      <Input
+                        id="capacity"
+                        name="capacity"
+                        value={formData.capacity}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        placeholder="例: 50"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="eventTime">開始時間（任意）</Label>
+                      <Input
+                        id="eventTime"
+                        name="eventTime"
+                        type="time"
+                        value={formData.eventTime}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        step={900}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        時間を入れると開始時刻も掲載されます。
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="applicationDeadline">応募締切日</Label>
+                      <Input
+                        id="applicationDeadline"
+                        name="applicationDeadline"
+                        type="date"
+                        value={formData.applicationDeadline}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
                     </div>
                   </div>
                   <div>
                     <Label htmlFor="venue">会場 / URL</Label>
-                    <Input id="venue" name="venue"
-                      value={formData.venue} onChange={handleInputChange} className="mt-1"
-                      placeholder="例: 本社セミナールーム or Zoom URL"/>
+                    <Input
+                      id="venue"
+                      name="venue"
+                      value={formData.venue}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="例: 本社セミナールーム or Zoom URL"
+                    />
                   </div>
                   <div>
                     <Label htmlFor="format">開催形態</Label>
@@ -1555,12 +1602,22 @@ export default function NewJobPage() {
                         <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                           <SummaryItem
                             icon={<Calendar size={16} />}
-                            label="開催日"
-                            value={
-                              formData.eventDate
-                                ? new Date(formData.eventDate).toLocaleDateString("ja-JP")
-                                : "未設定"
-                            }
+                            label="開催日時"
+                              value={
+                                formData.eventDate
+                                  ? (
+                                      formData.eventTime
+                                        ? new Date(`${formData.eventDate}T${formData.eventTime}`).toLocaleString("ja-JP", {
+                                            year: "numeric",
+                                            month: "2-digit",
+                                            day: "2-digit",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })
+                                        : new Date(formData.eventDate).toLocaleDateString("ja-JP")
+                                    )
+                                  : "未設定"
+                              }
                           />
                           <SummaryItem
                             icon={<Users size={16} />}

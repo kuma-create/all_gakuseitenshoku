@@ -195,6 +195,20 @@ export default function Header() {
               探す
             </Link>
             <Link
+              href="/ipo"
+              className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900"
+            >
+              <GraduationCap size={16} />
+              IPO大学
+            </Link>
+            <Link
+              href="/internship"
+              className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900"
+            >
+              <Briefcase size={16} />
+              学転インターン
+            </Link>                        
+            <Link
               href="/media"
               className="flex items-center gap-1 text-sm text-gray-700 font-semibold hover:text-gray-900"
             >
