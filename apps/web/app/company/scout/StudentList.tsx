@@ -10,6 +10,14 @@ import type { Database } from "@/lib/supabase/types"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase as sb } from "@/lib/supabase/client"
 
+// 学生の就活フェーズ → 表示用タグ
+const PHASE_LABEL: Record<string, string> = {
+  job_hunting: "就活中",
+  want_intern: "インターン探し中",
+  both: "同時並行",
+  intern_after_jobhunt: "インターン探し中",
+}
+
 /** 最終アクティブを「○分前 / ○時間前 / ○日前」に整形 */
 function formatLastActive(ts?: string | null): string | null {
   if (!ts) return null
@@ -65,6 +73,8 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   graduation_year?: number | null
   profile_completion?: number | null
   status?: string | null
+
+  phase_status?: string | null
 
   work_experiences?: any[] | null
 }
@@ -237,11 +247,11 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                       </Badge>
                     ))}
 
-                    {stu.has_internship_experience && (
+                    {/*{stu.has_internship_experience && (
                       <Badge variant="outline" className="text-[10px]">
-                        インターン
+                        インターン経験あり
                       </Badge>
-                    )}
+                    )}*/}
 
                     {formatLastActive(stu.last_sign_in_at) && (
                       <Badge variant="outline" className="text-[10px]">
@@ -269,21 +279,26 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                   </div>
                 </div>
 
-                {stu.status && (
-                  <>
-                    <Badge variant="secondary" className="shrink-0 text-xs">
+                <div className="ml-auto flex flex-row items-center gap-2 shrink-0">
+                  {stu.phase_status && PHASE_LABEL[stu.phase_status] && (
+                    <Badge variant="secondary" className="text-xs">
+                      {PHASE_LABEL[stu.phase_status]}
+                    </Badge>
+                  )}
+                  {stu.status && (
+                    <Badge variant="secondary" className="text-xs">
                       {stu.status}
                     </Badge>
-                    {offeredIds.has(stu.id) && (
-                      <Badge
-                        variant="secondary"
-                        className="shrink-0 text-[10px] text-red-500 ml-1"
-                      >
-                        オファー済
-                      </Badge>
-                    )}
-                  </>
-                )}
+                  )}
+                  {offeredIds.has(stu.id) && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs text-red-500"
+                    >
+                      オファー済
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div
                 className="flex items-center gap-2"
