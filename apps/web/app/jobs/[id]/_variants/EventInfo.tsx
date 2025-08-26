@@ -205,7 +205,15 @@ export default function EventInfo({
                       : "調整中"
                   }
                 />
-
+                <SummaryItem
+                  icon={<Clock size={16} />}
+                  label="開始時間"
+                  value={
+                    ev.event_time
+                      ? String(ev.event_time).slice(0, 5)
+                      : "-"
+                  }
+                />
                 <SummaryItem
                   icon={<Building size={16} />}
                   label="形式"
