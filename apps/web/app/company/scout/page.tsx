@@ -54,6 +54,7 @@ const GENDER_OPTIONS = ["男性", "女性"] as const
 const POSITION_OPTIONS = ["メンバー","リーダー","マネージャー","責任者","役員","代表"] as const
 
 
+
 /** 固定の希望職種リスト */
 const JOB_POSITIONS = [
   "エンジニア",
@@ -68,6 +69,12 @@ const JOB_POSITIONS = [
   "広報",
   "その他",
 ] as const
+
+// 希望フェーズ選択肢（mapping object）
+const PHASE_OPTIONS: Record<string, string> = {
+  newgrad: "新卒",
+  intern: "インターン探し中",
+}
 
 /* ──────────────── 型定義 ──────────────── */
 type StudentRow = Database["public"]["Tables"]["student_profiles"]["Row"]
@@ -150,6 +157,8 @@ export default function ScoutPage() {
   const [experienceJobTypes, setExperienceJobTypes] = useState<string[]>([])
   /** 職務経歴書の役職フィルタ (複数選択) */
   const [positionFilters, setPositionFilters] = useState<string[]>([])
+  /** 就活フェーズフィルタ */
+  const [phaseFilter, setPhaseFilter] = useState<string>("all")
 
   /* ── 初期ロード ───────────────────────── */
   useEffect(() => {
@@ -450,6 +459,17 @@ export default function ScoutPage() {
       })
     }
 
+    /* 2.5) フェーズ */
+    if (phaseFilter !== "all") {
+      const NEWGRAD_SET = new Set(["job_hunting", "both"]) // 新卒
+      const INTERN_SET  = new Set(["want_intern", "intern_after_jobhunt", "both"]) // インターン探し中
+      list = list.filter((s) => {
+        const v = s.phase_status as string | null
+        if (!v) return false
+        return phaseFilter === "newgrad" ? NEWGRAD_SET.has(v) : INTERN_SET.has(v)
+      })
+    }
+
     /* -1) オファー済み除外 */
     if (excludeOffer) {
       list = list.filter((s) => !offeredIds.has(s.id))
@@ -572,6 +592,7 @@ export default function ScoutPage() {
     sortBy,
     offeredIds,
     positionFilters,
+    phaseFilter,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -653,6 +674,21 @@ export default function ScoutPage() {
               </label>
             </div>
             
+
+            {/* フェーズ */}
+            <div>
+              <h4 className="font-semibold mb-2">フェーズ</h4>
+              <select
+                className="w-full border rounded px-2 py-1 text-sm"
+                value={phaseFilter}
+                onChange={(e) => setPhaseFilter(e.target.value)}
+              >
+                <option value="all">全て</option>
+                {Object.entries(PHASE_OPTIONS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
 
             {/* 卒業年 */}
             <div>
@@ -846,6 +882,8 @@ export default function ScoutPage() {
                 </select>
               </div>
 
+              
+
               <Button
                 variant="outline"
                 className="w-full"
@@ -862,6 +900,7 @@ export default function ScoutPage() {
                   setDesiredWorkLocation("all")
                   setGenders([])  // 性別フィルタクリア
                   setPositionFilters([])
+                  setPhaseFilter("all")
                 }}
               >
                 リセット

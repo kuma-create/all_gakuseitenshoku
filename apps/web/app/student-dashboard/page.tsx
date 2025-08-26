@@ -747,6 +747,7 @@ function PhaseModal() {
   const { user } = useAuth();
 
   // ▶︎ 表示条件：未回答 もしくは 前回回答から 30 日以上経過
+  /*
   React.useEffect(() => {
     const last = localStorage.getItem("phaseLastRespondedAt");
     if (!last) {
@@ -759,21 +760,42 @@ function PhaseModal() {
       setOpen(true);
     }
   }, []);
+  */
+
+  // UIラベル → DB保存値（CHECK制約準拠）
+  const PHASE_MAP: Record<string, string> = {
+    "絶賛就活頑張ってます！": "job_hunting",
+    "インターンをやりたい！": "want_intern",
+    "就活もやりつつインターンもやりたい！": "both",
+    "就活は終わって良いインターンを探している！": "intern_after_jobhunt",
+  };
 
   const handleSelect = async (choice: string) => {
-    if (!user) return;                       // 念のためガード
+    if (!user) return; // 念のためガード
 
-    // ── Supabase に保存：student_profiles.phase_status を更新 ──
-    await supabase
-      .from("student_profiles")
-      .update({ phase_status: choice })
-      .eq("user_id", user.id);
+    const value = PHASE_MAP[choice]; // 日本語→英語キー
+    try {
+      const { error } = await supabase
+        .from("student_profiles")
+        .update({ phase_status: value })
+        .eq("user_id", user.id)
+        .select("phase_status")
+        .single();
 
-    // ── ローカルにも保存して 30 日ルールを維持 ──
-    localStorage.setItem("phaseStatus", choice);
-    localStorage.setItem("phaseLastRespondedAt", new Date().toISOString());
+      if (error) {
+        console.error("phase_status update error:", error);
+        alert("更新に失敗しました");
+        return;
+      }
 
-    setOpen(false);
+      // ローカルにも英語キーで保存（UIは適宜逆マップで表示）
+      localStorage.setItem("phaseStatus", value);
+      localStorage.setItem("phaseLastRespondedAt", new Date().toISOString());
+      setOpen(false);
+    } catch (e) {
+      console.error("phase_status exception:", e);
+      alert("更新に失敗しました (例外)");
+    }
   };
 
   const options = [
