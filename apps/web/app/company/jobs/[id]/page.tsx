@@ -66,6 +66,7 @@ type FormData = {
   /* Event */
   eventDate: string
   eventTime: string
+  eventEndTime: string
   capacity: string
   venue: string
   format: "onsite" | "online" | "hybrid"
@@ -152,7 +153,7 @@ const fetchJob = async (id: string) => {
       work_type,
       fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
-      event_details:event_details!job_id (event_date, event_time, capacity, venue, format),
+      event_details:event_details!job_id (event_date, event_time, event_end_time, capacity, venue, format),
       intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits, remuneration_type, commission_rate, is_paid, min_daily_hours)
     `)
     .eq("id", id)
@@ -212,12 +213,13 @@ const fetchJob = async (id: string) => {
         : "",
 
     /* Event */
-    eventDate : event?.event_date ? String(event.event_date).slice(0,10) : "",
-    eventTime : event?.event_time ? String(event.event_time).slice(0,5) : "",
-    capacity  : event.capacity ? String(event.capacity) : "",
-    venue     : event.venue ?? "",
-    format    : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
-    schedule  : event.schedule ?? "", 
+    eventDate    : event?.event_date ? String(event.event_date).slice(0,10) : "",
+    eventTime    : event?.event_time ? String(event.event_time).slice(0,5) : "",
+    eventEndTime : event?.event_end_time ? String(event.event_end_time).slice(0,5) : "",
+    capacity     : event.capacity ? String(event.capacity) : "",
+    venue        : event.venue ?? "",
+    format       : (event.format ?? "onsite") as "onsite" | "online" | "hybrid",
+    schedule     : event.schedule ?? "", 
 
 
     /* 共通プレビュー */
@@ -332,6 +334,7 @@ export default function JobEditPage() {
     /* イベント専用 */
     eventDate: "",
     eventTime: "",
+    eventEndTime: "",
     capacity: "",
     venue: "",
     format: "onsite",
@@ -377,6 +380,7 @@ export default function JobEditPage() {
           /* Event */
           eventDate : jobData.eventDate,
           eventTime : jobData.eventTime,
+          eventEndTime : jobData.eventEndTime,
           capacity  : jobData.capacity,
           venue     : jobData.venue,
           format    : jobData.format,
@@ -664,6 +668,7 @@ export default function JobEditPage() {
             selection_id: id, // NOT NULL制約を満たす
             event_date: formData.eventDate || null,
             event_time: formData.eventTime || null,
+            event_end_time: formData.eventEndTime || null,
             capacity: formData.capacity ? Number(formData.capacity) : null,
             venue: formData.venue || null,
             format: formData.format
@@ -1528,19 +1533,30 @@ export default function JobEditPage() {
                 </div>
                 {/* 開始時間 */}
                 <div>
-                  <Label htmlFor="eventTime">開始時間（任意）</Label>
-                  <Input
-                    id="eventTime"
-                    name="eventTime"
-                    type="time"
-                    value={formData.eventTime}
-                    onChange={handleInputChange}
-                    className="mt-1"
-                    step={900}
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    時間を入れると開始時刻も掲載されます。
-                  </p>
+                  <Label htmlFor="eventTime">時間（任意）</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        id="eventTime"
+                        name="eventTime"
+                        type="time"
+                        value={formData.eventTime}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        step={900}
+                      />
+                      <Input
+                        id="eventEndTime"
+                        name="eventEndTime"
+                        type="time"
+                        value={formData.eventEndTime}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        step={900}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      例: 14:00〜16:00（終了時刻が未入力の場合は「14:00〜」と表示されます）
+                    </p>
                 </div>
                 {/* 応募締切日 */}
                 <div>
@@ -1957,22 +1973,21 @@ export default function JobEditPage() {
                         <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                           <SummaryItem
                             icon={<Calendar size={16} />}
-                            label="開催日時"
-                              value={
-                                formData.eventDate
-                                  ? (
-                                      formData.eventTime
-                                        ? new Date(`${formData.eventDate}T${formData.eventTime}`).toLocaleString("ja-JP", {
-                                            year: "numeric",
-                                            month: "2-digit",
-                                            day: "2-digit",
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                          })
-                                        : new Date(formData.eventDate).toLocaleDateString("ja-JP")
-                                    )
-                                  : "未設定"
-                              }
+                            label="開催日"
+                            value={
+                              formData.eventDate
+                                ? new Date(formData.eventDate).toLocaleDateString("ja-JP")
+                                : "未設定"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="時間"
+                            value={
+                              formData.eventTime
+                                ? `${formData.eventTime}${formData.eventEndTime ? `〜${formData.eventEndTime}` : "〜"}`
+                                : "未設定"
+                            }
                           />
                           <SummaryItem
                             icon={<Users size={16} />}
