@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------------
-   app/(auth)/signup/page.tsx
+   app/(auth)/ipo-signup/page.tsx
    - STEP1: 基本情報入力（姓・名）
    - STEP2: 確認メール送信完了
    - 新規登録は /api/signup に POST → role は自動で student
@@ -166,8 +166,8 @@ export default function SignupPage() {
         {/* 戻る */}
         <div className="mb-6">
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-red-600"
+            href="/ipo"
+            className="inline-flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-sky-600"
           >
             <ArrowLeft size={16} />
             <span>トップページに戻る</span>
@@ -178,12 +178,12 @@ export default function SignupPage() {
           {/* ------------------ Form ------------------ */}
           <div className="md:col-span-3">
             <Card className="border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-red-500 to-red-600 text-white">
-                <CardTitle className="text-2xl">新規アカウント登録</CardTitle>
-                <CardDescription className="text-red-100">
-                  学生転職で理想のキャリアを見つけましょう
-                </CardDescription>
-              </CardHeader>
+            <CardHeader className="bg-gradient-to-r from-sky-500 to-sky-600 text-white">
+              <CardTitle className="text-2xl">新規アカウント登録</CardTitle>
+              <CardDescription className="text-sky-100">
+                IPO大学で理想のキャリアを考えましょう
+              </CardDescription>
+            </CardHeader>
 
               {/* ============ STEP 1 ============ */}
               {step === 1 && (
@@ -277,7 +277,7 @@ export default function SignupPage() {
                         required
                         value={formData.referral_source}
                         onChange={handleInputChange}
-                        className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-red-600"
+                        className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-sky-600"
                       >
                         <option value="">選択してください</option>
                         <option value="search">検索エンジン</option>
@@ -297,7 +297,7 @@ export default function SignupPage() {
                         required
                         value={formData.graduation_month}
                         onChange={handleInputChange}
-                        className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-red-600"
+                        className="flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-sky-600"
                       >
                         <option value="">選択してください</option>
                         {graduationDates.map((d) => (
@@ -321,7 +321,7 @@ export default function SignupPage() {
                           href="/terms"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline text-red-600 hover:text-red-700"
+                          className="underline text-sky-600 hover:text-sky-700"
                           onClick={(e) => e.stopPropagation()}
                         >
                           利用規約
@@ -331,7 +331,7 @@ export default function SignupPage() {
                           href="/privacy-policy"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline text-red-600 hover:text-red-700"
+                          className="underline text-sky-600 hover:text-sky-700"
                           onClick={(e) => e.stopPropagation()}
                         >
                           プライバシーポリシー
@@ -350,7 +350,7 @@ export default function SignupPage() {
                     {/* submit */}
                     <Button
                       type="submit"
-                      className="w-full bg-red-600 hover:bg-red-700"
+                      className="w-full bg-sky-600 hover:bg-sky-700"
                       disabled={isLoading || !allPasswordOK || !termsChecked || !formData.graduation_month}
                     >
                       {isLoading ? (
@@ -359,7 +359,7 @@ export default function SignupPage() {
                           処理中...
                         </>
                       ) : (
-                        "学生転職に登録する"
+                        "IPO大学に登録する"
                       )}
                     </Button>
                   </form>
@@ -376,7 +376,7 @@ export default function SignupPage() {
                     <br />
                     メール内のリンクをクリックして登録を完了してください。
                   </p>
-                  <Button onClick={() => router.push("/")}>トップへ戻る</Button>
+                  <Button onClick={() => router.push("/ipo")}>トップへ戻る</Button>
                 </CardContent>
               )}
 
@@ -448,50 +448,21 @@ export default function SignupPage() {
               <CardFooter className="flex flex-col items-center border-t px-6 py-4 text-center">
                 <p className="text-sm text-gray-600">
                   すでにアカウントをお持ちの方は
-                  <Link href="/login" className="ml-1 font-medium text-red-600 hover:underline">
+                  <Link href="/login" className="ml-1 font-medium text-sky-600 hover:underline">
                     ログイン
                   </Link>
                 </p>
               </CardFooter>
             </Card>
+            
           </div>
-
-          {/* ------------------ benefits ------------------ */}
-          <BenefitsSidebar />
+          {/* ------------------ sidebar ------------------ */}
+          <aside className="md:col-span-2 sticky top-4">
+            <IPOPromoCard />
+          </aside>
         </div>
       </div>
     </div>
-  );
-}
-
-/* ---------- メリットサイドバー ---------- */
-function BenefitsSidebar() {
-  const benefits = [
-    { title: "企業からのスカウト", desc: "あなたのプロフィールを見た企業から直接オファーが届きます" },
-    { title: "職務経歴書の自動作成", desc: "経験やスキルを入力するだけで、魅力的な職務経歴書が完成します" },
-    { title: "就活グランプリへの参加", desc: "ビジネススキルを可視化し、企業からの注目度をアップできます" },
-  ];
-
-  return (
-    <aside className="sticky top-4 md:col-span-2">
-      <div className="rounded-xl border bg-white px-6 py-8 shadow-lg">
-        <h3 className="mb-6 text-lg font-bold text-gray-900">登録するメリット</h3>
-        <ul className="space-y-6">
-          {benefits.map((b) => (
-            <li key={b.title} className="flex gap-4">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50">
-                <CheckCircle className="h-4 w-4 text-red-500" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium">{b.title}</p>
-                <p className="text-sm text-gray-600">{b.desc}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <IPOPromoCard />
-    </aside>
   );
 }
 
@@ -499,10 +470,10 @@ function BenefitsSidebar() {
 function IPOPromoCard() {
   return (
     <div className="mt-6 rounded-xl border bg-white px-6 py-8 shadow-lg">
-      <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+      <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-600">
         コミュニティ
       </div>
-      <h3 className="mb-2 text-lg font-bold text-gray-900">就活選抜コミュニティ『IPO』</h3>
+      <h3 className="mb-2 text-lg font-bold text-gray-900">就活選抜コミュニティ</h3>
       <p className="mb-4 text-sm text-gray-600">
         長期インターン経験者限定。ES・面接対策は無制限、Slackで仲間と切磋琢磨。学生は<strong>完全無料</strong>です。
       </p>
@@ -515,11 +486,11 @@ function IPOPromoCard() {
         href="https://www.internsummit.com/IPO/top"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex w-full items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+        className="inline-flex w-full items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
       >
         参加ページを見る
       </Link>
-      <p className="mt-2 text-[11px] text-gray-400">※学生転職登録後も参加登録できます‼︎</p>
+      <p className="mt-2 text-[11px] text-gray-400">※IPO大学登録後も参加登録できます</p>
     </div>
   );
 }

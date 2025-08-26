@@ -924,24 +924,6 @@ export default function NewJobPage() {
                     placeholder="必須スキル、経験年数、学歴、資格などの応募要件を記入してください。"
                   />
                 </div>
-
-                {/* 公開設定セレクト */}
-                <div>
-                  <Label htmlFor="status">公開設定</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) => handleSelectChange("status", value)}
-                  >
-                    <SelectTrigger id="status" className="mt-1">
-                      <SelectValue placeholder="公開設定を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="非公開">非公開</SelectItem>
-                      <SelectItem value="公開">公開</SelectItem>
-                      <SelectItem value="会員のみ公開">公開（会員のみ閲覧可能）</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </CardContent>
             </Card>
 

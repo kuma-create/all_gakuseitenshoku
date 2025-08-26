@@ -42,6 +42,7 @@ export default function AuthGuard() {
       "/student",   
       "/jobs", 
       "/resume",               // 学生配下
+      "/ipo-signup",
     ];
 
     // 公開パスは認証チェックをスキップ
