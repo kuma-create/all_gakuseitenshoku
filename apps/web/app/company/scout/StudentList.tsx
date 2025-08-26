@@ -12,7 +12,7 @@ import { supabase as sb } from "@/lib/supabase/client"
 
 // 学生の就活フェーズ → 表示用タグ
 const PHASE_LABEL: Record<string, string> = {
-  job_hunting: "就活中",
+  job_hunting: "新卒",
   want_intern: "インターン探し中",
   both: "同時並行",
   intern_after_jobhunt: "インターン探し中",
