@@ -1,9 +1,9 @@
 // :app の module-level build.gradle
 
 plugins {
-  id("com.android.application")
-  id("org.jetbrains.kotlin.android")
-  id("com.facebook.react")
+  id 'com.android.application'
+  id 'org.jetbrains.kotlin.android'
+  id 'com.facebook.react'
 }
 
 android {
@@ -37,6 +37,19 @@ dependencies {
 react {
   // point RN Gradle Plugin to the monorepo app root (../ = apps/mobile)
   root = file("..")
+  // Resolve the first existing entry file among common patterns
+  def entryCandidates = [
+    "../../App.tsx",
+    "../../index.tsx",
+    "../../index.ts",
+    "../../index.js",
+    "../../App.js",
+    "../../app/index.tsx",
+    "../../app/index.ts",
+    "../../app/index.js"
+  ]
+  def resolvedEntry = entryCandidates.find { file(it).exists() } ?: "../../App.tsx"
+  entryFile = file(resolvedEntry)
   // explicitly point to the RN CLI (prevents cwd confusion)
   cliFile = file("../node_modules/react-native/cli.js")
 }
