@@ -127,6 +127,7 @@ export default function NewJobPage() {
     /* event only */
     eventDate: "",
     eventTime: "",
+    eventEndTime: "",
     capacity: "",
     venue: "",
     format: "onsite",
@@ -223,7 +224,7 @@ export default function NewJobPage() {
         } else if (base.selection_type === "event") {
           const { data: child } = await supabase
             .from("event_details")
-            .select(`event_date, event_time, capacity, venue, format`)
+            .select(`event_date, event_time, event_end_time, capacity, venue, format`)
             .eq("job_id", copyId)
             .maybeSingle();
 
@@ -232,6 +233,7 @@ export default function NewJobPage() {
               ...prev,
               eventDate : child.event_date ? String(child.event_date).slice(0,10) : "",
               eventTime : child.event_time ? String(child.event_time).slice(0,5) : "",
+              eventEndTime : child.event_end_time ? String(child.event_end_time).slice(0,5) : "",
               capacity  : child.capacity?.toString() ?? "",
               venue     : child.venue ?? "",
               format    : child.format ?? "onsite",
@@ -760,6 +762,7 @@ export default function NewJobPage() {
                         /* event only */
                         eventDate: "",
                         eventTime: "",
+                        eventEndTime: "",
                         capacity: "",
                         venue: "",
                         format: "onsite",
@@ -1302,18 +1305,29 @@ export default function NewJobPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="eventTime">開始時間（任意）</Label>
-                      <Input
-                        id="eventTime"
-                        name="eventTime"
-                        type="time"
-                        value={formData.eventTime}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                        step={900}
-                      />
+                      <Label htmlFor="eventTime">時間（任意）</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          id="eventTime"
+                          name="eventTime"
+                          type="time"
+                          value={formData.eventTime}
+                          onChange={handleInputChange}
+                          className="mt-1"
+                          step={900}
+                        />
+                        <Input
+                          id="eventEndTime"
+                          name="eventEndTime"
+                          type="time"
+                          value={formData.eventEndTime}
+                          onChange={handleInputChange}
+                          className="mt-1"
+                          step={900}
+                        />
+                      </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        時間を入れると開始時刻も掲載されます。
+                        例: 14:00〜16:00（終了時刻が未入力の場合は「14:00〜」と表示されます）
                       </p>
                     </div>
                     <div>
@@ -1602,22 +1616,21 @@ export default function NewJobPage() {
                         <div className="mb-6 grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                           <SummaryItem
                             icon={<Calendar size={16} />}
-                            label="開催日時"
-                              value={
-                                formData.eventDate
-                                  ? (
-                                      formData.eventTime
-                                        ? new Date(`${formData.eventDate}T${formData.eventTime}`).toLocaleString("ja-JP", {
-                                            year: "numeric",
-                                            month: "2-digit",
-                                            day: "2-digit",
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                          })
-                                        : new Date(formData.eventDate).toLocaleDateString("ja-JP")
-                                    )
-                                  : "未設定"
-                              }
+                            label="開催日"
+                            value={
+                              formData.eventDate
+                                ? new Date(formData.eventDate).toLocaleDateString("ja-JP")
+                                : "未設定"
+                            }
+                          />
+                          <SummaryItem
+                            icon={<Clock size={16} />}
+                            label="時間"
+                            value={
+                              formData.eventTime
+                                ? `${formData.eventTime}${formData.eventEndTime ? `〜${formData.eventEndTime}` : "〜"}`
+                                : "未設定"
+                            }
                           />
                           <SummaryItem
                             icon={<Users size={16} />}

@@ -1319,6 +1319,7 @@ export type Database = {
           capacity: number | null
           contact_email: string | null
           event_date: string | null
+          event_end_time: string | null
           event_time: string | null
           format: string | null
           is_online: boolean | null
@@ -1333,6 +1334,7 @@ export type Database = {
           capacity?: number | null
           contact_email?: string | null
           event_date?: string | null
+          event_end_time?: string | null
           event_time?: string | null
           format?: string | null
           is_online?: boolean | null
@@ -1347,6 +1349,7 @@ export type Database = {
           capacity?: number | null
           contact_email?: string | null
           event_date?: string | null
+          event_end_time?: string | null
           event_time?: string | null
           format?: string | null
           is_online?: boolean | null
