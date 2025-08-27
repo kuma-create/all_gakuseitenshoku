@@ -202,7 +202,7 @@ export default function Header() {
               IPO大学
             </Link>
             <Link
-              href="/internship"
+              href="/lp/students/gakuten"
               className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900"
             >
               <Briefcase size={16} />
