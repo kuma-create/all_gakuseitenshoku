@@ -102,7 +102,7 @@ const sampleUniversities = [
 /* ---------------- 型定義 ---------------- */
 
 /* ---------------- 表示用ステップラベル ---------------- */
-const STEP_LABELS = ["基本情報", "住所情報", "学業情報", "職歴・補足情報"] as const;
+const STEP_LABELS = ["基本情報", "履歴書情報", "職歴・補足情報"] as const;
 type Step1 = {
   last_name: string;
   first_name: string;
@@ -135,7 +135,8 @@ type Step4 = {
   company3: string;
   skill_text: string;
   qualification_text: string;
-  has_intern: boolean;           // インターン経験の有無
+  has_internship_experience: boolean; // インターン経験の有無
+  skip_work_experience: boolean; // 今回は職歴入力をスキップする
 };
 
 type FormState = Step1 & Step2 & Step3 & Step4;
@@ -163,12 +164,13 @@ const initialState: FormState = {
   university: "", faculty: "", department: "", graduation_month: null, join_ipo: false,
   work_summary: "", company1: "", company2: "", company3: "",
   skill_text: "", qualification_text: "",
-  has_intern: false,
+  has_internship_experience: false,
+  skip_work_experience: false,
 };
 
 /* ---------------- プログレスステップコンポーネント ---------------- */
-function ProgressSteps({ step }: { step: 1 | 2 | 3 | 4 }) {
-  const steps = ["基本情報", "住所", "学業", "職歴"];
+function ProgressSteps({ step }: { step: 1 | 2 | 3 }) {
+  const steps = ["基本情報", "履歴書", "職歴"];
   return (
     <div className="relative mx-auto mb-8 flex max-w-md justify-between">
       {steps.map((label, i) => {
@@ -208,7 +210,7 @@ function ProgressSteps({ step }: { step: 1 | 2 | 3 | 4 }) {
 export default function OnboardingProfile() {
 /* ******************************************************************* */
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [form, setForm] = useState<FormState>(initialState);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
@@ -361,17 +363,30 @@ const handleWorkExperienceChange = (
     let key = tgt.id || tgt.name;
     if (tgt.type === "radio" && key.startsWith("gender")) key = "gender";
 
+    /* 郵便番号入力の正規化・バリデーション */
+    if (key === "postal_code") {
+      // 全角数字→半角 / 全角ハイフン→半角 / 空白除去 / 先頭8文字まで
+      const z2h = (s: string) => s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+      let norm = z2h(tgt.value)
+        .replace(/[‐‑‒–—―ーｰ－]/g, "-") // いろいろなハイフン記号を半角ハイフンに
+        .replace(/\s+/g, "")
+        .replace(/[^0-9-]/g, "")
+        .slice(0, 8);
+
+      // 入力表示も正規化した文字列に更新
+      setForm((p) => ({ ...p, postal_code: norm }));
+
+      // 数字のみ7桁を抽出して住所検索（ハイフンは無視）
+      const digits = norm.replace(/\D/g, "");
+      if (digits.length === 7) fetchAddress(digits);
+      return; // ここで処理終了
+    }
+
     /* ----------- 値のセット ----------- */
     if (tgt.type === "checkbox") {
       setForm((p) => ({ ...p, [key]: tgt.checked }));
     } else {
       setForm((p) => ({ ...p, [key]: tgt.value }));
-    }
-
-    /* 郵便番号なら住所検索をトリガ */
-    if (key === "postal_code") {
-      const digits = tgt.value.replace(/\D/g, "");
-      if (digits.length === 7) fetchAddress(digits);
     }
   };
 
@@ -392,6 +407,7 @@ const handleWorkExperienceChange = (
     try {
       if (step === 1) {
         await savePartial({
+          // 基本情報
           last_name: form.last_name,
           first_name: form.first_name,
           last_name_kana: form.last_name_kana,
@@ -399,8 +415,32 @@ const handleWorkExperienceChange = (
           phone: form.phone,
           gender: form.gender,
           birth_date: form.birth_date,
+          // 学業情報（統合）
+          university: form.university,
+          faculty: form.faculty,
+          department: form.department,
+          join_ipo: form.join_ipo,
         });
+
+        // IPO参加希望の通知（失敗は無視）
+        if (form.join_ipo) {
+          const studentName = `${form.last_name}${form.first_name}`;
+          try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            await supabase.functions.invoke("send-email", {
+              body: {
+                user_id:           "e567ebe5-55d3-408a-b591-d567cdd3470a",
+                from_role:         "system",
+                notification_type: "join_ipo",
+                related_id:        authUser?.id ?? null,
+                title:             `【学生転職】 学生がIPOに参加希望です`,
+                message:           `学生名：${studentName}`,
+              },
+            });
+          } catch {}
+        }
       }
+
       if (step === 2) {
         await savePartial({
           postal_code: form.postal_code,
@@ -409,39 +449,7 @@ const handleWorkExperienceChange = (
           address_line: form.address_line,
         });
       }
-      if (step === 3) {
-        const partial: Partial<FormState> = {
-          university: form.university,
-          faculty: form.faculty,
-          department: form.department,
-          join_ipo: form.join_ipo,
-          ...(form.graduation_month
-            ? { graduation_month: `${form.graduation_month}-01` }
-            : {}),
-        };
-        await savePartial(partial);
-        /* --- システム監視用メール送信 -------------------- */
-        if (form.join_ipo) {
-          const studentName = `${form.last_name}${form.first_name}`;
-          try {
-            // 現在の認証ユーザー ID を related_id として付与
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            const res = await supabase.functions.invoke("send-email", {
-              body: {
-                user_id:           "e567ebe5-55d3-408a-b591-d567cdd3470a", // システム監視用ユーザー ID
-                from_role:         "system",
-                notification_type: "join_ipo",
-                related_id:        authUser?.id ?? null,
-                title:             `【学生転職】 学生がIPOに参加希望です`,
-                message:           `学生名：${studentName}`,
-              },
-            });
-            console.log("send-email response:", res);
-          } catch (sysEmailErr) {
-            console.error("send-email (system) error", sysEmailErr);
-          }
-        }
-      }
+
       setStep((s) => (s + 1) as typeof step);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
@@ -454,7 +462,7 @@ const handleWorkExperienceChange = (
     e.preventDefault();
 
     /* 途中ステップならドラフト保存して次へ */
-    if (step < 4) {
+    if (step < 3) {
       handleNextStep();
       return;
     }
@@ -485,15 +493,14 @@ const handleWorkExperienceChange = (
         }
       }
 
-      /* YYYY‑MM → YYYY‑MM‑01 に補正 */
-      const normalizedGrad =
-        form.graduation_month ? `${form.graduation_month}-01` : null;
 
       /* 2‑A. student_profiles を upsert (会社名・補足情報は除外) */
       const {
-        company1, company2, company3,               // experiences へ
+        company1, company2, company3,                // experiences へ
         work_summary, skill_text, qualification_text, // profile_details or metaRows
-        ...profileRest                               // student_profiles へ送るもの
+        has_internship_experience, skip_work_experience, // student_profiles には送らない
+        graduation_month,                            // 卒業年度は送信しない仕様
+        ...profileRest                                // student_profiles へ送るもの
       } = form;
 
       const { error: profileErr } = await supabase
@@ -502,7 +509,6 @@ const handleWorkExperienceChange = (
           {
             user_id: user.id,
             ...profileRest,
-            graduation_month: normalizedGrad,
             address: `${form.prefecture}${form.city}${form.address_line}`,
             avatar_url: avatarUrl,
             is_completed: true,
@@ -530,7 +536,6 @@ const handleWorkExperienceChange = (
             university:       form.university,
             faculty:          form.faculty,
             department:       form.department,
-            graduationDate:   normalizedGrad,
             status:           "enrolled",
           },
           pr: {},          // いまは未入力。将来の UI 拡張用に空オブジェクトで保持
@@ -603,7 +608,7 @@ const handleWorkExperienceChange = (
               ユーザー登録
             </CardTitle>
             <p className="mt-2 text-left font-semibold text-blue-700">
-              {step < 4 ? `残り${4 - step}ステップで完了` : "入力内容を確認して登録"}
+              {step < 3 ? `残り${3 - step}ステップで完了` : "入力内容を確認して登録"}
             </p>
           </CardHeader>
           <CardContent className="space-y-10 p-4 sm:p-6">
@@ -613,9 +618,7 @@ const handleWorkExperienceChange = (
                 <Step1Inputs
                   form={form}
                   onChange={handleChange}
-                  setAvatarFile={setAvatarFile}
-                  avatarFile={avatarFile}
-                  avatarError={avatarError}
+                  universities={universities}
                 />
               )}
               {step === 2 && (
@@ -624,16 +627,12 @@ const handleWorkExperienceChange = (
                   onChange={handleChange}
                   zipLoading={zipLoading}
                   zipError={zipError}
+                  setAvatarFile={setAvatarFile}
+                  avatarFile={avatarFile}
+                  avatarError={avatarError}
                 />
               )}
               {step === 3 && (
-                <Step3Inputs
-                  form={form}
-                  onChange={handleChange}
-                  universities={universities}
-                />
-              )}
-              {step === 4 && (
                 <Step4Inputs
                   form={form}
                   onChange={handleChange}
@@ -669,7 +668,7 @@ const handleWorkExperienceChange = (
                 >
                   {loading
                     ? "保存中..."
-                    : step < 4
+                    : step < 3
                     ? "保存して次へ"
                     : "登録する"}
                 </Button>
@@ -684,23 +683,15 @@ const handleWorkExperienceChange = (
 
 /* ================= ステップ別コンポーネント ================= */
 function Step1Inputs({
-  form, onChange, setAvatarFile, avatarFile, avatarError,
+  form,
+  onChange,
+  universities,
 }: {
   form: FormState;
   onChange: (e: InputChange) => void;
-  setAvatarFile: React.Dispatch<React.SetStateAction<File | null>>;
-  avatarFile: File | null;
-  avatarError: string | null;
+  universities: string[];
 }) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (avatarFile) {
-      const url = URL.createObjectURL(avatarFile);
-      setPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
-    setPreviewUrl(null);
-  }, [avatarFile]);
+  const query = form.university.trim().toLowerCase();
   return (
     <div className="space-y-8 px-1 sm:px-0">
       <TwoCol>
@@ -745,16 +736,103 @@ function Step1Inputs({
         required
       />
 
-      {/* 顔写真 */}
-      <div className="grid gap-2">
-        <Label htmlFor="avatar" className="font-semibold">
-          プロフィール写真
-        </Label>
-        <p className="text-xs text-gray-600">
-          あなたらしさが伝わる写真を選んで、企業担当者にアピールしましょう（10MBまで）
-        </p>
+      {/* 学業情報（統合） */}
+      <div className="space-y-6">
+        <div className="grid gap-2">
+          <Label htmlFor="university">
+            大学名<span className="ml-0.5 text-red-600">*</span>
+          </Label>
+          <Command className="relative w-full rounded-md border" shouldFilter={false}>
+            <CommandInput
+              id="university"
+              placeholder="大学名を入力"
+              value={form.university}
+              onValueChange={(v) => onChange({ target: { id: "university", value: v } } as any)}
+              className="h-11 px-3"
+            />
+            {query && (
+              <CommandList className="max-h-60 overflow-y-auto">
+                {universities
+                  .filter((u) => u.toLowerCase().includes(query))
+                  .slice(0, 100)
+                  .map((u) => (
+                    <CommandItem key={u} value={u} onSelect={() => onChange({ target: { id: "university", value: u } } as any)}>
+                      {u}
+                    </CommandItem>
+                  ))}
+              </CommandList>
+            )}
+          </Command>
+        </div>
+        <TwoCol>
+          <Field id="faculty"    label="学部名" value={form.faculty}    onChange={onChange} required />
+          <Field id="department" label="学科名" value={form.department} onChange={onChange} required />
+        </TwoCol>
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input id="join_ipo" type="checkbox" checked={form.join_ipo} onChange={onChange} className="accent-red-600" />
+            <span>就活大学 <strong>IPO</strong> への参加を希望する</span>
+          </label>
+          <p className="ml-6 text-xs text-gray-500">
+            就活大学IPOは、学生限定の<span className="font-semibold">キャリア形成コミュニティ</span>です。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Avatar drop‑zone */}
+function Step2Inputs({
+  form, onChange, zipLoading, zipError,
+  setAvatarFile, avatarFile, avatarError,
+}: {
+  form: FormState; onChange: (e: InputChange) => void;
+  zipLoading: boolean; zipError: string | null;
+  setAvatarFile: React.Dispatch<React.SetStateAction<File | null>>;
+  avatarFile: File | null;
+  avatarError: string | null;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (avatarFile) {
+      const url = URL.createObjectURL(avatarFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [avatarFile]);
+
+  return (
+    <div className="space-y-8">
+      {/* 履歴書情報：住所 */}
+      <div className="space-y-6">
+        <div className="grid gap-2">
+          <Label htmlFor="postal_code">郵便番号</Label>
+          <Input
+            id="postal_code"
+            value={form.postal_code}
+            onChange={onChange}
+            placeholder="例）1000001"
+            pattern="^[0-9]{3}-?[0-9]{4}$"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            title="7桁の数字（ハイフン任意）で入力してください"
+            maxLength={8}
+            required
+          />
+          {zipLoading && <p className="text-xs text-gray-500">住所検索中…</p>}
+          {zipError   && <p className="text-xs text-red-600">{zipError}</p>}
+        </div>
+
+        <SelectField id="prefecture" label="都道府県" value={form.prefecture} onChange={onChange} options={prefectures} required />
+        <Field id="city"         label="市区町村" value={form.city} onChange={onChange} required />
+        <Field id="address_line" label="それ以降の住所" value={form.address_line} onChange={onChange} placeholder="番地・建物名など" />
+      </div>
+
+      {/* 履歴書情報：プロフィール画像 */}
+      <div className="grid gap-2">
+        <Label htmlFor="avatar" className="font-semibold">プロフィール写真</Label>
+        <p className="text-xs text-gray-600">あなたらしさが伝わる写真を選びましょう（10MBまで）</p>
         <label
           htmlFor="avatar"
           className="relative flex h-24 w-24 sm:h-32 sm:w-32 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-blue-50 border-4 border-white shadow-md hover:scale-105 transition-transform"
@@ -768,134 +846,13 @@ function Step1Inputs({
             <Upload className="h-4 w-4" />
           </span>
         </label>
-
-        {/* Hidden file input */}
-        <Input
-          id="avatar"
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
-            setAvatarFile(f);
-          }}
-        />
-        {avatarError && (
-          <p className="text-xs text-red-600">{avatarError}</p>
-        )}
+        <Input id="avatar" type="file" accept="image/*" className="hidden" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} />
+        {avatarError && <p className="text-xs text-red-600">{avatarError}</p>}
       </div>
     </div>
   );
 }
 
-function Step2Inputs({
-  form, onChange, zipLoading, zipError,
-}: {
-  form: FormState; onChange: (e: InputChange) => void;
-  zipLoading: boolean; zipError: string | null;
-}) {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-2">
-        <Label htmlFor="postal_code">郵便番号</Label>
-        <Input
-          id="postal_code"
-          value={form.postal_code}
-          onChange={onChange}
-          placeholder="例）1000001"
-          pattern="\d{3}-?\d{4}"
-          maxLength={8}
-          required
-        />
-        {zipLoading && <p className="text-xs text-gray-500">住所検索中…</p>}
-        {zipError   && <p className="text-xs text-red-600">{zipError}</p>}
-      </div>
-
-      <SelectField
-        id="prefecture" label="都道府県"
-        value={form.prefecture} onChange={onChange}
-        options={prefectures} required
-      />
-      <Field id="city"         label="市区町村" value={form.city} onChange={onChange} required />
-      <Field id="address_line" label="それ以降の住所" value={form.address_line} onChange={onChange} placeholder="番地・建物名など" />
-    </div>
-  );
-}
-
-function Step3Inputs({
-  form,
-  onChange,
-  universities,
-}: {
-  form: FormState;
-  onChange: (e: InputChange) => void;
-  universities: string[];
-}) {
-  const query = form.university.trim().toLowerCase();
-  return (
-    <div className="space-y-6">
-      {/* 大学名（検索付きコンボボックス） */}
-      <div className="grid gap-2">
-        <Label htmlFor="university">
-          大学名<span className="ml-0.5 text-red-600">*</span>
-        </Label>
-
-        <Command className="relative w-full rounded-md border" shouldFilter={false}>
-          {/* 検索入力 */}
-          <CommandInput
-            id="university"
-            placeholder="大学名を入力"
-            value={form.university}
-            onValueChange={(v) =>
-              onChange({ target: { id: "university", value: v } } as any)
-            }
-            className="h-11 px-3"
-          />
-
-          {/* 候補リスト */}
-          {query && (
-            <CommandList className="max-h-60 overflow-y-auto">
-              {universities
-                .filter((u) => u.toLowerCase().includes(query))
-                .slice(0, 100)
-                .map((u) => (
-                  <CommandItem
-                    key={u}
-                    value={u}
-                    onSelect={() =>
-                      onChange({ target: { id: "university", value: u } } as any)
-                    }
-                  >
-                    {u}
-                  </CommandItem>
-                ))}
-            </CommandList>
-          )}
-        </Command>
-      </div>
-      <Field id="faculty"    label="学部名" value={form.faculty}    onChange={onChange} required />
-      <Field id="department" label="学科名" value={form.department} onChange={onChange} required />
-      {/* 就活大学IPO への参加有無 */}
-      <div className="flex flex-col gap-1">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            id="join_ipo"
-            type="checkbox"
-            checked={form.join_ipo}
-            onChange={onChange}
-            className="accent-red-600"
-          />
-          <span>就活大学 <strong>IPO</strong> への参加を希望する</span>
-        </label>
-        <p className="ml-6 text-xs text-gray-500">
-          就活大学IPOは、学生限定の<span className="font-semibold">キャリア形成コミュニティ</span>です。
-          現役キャリアアドバイザーや企業の採用担当者から直接フィードバックを受け、
-          グループワークや模擬面接を通じて実践的な就活スキルを習得できます。
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function Step4Inputs({
   form,
@@ -923,206 +880,225 @@ function Step4Inputs({
       {/* インターン経験の有無 */}
       <div className="mb-4 flex items-center gap-2">
         <input
-          id="has_intern"
+          id="has_internship_experience"
           type="checkbox"
-          checked={form.has_intern}
+          checked={form.has_internship_experience}
           onChange={onChange}
           className="accent-red-600"
         />
-        <Label htmlFor="has_intern" className="text-sm">
+        <Label htmlFor="has_internship_experience" className="text-sm">
           インターン経験あり
         </Label>
       </div>
-      <Card className="mb-6 border-2 border-primary/20 bg-primary/5 sm:mb-8">
-    <CardHeader className="bg-primary/10 p-3 sm:p-6">
-      <div className="flex items-center gap-2">
-        <Briefcase className="h-5 w-5 text-primary" />
-        <CardTitle className="text-base text-primary sm:text-xl">職歴</CardTitle>
+      {/* 職歴入力のスキップ設定 */}
+      <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:p-5">
+        <label htmlFor="skip_work_experience" className="flex items-start gap-3">
+          <input
+            id="skip_work_experience"
+            type="checkbox"
+            className="mt-1 h-4 w-4 accent-red-600"
+            checked={form.skip_work_experience}
+            onChange={onChange}
+          />
+          <div>
+            <p className="text-sm font-medium text-gray-800">今回は職歴の入力をスキップする</p>
+            <p className="mt-1 text-xs text-gray-500">スキップしても登録は続行できます。職歴はマイページからいつでも追加できます。</p>
+          </div>
+        </label>
       </div>
-      <CardDescription className="text-xs sm:text-sm">
-        アルバイトやインターンシップの経験を入力してください
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4 p-3 sm:space-y-6 sm:p-6">
-      {workExperiences.length === 0 ? (
-        <Alert className="bg-amber-50">
-          <Info className="h-4 w-4 text-amber-500" />
-          <AlertTitle className="text-sm font-medium text-amber-800">職歴情報がありません</AlertTitle>
-          <AlertDescription className="text-xs text-amber-700">
-            アルバイトやインターンシップなど、これまでの経験を追加しましょう。
-          </AlertDescription>
-        </Alert>
-      ) : (
-        workExperiences.map((exp) => (
-          <Collapsible key={exp.id} open={exp.isOpen} onOpenChange={() => toggleCollapsible(exp.id)}>
-            <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-gray-500" />
-                  <h3 className="text-sm font-medium sm:text-base">
-                    {exp.company ? exp.company : `職歴 #${exp.id}`}
-                    {exp.position && <span className="ml-2 text-xs text-gray-500">（{exp.position}）</span>}
-                  </h3>
-                </div>
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-8">
-                      {exp.isOpen ? (
-                        <ChevronUp size={14} className="sm:h-4 sm:w-4" />
-                      ) : (
-                        <ChevronDown size={14} className="sm:h-4 sm:w-4" />
-                      )}
-                    </Button>
-                  </CollapsibleTrigger>
-                  {workExperiences.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-red-500 hover:text-red-600 sm:h-8 sm:w-8"
-                      onClick={() => removeWorkExperience(exp.id)}
-                    >
-                      <Trash2 size={14} className="sm:h-4 sm:w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <CollapsibleContent className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
-                <div className="space-y-1 sm:space-y-2">
-                  <Label htmlFor={`company-${exp.id}`} className="text-xs sm:text-sm">
-                    企業・組織名
-                  </Label>
-                  <Input
-                    id={`company-${exp.id}`}
-                    placeholder="〇〇株式会社"
-                    className="h-8 text-xs sm:h-10 sm:text-sm"
-                    value={exp.company}
-                    onChange={(e) => handleWorkExperienceChange(exp.id, "company", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1 sm:space-y-2">
-                  <Label htmlFor={`position-${exp.id}`} className="text-xs sm:text-sm">
-                    役職・ポジション
-                  </Label>
-                  <Input
-                    id={`position-${exp.id}`}
-                    placeholder="インターン、アルバイトなど"
-                    className="h-8 text-xs sm:h-10 sm:text-sm"
-                    value={exp.position}
-                    onChange={(e) => handleWorkExperienceChange(exp.id, "position", e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div className="space-y-1 sm:space-y-2">
-                    <Label htmlFor={`startDate-${exp.id}`} className="text-xs sm:text-sm">
-                      開始年月
-                    </Label>
-                    <Input
-                      id={`startDate-${exp.id}`}
-                      type="month"
-                      className="h-8 text-xs sm:h-10 sm:text-sm"
-                      value={exp.startDate}
-                      onChange={(e) => handleWorkExperienceChange(exp.id, "startDate", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1 sm:space-y-2">
-                    <Label htmlFor={`endDate-${exp.id}`} className="text-xs sm:text-sm">
-                      終了年月
-                    </Label>
-                    <Input
-                      id={`endDate-${exp.id}`}
-                      type="month"
-                      className="h-8 text-xs sm:h-10 sm:text-sm"
-                      value={exp.endDate}
-                      onChange={(e) => handleWorkExperienceChange(exp.id, "endDate", e.target.value)}
-                      disabled={exp.isCurrent}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1 sm:space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`current-${exp.id}`}
-                      className="h-3.5 w-3.5 sm:h-4 sm:w-4"
-                      checked={exp.isCurrent}
-                      onCheckedChange={(checked) => handleWorkExperienceChange(exp.id, "isCurrent", checked)}
-                    />
-                    <Label htmlFor={`current-${exp.id}`} className="text-xs sm:text-sm">
-                      現在も在籍中
-                    </Label>
-                  </div>
-                </div>
-                <div className="space-y-1 sm:space-y-2">
+      {/* 職歴カード：スキップ時は非表示 */}
+      {!form.skip_work_experience && (
+      <Card className="mb-6 border-2 border-primary/20 bg-primary/5 sm:mb-8">
+        <CardHeader className="bg-primary/10 p-3 sm:p-6">
+          <div className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base text-primary sm:text-xl">職歴</CardTitle>
+          </div>
+          <CardDescription className="text-xs sm:text-sm">
+            アルバイトやインターンシップの経験を入力してください
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 p-3 sm:space-y-6 sm:p-6">
+          {workExperiences.length === 0 ? (
+            <Alert className="bg-amber-50">
+              <Info className="h-4 w-4 text-amber-500" />
+              <AlertTitle className="text-sm font-medium text-amber-800">職歴情報がありません</AlertTitle>
+              <AlertDescription className="text-xs text-amber-700">
+                アルバイトやインターンシップなど、これまでの経験を追加しましょう。
+              </AlertDescription>
+            </Alert>
+          ) : (
+            workExperiences.map((exp) => (
+              <Collapsible key={exp.id} open={exp.isOpen} onOpenChange={() => toggleCollapsible(exp.id)}>
+                <div className="rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor={`jobDescription-${exp.id}`} className="text-xs sm:text-sm">
-                      業務内容
-                    </Label>
-                    <span className="text-xs text-gray-500">{exp.description.length}/500文字</span>
-                  </div>
-                  <Textarea
-                    id={`jobDescription-${exp.id}`}
-                    placeholder="担当した業務内容や成果について記入してください"
-                    className="min-h-[100px] text-xs sm:min-h-[120px] sm:text-sm"
-                    value={exp.description}
-                    onChange={(e) => handleWorkExperienceChange(exp.id, "description", e.target.value)}
-                    maxLength={500}
-                  />
-                  <p className="text-xs italic text-gray-500">
-                    例:
-                    「Webアプリケーションの開発チームに参加し、フロントエンド実装を担当。React.jsを用いたUI開発を行い、チームの納期目標を達成した。」
-                  </p>
-                </div>
-                <div className="space-y-1 sm:space-y-2">
-                  <Label htmlFor={`technologies-${exp.id}`} className="text-xs sm:text-sm">
-                    スキル
-                  </Label>
-                  <Input
-                    id={`technologies-${exp.id}`}
-                    placeholder="Java, Python, AWS, Figmaなど"
-                    className="h-8 text-xs sm:h-10 sm:text-sm"
-                    value={exp.technologies}
-                    onChange={(e) => handleWorkExperienceChange(exp.id, "technologies", e.target.value)}
-                  />
-                  {exp.technologies && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {exp.technologies.split(",").map((tech, i) => (
-                        <Badge key={i} variant="outline" className="bg-blue-50 text-xs">
-                          {tech.trim()}
-                        </Badge>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-gray-500" />
+                      <h3 className="text-sm font-medium sm:text-base">
+                        {exp.company ? exp.company : `職歴 #${exp.id}`}
+                        {exp.position && <span className="ml-2 text-xs text-gray-500">（{exp.position}）</span>}
+                      </h3>
                     </div>
-                  )}
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-8">
+                          {exp.isOpen ? (
+                            <ChevronUp size={14} className="sm:h-4 sm:w-4" />
+                          ) : (
+                            <ChevronDown size={14} className="sm:h-4 sm:w-4" />
+                          )}
+                        </Button>
+                      </CollapsibleTrigger>
+                      {workExperiences.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-500 hover:text-red-600 sm:h-8 sm:w-8"
+                          onClick={() => removeWorkExperience(exp.id)}
+                        >
+                          <Trash2 size={14} className="sm:h-4 sm:w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <CollapsibleContent className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
+                    <div className="space-y-1 sm:space-y-2">
+                      <Label htmlFor={`company-${exp.id}`} className="text-xs sm:text-sm">
+                        企業・組織名
+                      </Label>
+                      <Input
+                        id={`company-${exp.id}`}
+                        placeholder="〇〇株式会社"
+                        className="h-8 text-xs sm:h-10 sm:text-sm"
+                        value={exp.company}
+                        onChange={(e) => handleWorkExperienceChange(exp.id, "company", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1 sm:space-y-2">
+                      <Label htmlFor={`position-${exp.id}`} className="text-xs sm:text-sm">
+                        役職・ポジション
+                      </Label>
+                      <Input
+                        id={`position-${exp.id}`}
+                        placeholder="インターン、アルバイトなど"
+                        className="h-8 text-xs sm:h-10 sm:text-sm"
+                        value={exp.position}
+                        onChange={(e) => handleWorkExperienceChange(exp.id, "position", e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1 sm:space-y-2">
+                        <Label htmlFor={`startDate-${exp.id}`} className="text-xs sm:text-sm">
+                          開始年月
+                        </Label>
+                        <Input
+                          id={`startDate-${exp.id}`}
+                          type="month"
+                          className="h-8 text-xs sm:h-10 sm:text-sm"
+                          value={exp.startDate}
+                          onChange={(e) => handleWorkExperienceChange(exp.id, "startDate", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1 sm:space-y-2">
+                        <Label htmlFor={`endDate-${exp.id}`} className="text-xs sm:text-sm">
+                          終了年月
+                        </Label>
+                        <Input
+                          id={`endDate-${exp.id}`}
+                          type="month"
+                          className="h-8 text-xs sm:h-10 sm:text-sm"
+                          value={exp.endDate}
+                          onChange={(e) => handleWorkExperienceChange(exp.id, "endDate", e.target.value)}
+                          disabled={exp.isCurrent}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1 sm:space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`current-${exp.id}`}
+                          className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                          checked={exp.isCurrent}
+                          onCheckedChange={(checked) => handleWorkExperienceChange(exp.id, "isCurrent", checked)}
+                        />
+                        <Label htmlFor={`current-${exp.id}`} className="text-xs sm:text-sm">
+                          現在も在籍中
+                        </Label>
+                      </div>
+                    </div>
+                    <div className="space-y-1 sm:space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor={`jobDescription-${exp.id}`} className="text-xs sm:text-sm">
+                          業務内容
+                        </Label>
+                        <span className="text-xs text-gray-500">{exp.description.length}/500文字</span>
+                      </div>
+                      <Textarea
+                        id={`jobDescription-${exp.id}`}
+                        placeholder="担当した業務内容や成果について記入してください"
+                        className="min-h-[100px] text-xs sm:min-h-[120px] sm:text-sm"
+                        value={exp.description}
+                        onChange={(e) => handleWorkExperienceChange(exp.id, "description", e.target.value)}
+                        maxLength={500}
+                      />
+                      <p className="text-xs italic text-gray-500">
+                        例:
+                        「Webアプリケーションの開発チームに参加し、フロントエンド実装を担当。React.jsを用いたUI開発を行い、チームの納期目標を達成した。」
+                      </p>
+                    </div>
+                    <div className="space-y-1 sm:space-y-2">
+                      <Label htmlFor={`technologies-${exp.id}`} className="text-xs sm:text-sm">
+                        スキル
+                      </Label>
+                      <Input
+                        id={`technologies-${exp.id}`}
+                        placeholder="Java, Python, AWS, Figmaなど"
+                        className="h-8 text-xs sm:h-10 sm:text-sm"
+                        value={exp.technologies}
+                        onChange={(e) => handleWorkExperienceChange(exp.id, "technologies", e.target.value)}
+                      />
+                      {exp.technologies && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {exp.technologies.split(",").map((tech, i) => (
+                            <Badge key={i} variant="outline" className="bg-blue-50 text-xs">
+                              {tech.trim()}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1 sm:space-y-2">
+                      <Label htmlFor={`achievements-${exp.id}`} className="text-xs sm:text-sm">
+                        成果・実績
+                      </Label>
+                      <Textarea
+                        id={`achievements-${exp.id}`}
+                        placeholder="具体的な成果や数値、評価されたポイントなどを記入してください"
+                        className="min-h-[80px] text-xs sm:min-h-[100px] sm:text-sm"
+                        value={exp.achievements}
+                        onChange={(e) => handleWorkExperienceChange(exp.id, "achievements", e.target.value)}
+                      />
+                      <p className="text-xs italic text-gray-500">
+                        例: 「顧客満足度調査で平均4.8/5.0の評価を獲得。前年比20%の売上向上に貢献した。」
+                      </p>
+                    </div>
+                  </CollapsibleContent>
                 </div>
-                <div className="space-y-1 sm:space-y-2">
-                  <Label htmlFor={`achievements-${exp.id}`} className="text-xs sm:text-sm">
-                    成果・実績
-                  </Label>
-                  <Textarea
-                    id={`achievements-${exp.id}`}
-                    placeholder="具体的な成果や数値、評価されたポイントなどを記入してください"
-                    className="min-h-[80px] text-xs sm:min-h-[100px] sm:text-sm"
-                    value={exp.achievements}
-                    onChange={(e) => handleWorkExperienceChange(exp.id, "achievements", e.target.value)}
-                  />
-                  <p className="text-xs italic text-gray-500">
-                    例: 「顧客満足度調査で平均4.8/5.0の評価を獲得。前年比20%の売上向上に貢献した。」
-                  </p>
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-        ))
+              </Collapsible>
+            ))
+          )}
+          <Button
+            variant="outline"
+            className="w-full gap-1 border-dashed text-xs sm:gap-2 sm:text-sm"
+            onClick={addWorkExperience}
+          >
+            <PlusCircle size={14} className="sm:h-4 sm:w-4" />
+            職歴を追加
+          </Button>
+        </CardContent>
+      </Card>
       )}
-      <Button
-        variant="outline"
-        className="w-full gap-1 border-dashed text-xs sm:gap-2 sm:text-sm"
-        onClick={addWorkExperience}
-      >
-        <PlusCircle size={14} className="sm:h-4 sm:w-4" />
-        職歴を追加
-      </Button>
-    </CardContent>
-  </Card>
-  </>
+    </>
   );
 }
 
