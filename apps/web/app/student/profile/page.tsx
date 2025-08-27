@@ -249,6 +249,8 @@ export default function StudentProfilePage() {
   // ---- auto‑save after state commit (Pattern A) ----
   const firstRender = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // hydrate once guard for legacy -> gender
+  const hydratedGender = useRef(false);
 
   useEffect(() => {
     if (firstRender.current) {
@@ -358,6 +360,79 @@ export default function StudentProfilePage() {
         console.warn("universities fetch failed:", err);
       });
   }, []);
+
+  // --- Hydrate gender from existing data (resumes.form_data or legacy fields) ---
+  useEffect(() => {
+    // run only when profile is loaded, gender is missing, and not already hydrated
+    if (!profile || hydratedGender.current) return;
+    if (profile.gender != null && profile.gender !== "") return;
+
+    (async () => {
+      try {
+        const uid = profile.user_id;
+        // 1) Try resumes.form_data.basic.gender
+        if (uid) {
+          const { data } = await supabase
+            .from("resumes")
+            .select("form_data")
+            .eq("user_id", uid)
+            .maybeSingle();
+
+          const raw = (data as any)?.form_data?.basic?.gender;
+          const norm = (v: any): "male" | "female" | "other" | null => {
+            if (!v) return null;
+            const s = String(v).toLowerCase();
+            if (["male", "m", "man", "男性", "だんせい"].includes(s)) return "male";
+            if (["female", "f", "woman", "女性", "じょせい"].includes(s)) return "female";
+            if (["other", "その他", "そ の た"].includes(s)) return "other";
+            if (["1", "01"].includes(s)) return "male";      // numeric legacy
+            if (["2", "02"].includes(s)) return "female";    // numeric legacy
+            return null;
+          };
+
+          const fromResume = norm(raw);
+          if (fromResume) {
+            updateMark({ gender: fromResume });
+            hydratedGender.current = true;
+            await handleBlur();
+            return;
+          }
+        }
+
+        // 2) Try legacy columns on profile (boolean or code)
+        const anyProf = profile as any;
+        if (typeof anyProf.male === "boolean") {
+          const g = anyProf.male ? "male" : "female";
+          updateMark({ gender: g });
+          hydratedGender.current = true;
+          await handleBlur();
+          return;
+        }
+        if (anyProf.sex != null) {
+          const g = (() => {
+            const s = String(anyProf.sex).toLowerCase();
+            if (["male", "m", "1", "01", "男性"].includes(s)) return "male";
+            if (["female", "f", "2", "02", "女性"].includes(s)) return "female";
+            return "other";
+          })();
+          updateMark({ gender: g });
+          hydratedGender.current = true;
+          await handleBlur();
+          return;
+        }
+        if (anyProf.gender_code != null) {
+          const code = Number(anyProf.gender_code);
+          const g = code === 1 ? "male" : code === 2 ? "female" : "other";
+          updateMark({ gender: g });
+          hydratedGender.current = true;
+          await handleBlur();
+          return;
+        }
+      } catch (e) {
+        console.warn("gender hydration skipped:", e);
+      }
+    })();
+  }, [profile?.user_id, profile?.gender]);
 
   // combobox UI state for university field
   const [uniOpen, setUniOpen] = useState(false);
