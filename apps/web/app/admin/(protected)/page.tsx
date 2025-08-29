@@ -325,7 +325,7 @@ export default function AdminDashboard() {
   async function deleteCompany(companyId: string) {
     // 二重実行防止 & 最終確認
     if (!companyId) return;
-    const ok = confirm("この企業に関連する求人・応募も削除されます。本当に削除しますか？");
+    const ok = confirm("この企業に関連する求人・応募も削除され、元に戻すことはできません。本当に削除しますか？");
     if (!ok) return;
 
     // 進行中トースト
