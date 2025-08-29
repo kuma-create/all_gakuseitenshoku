@@ -197,6 +197,15 @@ export default function FulltimeInfo({
     job?.created_at &&
     new Date(job.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
 
+  const jobImageUrl =
+    job?.cover_image_url ||
+    job?.cover_image ||
+    job?.thumbnail_url ||
+    job?.image_url ||
+    (Array.isArray(job?.images) && job.images.length ? job.images[0] : null) ||
+    company?.cover_image_url ||
+    null;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <main className="container mx-auto px-4 py-8">
@@ -216,8 +225,21 @@ export default function FulltimeInfo({
           <div className="md:col-span-2">
             {/* Header */}
             <Card className="mb-6 overflow-hidden border-0 shadow-md">
-              <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
-              <CardContent className="relative -mt-16 bg-white p-6">
+              {jobImageUrl ? (
+                <div className="relative h-64 w-full sm:h-72 md:h-80 lg:h-96">
+                  <Image
+                    src={jobImageUrl}
+                    alt={`${job?.title ?? "求人"} の募集画像`}
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-black/10" />
+                </div>
+              ) : (
+                <div className="h-64 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90 sm:h-72 md:h-80 lg:h-96"></div>
+              )}
+              <CardContent className="relative -mt-28 bg-white p-6 md:-mt-32">
                 <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                   <div className="relative h-20 w-20 overflow-hidden rounded-xl border-4 border-white bg-white shadow-md">
                     <Image
@@ -618,10 +640,15 @@ function RightColumn({
                   <div className="relative h-12 w-12 overflow-hidden rounded-md border border-gray-200">
                     <Image
                       src={
+                        rel.cover_image_url ||
+                        rel.cover_image ||
+                        rel.thumbnail_url ||
+                        rel.image_url ||
+                        (Array.isArray(rel.images) && rel.images.length ? rel.images[0] : null) ||
                         rel.company?.logo ||
-                        "/placeholder.svg?height=48&width=48&query=company logo"
+                        "/placeholder.svg?height=48&width=48&query=job image"
                       }
-                      alt={rel.company?.name || "logo"}
+                      alt={`${rel.title ?? "求人"} の画像`}
                       width={48}
                       height={48}
                       className="h-full w-full object-cover"

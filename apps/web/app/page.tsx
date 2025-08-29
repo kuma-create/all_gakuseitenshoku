@@ -17,6 +17,8 @@ import {
   ArrowRight,
   ChevronDown,
   Users,
+  User,
+  Mail,
   GraduationCap,
   Zap,
   Calendar,
@@ -553,50 +555,99 @@ return (
             </p>
           </div>
 
-          <div className="relative">
-            <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 transform bg-gray-200 md:hidden"></div>
-            <div className="hidden md:block">
-              <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 transform bg-gray-200"></div>
+          {/* steps */}
+          <div className="grid gap-10 md:gap-8 md:grid-cols-3 items-stretch">
+            {/* Step 1 */}
+            <div className="flex flex-col items-center md:items-start h-full">
+              <div className="relative">
+                <div className="mx-auto md:mx-0 flex h-16 w-16 items-center justify-center rounded-full bg-white shadow ring-2 ring-red-500">
+                  <span className="sr-only">Step</span>
+                  <span className="text-xl font-bold text-red-600">1</span>
+                </div>
+                <div className="absolute -right-2 -bottom-2 hidden md:flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white">
+                  <User className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-6 md:mt-8 w-full flex-1 flex flex-col">
+                <h3 className="mb-3 text-xl font-bold md:text-left text-center w-full">プロフィール登録</h3>
+                <p className="text-gray-600 md:text-left text-center min-h-[88px]">
+                  あなたのスキルや経験、希望する業界などを入力し、魅力的なプロフィールを作成。
+                  職務経歴書を作成して、自分の強みをアピールしましょう。
+                </p>
+                <div className="mt-6">
+                  <div className="relative mx-auto w-full max-w-[260px] aspect-[9/16]">
+                    <Image
+                      src="/toppage/enrollment.png"
+                      alt="プロフィール登録イメージ"
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 768px) 92vw, 260px"
+                      priority
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-12 md:grid-cols-3">
+            {/* Step 2 */}
+            <div className="flex flex-col items-center md:items-start h-full">
               <div className="relative">
-                <div className="relative z-10 mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white md:mx-0">
-                  <span className="text-xl font-bold">1</span>
+                <div className="mx-auto md:mx-0 flex h-16 w-16 items-center justify-center rounded-full bg-white shadow ring-2 ring-red-500">
+                  <span className="sr-only">Step</span>
+                  <span className="text-xl font-bold text-red-600">2</span>
                 </div>
-                <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
-                  <h3 className="mb-3 text-xl font-bold">プロフィール登録</h3>
-                  <p className="text-gray-600">
-                    あなたのスキルや経験、希望する業界などを入力し、魅力的なプロフィールを作成。
-                    職務経歴書を作成して、自分の強みをアピールしましょう。
-                  </p>
+                <div className="absolute -right-2 -bottom-2 hidden md:flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white">
+                  <TrendingUp className="h-4 w-4" />
                 </div>
               </div>
-
-              <div className="relative">
-                <div className="relative z-10 mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white md:mx-0">
-                  <span className="text-xl font-bold">2</span>
-                </div>
-                <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
-                  <h3 className="mb-3 text-xl font-bold">市場価値を高める</h3>
-                  <p className="text-gray-600">
-                    職務経歴書のブラッシュアップや就活グランプリなどの参加を通じて
-                    自身の市場地を高めていきましょう。
-                    プロフィールや就活グランプリの結果によりスカウトの内容が変わってきます。
-                  </p>
+              <div className="mt-6 md:mt-8 w-full flex-1 flex flex-col">
+                <h3 className="mb-3 text-xl font-bold md:text-left text-center w-full">市場価値を高める</h3>
+                <p className="text-gray-600 md:text-left text-center min-h-[88px]">
+                  職務経歴書のブラッシュアップや就活グランプリなどの参加を通じて
+                  自身の市場価値を高めていきましょう。
+                  プロフィールや就活グランプリの結果によりスカウトの内容が変わってきます。
+                </p>
+                <div className="mt-6">
+                  <div className="relative mx-auto w-full max-w-[260px] aspect-[9/16]">
+                    <Image
+                      src="/toppage/resumes.png"
+                      alt="市場価値を高めるイメージ"
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 768px) 92vw, 260px"
+                    />
+                  </div>
                 </div>
               </div>
+            </div>
 
+            {/* Step 3 */}
+            <div className="flex flex-col items-center md:items-start h-full">
               <div className="relative">
-                <div className="relative z-10 mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white md:mx-0">
-                  <span className="text-xl font-bold">3</span>
+                <div className="mx-auto md:mx-0 flex h-16 w-16 items-center justify-center rounded-full bg-white shadow ring-2 ring-red-500">
+                  <span className="sr-only">Step</span>
+                  <span className="text-xl font-bold text-red-600">3</span>
                 </div>
-                <div className="mt-6 rounded-xl bg-white p-6 shadow-lg md:mt-8">
-                  <h3 className="mb-3 text-xl font-bold">スカウトを受け取る</h3>
-                  <p className="text-gray-600">
-                    あなたのプロフィールに興味を持った企業から直接スカウトメッセージが届きます。
-                    興味のある企業とコミュニケーションを取りましょう。
-                  </p>
+                <div className="absolute -right-2 -bottom-2 hidden md:flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white">
+                  <Mail className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-6 md:mt-8 w-full flex-1 flex flex-col">
+                <h3 className="mb-3 text-xl font-bold md:text-left text-center w-full">スカウトを受け取る</h3>
+                <p className="text-gray-600 md:text-left text-center min-h-[88px]">
+                  あなたのプロフィールに興味を持った企業から直接スカウトメッセージが届きます。
+                  興味のある企業とコミュニケーションを取りましょう。
+                </p>
+                <div className="mt-6">
+                  <div className="relative mx-auto w-full max-w-[260px] aspect-[9/16]">
+                    <Image
+                      src="/toppage/offerletter.png"
+                      alt="スカウト受け取りイメージ"
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 768px) 92vw, 260px"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

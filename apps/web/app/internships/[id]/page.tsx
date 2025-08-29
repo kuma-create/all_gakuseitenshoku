@@ -28,7 +28,8 @@ export async function generateMetadata(
       `
       title,
       description,
-      companies(
+      cover_image_url,
+      company:companies(
         cover_image_url
       )
     `
@@ -58,7 +59,7 @@ export async function generateMetadata(
       title,
       description,
       type: "article",
-      images: job.companies?.cover_image_url ?? "/ogp/internships.png",
+      images: job.cover_image_url ?? job.company?.cover_image_url ?? "/ogp/internships.png",
     },
     alternates: {
       canonical: `/internships/${params.id}`,
@@ -77,8 +78,10 @@ export default async function InternshipDetailPage({ params }: Props) {
     .from("jobs")
     .select(
       `
-      *,
-      companies(*),
+      id, title, description, requirements, location, selection_type,
+      cover_image_url, cover_image, thumbnail_url, image_url,
+      created_at, updated_at,
+      company:companies(*),
       job_tags(tag)
     `
     )

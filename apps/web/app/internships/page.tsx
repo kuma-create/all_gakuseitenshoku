@@ -25,9 +25,13 @@ import {
   Zap,
   ShieldCheck,
   TrendingUp,
+  Eye,
+  Send,
 } from "lucide-react";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+// TODO: When a job photo column (e.g., jobs.thumbnail_url or jobs.cover_image) is available, extend the select in getLatestInternJobs()
+// and use that as the primary image in the card. The UI below already supports an image-first design.
 
 // Site root URL (set in .env as NEXT_PUBLIC_SITE_URL). Fallback to production root.
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp";
@@ -122,6 +126,7 @@ const features = [
 type SimpleJob = {
   id: string;
   title: string;
+  cover_image_url: string | null; // 求人ごとの写真（なければnull）
   company: { name: string; logo: string | null };
 };
 
@@ -129,7 +134,7 @@ async function getLatestInternJobs(): Promise<SimpleJob[]> {
   const supabase = createServerComponentClient({ cookies });
   const { data } = await supabase
     .from("jobs")
-    .select("id, title, company:companies(name, logo)")
+    .select("id, title, cover_image_url, company:companies(name, logo)")
     .eq("selection_type", "intern_long")
     .eq("published", true)
     .order("created_at", { ascending: false })
@@ -310,37 +315,88 @@ export default async function InternshipTop() {
           {jobs.map((job) => (
             <Link
               key={job.id}
-              href={`/jobs/${job.id}?apply=1`}
-              className="group flex flex-col justify-between gap-4 rounded-2xl bg-white/60 p-6 shadow-lg backdrop-blur-md transition-transform duration-300 hover:-translate-y-2 hover:bg-orange-500/10 hover:shadow-xl"
+              href={`/jobs/${job.id}`}
+              className="group block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
-              <div>
-                {job.company.logo && (
+              <div className="relative aspect-[16/9] w-full overflow-hidden">
+                {job.cover_image_url ? (
                   <Image
-                    src={job.company.logo}
-                    alt={job.company.name}
-                    width={64}
-                    height={64}
-                    className="mb-4 h-16 w-16 object-contain"
+                    src={job.cover_image_url}
+                    alt={`${job.title} の募集写真`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    priority={false}
                   />
+                ) : (
+                  <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+                    {job.company.logo ? (
+                      <Image
+                        src={job.company.logo}
+                        alt={`${job.company.name}のロゴ`}
+                        width={96}
+                        height={96}
+                        className="object-contain"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-gray-300" />
+                    )}
+                  </div>
                 )}
-                <h3 className="text-lg font-semibold">{job.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{job.company.name}</p>
+
+                {/* Gradient overlay for readability */}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+
+                {/* Company logo badge (always shown if available) */}
+                {job.company.logo && (
+                  <div className="absolute bottom-3 left-3 rounded-full bg-white/90 p-1 shadow-md ring-1 ring-black/5">
+                    <Image
+                      src={job.company.logo}
+                      alt={`${job.company.name}のロゴ`}
+                      width={36}
+                      height={36}
+                      className="h-9 w-9 rounded-full object-contain"
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Apply button */}
-              <Button
-                size="sm"
-                variant="secondary"
-                className="w-full text-center transition-colors duration-300 group-hover:bg-orange-500 group-hover:text-white"
-              >
-                応募する
-              </Button>
+              {/* Text area */}
+              <div className="flex flex-col gap-2 px-4 pb-4 pt-3">
+                <h3 className="line-clamp-2 text-base font-semibold leading-snug text-gray-900">
+                  {job.title}
+                </h3>
+                <p className="text-sm text-muted-foreground">{job.company.name}</p>
+
+                {/* CTA row */}
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button
+                    className="h-10 w-full rounded-full bg-orange-600 font-semibold text-white hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
+                    asChild
+                  >
+                    <Link href={`/jobs/${job.id}`} aria-label={`${job.title}の詳細を見る`} className="flex items-center justify-center gap-2">
+                      <Eye className="h-4 w-4" />
+                      <span>詳細を見る</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full rounded-full border-orange-300 bg-white text-orange-700 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2"
+                    asChild
+                  >
+                    <Link href={`/jobs/${job.id}?apply=1`} aria-label={`${job.title}に応募する`} className="flex items-center justify-center gap-2">
+                      <Send className="h-4 w-4" />
+                      <span>応募</span>
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </Link>
           ))}
         </div>
 
         <div className="mt-10 text-center">
-          <Button asChild size="lg">
+          <Button asChild size="lg" className="rounded-full px-8">
             <Link href="/jobs/list?selectionType=intern_long">すべての求人を見る</Link>
           </Button>
         </div>

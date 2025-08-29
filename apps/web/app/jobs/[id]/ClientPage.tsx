@@ -103,6 +103,7 @@ export default function ClientPage({ id }: { id: string }) {
             id,
             title,
             description,
+            cover_image_url,
             requirements,
             location,
             work_type,
@@ -125,13 +126,14 @@ export default function ClientPage({ id }: { id: string }) {
             internship:internship_details!job_id(
               start_date,
               end_date,
-              work_days_per_week
+              work_days_per_week,
+              allowance
             ),
             intern_long:intern_long_details!job_id(
               min_duration_months,
               work_days_per_week,
               hourly_wage,
-
+              min_daily_hours,
               remuneration_type,
               commission_rate,
               is_paid,
@@ -139,7 +141,6 @@ export default function ClientPage({ id }: { id: string }) {
               nearest_station,
               benefits,
               working_hours
-
             ),
             fulltime:fulltime_details!job_id(
               working_days,
@@ -148,6 +149,8 @@ export default function ClientPage({ id }: { id: string }) {
             ),
             event:event_details!job_id(
               event_date,
+              event_time,
+              event_end_time,
               capacity,
               venue,
               format,
@@ -289,25 +292,34 @@ export default function ClientPage({ id }: { id: string }) {
         // ---- derive reward (給与/報酬) for long internship ----
         if ((sel as any).selection_type === "internship_long" || (sel as any).selection_type === "intern_long") {
           const il = (sel as any).intern_long || {};
-          let reward: string | null = null;
+          const sh = (sel as any).internship || {};
 
-          const paid = il.is_paid as boolean | undefined;
-          const rt = il.remuneration_type as string | undefined;
-          const wage = il.hourly_wage as number | undefined;
-          const com = il.commission_rate as string | undefined;
+          // Prefer allowance from internship_details (the only table that has it)
+          const allow = sh.allowance ?? null;
+          if (allow != null && allow !== "") {
+            (sel as any).salary_range =
+              typeof allow === "number" ? `${Number(allow).toLocaleString()}円` : String(allow);
+          } else {
+            let reward: string | null = null;
 
-          if (paid === false) {
-            reward = "無給";
-          } else if (rt === "hourly" && typeof wage === "number") {
-            reward = `${Number(wage).toLocaleString()}円/時`;
-          } else if (rt === "commission" && com) {
-            reward = `歩合（${String(com)}）`;
-          } else if (paid === true) {
-            reward = "有給";
-          }
+            const paid = il.is_paid as boolean | undefined;
+            const rt = il.remuneration_type as string | undefined;
+            const wage = il.hourly_wage as number | undefined;
+            const com = il.commission_rate as string | undefined;
 
-          if (reward) {
-            (sel as any).salary_range = reward;
+            if (paid === false) {
+              reward = "無給";
+            } else if (rt === "hourly" && typeof wage === "number") {
+              reward = `${Number(wage).toLocaleString()}円/時`;
+            } else if (rt === "commission" && com) {
+              reward = `歩合（${String(com)}）`;
+            } else if (paid === true) {
+              reward = "有給";
+            }
+
+            if (reward) {
+              (sel as any).salary_range = reward;
+            }
           }
         }
 
