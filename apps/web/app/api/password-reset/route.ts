@@ -55,8 +55,8 @@ export async function POST(req: Request) {
     email,
     type: "recovery",
     options: {
-      // モバイル＆Webで統一: /auth/reset に着地
-      redirectTo: `${SITE_URL.replace(/\/$/, "")}/auth/reset`,
+      // モバイル＆Webで統一: /password-reset-callback に着地
+      redirectTo: `${SITE_URL.replace(/\/$/, "")}/password-reset-callback`,
     },
   });
 
