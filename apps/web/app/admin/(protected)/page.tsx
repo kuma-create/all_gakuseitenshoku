@@ -321,15 +321,98 @@ export default function AdminDashboard() {
     published_until: string | null;
   } | null>(null);
 
-  /* ---------- 会社削除 ---------- */
+  /* ---------- 会社削除（カスケード対応） ---------- */
   async function deleteCompany(companyId: string) {
-    if (!confirm("本当に削除しますか？")) return;
-    const { error } = await supabase.from("companies").delete().eq("id", companyId);
-    if (error) {
-      toast({ description: `削除失敗: ${error.message}`, variant: "destructive" });
-    } else {
-      toast({ description: "削除しました" });
+    // 二重実行防止 & 最終確認
+    if (!companyId) return;
+    const ok = confirm("この企業に関連する求人・応募も削除され、元に戻すことはできません。本当に削除しますか？");
+    if (!ok) return;
+
+    // 進行中トースト
+    toast({ description: "削除を実行しています…", variant: "default" });
+
+    // 0.5) この企業に紐づく Auth ユーザーID を取得（companies.user_id）
+    const { data: compRow, error: compErr } = await supabase
+      .from("companies")
+      .select("user_id")
+      .eq("id", companyId)
+      .single();
+    if (compErr) {
+      console.warn("companies.user_id fetch error:", compErr);
+    }
+    const authUserId: string | undefined = compRow?.user_id as any;
+
+    try {
+      // 1) この企業の求人IDを取得
+      const { data: jobRows, error: jobsFetchErr } = await supabase
+        .from("jobs")
+        .select("id")
+        .eq("company_id", companyId);
+      if (jobsFetchErr) throw jobsFetchErr;
+
+      const jobIds = (jobRows ?? []).map((j: any) => j.id);
+
+      // 2) 応募を先に削除（FK制約対策）
+      if (jobIds.length > 0) {
+        const { error: appsDelErr } = await supabase
+          .from("applications")
+          .delete()
+          .in("job_id", jobIds);
+        if (appsDelErr) throw appsDelErr;
+      }
+
+      // 3) 企業の求人を削除
+      const { error: jobsDelErr } = await supabase
+        .from("jobs")
+        .delete()
+        .eq("company_id", companyId);
+      if (jobsDelErr) throw jobsDelErr;
+
+      // 4) 企業に紐づく内部ロール情報（あれば）を削除
+      // ※ 企業IDを user_roles.user_id として使っている構成を想定
+      //    失敗しても全体の削除は継続できるように try/catch せず軽く実行
+      await supabase.from("user_roles").delete().eq("user_id", companyId).eq("role", "company");
+
+      // 5) 最後に企業自体を削除
+      const { error: companyDelErr } = await supabase
+        .from("companies")
+        .delete()
+        .eq("id", companyId);
+      if (companyDelErr) throw companyDelErr;
+
+      // 5.5) Authユーザーの削除（Service Role API）
+      try {
+        const res = await fetch("/api/admin/delete-auth-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: authUserId ?? companyId }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json?.ok) {
+          console.warn("auth delete failed:", json?.error ?? res.statusText);
+          toast({
+            description: `Auth削除に失敗: ${json?.error ?? res.statusText}`,
+            variant: "destructive",
+          });
+        }
+      } catch (e: any) {
+        console.error("auth delete request failed:", e);
+        toast({
+          description: `Auth削除に失敗: ${e?.message ?? "unknown error"}`,
+          variant: "destructive",
+        });
+      }
+
+      // 6) UI 更新
       setCompanies((prev) => prev.filter((c) => c.id !== companyId));
+      toast({ description: "企業アカウントを削除しました" });
+    } catch (err: any) {
+      // よくある原因: RLSでDELETE権限がない / 参照整合性(外部キー)による失敗 など
+      console.error("deleteCompany failed:", err);
+      const msg =
+        err?.message ??
+        "削除に失敗しました。関連する求人・応募のFK制約、またはRLS権限をご確認ください。";
+      toast({ description: `削除失敗: ${msg}`, variant: "destructive" });
     }
   }
 

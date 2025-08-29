@@ -1,6 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ROLE_DEST } from "../src/constants/routes";
@@ -17,6 +17,7 @@ export default function RootLayout() {
 
   const router = useRouter();
   const segments = useSegments();
+  const pathname = usePathname();
 
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -51,10 +52,14 @@ export default function RootLayout() {
     const first = segments[0];
     const inAuth = first === "auth" || first === "(auth)";
 
-    // 未ログインで auth 以外にいる → ログインへ
-    if (!session && !inAuth) {
-      router.replace("/auth/login");
-      return;
+    // 未ログイン時はトップ(`/`)と認証配下のみ許可し、それ以外にアクセスしたらログインへ
+    const PUBLIC_PATHS = ["/"];
+    if (!session) {
+      const isPublic = inAuth || PUBLIC_PATHS.includes(pathname);
+      if (!isPublic) {
+        router.replace("/auth/login");
+        return;
+      }
     }
 
     // ログイン済みで auth 配下にいる → ロール別の既定画面へ
@@ -63,7 +68,7 @@ export default function RootLayout() {
       router.replace(dest);
       return;
     }
-  }, [ready, session, segments, role, roleLoading, router]);
+  }, [ready, session, segments, role, roleLoading, router, pathname]);
 
   return (
     <QueryClientProvider client={qc}>

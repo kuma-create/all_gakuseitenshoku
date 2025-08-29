@@ -50,7 +50,7 @@ export default function Footer() {
             <h3 className="font-medium mb-3">コンテンツ</h3>
             <ul className="space-y-2 text-sm text-gray-600">
               <li>
-                <a href="/lp/students/gakuten" className="hover:text-red-600">
+                <a href="/insternships" className="hover:text-red-600">
                   学転インターン
                 </a>
               </li>

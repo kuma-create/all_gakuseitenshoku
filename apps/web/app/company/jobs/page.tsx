@@ -62,7 +62,7 @@ import {
    Supabase 型定義
 ------------------------------------------------------------------ */
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
-  fulltime_details?: { working_days?: string | null } | null
+  // relations are fetched separately to avoid FK ambiguity
 }
 
 /* UI 用に拡張した型 */
@@ -72,6 +72,9 @@ interface JobItem extends JobRow {
   postedDate : string
   expiryDate : string
   workingDays?: string | null
+  eventDate?: string | null
+  internStartDate?: string | null
+  displayDate?: string | null
   /* ↓ SelectionRow に含まれていない場合の型エラー回避 */
 }
 
@@ -127,7 +130,7 @@ export default function CompanyJobsPage() {
       const companyId = member.company_id  // ★ ここで変数を定義
 
 
-      /* ❷ jobs ＋ detail テーブルを取得 */
+      /* ❷ jobs テーブルのみ取得 */
       const { data: jobsData, error: jobsErr } = await supabase
         .from("jobs")
         .select(`
@@ -139,8 +142,7 @@ export default function CompanyJobsPage() {
           selection_type,
           application_deadline,
           created_at,
-          views,
-          fulltime_details ( working_days )
+          views
         `)
         .eq("company_id", companyId)
         .returns<JobRow[]>();
@@ -148,7 +150,25 @@ export default function CompanyJobsPage() {
       if (jobsErr) { setError(jobsErr.message); setLoading(false); return }
       if (!jobsData) { setJobs([]); setLoading(false); return }
 
-      /* ❸ 応募数取得 */
+      // ❸ detail テーブルを個別に取得（FK が複数あり select のネストだと曖昧になるため）
+      const ids = (jobsData ?? []).map(j => j.id).filter(Boolean) as string[]
+
+      const [{ data: fulls }, { data: events }, { data: interns }] = await Promise.all([
+        supabase.from("fulltime_details").select("selection_id, working_days").in("selection_id", ids),
+        supabase.from("event_details").select("selection_id, event_date").in("selection_id", ids),
+        supabase.from("internship_details").select("selection_id, start_date").in("selection_id", ids),
+      ])
+
+      const mapWorking: Record<string, string | null> = {}
+      fulls?.forEach(r => { if (r.selection_id) mapWorking[r.selection_id] = r.working_days ?? null })
+
+      const mapEvent: Record<string, string | null> = {}
+      events?.forEach(r => { if (r.selection_id) mapEvent[r.selection_id] = r.event_date ?? null })
+
+      const mapIntern: Record<string, string | null> = {}
+      interns?.forEach(r => { if (r.selection_id) mapIntern[r.selection_id] = r.start_date ?? null })
+
+      /* ❹ 応募数取得 */
       const { data: appsData, error: appsErr } = await supabase
         .from("applications")
         .select("job_id")                // ← 現状 DB は job_id のまま
@@ -161,7 +181,7 @@ export default function CompanyJobsPage() {
         if (sid) counts[sid] = (counts[sid] ?? 0) + 1
       })
 
-      /* ❹ 整形 */
+      /* ❺ 整形 */
       const rows = (jobsData as JobRow[]) ?? [];
       const list: JobItem[] = rows.map(j => {
         const selId = j.id as string  // SelectionRow["id"] は string | null のため
@@ -171,7 +191,15 @@ export default function CompanyJobsPage() {
 
         return {
           ...j,
-          workingDays: j.fulltime_details?.working_days ?? null,
+          workingDays: mapWorking[selId] ?? null,
+          eventDate: mapEvent[selId] ?? null,
+          internStartDate: mapIntern[selId] ?? null,
+          displayDate:
+            j.selection_type === "event"
+              ? (mapEvent[selId]?.slice(0, 10) ?? null)
+              : j.selection_type === "internship_short"
+              ? (mapIntern[selId]?.slice(0, 10) ?? null)
+              : null,
           applicants: counts[selId] ?? 0,
           status: !j.published
             ? "下書き"
@@ -407,8 +435,16 @@ function JobGrid({
 
               <div className="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
                 <div className="flex items-center">
-                  <Briefcase className="h-4 w-4 mr-1.5 text-gray-500"/> 
-                  <span>{job.workingDays || "-"}</span>
+                  { (job.selection_type === "event" || job.selection_type === "internship_short") ? (
+                    <Calendar className="h-4 w-4 mr-1.5 text-gray-500"/>
+                  ) : (
+                    <Briefcase className="h-4 w-4 mr-1.5 text-gray-500"/>
+                  )}
+                  <span>
+                    { (job.selection_type === "event" || job.selection_type === "internship_short")
+                      ? `開催日時：${job.displayDate ?? "-"}`
+                      : (job.workingDays || "-") }
+                  </span>
                 </div>
                 <div className="flex items-center">
                   <MapPin className="h-4 w-4 mr-1.5 text-gray-500"/> 

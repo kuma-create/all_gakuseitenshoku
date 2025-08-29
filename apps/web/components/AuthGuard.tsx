@@ -43,6 +43,7 @@ export default function AuthGuard() {
       "/jobs", 
       "/resume",               // 学生配下
       "/ipo-signup",
+      "/(auth)/password-reset-callback",
     ];
 
     // 公開パスは認証チェックをスキップ

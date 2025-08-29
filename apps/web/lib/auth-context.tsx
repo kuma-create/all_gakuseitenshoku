@@ -80,6 +80,7 @@ const PUBLIC_ROUTES = new Set([
   "/ipo",
   "/ipo/login",
   "/ipo-signup",
+  "/(auth)/password-reset-callback",
   "/search",
   "/terms",  
   "/lp/students/fee",
