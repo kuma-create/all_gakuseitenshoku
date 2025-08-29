@@ -189,7 +189,7 @@ export default function IPOLoginPage() {
         ? "/ipo/company-dashboard"
         : realRole === "admin"
         ? "/ipo/admin"
-        : "/ipo"; // 学生は IPO のトップへ
+        : "/ipo/dashboard"; // 学生は IPO のトップへ
 
       router.replace(dest);
     };
