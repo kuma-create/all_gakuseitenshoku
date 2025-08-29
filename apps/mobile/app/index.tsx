@@ -178,16 +178,14 @@ export default function RootIndex() {
             <View style={styles.logos}>
               <Image
                 source={require("../assets/images/logo6.png")}
-                style={[styles.logo, { width: HERO_LOGO_SIZE, height: HERO_LOGO_SIZE }]}
+                style={styles.logoLarge}
               />
               <Image
                 source={require("../assets/images/IPO_logo2.png")}
-                style={[styles.logo, { marginTop: 4, marginLeft: 0, width: HERO_LOGO_SIZE, height: HERO_LOGO_SIZE }]}
+                style={styles.logoLarge}
               />
             </View>
-            <Text style={styles.titleHero}>
-              キャリア解像度を高め、未来を切り拓こう
-            </Text>
+            <Text style={styles.titleHero}>{"キャリア解像度を高め\n未来を切り拓こう"}</Text>
             <Text style={styles.subtitleHero}>
               学生転職 × IPO大学 が、あなたの可能性を広げる
             </Text>
@@ -196,14 +194,7 @@ export default function RootIndex() {
               onPress={goStudent}
               activeOpacity={0.9}
             >
-              <Text style={styles.buttonText}>学生転職</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.blue, styles.buttonShadow]}
-              onPress={goIPO}
-              activeOpacity={0.9}
-            >
-              <Text style={styles.buttonText}>IPO大学</Text>
+              <Text style={styles.buttonText}>始める</Text>
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -228,6 +219,13 @@ const styles = StyleSheet.create({
   logo: {
     resizeMode: "contain",
   },
+  logoLarge: {
+    width: 280,
+    height: 80,
+    resizeMode: "contain",
+    alignSelf: "center",
+    marginVertical: 8,
+  },
   titleHero: {
     fontSize: 22,
     fontWeight: "800",
@@ -237,6 +235,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.04)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
+    lineHeight: 30,
   },
   subtitleHero: {
     fontSize: 16,

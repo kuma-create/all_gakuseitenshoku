@@ -18,7 +18,10 @@ import {
   Modal,
   TextInput,
   Platform,
+  Pressable,
+  StyleSheet,
 } from "react-native";
+import { Brain } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -99,6 +102,30 @@ const Pill = ({ text }: { text: string }) => (
   </View>
 );
 
+const styles = StyleSheet.create({
+  fab: {
+    position: "absolute",
+    right: 16,
+    bottom: 24,
+    backgroundColor: "#111827",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  fabText: {
+    color: "#fff",
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+});
+
 interface PeerReview {
   id: string;
   reviewer: string;
@@ -142,6 +169,15 @@ export default function IPOMobileDashboard() {
       router.push(route as any);
     },
     [router]
+  );
+
+  const onNavigateToTool = useCallback(
+    (key: string) => {
+      if (key === "aiChat") {
+        navigateFn("/ipo/analysis");
+      }
+    },
+    [navigateFn]
   );
 
   useEffect(() => {
@@ -649,6 +685,11 @@ export default function IPOMobileDashboard() {
           </ScrollView>
         </View>
       </Modal>
+      {/* Floating AI button */}
+      <Pressable onPress={() => onNavigateToTool('aiChat')} style={styles.fab} accessibilityLabel="AIに相談する">
+        <Brain size={20} color={'#fff'} />
+        <Text style={styles.fabText}>AIに相談する</Text>
+      </Pressable>
     </View>
   );
 }
