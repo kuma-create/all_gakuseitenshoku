@@ -22,6 +22,24 @@ import { supabase } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 import Head from "next/head"
 
+/** UI helpers (step1: sort only) */
+type SortKey = "newest" | "deadline";
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "newest", label: "新着順" },
+  { value: "deadline", label: "締切が近い順" },
+];
+
+// Date formatter used for deadlines & event dates
+const formatDate = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = iso.length === 7 ? new Date(iso + "-01") : new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 /** Props */
 export interface JobsPageProps {
   /** 検索パネルの初期「選考種類」タブ (例: "intern_long") */
@@ -285,6 +303,7 @@ export default function JobsPage({
   const [view, setView] = useState<"grid" | "list">("grid")
   const [filterOpen, setFilterOpen] = useState(false)
   const [category, setCategory] = useState<"company" | "fulltime" | "intern" | "event">(tabParam)
+  const [sortKey, setSortKey] = useState<SortKey>("newest");
 
   /**
    * ------------------------------------------------------------
@@ -450,7 +469,7 @@ job_tags!job_tags_job_id_fkey (
   // industries computed from jobs is no longer needed; use INDUSTRY_OPTIONS for options
 
   /* ------------- filter logic ------------- */
-  const displayed = useMemo(() => {
+  const displayedUnsorted = useMemo(() => {
     return jobs.filter((j) => {
       const q = search.toLowerCase()
       const matchesQ =
@@ -556,6 +575,19 @@ job_tags!job_tags_job_id_fkey (
     })
   }, [jobs, search, industriesSelected, jobTypesSelected, salaryMin, selectionType, eventFrom, eventTo, eventFormat])
 
+  const displayed = useMemo(() => {
+    const arr = [...displayedUnsorted];
+    if (sortKey === "deadline") {
+      return arr.sort((a, b) => {
+        const da = a.application_deadline ? new Date(a.application_deadline).getTime() : Infinity;
+        const db = b.application_deadline ? new Date(b.application_deadline).getTime() : Infinity;
+        return da - db;
+      });
+    }
+    // newest
+    return arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [displayedUnsorted, sortKey]);
+
   const closingSoon = useMemo(() => {
     return jobs.filter((j) => {
       if (j.selection_type !== "internship_short" || !j.application_deadline) return false
@@ -606,13 +638,36 @@ job_tags!job_tags_job_id_fkey (
     setFilterOpen(false);
   };
 
+  const clearFilters = () => {
+    setIndustriesSelected([]);
+    setJobTypesSelected([]);
+    setSelectionType("all");
+    setSalaryMin("all");
+    setEventFrom("");
+    setEventTo("");
+    setEventFormat("all");
+    setQuery("");
+    setSearch("");
+    const path = typeof window !== "undefined" ? window.location.pathname : "/jobs/list";
+    router.push(path);
+  };
+
   if (loading) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-3">
-        <svg className="h-6 w-6 animate-spin text-primary" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeDasharray="60" />
-        </svg>
-        読み込み中…
+      <div className="container mx-auto max-w-6xl px-4 py-10">
+        <div className="mb-6 h-10 w-72 animate-pulse rounded-full bg-gray-200" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="overflow-hidden rounded-xl border-0 shadow-md">
+              <div className="h-32 w-full animate-pulse bg-gray-200" />
+              <div className="space-y-2 p-4">
+                <div className="h-5 w-24 animate-pulse rounded-full bg-gray-200" />
+                <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
+                <div className="h-3 w-1/2 animate-pulse rounded bg-gray-200" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -674,7 +729,7 @@ job_tags!job_tags_job_id_fkey (
                         </div>
                       ))}
                     </div>
-                    <Button className="mt-4 bg-amber-400 hover:bg-amber-500 text-gray-800 font-bold">
+                    <Button className="mt-4 bg-amber-400 hover:bg-amber-500 text-gray-800 font-bold" aria-label="この特集を今すぐチェック">
                       今すぐチェック
                       <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
@@ -696,33 +751,33 @@ job_tags!job_tags_job_id_fkey (
       <section className="py-8 bg-gradient-to-r from-red-500 to-red-600">
         <div className="container mx-auto max-w-4xl px-4">
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">選考一覧</h1>
-            <p className="text-gray-600 mb-6">あなたにぴったりの会社を探しましょう</p>
+            <h1 className="text-2xl font-bold text-gray-800 mb-1">選考一覧</h1>
+            <p className="text-sm text-gray-500 mb-6">インターン・本選考・イベントをまとめて検索できます</p>
 
             {/* search & toggles */}
             <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3 md:flex-row md:items-center">
               <div className="relative flex-1">
                 <Input
-                  placeholder="職種、キーワード、会社名"
-                  className="pr-10 rounded-full border-gray-300"
+                  placeholder="職種、キーワード、会社名で検索"
+                  className="pr-24 pl-4 py-3 rounded-full border-gray-300 text-base"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
                 <Button
                   type="submit"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full rounded-l-none rounded-r-full bg-red-600 hover:bg-red-700"
+                  className="absolute right-0 top-0 h-full rounded-l-none rounded-r-full bg-red-600 hover:bg-red-700 shadow px-6 flex items-center gap-2"
                 >
                   <Search size={16} />
+                  検索
                 </Button>
               </div>
 
               {/* filter toggle (mobile) */}
               <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 md:hidden rounded-full">
+                  <Button variant="outline" size="sm" className="gap-2 md:hidden rounded-full font-medium">
                     <Filter size={16} />
-                    フィルター
+                    条件を絞り込む
                   </Button>
                 </SheetTrigger>
               <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
@@ -743,10 +798,27 @@ job_tags!job_tags_job_id_fkey (
                   eventFormat={eventFormat}
                   setEventFormat={setEventFormat}
                 />
-                <div className="mt-4">
-                  <Button className="w-full rounded-full" onClick={applyFilters}>
-                    この条件で検索
-                  </Button>
+                <div className="mt-4 space-y-3 pb-24">
+                  <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+                    <SelectTrigger className="w-full rounded-full">
+                      <SelectValue placeholder="並び替え" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SORT_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-white p-3">
+                  <div className="container mx-auto flex max-w-4xl gap-2">
+                    <Button variant="outline" className="w-1/3 rounded-full" onClick={clearFilters}>
+                      リセット
+                    </Button>
+                    <Button className="w-2/3 rounded-full" onClick={applyFilters}>
+                      この条件で検索
+                    </Button>
+                  </div>
                 </div>
               </SheetContent>
               </Sheet>
@@ -758,6 +830,8 @@ job_tags!job_tags_job_id_fkey (
                   size="icon"
                   onClick={() => setView("grid")}
                   className="rounded-full"
+                  aria-label="グリッド表示に切り替え"
+                  title="グリッド表示に切り替え"
                 >
                   <svg width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none">
                     <rect x="1" y="1" width="6" height="6" />
@@ -771,6 +845,8 @@ job_tags!job_tags_job_id_fkey (
                   size="icon"
                   onClick={() => setView("list")}
                   className="rounded-full"
+                  aria-label="リスト表示に切り替え"
+                  title="リスト表示に切り替え"
                 >
                   <svg width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none">
                     <line x1="4" y1="4" x2="15" y2="4" />
@@ -858,6 +934,23 @@ job_tags!job_tags_job_id_fkey (
               <Button className="rounded-full" onClick={applyFilters}>
                 この条件で検索
               </Button>
+              <Button variant="ghost" className="rounded-full" onClick={clearFilters}>
+                条件をリセット
+              </Button>
+              <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+                <SelectTrigger className="w-40 rounded-full">
+                  <SelectValue placeholder="並び替え" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="mt-3 hidden items-center justify-between md:flex">
+              <p className="text-sm text-gray-600">該当件数：<span className="font-semibold">{displayed.length}</span> 件</p>
             </div>
            
 
@@ -937,7 +1030,7 @@ job_tags!job_tags_job_id_fkey (
                         </Badge>
                       )}
                       <span className="text-sm text-gray-500">
-                        {ev.event_date}
+                        {formatDate(ev.event_date)}
                       </span>
                     </div>
                   </div>
@@ -964,7 +1057,7 @@ job_tags!job_tags_job_id_fkey (
                 href="/jobs/list?tab=fulltime&selectionType=fulltime"
                 className="text-sm text-indigo-600 hover:underline flex items-center gap-1"
               >
-                もっと見る <ChevronRight className="h-4 w-4" />
+                もっと見る（{fulltimeJobs.length}） <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
             <JobGrid
@@ -989,7 +1082,7 @@ job_tags!job_tags_job_id_fkey (
                 href="/jobs/list?tab=intern&selectionType=intern_long"
                 className="text-sm text-pink-600 hover:underline flex items-center gap-1"
               >
-                もっと見る <ChevronRight className="h-4 w-4" />
+                もっと見る（{internJobs.length}） <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
             <JobGrid
@@ -1014,7 +1107,7 @@ job_tags!job_tags_job_id_fkey (
                 href="/jobs/list?tab=event&selectionType=event"
                 className="text-sm text-purple-600 hover:underline flex items-center gap-1"
               >
-                もっと見る <ChevronRight className="h-4 w-4" />
+                もっと見る（{eventJobs.length}） <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
             <JobGrid
@@ -1069,7 +1162,7 @@ function CategoryHeader({
   colorClass: string
 }) {
   return (
-    <div className="flex items-center gap-2 mb-4">
+    <div className="flex items-center gap-3 mb-4 md:mb-6">
       <div className={`${colorClass} rounded-md p-2 text-white flex items-center justify-center`}>
         {icon}
       </div>
@@ -1103,13 +1196,31 @@ function DateInputWithPlaceholder({
           if (!e.currentTarget.value) setIsDateMode(false);
         }}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-full pr-10"
+        className="w-full rounded-full pr-16 pl-4"
         placeholder={isDateMode ? "" : placeholder}
         aria-label={placeholder}
+        title={placeholder}
       />
-      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+      {/* Calendar icon */}
+      <div className="pointer-events-none absolute inset-y-0 right-8 flex items-center text-muted-foreground">
         <Calendar size={16} />
       </div>
+      {/* Clear button when value is present */}
+      {value && (
+        <button
+          type="button"
+          className="absolute inset-y-0 right-2 my-auto h-7 w-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center"
+          aria-label={`${placeholder} をクリア`}
+          title={`${placeholder} をクリア`}
+          onClick={() => {
+            onChange("");
+            // restore placeholder mode when cleared
+            setIsDateMode(false);
+          }}
+        >
+          <span aria-hidden>×</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -1286,62 +1397,91 @@ function JobGrid({
   tagColor: (t: string) => string;
   singleRow?: boolean;
 }) {
-  if (!jobs.length) return <p className="text-center text-gray-500">該当する選考情報がありません</p>
+  if (!jobs.length)
+    return (
+      <Card className="border-dashed p-8 text-center">
+        <p className="mb-3 text-gray-600">該当する選考情報がありません。</p>
+        <div className="flex items-center justify-center gap-2">
+          <Link href="/jobs/list">
+            <Button variant="outline" className="rounded-full">全件を見る</Button>
+          </Link>
+          <Link href="/jobs/list">
+            <Button variant="ghost" className="rounded-full">条件をリセット</Button>
+          </Link>
+        </div>
+      </Card>
+    )
 
   /* ----- list view ----- */
   if (view === "list") {
     return (
       <div className="flex flex-col gap-4">
         {jobs.map((j) => (
-          <Card key={j.id} className="flex overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-            <Link href={`/jobs/${j.id}`} className="flex flex-1 hover:bg-gray-50">
-              {j.cover_image_url && (
-                <div className="relative">
+          <Card key={j.id} className="flex overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow transition-transform hover:-translate-y-0.5">
+            <Link
+              href={`/jobs/${j.id}`}
+              className="flex flex-1 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+            >
+              <div className="relative hidden sm:block">
+                {j.cover_image_url ? (
                   <Image
-                    src={j.cover_image_url || "/placeholder.svg"}
+                    src={j.cover_image_url}
                     alt="cover"
                     width={160}
                     height={120}
-                    className="h-auto w-40 object-cover"
+                    className="h-[120px] w-40 object-cover"
                   />
-                  {j.companies?.logo && (
-                    <Image
-                      src={j.companies.logo || "/placeholder.svg"}
-                      alt={j.companies?.name ?? "logo"}
-                      width={56}
-                      height={56}
-                      className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
-                    />
-                  )}
-                </div>
-              )}
-              <div className="flex flex-1 flex-col gap-2 p-4">
+                ) : (
+                  <div className="h-[120px] w-40 bg-gradient-to-br from-gray-100 to-gray-200" />
+                )}
+                {j.companies?.logo && (
+                  <Image
+                    src={j.companies.logo || "/placeholder.svg"}
+                    alt={j.companies?.name ?? "logo"}
+                    width={48}
+                    height={48}
+                    className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                  />
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-2 p-4 py-3 group">
                 <span className={getSelectionLabelClass(j.selection_type)}>
                   {SELECTION_ICONS[j.selection_type ?? "fulltime"]}
                   {SELECTION_LABELS[j.selection_type ?? "fulltime"]}
                 </span>
-                <h3 className="text-lg font-bold">{j.title}</h3>
+                <h3 className="text-lg font-bold leading-snug line-clamp-2 group-hover:underline">{j.title}</h3>
                 <p className="text-sm text-gray-600">
                   {j.companies?.name ?? "-"} / {j.location}
                 </p>
-                <div className="flex gap-1 text-xs text-gray-500">
-                  <MapPin size={12} />
-                  <span>{j.location}</span>
-                  <Briefcase size={12} />
-                  {/* salary & deadline display */}
+                <p className="text-sm text-gray-700 line-clamp-1">{j.description ?? ""}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {(j.tags ?? []).slice(0, 3).map((t) => (
+                    <Badge key={t} className="bg-red-100 text-red-700 rounded-full">
+                      {t}
+                    </Badge>
+                  ))}
+                  {Array.isArray(j.tags) && j.tags.length > 3 && (
+                    <Badge variant="outline" className="rounded-full">+{j.tags.length - 3}</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  {/* Location removed as meta row */}
                   {(j.salary_min || j.salary_max) && (
-                    <span>
-                      {j.salary_min && j.salary_max
-                        ? `${j.salary_min}万 – ${j.salary_max}万`
-                        : j.salary_min
-                        ? `${j.salary_min}万〜`
-                        : `${j.salary_max}万以下`}
-                    </span>
+                    <>
+                      <Briefcase size={12} />
+                      <span>
+                        {j.salary_min && j.salary_max
+                          ? `${j.salary_min}万 – ${j.salary_max}万`
+                          : j.salary_min
+                          ? `${j.salary_min}万〜`
+                          : `${j.salary_max}万以下`}
+                      </span>
+                    </>
                   )}
                   {j.application_deadline && (
                     <>
                       <Calendar size={12} />
-                      <span>締切 {j.application_deadline}</span>
+                      <span>締切 {formatDate(j.application_deadline)}</span>
                     </>
                   )}
                 </div>
@@ -1350,6 +1490,8 @@ function JobGrid({
             <Button
               variant="ghost"
               size="icon"
+              aria-pressed={saved.has(j.id)}
+              aria-label={saved.has(j.id) ? "保存済み" : "保存する"}
               onClick={(e) => {
                 e.stopPropagation()
                 toggleSave(j.id)
@@ -1377,48 +1519,57 @@ function JobGrid({
           key={j.id}
           className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow rounded-xl"
         >
-          <Link href={`/jobs/${j.id}`} className="block">
-            {j.cover_image_url && (
-              <div className="relative h-32 w-full overflow-hidden">
+          <Link
+            href={`/jobs/${j.id}`}
+            className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+          >
+            <div className="relative h-32 w-full overflow-hidden">
+              {j.cover_image_url ? (
                 <Image
-                  src={j.cover_image_url || "/placeholder.svg"}
+                  src={j.cover_image_url}
                   alt="cover"
                   fill
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                {j.companies?.logo && (
-                  <Image
-                    src={j.companies.logo || "/placeholder.svg"}
-                    alt={j.companies?.name ?? "logo"}
-                    width={64}
-                    height={64}
-                    className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
-                  />
-                )}
-                {j.is_featured && (
-                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
-                    <Star size={12} />
-                    おすすめ
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="p-4">
+              ) : (
+                <div className="h-full w-full bg-gradient-to-br from-gray-100 to-gray-200" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              {j.companies?.logo && (
+                <Image
+                  src={j.companies.logo || "/placeholder.svg"}
+                  alt={j.companies?.name ?? "logo"}
+                  width={64}
+                  height={64}
+                  className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                />
+              )}
+              {j.is_featured && (
+                <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
+                  <Star size={12} />
+                  おすすめ
+                </div>
+              )}
+            </div>
+            <div className="p-4 py-3 group">
               <span className={getSelectionLabelClass(j.selection_type)}>
                 {SELECTION_ICONS[j.selection_type ?? "fulltime"]}
                 {SELECTION_LABELS[j.selection_type ?? "fulltime"]}
               </span>
-              <h3 className="mb-1 line-clamp-1 font-bold">{j.title}</h3>
+              <h3 className="mb-1 font-bold leading-snug line-clamp-2 group-hover:underline">{j.title}</h3>
               <p className="line-clamp-1 text-sm text-gray-600">
                 {j.companies?.name ?? "-"}
               </p>
+              <p className="mt-1 line-clamp-1 text-xs text-gray-600">{j.description ?? ""}</p>
               <div className="mt-2 flex flex-wrap gap-1">
                 {(j.tags ?? []).slice(0, 3).map((t) => (
                   <Badge key={t} className="bg-red-100 text-red-700 rounded-full">
                     {t}
                   </Badge>
                 ))}
+                {Array.isArray(j.tags) && j.tags.length > 3 && (
+                  <Badge variant="outline" className="rounded-full">+{j.tags.length - 3}</Badge>
+                )}
               </div>
               {(j.salary_min || j.salary_max || j.application_deadline) && (
                 <div className="mt-3 text-xs text-gray-500 flex gap-1 items-center">
@@ -1434,7 +1585,7 @@ function JobGrid({
                   {j.application_deadline && (
                     <>
                       <Calendar size={12} />
-                      <span>締切 {j.application_deadline}</span>
+                      <span>締切 {formatDate(j.application_deadline)}</span>
                     </>
                   )}
                 </div>
@@ -1445,6 +1596,8 @@ function JobGrid({
             variant="ghost"
             size="icon"
             className="absolute right-2 top-2 bg-white/80 hover:bg-white rounded-full"
+            aria-pressed={saved.has(j.id)}
+            aria-label={saved.has(j.id) ? "保存済み" : "保存する"}
             onClick={(e) => {
               e.stopPropagation()
               toggleSave(j.id)
