@@ -33,6 +33,7 @@ import {
 // Local type definitions to remove dependency on ../App
 type Route =
   | '/ipo'
+  | '/ipo/login'
   | '/ipo/dashboard'
   | '/ipo/analysis'
   | '/ipo/selection'
@@ -130,6 +131,16 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
   };
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const noSidebarRoutes: Route[] = ['/ipo/login'];
+  const showSidebar = !noSidebarRoutes.includes(currentRoute);
+
+  if (!showSidebar) {
+    return (
+      <main className="min-h-screen w-full overflow-auto">
+        {children}
+      </main>
+    );
+  }
 
   return (
     <>
