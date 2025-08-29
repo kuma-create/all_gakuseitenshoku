@@ -98,7 +98,7 @@ export default function StudentHome() {
 
       setAuthChecked(true);
       if (!uid) {
-        router.replace("/auth/login");
+        router.replace("/(auth)/login" as Href);
       }
     })();
   }, []);
@@ -121,7 +121,7 @@ export default function StudentHome() {
 
       // フリガナ未入力ならオンボーディングへ
       if (sp && (!sp.last_name_kana || !sp.first_name_kana)) {
-        router.replace("/(student)/onboarding/profile");
+        router.replace("/(student)/onboarding/profile" as Href);
         return;
       }
 
@@ -563,8 +563,8 @@ function OffersCard({ offers }: { offers: Scout[] }) {
 function StatCards({ stats, loading }: { stats: Stats; loading: boolean }) {
   return (
     <View style={{ flexDirection: "row", gap: 12 }}>
-      <StatCard title="スカウト状況" desc="企業からのオファー" value={stats.scouts} loading={loading} href="/(student)/scouts" />
-      <StatCard title="応募履歴" desc="エントリーした求人" value={stats.applications} loading={loading} href="/(student)/applications" />
+      <StatCard title="スカウト状況" desc="企業からのオファー" value={stats.scouts} loading={loading} href={"/(student)/scouts" as Href} />
+      <StatCard title="応募履歴" desc="エントリーした求人" value={stats.applications} loading={loading} href={"/(student)/applications" as Href} />
     </View>
   );
 }
