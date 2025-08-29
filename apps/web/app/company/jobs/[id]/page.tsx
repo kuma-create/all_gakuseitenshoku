@@ -1180,32 +1180,6 @@ export default function JobEditPage() {
                 />
               </div>
 
-              {/* 応募締切日 ＆ 勤務開始日 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="applicationDeadline">応募締切日</Label>
-                  <Input
-                    id="applicationDeadline"
-                    name="applicationDeadline"
-                    type="date"
-                    value={formData.applicationDeadline}
-                    onChange={handleInputChange}
-                    className="mt-1"
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">空欄の場合、締切日なしとなります</p>
-                </div>
-                <div>
-                  <Label htmlFor="startDate">勤務開始日</Label>
-                  <Input
-                    id="startDate"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    className="mt-1"
-                    placeholder="例: 2023年4月1日 または 応相談"
-                  />
-                </div>
-              </div>
             </CardContent>
           </Card>
         )}
