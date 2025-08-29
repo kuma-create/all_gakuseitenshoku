@@ -9,6 +9,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import Image from "next/image"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MapPin, Calendar, Star, Users, Building2 } from "lucide-react"
 
 type HighlightFormItem = {
   icon: string
@@ -73,6 +79,38 @@ const INDUSTRY_OPTIONS = [
 /** YouTube URL pattern: matches youtube.com/watch?v=… or youtu.be/… */
 const YOUTUBE_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i;
 
+const iconToEmoji = (key: string) => {
+  switch (key) {
+    case 'growth': return '🏃‍♂️'
+    case 'training': return '📚'
+    case 'diversified': return '🌐'
+    case 'innovation': return '💡'
+    case 'worklife': return '⚖️'
+    case 'benefits': return '🎁'
+    case 'sustainability': return '🌱'
+    case 'remote': return '🏠'
+    case 'culture': return '🤝'
+    default: return '✨'
+  }
+}
+
+const toYouTubeEmbedUrl = (url: string) => {
+  if (!url) return ''
+  try {
+    if (/youtu\.be\//.test(url)) {
+      const id = url.split('youtu.be/')[1].split(/[?&#]/)[0]
+      return `https://www.youtube.com/embed/${id}`
+    }
+    const u = new URL(url)
+    if (u.hostname.includes('youtube.com')) {
+      const v = u.searchParams.get('v')
+      if (v) return `https://www.youtube.com/embed/${v}`
+      if (u.pathname.includes('/embed/')) return url
+    }
+  } catch {}
+  return ''
+}
+
 export default function MyCompanyPage() {
   const router = useRouter()
   const [companyId, setCompanyId] = useState<string | null>(null)
@@ -98,6 +136,7 @@ export default function MyCompanyPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
 
   // 既存データ取得
   useEffect(() => {
@@ -846,18 +885,267 @@ export default function MyCompanyPage() {
           </Button>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={saving}>
             {saving ? '保存中…' : '保存する'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowPreviewModal(true)}
+          >
+            未保存のままプレビュー
           </Button>
           {companyId && (
             <Link href={`/companies/${companyId}`} target="_blank">
               <Button type="button" variant="outline">
-                プレビュー
+                公開ページで確認（別タブ）
               </Button>
             </Link>
           )}
         </div>
+
+        <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>ドラフトプレビュー（未保存）</DialogTitle>
+            </DialogHeader>
+
+            <div id="draft-preview" className="rounded-none bg-transparent text-card-foreground">
+              {/* ------- Hero Section ------- */}
+              <div className={`relative h-[300px] md:h-[400px] w-full overflow-hidden ${form.cover_image ? "" : "bg-red-600"}`}>
+                {form.cover_image ? (
+                  <Image src={form.cover_image} alt="cover" fill className="object-cover" />
+                ) : (
+                  <Image src="/placeholder.svg" alt="cover" fill className="object-cover opacity-90" />
+                )}
+                {!form.cover_image && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-600/90 to-red-600/50" />
+                )}
+              </div>
+
+              {/* ------- Main Container ------- */}
+              <div className="container mx-auto px-4 py-8">
+                <div className="flex flex-col lg:flex-row gap-8">
+
+                  {/* ------- Left: Company Info ------- */}
+                  <div className="w-full lg:w-2/3">
+                    {/* Header Card */}
+                    <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+                      <div className="flex flex-col md:flex-row md:items-center gap-6">
+                        <div className="flex-shrink-0">
+                          <div className="rounded-md border overflow-hidden w-[80px] h-[80px] grid place-items-center bg-white">
+                            {form.logo ? (
+                              <Image src={form.logo} alt="logo" width={80} height={80} className="object-contain" />
+                            ) : (
+                              <Image src="/placeholder.svg?height=80&width=80" alt="logo" width={80} height={80} />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex-grow">
+                          {form.industry && (
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs">{form.industry}</Badge>
+                            </div>
+                          )}
+                          <h1 className="text-2xl font-bold">企業名（プレビュー）</h1>
+                          {form.tagline && (
+                            <p className="text-sm text-gray-600 mt-1">{form.tagline}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <Tabs defaultValue="overview" className="mb-6">
+                      <div className="bg-white rounded-xl shadow-sm">
+                        <TabsList className="w-full justify-start rounded-none border-b p-0">
+                          <TabsTrigger
+                            value="overview"
+                            className="rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+                          >
+                            企業概要
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="jobs"
+                            className="rounded-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3"
+                          >
+                            求人情報
+                          </TabsTrigger>
+                        </TabsList>
+
+                        {/* Overview */}
+                        <TabsContent value="overview" className="p-6">
+                          {/* Philosophy */}
+                          {form.philosophy.filter(p=>p.trim()!=="").length > 0 && (
+                            <div className="mb-8">
+                              <h2 className="text-xl font-bold mb-4">企業理念</h2>
+                              <div className="bg-gray-50 p-6 rounded-lg">
+                                {form.philosophy.filter(p=>p.trim()!="").map((paragraph, index) => (
+                                  <p key={index} className="mb-3 last:mb-0 text-gray-700">{paragraph}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Recruit Message */}
+                          {form.recruitMessage && (
+                            <div className="mb-8">
+                              <h2 className="text-xl font-bold mb-4">採用メッセージ</h2>
+                              <Card className="p-6 border-l-4 border-l-red-600">
+                                <p className="text-gray-700 whitespace-pre-wrap">{form.recruitMessage}</p>
+                              </Card>
+                            </div>
+                          )}
+
+                          {/* Company table */}
+                          <div>
+                            <h2 className="text-xl font-bold mb-4">企業情報</h2>
+                            <div className="bg-white border rounded-lg overflow-hidden">
+                              <table className="w-full">
+                                <tbody className="divide-y">
+                                  {form.industry && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50 w-1/3">業種</th>
+                                      <td className="py-4 px-6">{form.industry}</td>
+                                    </tr>
+                                  )}
+                                  {form.representative && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50">代表者</th>
+                                      <td className="py-4 px-6">{form.representative}</td>
+                                    </tr>
+                                  )}
+                                  {form.headquarters && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50">所在地</th>
+                                      <td className="py-4 px-6">{form.headquarters}</td>
+                                    </tr>
+                                  )}
+                                  {form.founded_on && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50">設立日</th>
+                                      <td className="py-4 px-6">{form.founded_on}</td>
+                                    </tr>
+                                  )}
+                                  {form.capital_jpy && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50">資本金</th>
+                                      <td className="py-4 px-6">{Number(form.capital_jpy).toLocaleString()} 万円</td>
+                                    </tr>
+                                  )}
+                                  {form.revenue_jpy && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50">売上高</th>
+                                      <td className="py-4 px-6">{Number(form.revenue_jpy).toLocaleString()} 万円</td>
+                                    </tr>
+                                  )}
+                                  {form.employee_count && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50">従業員数</th>
+                                      <td className="py-4 px-6">{form.employee_count} 名</td>
+                                    </tr>
+                                  )}
+                                  {form.businessAreas.filter(a=>a.trim()!="").length>0 && (
+                                    <tr className="hover:bg-gray-50">
+                                      <th className="py-4 px-6 text-left bg-gray-50">事業内容</th>
+                                      <td className="py-4 px-6">
+                                        <ul className="list-disc pl-5 space-y-1">
+                                          {form.businessAreas.filter(a=>a.trim()!="").map((area, index) => (
+                                            <li key={index}>{area}</li>
+                                          ))}
+                                        </ul>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </TabsContent>
+
+                        {/* Jobs Tab (from positions) */}
+                        <TabsContent value="jobs" className="p-6">
+                          <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold">求人情報</h2>
+                          </div>
+                          {form.positions.filter(p=>p.trim()!="").length === 0 ? (
+                            <p className="text-sm text-gray-500">現在公開中の求人はありません。</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {form.positions.filter(p=>p.trim()!="").map((pos, idx) => (
+                                <Card key={idx} className="p-4 flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Badge className="rounded-full px-3 py-1 text-xs font-semibold bg-blue-100 text-blue-800">募集</Badge>
+                                    <span className="font-semibold">{pos}</span>
+                                  </div>
+                                  <Button variant="outline" size="sm">詳細</Button>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+                  </div>
+
+                  {/* ------- Right: Sidebar ------- */}
+                  <div className="w-full lg:w-1/3 space-y-6">
+                    {/* Highlights */}
+                    <Card className="p-6">
+                      <h2 className="text-lg font-bold mb-4">企業の魅力</h2>
+                      {form.highlights.filter(h=> (h.icon||h.title||h.body).trim()!=="").length === 0 ? (
+                        <p className="text-sm text-gray-500">魅力情報はまだ登録されていません。</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {form.highlights
+                            .filter(h=> (h.icon||h.title||h.body).trim()!=="")
+                            .map((hl, i) => (
+                              <div key={i} className="flex items-start gap-3">
+                                <div className="bg-red-100 p-2 rounded-full text-red-600">
+                                  {hl.icon === 'training' ? (
+                                    <Users size={20} />
+                                  ) : hl.icon === 'diversified' ? (
+                                    <Building2 size={20} />
+                                  ) : (
+                                    <Star size={20} />
+                                  )}
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold">{hl.title || '（タイトル未入力）'}</h3>
+                                  {hl.body && <p className="text-sm text-gray-600 whitespace-pre-line">{hl.body}</p>}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* Video */}
+                    {YOUTUBE_REGEX.test(form.video_url.trim()) && toYouTubeEmbedUrl(form.video_url.trim()) && (
+                      <Card className="overflow-hidden">
+                        <div className="aspect-video relative">
+                          <iframe
+                            src={toYouTubeEmbedUrl(form.video_url.trim())}
+                            className="absolute inset-0 w-full h-full"
+                            frameBorder={0}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold">企業紹介ムービー</h3>
+                          <p className="text-sm text-gray-600">動画で企業の雰囲気をご覧ください</p>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </form>
     </div>
   )
