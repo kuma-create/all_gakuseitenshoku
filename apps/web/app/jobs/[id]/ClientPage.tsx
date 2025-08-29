@@ -77,6 +77,8 @@ export default function ClientPage({ id }: { id: string }) {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
   const [job, setJob]           = useState<SelectionWithCompany | null>(null)
+  const [limitedMask, setLimitedMask] = useState(false)
+  const [limitedTitle, setLimitedTitle] = useState<string>("")
   const [company, setCompany]   = useState<CompanyRow | null>(null)
   const [tags, setTags]         = useState<string[]>([])
   const [related, setRelated]   = useState<SelectionRow[]>([])
@@ -95,6 +97,20 @@ export default function ClientPage({ id }: { id: string }) {
     ;(async () => {
       try {
         setLoading(true)
+
+        // --- Early check: member_only & session ---
+        const [{ data: sess }, { data: jobRow }] = await Promise.all([
+          supabase.auth.getSession(),
+          supabase.from("jobs").select("member_only,title").eq("id", id).maybeSingle(),
+        ] as const);
+        const isLoggedIn = !!sess.session;
+        const isMemberOnly = !!jobRow?.member_only;
+        if (isMemberOnly && !isLoggedIn) {
+          setLimitedMask(true);
+          setLimitedTitle(jobRow?.title ?? "");
+          setLoading(false);
+          return;
+        }
 
         /* selection + company */
         const { data: selRows, error: selErr } = await supabase
@@ -430,7 +446,40 @@ export default function ClientPage({ id }: { id: string }) {
     }
   }
 
-  /* ---------- ui: loading / error ---------- */
+  /* ---------- ui: limited mask / loading / error ---------- */
+  if (limitedMask) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-20">
+        <main className="container mx-auto px-4 py-8">
+          <div className="mb-6 flex items-center gap-2">
+            <Button variant="ghost" onClick={() => router.back()} className="text-gray-500 hover:text-red-600">
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              戻る
+            </Button>
+          </div>
+          <div className="mx-auto max-w-5xl">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-6">
+                <h1 className="text-2xl font-bold mb-2">{limitedTitle || "求人詳細（限定公開）"}</h1>
+                <p className="text-xs inline-flex items-center rounded-full bg-red-600 px-2 py-0.5 font-medium text-white mb-4">限定公開</p>
+                <p className="text-sm text-gray-600">
+                  この求人は<strong className="text-red-600">限定公開</strong>です。企業名・企業ロゴ・求人画像・勤務地などの詳細は、ログイン後に表示されます。
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <Button asChild variant="outline">
+                    <a href="/login">ログイン</a>
+                  </Button>
+                  <Button asChild className="bg-red-600 hover:bg-red-700">
+                    <a href="/signup">無料登録</a>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">

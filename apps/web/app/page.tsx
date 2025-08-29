@@ -27,6 +27,7 @@ import {
   MessageSquare,
   Trophy,
   ChevronRight,
+  Lock,
 } from "lucide-react"
 import ArticleCard from "@/components/article-card"
 import TrendingTopics from "@/components/trending-topics"
@@ -120,33 +121,31 @@ export default function Home() {
             .order("rating", { ascending: false })
             .limit(8),
 
-          // 新着求人
+          // 新着求人（member_only も含めて取得）
           supabase
             .from("jobs")
             .select(
               `id, title, description, location, salary_range, work_type, selection_type, cover_image_url,
-               is_recommended, created_at, application_deadline,
+               is_recommended, created_at, application_deadline, member_only,
                companies ( name, logo )`
             )
             .eq("published", true)
             .eq("selection_type", "fulltime")
-            .or('member_only.is.null,member_only.eq.false')
             .order("created_at", { ascending: false })
             .limit(8),
 
-          // インターンシップ
+          // インターンシップ（member_only も含めて取得）
           supabase
             .from("jobs")
             .select(
               `id, title, description, location, work_type,
-               selection_type, cover_image_url, created_at, is_recommended,
+               selection_type, cover_image_url, created_at, is_recommended, member_only,
                companies ( name, logo ),
                intern_long_details!job_id ( hourly_wage, remuneration_type, commission_rate ),
                internship_details!job_id ( allowance )`
             )
             .eq("published", true)
             .in("selection_type", ["intern_long", "internship_short"])
-            .or('member_only.is.null,member_only.eq.false')
             .order("created_at", { ascending: false })
             .limit(6),
         ]);
@@ -186,68 +185,74 @@ export default function Home() {
         /* ---------- 新着求人 ---------- */
         if (!jobsErr && jobsData) {
           setJobListings(
-            jobsData.map((j: any) => ({
-              id: j.id,
-              title: j.title,
-              company: j.companies?.name ?? "",
-              companyLogo: j.companies?.logo ?? "",
-              location: j.location ?? "",
-              salary: j.salary_range ?? "",
-              type: j.work_type ?? "",
-              tags: [],
-              description: j.description ?? "",
-              postedAt: j.created_at,
-              deadline: j.application_deadline,
-              isNew:
-                Date.now() - new Date(j.created_at).getTime() <
-                1000 * 60 * 60 * 24 * 7, // 7 days
-              isRecommended: j.is_recommended,
-              coverImageUrl: j.cover_image_url ?? "",
-              selectionType: j.selection_type ?? "fulltime",
-            }))
+            jobsData.map((j: any) => {
+              const isLimited = !!j.member_only;
+              const shouldMask = isLimited && !supaSession; // 非ログイン時のみ伏せる
+              return {
+                id: j.id,
+                title: j.title,
+                company: shouldMask ? "（ログイン後に表示）" : (j.companies?.name ?? ""),
+                companyLogo: shouldMask ? "" : (j.companies?.logo ?? ""),
+                location: shouldMask ? "" : (j.location ?? ""),
+                salary: j.salary_range ?? "",
+                type: j.work_type ?? "",
+                tags: [],
+                description: j.description ?? "",
+                postedAt: j.created_at,
+                deadline: j.application_deadline,
+                isNew:
+                  Date.now() - new Date(j.created_at).getTime() <
+                  1000 * 60 * 60 * 24 * 7, // 7 days
+                isRecommended: j.is_recommended,
+                coverImageUrl: shouldMask ? "" : (j.cover_image_url ?? ""),
+                selectionType: j.selection_type ?? "fulltime",
+                isLimited,
+              }
+            })
           );
         }
 
         /* ---------- インターンシップ ---------- */
         if (!internsErr && internsData) {
           setInternships(
-            internsData.map((i: any) => ({
-              id: i.id,
-              title: i.title,
-              company: i.companies?.name ?? "",
-              companyLogo: i.companies?.logo ?? "",
-              location: i.location ?? "",
-              description: i.description ?? "",
-              coverImageUrl: i.cover_image_url ?? "",
-              isNew:
-                Date.now() - new Date(i.created_at).getTime() <
-                1000 * 60 * 60 * 24 * 7,
-              duration: "-", // 期間情報は別テーブルを後で紐づける想定
-              salary:
-                i.selection_type === "intern_long"
-                  ? (() => {
-                      const d =
-                        (Array.isArray(i.intern_long_details)
-                          ? i.intern_long_details[0]
-                          : i.intern_long_details) || {};
-                      if (d.remuneration_type === "hourly") {
-                        return d.hourly_wage ? `時給${d.hourly_wage}円` : "";
-                      }
-                      if (d.remuneration_type === "commission") {
-                        return d.commission_rate
-                          ? `歩合${d.commission_rate}`
-                          : "";
-                      }
-                      return "";
-                    })()
-                  : i.selection_type === "internship_short"
-                  ? (i.internship_details?.allowance ??
-                      i.internship_details?.[0]?.allowance ??
-                      "")
-                  : "",
-              isRemote: i.work_type === "リモート",
-              isRecommended: i.is_recommended,
-            }))
+            internsData.map((i: any) => {
+              const isLimited = !!i.member_only;
+              const shouldMask = isLimited && !supaSession;
+              return {
+                id: i.id,
+                title: i.title,
+                company: shouldMask ? "（ログイン後に表示）" : (i.companies?.name ?? ""),
+                companyLogo: shouldMask ? "" : (i.companies?.logo ?? ""),
+                location: shouldMask ? "" : (i.location ?? ""),
+                description: i.description ?? "",
+                coverImageUrl: shouldMask ? "" : (i.cover_image_url ?? ""),
+                isNew:
+                  Date.now() - new Date(i.created_at).getTime() <
+                  1000 * 60 * 60 * 24 * 7,
+                duration: "-",
+                salary:
+                  i.selection_type === "intern_long"
+                    ? (() => {
+                        const d =
+                          (Array.isArray(i.intern_long_details)
+                            ? i.intern_long_details[0]
+                            : i.intern_long_details) || {};
+                        if (d.remuneration_type === "hourly") {
+                          return d.hourly_wage ? `時給${d.hourly_wage}円` : "";
+                        }
+                        if (d.remuneration_type === "commission") {
+                          return d.commission_rate ? `歩合${d.commission_rate}` : "";
+                        }
+                        return "";
+                      })()
+                    : i.selection_type === "internship_short"
+                    ? (i.internship_details?.allowance ?? i.internship_details?.[0]?.allowance ?? "")
+                    : "",
+                isRemote: i.work_type === "リモート",
+                isRecommended: i.is_recommended,
+                isLimited,
+              }
+            })
           );
         }
       } catch (e) {
@@ -1004,32 +1009,43 @@ return (
                 className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow rounded-xl"
               >
                 <Link href={`/jobs/${job.id}`} className="block">
-                  {job.coverImageUrl && (
-                    <div className="relative h-32 w-full overflow-hidden">
+                  <div className="relative h-32 w-full overflow-hidden">
+                    {job.coverImageUrl ? (
                       <Image
                         src={job.coverImageUrl || "/placeholder.svg"}
                         alt="cover"
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      {job.companyLogo && (
-                        <Image
-                          src={job.companyLogo || "/placeholder.svg"}
-                          alt={job.company}
-                          width={64}
-                          height={64}
-                          className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
-                        />
-                      )}
-                      {job.isRecommended && (
-                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
-                          <Star size={12} />
-                          おすすめ
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    ) : (
+                      <div className="absolute inset-0 grid place-items-center bg-gray-200">
+                        {job.isLimited && !session ? (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Lock className="w-5 h-5" />
+                            <span className="text-xs">限定公開（ログインで表示）</span>
+                          </div>
+                        ) : (
+                          <div className="h-full w-full" />
+                        )}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    {job.companyLogo && (
+                      <Image
+                        src={job.companyLogo || "/placeholder.svg"}
+                        alt={job.company}
+                        width={64}
+                        height={64}
+                        className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                      />
+                    )}
+                    {job.isRecommended && (
+                      <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
+                        <Star size={12} />
+                        おすすめ
+                      </div>
+                    )}
+                  </div>
 
                   <div className="p-4">
                     <h3 className="mb-1 line-clamp-1 font-bold">{job.title}</h3>
@@ -1055,6 +1071,9 @@ return (
                 </Link>
 
                 <div className="absolute right-2 top-2 flex space-x-1">
+                  {job.isLimited && !session && (
+                    <Badge className="bg-gray-800/80 text-white text-xs">限定公開</Badge>
+                  )}
                   {job.isNew && (
                     <Badge className="bg-green-100 text-green-700 text-xs">NEW</Badge>
                   )}
@@ -1089,32 +1108,43 @@ return (
                 className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow rounded-xl"
               >
                 <Link href={`/jobs/${internship.id}`} className="block">
-                  {internship.coverImageUrl && (
-                    <div className="relative h-32 w-full overflow-hidden">
+                  <div className="relative h-32 w-full overflow-hidden">
+                    {internship.coverImageUrl ? (
                       <Image
                         src={internship.coverImageUrl || "/placeholder.svg"}
                         alt="cover"
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      {internship.companyLogo && (
-                        <Image
-                          src={internship.companyLogo || "/placeholder.svg"}
-                          alt={internship.company}
-                          width={64}
-                          height={64}
-                          className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
-                        />
-                      )}
-                      {internship.isRecommended && (
-                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
-                          <Star size={12} />
-                          おすすめ
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    ) : (
+                      <div className="absolute inset-0 grid place-items-center bg-gray-200">
+                        {internship.isLimited && !session ? (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Lock className="w-5 h-5" />
+                            <span className="text-xs">限定公開（ログインで表示）</span>
+                          </div>
+                        ) : (
+                          <div className="h-full w-full" />
+                        )}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    {internship.companyLogo && (
+                      <Image
+                        src={internship.companyLogo || "/placeholder.svg"}
+                        alt={internship.company}
+                        width={64}
+                        height={64}
+                        className="absolute bottom-2 left-2 rounded-full border-2 border-white bg-white object-contain"
+                      />
+                    )}
+                    {internship.isRecommended && (
+                      <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-1 text-xs font-medium text-yellow-900">
+                        <Star size={12} />
+                        おすすめ
+                      </div>
+                    )}
+                  </div>
 
                   <div className="p-4">
                     <h3 className="mb-1 line-clamp-1 font-bold">{internship.title}</h3>
@@ -1135,6 +1165,9 @@ return (
                 </Link>
 
                 <div className="absolute right-2 top-2 flex space-x-1">
+                  {internship.isLimited && !session && (
+                    <Badge className="bg-gray-800/80 text-white text-xs">限定公開</Badge>
+                  )}
                   {internship.isNew && (
                     <Badge className="bg-green-100 text-green-700 text-xs">NEW</Badge>
                   )}
