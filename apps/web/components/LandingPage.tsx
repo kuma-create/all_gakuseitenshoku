@@ -546,7 +546,7 @@ export function LandingPage({ navigate, user }: LandingPageProps) {
                 <>
                   <button
                     className="text-gray-700 hover:text-gray-900 font-medium transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 px-2 py-1 sm:px-3 sm:py-1.5 text-sm sm:text-base"
-                    onClick={() => navigate('/ipo-signup')}
+                    onClick={() => navigate('/ipo/login')}
                   >
                     ログイン
                   </button>

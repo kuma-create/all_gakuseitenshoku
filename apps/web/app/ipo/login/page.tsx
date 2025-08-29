@@ -3,13 +3,12 @@
 import { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Lock, User, Building2, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase/client";
@@ -123,7 +122,7 @@ const LoginForm = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor={`${idPref}-pw`} className="text-sm">パスワード</Label>
-          <Link href="/forgot-password" prefetch={false} className="text-xs text-red-600 hover:underline">
+          <Link href="/forgot-password" prefetch={false} className="text-xs text-sky-600 hover:underline">
             パスワードをお忘れ？
           </Link>
         </div>
@@ -147,7 +146,7 @@ const LoginForm = ({
         </div>
       </div>
 
-      <Button type="submit" className="w-full bg-red-600 py-6 text-base font-semibold tracking-wide hover:bg-red-700" disabled={loading}>
+      <Button type="submit" className="w-full bg-sky-600 py-6 text-base font-semibold tracking-wide hover:bg-sky-700" disabled={loading}>
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         ログイン
       </Button>
@@ -170,7 +169,6 @@ export default function IPOLoginPage() {
     : ctxError;
   const ready = session !== undefined;
 
-  const [tab, setTab] = useState<Role>("student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPW, setShowPW] = useState(false);
@@ -191,7 +189,7 @@ export default function IPOLoginPage() {
         ? "/ipo/company-dashboard"
         : realRole === "admin"
         ? "/ipo/admin"
-        : "/ipo"; // 学生は IPO のトップへ
+        : "/ipo/dashboard"; // 学生は IPO のトップへ
 
       router.replace(dest);
     };
@@ -249,10 +247,10 @@ export default function IPOLoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-red-100 via-white to-white dark:from-zinc-900 dark:via-zinc-900/60">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-sky-100 via-white to-white dark:from-zinc-900 dark:via-zinc-900/60">
       {/* 背景ぼかし */}
-      <motion.div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-red-500/30 blur-3xl" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 1 }} />
-      <motion.div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-pink-300/20 blur-3xl" initial={{ scale: 0 }} animate={{ scale: 1.2 }} transition={{ duration: 1.2 }} />
+      <motion.div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-sky-400/30 blur-3xl" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 1 }} />
+      <motion.div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-sky-200/20 blur-3xl" initial={{ scale: 0 }} animate={{ scale: 1.2 }} transition={{ duration: 1.2 }} />
 
       {/* カード */}
       <motion.div
@@ -266,20 +264,9 @@ export default function IPOLoginPage() {
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">IPO大学メンバー向けポータル</p>
         </div>
 
-        {/* ロールタブ */}
-        <Tabs value={tab} onValueChange={(v) => setTab(v as Role)} className="mt-6">
-          <TabsList className="grid grid-cols-2 rounded-xl bg-gray-100 p-1 dark:bg-zinc-700">
-            <TabsTrigger value="student" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">
-              <User size={16} className="mr-1" /> 学生
-            </TabsTrigger>
-            <TabsTrigger value="company" className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">
-              <Building2 size={16} className="mr-1" /> 企業
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
 
         <LoginForm
-          role={tab}
+          role={"student"}
           email={email}
           password={password}
           showPW={showPW}
@@ -299,11 +286,11 @@ export default function IPOLoginPage() {
               redirect
                 ? `/ipo/signup?redirect=${encodeURIComponent(redirect)}`
                 : nextPath
-                ? `/ipo/signup?next=${encodeURIComponent(nextPath)}`
-                : "/ipo/signup"
+                ? `/ipo-signup?next=${encodeURIComponent(nextPath)}`
+                : "/ipo-signup"
             }`}
             prefetch={false}
-            className="ml-1 font-medium text-red-600 hover:underline"
+            className="ml-1 font-medium text-sky-600 hover:underline"
           >
             新規登録
           </Link>
