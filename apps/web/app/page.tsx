@@ -130,6 +130,7 @@ export default function Home() {
             )
             .eq("published", true)
             .eq("selection_type", "fulltime")
+            .or('member_only.is.null,member_only.eq.false')
             .order("created_at", { ascending: false })
             .limit(8),
 
@@ -145,6 +146,7 @@ export default function Home() {
             )
             .eq("published", true)
             .in("selection_type", ["intern_long", "internship_short"])
+            .or('member_only.is.null,member_only.eq.false')
             .order("created_at", { ascending: false })
             .limit(6),
         ]);
