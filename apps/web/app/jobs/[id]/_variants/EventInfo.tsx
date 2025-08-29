@@ -195,7 +195,7 @@ export default function EventInfo({
           {/* header */}
           <Card className="mb-6 overflow-hidden border-0 shadow-md">
             {primaryImage ? (
-              <div className="relative w-full h-64 sm:h-80 md:h-96 lg:h-[30rem]">
+              <div className="relative w-full aspect-[21/9] sm:aspect-[16/6] overflow-hidden">
                 <Image
                   src={primaryImage}
                   alt="求人画像"
@@ -206,7 +206,7 @@ export default function EventInfo({
                 />
               </div>
             ) : (
-              <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90" />
+              <div className="w-full aspect-[21/9] sm:aspect-[16/6] bg-gradient-to-r from-red-500 to-red-600 opacity-90" />
             )}
             <CardContent className="relative -mt-16 bg-white p-6">
               <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">

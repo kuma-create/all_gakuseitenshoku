@@ -161,7 +161,7 @@ export default function InternInfo({
         <div className="md:col-span-2">
           {/* header */}
           <Card className="mb-6 overflow-hidden border-0 shadow-md">
-            <div className="relative h-40 w-full sm:h-56 md:h-64">
+            <div className="relative w-full aspect-[21/9] sm:aspect-[16/6] overflow-hidden">
               <Image
                 src={
                   // Job-level images (DB)

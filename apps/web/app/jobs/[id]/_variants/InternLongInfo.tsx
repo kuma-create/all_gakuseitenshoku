@@ -137,12 +137,27 @@ export default function InternInfo({
     const paid = internship.is_paid;
     const type = internship.remuneration_type ?? "hourly";
     if (paid === false) return "無給";
+
     if (type === "commission") {
-      return internship.commission_rate ? `歩合 ${internship.commission_rate}` : "歩合";
+      return internship.commission_rate
+        ? `歩合 ${internship.commission_rate}`
+        : "歩合";
     }
-    if (typeof internship.hourly_wage === "number") {
-      return `${internship.hourly_wage.toLocaleString()}円／時`;
+
+    if (type === "hourly") {
+      // Prefer new min/max fields; fall back to legacy hourly_wage
+      const min = parseNum((internship as any)?.hourly_wage_min ?? (internship as any)?.hourly_wage);
+      const max = parseNum((internship as any)?.hourly_wage_max);
+
+      if (min != null && max != null) {
+        return `${min.toLocaleString()}〜${max.toLocaleString()}円／時`;
+      }
+      if (min != null) {
+        return `${min.toLocaleString()}円／時`;
+      }
+      return "-";
     }
+
     if (paid === true) return "有給";
     return "-";
   })()
@@ -163,14 +178,14 @@ export default function InternInfo({
       ? internship.working_hours
       : "-";
 
-  const parseNum = (v: any) => {
+  function parseNum(v: any): number | null {
     if (typeof v === "number") return Number.isFinite(v) ? v : null;
     if (typeof v === "string" && v.trim() !== "") {
       const n = Number(v);
       return Number.isFinite(n) ? n : null;
     }
     return null;
-  };
+  }
 
   // helpers to safely read from object or array containers
   const readField = (container: any, key: string) => {
@@ -258,7 +273,7 @@ export default function InternInfo({
         <div className="md:col-span-2">
           {/* header */}
           <Card className="mb-6 overflow-hidden border-0 shadow-md">
-            <div className="relative w-full h-[420px] sm:h-[520px] md:h-[680px] lg:h-[800px]">
+            <div className="relative w-full aspect-[21/9] sm:aspect-[16/6] overflow-hidden">
               <Image
                 src={headerImage}
                 alt="求人イメージ"

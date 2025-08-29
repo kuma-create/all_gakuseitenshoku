@@ -226,7 +226,7 @@ export default function FulltimeInfo({
             {/* Header */}
             <Card className="mb-6 overflow-hidden border-0 shadow-md">
               {jobImageUrl ? (
-                <div className="relative h-64 w-full sm:h-72 md:h-80 lg:h-96">
+                <div className="relative w-full aspect-[21/9] sm:aspect-[16/6] overflow-hidden">
                   <Image
                     src={jobImageUrl}
                     alt={`${job?.title ?? "求人"} の募集画像`}
@@ -237,7 +237,7 @@ export default function FulltimeInfo({
                   <div className="absolute inset-0 bg-black/10" />
                 </div>
               ) : (
-                <div className="h-64 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90 sm:h-72 md:h-80 lg:h-96"></div>
+                <div className="w-full aspect-[21/9] sm:aspect-[16/6] bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
               )}
               <CardContent className="relative -mt-28 bg-white p-6 md:-mt-32">
                 <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">

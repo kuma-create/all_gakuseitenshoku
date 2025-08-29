@@ -57,7 +57,8 @@ type FormData = {
   workDaysPerWeek: string
   allowance: string
   /* Intern‑Long */
-  hourlyWage: string
+  hourlyWageMin: string
+  hourlyWageMax: string
   travelExpense: string
   nearestStation: string
   remunerationType: "hourly" | "commission",
@@ -154,7 +155,7 @@ const fetchJob = async (id: string) => {
       fulltime_details:fulltime_details!job_id (working_days, working_hours, benefits, salary_min, salary_max, is_ongoing),
       internship_details:internship_details!job_id (start_date, end_date, duration_weeks, work_days_per_week, allowance),
       event_details:event_details!job_id (event_date, event_time, event_end_time, capacity, venue, format),
-      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage, travel_expense, nearest_station, benefits, remuneration_type, commission_rate, is_paid, min_daily_hours)
+      intern_long_details:intern_long_details!job_id (working_hours, work_days_per_week, hourly_wage_min, hourly_wage_max, travel_expense, nearest_station, benefits, remuneration_type, commission_rate, is_paid, min_daily_hours)
     `)
     .eq("id", id)
     .single()
@@ -196,9 +197,13 @@ const fetchJob = async (id: string) => {
       internLong.working_hours !== undefined && internLong.working_hours !== null
         ? String(internLong.working_hours)
         : full.working_hours ?? "",
-    hourlyWage:
-      internLong.hourly_wage !== undefined && internLong.hourly_wage !== null
-        ? String(internLong.hourly_wage)
+    hourlyWageMin:
+      internLong.hourly_wage_min !== undefined && internLong.hourly_wage_min !== null
+        ? String(internLong.hourly_wage_min)
+        : "",
+    hourlyWageMax:
+      internLong.hourly_wage_max !== undefined && internLong.hourly_wage_max !== null
+        ? String(internLong.hourly_wage_max)
         : "",
     travelExpense  : internLong.travel_expense  ?? "",
     nearestStation : internLong.nearest_station ?? "",
@@ -325,7 +330,8 @@ export default function JobEditPage() {
     workDaysPerWeek: "",
     allowance: "",
     /* Intern‑Long */
-    hourlyWage      : "",
+    hourlyWageMin   : "",
+    hourlyWageMax   : "",
     travelExpense   : "",
     nearestStation  : "",
     remunerationType   : "hourly",
@@ -371,7 +377,8 @@ export default function JobEditPage() {
           workDaysPerWeek : jobData.workDaysPerWeek,
           allowance       : jobData.allowance,
           /* Intern‑Long */
-          hourlyWage        : jobData.hourlyWage        ?? "",
+          hourlyWageMin     : jobData.hourlyWageMin     ?? "",
+          hourlyWageMax     : jobData.hourlyWageMax     ?? "",
           travelExpense     : jobData.travelExpense,
           nearestStation    : jobData.nearestStation,
           remunerationType    : jobData.remunerationType,
@@ -482,7 +489,6 @@ export default function JobEditPage() {
       if (!formData.endDate.trim()) newErrors.endDate = "終了日は必須です";
     }
     if (job.selectionType === "intern_long") {
-    if (job.selectionType === "intern_long") {
       // 開始日必須チェックは削除
 
       if (!formData.workingHours.trim()) {
@@ -503,40 +509,19 @@ export default function JobEditPage() {
       }
 
       if (formData.remunerationType === "hourly") {
-        if (!formData.hourlyWage.trim()) {
-          newErrors.hourlyWage = "時給は必須です";
-        } else if (parseNumber(formData.hourlyWage) === null) {
-          newErrors.hourlyWage = "数字で入力してください（例: 1200）";
+        if (!formData.hourlyWageMin.trim()) {
+          newErrors.hourlyWageMin = "最低時給は必須です";
+        } else if (parseNumber(formData.hourlyWageMin) === null) {
+          newErrors.hourlyWageMin = "数字で入力してください（例: 1200）";
         }
-      } else {
-        if (!formData.commissionRate.trim()) {
-          newErrors.commissionRate = "歩合の条件を入力してください";
-        }
-      }
-    }
-
-      if (!formData.workingHours.trim()) {
-        newErrors.workingHours = "勤務時間は必須です";
-      }
-
-      if (!formData.workDaysPerWeek.trim()) {
-        newErrors.workDaysPerWeek = "勤務日数は必須です";
-      } else if (parseNumber(formData.workDaysPerWeek) === null) {
-        newErrors.workDaysPerWeek = "数字で入力してください（例: 3）";
-      }
-
-      // minDailyHours validation
-      if (!formData.minDailyHours.trim()) {
-        newErrors.minDailyHours = "1日の最低稼働時間は必須です";
-      } else if (parseNumber(formData.minDailyHours) === null) {
-        newErrors.minDailyHours = "数字で入力してください（例: 4）";
-      }
-
-      if (formData.remunerationType === "hourly") {
-        if (!formData.hourlyWage.trim()) {
-          newErrors.hourlyWage = "時給は必須です";
-        } else if (parseNumber(formData.hourlyWage) === null) {
-          newErrors.hourlyWage = "数字で入力してください（例: 1200）";
+        if (formData.hourlyWageMax.trim()) {
+          const min = parseNumber(formData.hourlyWageMin);
+          const max = parseNumber(formData.hourlyWageMax);
+          if (max === null) {
+            newErrors.hourlyWageMax = "数字で入力してください（例: 1800）";
+          } else if (min !== null && max < min) {
+            newErrors.hourlyWageMax = "最大時給は最低時給以上にしてください";
+          }
         }
       } else {
         if (!formData.commissionRate.trim()) {
@@ -651,10 +636,11 @@ export default function JobEditPage() {
             // 0 が入り得ないため Non‑Null Assertion（バリデーション済）
             working_hours       : formData.workingHours || null,
             work_days_per_week  : parseNumber(formData.workDaysPerWeek),
-            hourly_wage         : formData.remunerationType === "hourly" ? parseNumber(formData.hourlyWage) : null,
+            hourly_wage_min     : formData.remunerationType === "hourly" ? parseNumber(formData.hourlyWageMin) : null,
+            hourly_wage_max     : formData.remunerationType === "hourly" && formData.hourlyWageMax ? parseNumber(formData.hourlyWageMax) : null,
             remuneration_type   : formData.remunerationType,
             commission_rate     : formData.remunerationType === "commission" ? (formData.commissionRate || null) : null,
-            is_paid             : formData.remunerationType === "commission" ? true : !!parseNumber(formData.hourlyWage),
+            is_paid             : formData.remunerationType === "commission" ? true : !!parseNumber(formData.hourlyWageMin),
             travel_expense      : formData.travelExpense || null,
             nearest_station     : formData.nearestStation || null,
             benefits            : formData.benefits || null,
@@ -1389,24 +1375,38 @@ export default function JobEditPage() {
                   {/* 時給 or 歩合 */}
                   {formData.remunerationType === "hourly" ? (
                     <div className="">
-                      <Label htmlFor="hourlyWage" className="flex items-center gap-1">
-                        時給<span className="text-red-500">*</span>
+                      <Label className="flex items-center gap-1">
+                        時給レンジ<span className="text-red-500">*</span>
                       </Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
-                        <Input
-                          id="hourlyWage"
-                          name="hourlyWage"
-                          value={formData.hourlyWage}
-                          onChange={handleInputChange}
-                          className={`pl-10 mt-1 ${
-                            errors.hourlyWage ? "border-red-500" : ""
-                          }`}
-                          placeholder="例: 1500円"
-                        />
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                          <Input
+                            id="hourlyWageMin"
+                            name="hourlyWageMin"
+                            value={formData.hourlyWageMin}
+                            onChange={handleInputChange}
+                            className={`pl-10 ${errors.hourlyWageMin ? "border-red-500" : ""}`}
+                            placeholder="最小（例: 1200）"
+                          />
+                        </div>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                          <Input
+                            id="hourlyWageMax"
+                            name="hourlyWageMax"
+                            value={formData.hourlyWageMax}
+                            onChange={handleInputChange}
+                            className={`pl-10 ${errors.hourlyWageMax ? "border-red-500" : ""}`}
+                            placeholder="最大（任意）"
+                          />
+                        </div>
                       </div>
-                      {errors.hourlyWage && (
-                        <p className="text-sm text-red-500 mt-1">{errors.hourlyWage}</p>
+                      {errors.hourlyWageMin && (
+                        <p className="text-sm text-red-500 mt-1">{errors.hourlyWageMin}</p>
+                      )}
+                      {errors.hourlyWageMax && (
+                        <p className="text-sm text-red-500 mt-1">{errors.hourlyWageMax}</p>
                       )}
                     </div>
                   ) : (
@@ -1908,8 +1908,8 @@ export default function JobEditPage() {
                             label="報酬"
                             value={
                               formData.remunerationType === "hourly"
-                                ? formData.hourlyWage
-                                  ? `${formData.hourlyWage}円／時`
+                                ? formData.hourlyWageMin
+                                  ? `${formData.hourlyWageMin}${formData.hourlyWageMax ? `〜${formData.hourlyWageMax}` : ""}円／時`
                                   : "要相談"
                                 : formData.commissionRate
                                 ? `歩合 ${formData.commissionRate}`
