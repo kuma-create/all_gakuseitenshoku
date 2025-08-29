@@ -50,8 +50,8 @@ export async function generateMetadata(
     const url =
       `${supabaseUrl}/rest/v1/selections_view` +
       `?id=eq.${encodeURIComponent(id)}` +
-      `&select=id,title,location,salary_range,selection_type,application_deadline,` +
-      `company:companies(name,logo)`;
+      `&select=id,title,location,salary_range,selection_type,application_deadline,cover_image_url,` +
+      `company:companies(name,logo,cover_image_url)`;
 
     const res = await fetch(url, {
       headers: { apikey: supabaseAnon, Authorization: `Bearer ${supabaseAnon}` },
@@ -69,7 +69,7 @@ export async function generateMetadata(
         description =
           `${row.title} の募集要項ページ。勤務地：${row.location ?? "未定"}、給与：${salary}。` +
           `締め切り：${row.application_deadline ?? "未定"}。${row?.company?.name ?? ""} の企業情報も掲載しています。`;
-        ogImage = row?.company?.logo ?? undefined;
+        ogImage = row?.cover_image_url ?? row?.company?.cover_image_url ?? row?.company?.logo ?? undefined;
       }
     }
   } catch {
@@ -113,7 +113,7 @@ export default async function Page({ params }: { params: Params }) {
   let jp: any = null;
   try {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/selections_view?id=eq.${encodeURIComponent(id)}&select=id,title,description,selection_type,application_deadline,location,salary_range,company:companies(name)`,
+      `${supabaseUrl}/rest/v1/selections_view?id=eq.${encodeURIComponent(id)}&select=id,title,description,selection_type,application_deadline,location,salary_range,cover_image_url,company:companies(name,cover_image_url)`,
       { headers: { apikey: supabaseAnon, Authorization: `Bearer ${supabaseAnon}` }, next: { revalidate: 60 } }
     );
     if (res.ok) {

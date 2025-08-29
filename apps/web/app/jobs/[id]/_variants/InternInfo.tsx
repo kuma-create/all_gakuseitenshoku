@@ -161,7 +161,27 @@ export default function InternInfo({
         <div className="md:col-span-2">
           {/* header */}
           <Card className="mb-6 overflow-hidden border-0 shadow-md">
-            <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
+            <div className="relative h-40 w-full sm:h-56 md:h-64">
+              <Image
+                src={
+                  // Job-level images (DB)
+                  job?.cover_image_url ||
+                  job?.cover_image ||
+                  job?.thumbnail_url ||
+                  job?.image_url ||
+                  job?.internship?.hero_image_url ||
+                  // Company-level fallback
+                  company.cover_image_url ||
+                  company.logo ||
+                  "/placeholder.svg?height=400&width=1200&query=job%20cover"
+                }
+                alt="求人イメージ"
+                fill
+                className="object-cover"
+                priority
+                unoptimized
+              />
+            </div>
             <CardContent className="relative -mt-16 bg-white p-6">
               <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                 <div className="relative h-20 w-20 overflow-hidden rounded-xl border-4 border-white bg-white shadow-md">
@@ -174,6 +194,7 @@ export default function InternInfo({
                     width={128}
                     height={128}
                     className="h-full w-full object-cover"
+                    unoptimized
                   />
                 </div>
                 <div className="flex-1">
@@ -491,6 +512,7 @@ function CompanyInfo({ company }: { company: Company }) {
             width={56}
             height={56}
             className="h-full w-full object-cover"
+            unoptimized
           />
         </div>
         <div>

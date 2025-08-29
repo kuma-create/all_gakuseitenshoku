@@ -172,6 +172,8 @@ export default function Header() {
 
   // --- IPO専用分岐（/ipo または /lp/students/27 ページではヘッダーを描画しない） ---
   const isIpoOrLpStudents27 = pathname.startsWith("/ipo") || pathname.startsWith("/lp/students/27");
+  // トップページ判定（トップではメニューを極力シンプルに）
+  const isHome = pathname === "/";
   if (isIpoOrLpStudents27) {
     return null;
   }
@@ -185,7 +187,7 @@ export default function Header() {
           <Image src="/logo.png" alt="学生転職" width={120} height={32} priority />
         </Link>
         {/* 未ログイン時に表示するトップナビ（PC） */}
-        {ready && !isLoggedIn && (
+        {ready && !isLoggedIn && !isHome && (
           <nav className="hidden md:flex items-center gap-6">
             <Link
               href="/jobs"
@@ -219,7 +221,7 @@ export default function Header() {
         )}
 
         {/* ===== PC ナビ ===== */}
-        {ready && isLoggedIn && (
+        {ready && isLoggedIn && !isHome && (
           <nav className="hidden gap-6 md:flex">
             {main.map(({ href, label, icon: Icon }) =>
               label === "マイページ" && userType === "student" ? (
@@ -337,102 +339,104 @@ export default function Header() {
               </Link>
             )}
 
-            {/* Hamburger Sheet */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu />
-                </Button>
-              </SheetTrigger>
+            {/* Hamburger Sheet（トップページでは非表示） */}
+            {!isHome && (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu />
+                  </Button>
+                </SheetTrigger>
 
-              <SheetContent side="left" className="w-64">
-                <div className="mb-6 flex items-center gap-2">
-                  <Image src="/logo.png" alt="学生転職" width={24} height={24} />
-                  <span className="font-bold">学生転職</span>
-                </div>
-
-                {/* ---- 未ログイン ---- */}
-
-                {/* ---- 未ログイン ---- */}
-                {!ready || !isLoggedIn ? (
-                  <div className="space-y-4">
-                    <SheetClose asChild>
-                      <Link
-                        href="/jobs"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        探す
-                      </Link>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <Link
-                        href="/media"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        学転メディア
-                      </Link>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <Link
-                        href="/login"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100 hover:text-primary-700 hover:underline"
-                      >
-                        ログイン
-                      </Link>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <Link
-                        href="/signup"
-                        className="block rounded-full bg-gradient-to-r from-primary/80 to-primary px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                      >
-                        新規登録
-                      </Link>
-                    </SheetClose>
+                <SheetContent side="left" className="w-64">
+                  <div className="mb-6 flex items-center gap-2">
+                    <Image src="/logo.png" alt="学生転職" width={24} height={24} />
+                    <span className="font-bold">学生転職</span>
                   </div>
-                ) : (
-                  /* ---- ログイン済み ---- */
-                  <>
-                    <nav className="space-y-2">
-                      {main.map(({ href, label }) =>
-                        label === "マイページ" && userType === "student" ? (
-                          <div key="sp-mypage" className="space-y-1">
-                            <p className="px-3 py-2 text-sm font-semibold">マイページ</p>
-                            {studentSub.map(({ href, label }) => (
-                              <SheetClose asChild key={href}>
-                                <Link
-                                  href={href}
-                                  className="block rounded-md px-6 py-2 text-sm hover:bg-gray-100"
-                                >
-                                  {label}
-                                </Link>
-                              </SheetClose>
-                            ))}
-                          </div>
-                        ) : (
-                          <SheetClose asChild key={href}>
-                            <Link
-                              href={href}
-                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
-                            >
-                              {label}
-                            </Link>
-                          </SheetClose>
-                        )
-                      )}
-                    </nav>
-                    <hr className="my-3" />
-                    <SheetClose asChild>
-                      <button
-                        onClick={handleLogout}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        <LogOut size={16} /> ログアウト
-                      </button>
-                    </SheetClose>
-                  </>
-                )}
-              </SheetContent>
-            </Sheet>
+
+                  {/* ---- 未ログイン ---- */}
+
+                  {/* ---- 未ログイン ---- */}
+                  {!ready || !isLoggedIn ? (
+                    <div className="space-y-4">
+                      <SheetClose asChild>
+                        <Link
+                          href="/jobs"
+                          className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          探す
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link
+                          href="/media"
+                          className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          学転メディア
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link
+                          href="/login"
+                          className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100 hover:text-primary-700 hover:underline"
+                        >
+                          ログイン
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link
+                          href="/signup"
+                          className="block rounded-full bg-gradient-to-r from-primary/80 to-primary px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        >
+                          新規登録
+                        </Link>
+                      </SheetClose>
+                    </div>
+                  ) : (
+                    /* ---- ログイン済み ---- */
+                    <>
+                      <nav className="space-y-2">
+                        {main.map(({ href, label }) =>
+                          label === "マイページ" && userType === "student" ? (
+                            <div key="sp-mypage" className="space-y-1">
+                              <p className="px-3 py-2 text-sm font-semibold">マイページ</p>
+                              {studentSub.map(({ href, label }) => (
+                                <SheetClose asChild key={href}>
+                                  <Link
+                                    href={href}
+                                    className="block rounded-md px-6 py-2 text-sm hover:bg-gray-100"
+                                  >
+                                    {label}
+                                  </Link>
+                                </SheetClose>
+                              ))}
+                            </div>
+                          ) : (
+                            <SheetClose asChild key={href}>
+                              <Link
+                                href={href}
+                                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-gray-100"
+                              >
+                                {label}
+                              </Link>
+                            </SheetClose>
+                          )
+                        )}
+                      </nav>
+                      <hr className="my-3" />
+                      <SheetClose asChild>
+                        <button
+                          onClick={handleLogout}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <LogOut size={16} /> ログアウト
+                        </button>
+                      </SheetClose>
+                    </>
+                  )}
+                </SheetContent>
+              </Sheet>
+            )}
           </div>
       </div>
     </header>

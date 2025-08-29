@@ -37,6 +37,58 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 
+// Prefer a job image when available (fallback to company's cover or logo)
+function getPrimaryImage(job: any, company: Company): string | null {
+  const j = job || {};
+  const candidates = [
+    j.cover_image_url,
+    j.cover_image,
+    j.thumbnail_url,
+    j.image_url,
+    j.photo_url,
+    Array.isArray(j.photos) && j.photos.length ? j.photos[0] : null,
+    (j.event && (j.event.cover_image_url || j.event.image_url)) || null,
+    (j.event_details && (j.event_details.cover_image_url || j.event_details.image_url)) || null,
+    company.cover_image_url,
+    company.logo,
+  ].filter(Boolean) as string[];
+  return candidates.length ? candidates[0] : null;
+}
+
+// Format a time string from the DB and a range label
+function formatTimeHHmm(t: any): string | null {
+  if (!t) return null;
+  // Postgres time comes as a string like "11:00:00"; also accept Date or object-like
+  const s = typeof t === "string" ? t : String(t);
+  // keep only HH:MM
+  return s.slice(0, 5);
+}
+
+function buildEventTimeLabel(ev: any): string {
+  const start = formatTimeHHmm(ev.event_time);
+  const end   = formatTimeHHmm(ev.event_end_time);
+  if (start && end) return `${start}〜${end}`;
+  if (start) return `${start}〜`;
+  if (end) return `〜${end}`;
+  return "-";
+}
+
+// Normalize event mode/format display
+function formatEventMode(ev: any): string {
+  const raw = (ev?.format ?? "").toString().trim().toLowerCase();
+  const map: Record<string, string> = {
+    online: "オンライン開催",
+    offline: "対面開催",
+    onsite: "対面開催",
+    hybrid: "ハイブリッド開催",
+    webinar: "オンライン開催",
+  };
+  if (raw && map[raw]) return map[raw];
+  if (ev?.is_online === true) return "オンライン開催";
+  if (ev?.is_online === false && raw === "") return "対面開催"; // 明示的にオフラインで format 未設定
+  return "未定";
+}
+
 /* ---------- types ---------- */
 type Company = {
   id: string
@@ -77,6 +129,7 @@ export default function EventInfo({
 
   // Normalize event detail (joined as `event` or legacy `event_details`)
   const ev = (job?.event ?? job?.event_details) || {};
+  const primaryImage = getPrimaryImage(job, company);
 
   const handleApplyClick = async () => {
     // 1) Check login state
@@ -141,7 +194,20 @@ export default function EventInfo({
         <div className="md:col-span-2">
           {/* header */}
           <Card className="mb-6 overflow-hidden border-0 shadow-md">
-            <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
+            {primaryImage ? (
+              <div className="relative w-full h-64 sm:h-80 md:h-96 lg:h-[30rem]">
+                <Image
+                  src={primaryImage}
+                  alt="求人画像"
+                  fill
+                  sizes="100vw"
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            ) : (
+              <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90" />
+            )}
             <CardContent className="relative -mt-16 bg-white p-6">
               <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                 <div className="relative h-20 w-20 overflow-hidden rounded-xl border-4 border-white bg-white shadow-md">
@@ -193,7 +259,7 @@ export default function EventInfo({
                   icon={<MapPin size={16} />}
                   label="開催地"
                   value={
-                    ev.is_online ? "オンライン" : (ev.venue ?? job.location ?? "-")
+                    ev.is_online ? "オンライン開催" : (ev.venue ?? job.location ?? "-")
                   }
                 />
                 <SummaryItem
@@ -207,17 +273,13 @@ export default function EventInfo({
                 />
                 <SummaryItem
                   icon={<Clock size={16} />}
-                  label="開始時間"
-                  value={
-                    ev.event_time
-                      ? String(ev.event_time).slice(0, 5)
-                      : "-"
-                  }
+                  label="イベント時間"
+                  value={buildEventTimeLabel(ev)}
                 />
                 <SummaryItem
                   icon={<Building size={16} />}
                   label="形式"
-                  value={ev.format ?? (ev.is_online ? "オンライン" : "未定")}
+                  value={formatEventMode(ev)}
                 />
                 <SummaryItem
                   icon={<Users size={16} />}

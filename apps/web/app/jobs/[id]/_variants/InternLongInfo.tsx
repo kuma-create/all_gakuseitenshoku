@@ -39,6 +39,15 @@ import { toast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
+// Normalize image URL: if it's a relative storage path, prepend NEXT_PUBLIC_SUPABASE_URL
+const normalizeImageUrl = (u?: string | null) => {
+  if (!u) return null;
+  if (/^https?:\/\//i.test(u)) return u;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return u;
+  return `${base}${u.startsWith('/') ? '' : '/'}${u}`;
+};
+
 /* ---------- types ---------- */
 type Company = {
   id: string
@@ -116,6 +125,9 @@ export default function InternInfo({
 
   // ----- Summary values -----
   // Prefer `job.intern_long` (joined directly from Supabase), then intern_long_details, then internship for compatibility.
+  const internLong = job?.intern_long ?? {};
+  const internLongDetails = job?.intern_long_details ?? {};
+  const internshipCompat = job?.internship ?? {};
   const internship = job?.intern_long ?? job?.intern_long_details ?? job?.internship ?? {};
 
   const minDurationMonths = internship.min_duration_months ?? null
@@ -151,12 +163,53 @@ export default function InternInfo({
       ? internship.working_hours
       : "-";
 
-  const minDailyHoursRaw =
-    typeof internship.min_daily_hours === "number"
-      ? internship.min_daily_hours
-      : null;
+  const parseNum = (v: any) => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  };
+
+  // helpers to safely read from object or array containers
+  const readField = (container: any, key: string) => {
+    if (!container) return undefined;
+    if (Array.isArray(container)) {
+      // prefer first non-nullish from the array
+      for (const it of container) {
+        if (it && it[key] != null) return it[key];
+      }
+      return undefined;
+    }
+    return container[key];
+  };
+
+  const minDailyHoursRaw = parseNum(
+    // primary containers (object or array)
+    readField(internLong, "min_daily_hours") ??
+      readField(internLongDetails, "min_daily_hours") ??
+      readField(internshipCompat, "min_daily_hours") ??
+      readField(job?.internship_details, "min_daily_hours") ??
+      // legacy/alternate key names across any container
+      readField(internLong, "min_hours_per_day") ??
+      readField(internLongDetails, "min_hours_per_day") ??
+      readField(internshipCompat, "min_hours_per_day") ??
+      readField(job?.internship_details, "min_hours_per_day") ??
+      readField(internLong, "min_daily_working_hours") ??
+      readField(internLongDetails, "min_daily_working_hours") ??
+      readField(internshipCompat, "min_daily_working_hours") ??
+      readField(job?.internship_details, "min_daily_working_hours") ??
+      readField(internLong, "min_daily_work_hours") ??
+      readField(internLongDetails, "min_daily_work_hours") ??
+      readField(internshipCompat, "min_daily_work_hours") ??
+      readField(job?.internship_details, "min_daily_work_hours") ??
+      // very defensive: some queries may pluck directly on job
+      job?.min_daily_hours
+  );
+
   const minDailyHoursDisplay =
-    typeof minDailyHoursRaw === "number" ? `${minDailyHoursRaw}時間/日` : "-";
+    minDailyHoursRaw != null ? `${minDailyHoursRaw}時間/日` : "-";
 
   const isNew =
     job?.created_at &&
@@ -172,6 +225,22 @@ export default function InternInfo({
     localStorage.setItem("savedInterns", JSON.stringify(arr))
     setIsInterested(!isInterested)
   }
+
+  const headerImageRaw = (
+    job?.cover_image_url ||
+    job?.cover_image ||
+    job?.thumbnail_url ||
+    job?.image_url ||
+    job?.job?.cover_image_url ||
+    job?.jobs?.cover_image_url ||
+    job?.intern_long?.cover_image_url ||
+    job?.internship?.hero_image_url ||
+    job?.internship_details?.hero_image_url ||
+    job?.company?.cover_image_url ||
+    company.cover_image_url ||
+    null
+  );
+  const headerImage = normalizeImageUrl(headerImageRaw) ?? "/ogp/internships.png";
 
   return (
     <main className="container mx-auto px-4 py-8 pb-24">
@@ -189,10 +258,19 @@ export default function InternInfo({
         <div className="md:col-span-2">
           {/* header */}
           <Card className="mb-6 overflow-hidden border-0 shadow-md">
-            <div className="h-32 w-full bg-gradient-to-r from-red-500 to-red-600 opacity-90"></div>
+            <div className="relative w-full h-[420px] sm:h-[520px] md:h-[680px] lg:h-[800px]">
+              <Image
+                src={headerImage}
+                alt="求人イメージ"
+                fill
+                className="object-cover"
+                sizes="(min-width: 1024px) 900px, 100vw"
+                priority
+              />
+            </div>
             <CardContent className="relative -mt-16 bg-white p-6">
               <div className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                <div className="relative h-20 w-20 overflow-hidden rounded-xl border-4 border-white bg-white shadow-md">
+                <div className="relative h-20 w-20 overflow-hidden rounded-xl border-4 border-white bg-white shadow-md p-1">
                   <Image
                     src={
                       company.logo ??
@@ -201,7 +279,7 @@ export default function InternInfo({
                     alt="logo"
                     width={128}
                     height={128}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                 </div>
                 <div className="flex-1">
@@ -239,8 +317,8 @@ export default function InternInfo({
               <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                 <SummaryItem
                   icon={<Calendar size={16} />}
-                  label="最低参加期間"
-                  value={minDurationDisplay}
+                  label="勤務時間"
+                  value={workingHours}
                 />
                 <SummaryItem
                   icon={<Clock size={16} />}
