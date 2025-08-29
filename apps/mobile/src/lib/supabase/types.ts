@@ -1596,6 +1596,8 @@ export type Database = {
           commission_rate: string | null
           created_at: string | null
           hourly_wage: number | null
+          hourly_wage_max: number | null
+          hourly_wage_min: number | null
           id: string
           is_paid: boolean
           job_id: string | null
@@ -1615,6 +1617,8 @@ export type Database = {
           commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
+          hourly_wage_max?: number | null
+          hourly_wage_min?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
@@ -1634,6 +1638,8 @@ export type Database = {
           commission_rate?: string | null
           created_at?: string | null
           hourly_wage?: number | null
+          hourly_wage_max?: number | null
+          hourly_wage_min?: number | null
           id?: string
           is_paid?: boolean
           job_id?: string | null
