@@ -431,17 +431,6 @@ export default function JobDetailScreen() {
         <ScrollView contentContainerStyle={{ paddingBottom: 88 }}>
           <HeaderBlock job={state.job} company={state.company} tags={state.tags} />
 
-          {/* 種別ごとの詳細 */}
-          {state.job.selection_type === "event" ? (
-            <EventSection job={state.job} />
-          ) : state.job.selection_type === "intern" ||
-            state.job.selection_type === "intern_long" ? (
-            <InternSection job={state.job} />
-          ) : (
-            <FulltimeSection job={state.job} />
-          )}
-
-          {/* 右カラム相当：応募 / 保存 / 企業情報 / 関連 */}
           <ApplyCard
             jobId={state.job.id as string}
             hasApplied={state.hasApplied}
@@ -455,7 +444,30 @@ export default function JobDetailScreen() {
             }}
           />
 
+          {/* 種別ごとの詳細 */}
+          {state.job.selection_type === "event" ? (
+            <EventSection job={state.job} />
+          ) : state.job.selection_type === "intern" ||
+            state.job.selection_type === "intern_long" ? (
+            <InternSection job={state.job} />
+          ) : (
+            <FulltimeSection job={state.job} />
+          )}
+
           <CompanyCard company={state.company} />
+
+          <ApplyCard
+            jobId={state.job.id as string}
+            hasApplied={state.hasApplied}
+            onApplyPress={async () => {
+              try {
+                await ensureCanApply(router);
+                setShowConfirm(true);
+              } catch (e: any) {
+                // ensureCanApply が遷移するためここには来ない想定
+              }
+            }}
+          />
 
           <RelatedCard related={state.related} />
         </ScrollView>
@@ -1037,11 +1049,12 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
     paddingVertical: 6,
   },
-  summaryLabel: { color: "#6b7280", fontSize: 12 },
-  summaryValue: { color: "#111827", fontSize: 14, fontWeight: "600" },
+  summaryLabel: { color: "#6b7280", fontSize: 12, width: 72 },
+  summaryValue: { color: "#111827", fontSize: 14, fontWeight: "600", flex: 1, flexWrap: "wrap" },
   card: {
     backgroundColor: "#fff",
     marginHorizontal: 12,
@@ -1056,11 +1069,12 @@ const styles = StyleSheet.create({
   body: { color: "#374151", fontSize: 14, lineHeight: 20 },
   infoLine: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
     paddingVertical: 6,
   },
-  infoLabel: { color: "#6b7280", fontSize: 12 },
-  infoValue: { color: "#111827", fontSize: 14, fontWeight: "500" },
+  infoLabel: { color: "#6b7280", fontSize: 12, width: 72 },
+  infoValue: { color: "#111827", fontSize: 14, fontWeight: "500", flex: 1, flexWrap: "wrap" },
   noticeBox: {
     backgroundColor: "#fee2e2",
     borderRadius: 8,

@@ -690,7 +690,7 @@ function JobCard({ item, onPress, saved, onToggle }: { item: JobRow; onPress: (i
       {/* footer meta & actions */}
       <View style={styles.footerRowBetween}>
         <Text style={styles.meta} numberOfLines={1}>
-          {item.application_deadline ? `締切 ${formatDeadline(item.application_deadline)}` : (item.created_at ? new Date(item.created_at).toLocaleDateString() : "")}
+          {item.application_deadline ? `締切 ${formatDeadline(item.application_deadline)}` : /* (item.created_at ? new Date(item.created_at).toLocaleDateString() : "") */ ""}
         </Text>
         <View style={{ flexDirection: "row", gap: 14 }}>
           <TouchableOpacity onPress={onToggle} accessibilityRole="button" accessibilityLabel={saved ? "お気に入り解除" : "お気に入りに保存"}>
