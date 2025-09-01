@@ -119,6 +119,14 @@ type OverviewRow = {
   scouts: number;
 };
 
+type JobsOverview = {
+  fulltime: number;
+  intern_long: number;
+  internship_short: number;
+  event: number;
+  total: number;
+};
+
 type Student = {
   id: string;
   user_id?: string;
@@ -245,6 +253,13 @@ export default function AdminDashboard() {
     companies: 0,
     applications: 0,
     scouts: 0,
+  });
+  const [jobsOverview, setJobsOverview] = useState<JobsOverview>({
+    fulltime: 0,
+    intern_long: 0,
+    internship_short: 0,
+    event: 0,
+    total: 0,
   });
   const [students, setStudents] = useState<Student[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -507,6 +522,42 @@ export default function AdminDashboard() {
         setOverview(
           first ?? { students: 0, companies: 0, applications: 0, scouts: 0 }
         );
+
+        // --- 公開中求人カウント（selection_type 別） -----------------------
+        const todayISO = new Date();
+        const yyyy = todayISO.getFullYear();
+        const mm = String(todayISO.getMonth() + 1).padStart(2, "0");
+        const dd = String(todayISO.getDate()).padStart(2, "0");
+        const today = `${yyyy}-${mm}-${dd}`;
+
+        async function countJobsByType(sel: "fulltime" | "intern_long" | "internship_short" | "event") {
+          const { count, error } = await supabase
+            .from("jobs")
+            .select("*", { count: "exact", head: true })
+            .eq("published", true)
+            .eq("selection_type", sel)
+            .or(`published_until.is.null,published_until.gte.${today}`);
+          if (error) {
+            console.warn("jobs count error", sel, error);
+            return 0;
+          }
+          return count ?? 0;
+        }
+
+        const [cFull, cLong, cShort, cEvent] = await Promise.all([
+          countJobsByType("fulltime"),
+          countJobsByType("intern_long"),
+          countJobsByType("internship_short"),
+          countJobsByType("event"),
+        ]);
+
+        setJobsOverview({
+          fulltime: cFull,
+          intern_long: cLong,
+          internship_short: cShort,
+          event: cEvent,
+          total: (cFull + cLong + cShort + cEvent),
+        });
 
         // 学生一覧
         // ---------- 学生一覧 ----------
@@ -1351,18 +1402,46 @@ export default function AdminDashboard() {
         {/* --- 概要 --- */}
         <TabsContent value="overview">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-4">
-            {Object.entries(overview).map(([k, v]) => (
-              <Card key={k}>
-                <CardHeader>
-                  <CardTitle className="capitalize">
-                    {k}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-xl font-bold">
-                  {v}
-                </CardContent>
-              </Card>
-            ))}
+            {/* 既存サマリー */}
+            <Card>
+              <CardHeader><CardTitle>Students</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.students}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Companies</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.companies}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Applications</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.applications}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Scouts</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.scouts}</CardContent>
+            </Card>
+
+            {/* 公開中求人（合計） */}
+            <Card>
+              <CardHeader><CardTitle>Jobs (公開中 合計)</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.total}</CardContent>
+            </Card>
+            {/* カテゴリ別 */}
+            <Card>
+              <CardHeader><CardTitle>本選考</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.fulltime}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>インターン（長期）</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.intern_long}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>インターン（短期）</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.internship_short}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>イベント</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.event}</CardContent>
+            </Card>
           </div>
         </TabsContent>
 
