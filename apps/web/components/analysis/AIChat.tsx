@@ -718,12 +718,29 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
     });
   };
 
+  // 抽出ヘルパー: AIメッセージ中の --- で囲まれた箇所のみを取得（複数あれば結合）
+  const extractTripleDashBlocks = (text: string): string => {
+    const src = (text || '');
+    const re = /(?:^|\n)---\s*\n([\s\S]*?)(?:\n)---(?:\n|$)/g; // 最短一致で --- ... --- を抜き出す
+    const chunks: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null) {
+      let body = (m[1] || '').trim();
+      // よくある前置き文（例: 「素晴らしい質問ですね！」など）を先頭から除去（空行まで）
+      body = body.replace(/^(?:[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}A-Za-z0-9、。！!？?（）()・\s『』「」…]+?ですね！?\s*)(?=\n|$)/u, '').trimStart();
+      if (body) chunks.push(body);
+    }
+    // マッチが無ければ空文字（自動反映しない）
+    return (chunks.length ? chunks.join('\n\n') : '');
+  };
+
   const canShowApplyActions = (idx: number) => {
     const msg = messages[idx];
     const isLatestAi = idx === messages.length - 1 && msg?.type === 'ai';
     const filledMode = interactionMode === 'fill';
     const notTypingNow = !isTyping && !loading;
-    const hasContent = !!msg?.content?.trim();
+    const applySrc = extractTripleDashBlocks(msg?.content || '');
+    const hasContent = !!applySrc?.trim();
     const sp = computeSectionPercent();
     const needsFill = sp === null ? true : sp < 100;
     return Boolean(onApplyToManual) && isLatestAi && filledMode && notTypingNow && hasContent && needsFill;
@@ -880,47 +897,50 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                       </div>
                     )}
 
-                    {canShowApplyActions(index) && (
+                    {canShowApplyActions(index) && (() => {
+                      const __apply = extractTripleDashBlocks(message.content);
+                      return (
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
                           className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={!pickTitleFrom(message.content)}
-                          onClick={() => onApplyToManual?.({ prTitle: pickTitleFrom(message.content) })}
-                          title="AIの最新メッセージから抽出して反映します"
+                          disabled={!pickTitleFrom(__apply)}
+                          onClick={() => onApplyToManual?.({ prTitle: pickTitleFrom(__apply) })}
+                          title="AIの最新メッセージ（---で囲まれた部分）から抽出して反映します"
                         >PRタイトルに反映</button>
                         <button
                           type="button"
                           className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={!message.content?.trim()}
-                          onClick={() => onApplyToManual?.({ about: message.content })}
-                          title="AIの最新メッセージから抽出して反映します"
+                          disabled={!__apply?.trim()}
+                          onClick={() => onApplyToManual?.({ about: __apply })}
+                          title="AIの最新メッセージ（---で囲まれた部分）から抽出して反映します"
                         >自己紹介に反映</button>
                         <button
                           type="button"
                           className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={!message.content?.trim()}
-                          onClick={() => onApplyToManual?.({ prText: message.content })}
-                          title="AIの最新メッセージから抽出して反映します"
+                          disabled={!__apply?.trim()}
+                          onClick={() => onApplyToManual?.({ prText: __apply })}
+                          title="AIの最新メッセージ（---で囲まれた部分）から抽出して反映します"
                         >自己PRに反映</button>
                         <button
                           type="button"
                           className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={!message.content?.trim()}
-                          onClick={() => onApplyToManual?.({ selfAnalysis: message.content })}
-                          title="AIの最新メッセージから抽出して反映します"
+                          disabled={!__apply?.trim()}
+                          onClick={() => onApplyToManual?.({ selfAnalysis: __apply })}
+                          title="AIの最新メッセージ（---で囲まれた部分）から抽出して反映します"
                         >自己分析に追記</button>
-                        {(() => { const _s = pickStrengthsFrom(message.content); return (
+                        {(() => { const _s = pickStrengthsFrom(__apply); return (
                           <button
                             type="button"
                             className="text-xs px-2 py-1 rounded border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={_s.length === 0}
                             onClick={() => onApplyToManual?.({ strengths: _s })}
-                            title="AIの最新メッセージから抽出して反映します"
+                            title="AIの最新メッセージ（---で囲まれた部分）から抽出して反映します"
                           >強みに追加</button>
                         ); })()}
                       </div>
-                    )}
+                      );
+                    })()}
 
                     <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/20">
                       <div className="flex items-center space-x-2">
