@@ -815,8 +815,20 @@ function FilterPanel({
 
       <IndustryMultiSelect
         options={[
-          "IT・通信","金融","広告・マーケティング","医療・福祉","メーカー","コンサルティング",
-          "サービス","教育","商社","マスコミ","小売・流通","公務員",
+            'IT・通信',
+            'メーカー',
+            '商社',
+            '金融',
+            'コンサルティング',
+            'マスコミ',
+            '広告・マーケティング',
+            "人材",
+            "不動産",
+            'サービス',
+            '小売・流通',
+            '医療・福祉',
+            '教育',
+            '公務員',
         ]}
         selected={industriesSelected}
         onChange={setIndustriesSelected}
