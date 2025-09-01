@@ -133,6 +133,7 @@ type Student = {
   resume_id?: string | null;
   phone?: string | null;
   role?: string | null;
+  admin_memo?: string | null;
 };
 
 type Company = {
@@ -141,6 +142,7 @@ type Company = {
   created_at: string;
   status: string;
   jobs_count: number;
+  admin_memo?: string | null;
 };
 
 type Job = {
@@ -198,6 +200,7 @@ type Notification = {
   created_at: string;
 };
 
+
 /* ---------- 共通ユーティリティ ---------- */
 /**
  * Realtime で受け取った payload を既存リストにマージする関数
@@ -230,6 +233,8 @@ function mergeRows<T extends { id: string }>(
 }
 
 export default function AdminDashboard() {
+  // 管理者メモ用 企業ID（.env で NEXT_PUBLIC_ADMIN_COMPANY_ID を設定）
+  const ADMIN_COMPANY_ID = process.env.NEXT_PUBLIC_ADMIN_COMPANY_ID ?? "";
   /* ---------- state ---------- */
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
@@ -282,7 +287,7 @@ export default function AdminDashboard() {
   /* ---------- toast ---------- */
   const { toast } = useToast();
 
-    /* ---------- 会社詳細 / 編集用 ---------- */
+  /* ---------- 会社詳細 / 編集用 ---------- */
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [editCompanyName, setEditCompanyName] = useState("");
   const [editCompanyStatus, setEditCompanyStatus] = useState<
@@ -312,6 +317,18 @@ export default function AdminDashboard() {
     unique.sort((a, b) => parseInt(b) - parseInt(a));
     return unique;
   }, [students]);
+
+  // 学生メモ（管理者メモ: student_profiles.admin_memo）
+  const [newMemoText, setNewMemoText] = useState<string>("");
+  // 学生メモ（一覧インライン編集）
+  const [editingMemoStudentId, setEditingMemoStudentId] = useState<string | null>(null);
+  const [editingMemoText, setEditingMemoText] = useState<string>("");
+  const [isSavingRowMemo, setIsSavingRowMemo] = useState<boolean>(false);
+
+  // 企業メモ（一覧インライン編集）
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [editingCompanyMemo, setEditingCompanyMemo] = useState<string>("");
+  const [isSavingCompanyMemo, setIsSavingCompanyMemo] = useState<boolean>(false);
 
   /* ---------- 求人詳細 ---------- */
   const [selectedJob, setSelectedJob] = useState<{
@@ -505,6 +522,7 @@ export default function AdminDashboard() {
           status: string | null;
           last_sign_in_at: string | null;
           phone: string | null;
+          admin_memo: string | null;
         };
 
         // --- 追加: 全resume id取得
@@ -530,14 +548,35 @@ export default function AdminDashboard() {
           if (studentIds.length === 0) {
             setStudents([]); // 該当なし
           } else {
-            // 2) student_profiles を取得（この段階ではフィルタせず、JS 側でロールに合わせて絞り込む）
-            const { data: stData, error: stErr } = await supabase
+            // 2) student_profiles を取得（SQL側で student ロールに絞り込んでからページング）
+            let stQuery = supabase
               .from("student_profiles")
               .select(`
-                *,
-                id
+                id,
+                user_id,
+                first_name,
+                last_name,
+                full_name,
+                university,
+                graduation_month,
+                created_at,
+                status,
+                last_sign_in_at,
+                phone,
+                admin_memo
               `)
-              .order("created_at", { ascending: false })
+              .in("user_id", studentIds);
+
+            // 並び順：UIの選択に合わせてサーバー側で固定（同値は created_at DESC で安定化）
+            if (studentSortBy === "lastLogin") {
+              stQuery = stQuery
+                .order("last_sign_in_at", { ascending: false, nullsFirst: false })
+                .order("created_at", { ascending: false });
+            } else {
+              stQuery = stQuery.order("created_at", { ascending: false });
+            }
+
+            const { data: stData, error: stErr } = await stQuery
               .range((studentPage - 1) * 50, studentPage * 50 - 1);
 
             if (stErr) {
@@ -545,11 +584,8 @@ export default function AdminDashboard() {
               setStudents([]);
             } else {
               const rawSt = (stData ?? []) as RawStudent[];
-              const validStudents = rawSt.filter(
-                (s) => studentIds.includes(s.user_id) || studentIds.includes(s.id)
-              );
               setStudents(
-                validStudents.map((s) => {
+                rawSt.map((s) => {
                   const gradYear = s.graduation_month
                     ? new Date(s.graduation_month).getFullYear().toString()
                     : "—";
@@ -568,6 +604,7 @@ export default function AdminDashboard() {
                     status: s.status ?? "—",
                     role: "student", // 常に student
                     resume_id: resumeMap[s.user_id ?? s.id] ?? null,
+                    admin_memo: (s as any).admin_memo ?? null,
                   };
                 })
               );
@@ -581,6 +618,7 @@ export default function AdminDashboard() {
           name: string | null;
           created_at: string | null;
           status: string | null;
+          admin_memo?: string | null;
           jobs: { count: number | null }[] | null;
         };
         const { data: coData, error: coErr } = await supabase
@@ -591,6 +629,7 @@ export default function AdminDashboard() {
             name,
             created_at,
             status,
+            admin_memo,
             jobs!jobs_company_id_fkey(count)
           `
           )
@@ -605,6 +644,7 @@ export default function AdminDashboard() {
             created_at: c.created_at ?? "",
             status: c.status ?? "",
             jobs_count: c.jobs?.[0]?.count ?? 0,
+            admin_memo: (c as any).admin_memo ?? null,
           }))
         );
 
@@ -741,6 +781,7 @@ export default function AdminDashboard() {
       featurePage,
       eventPage,
       notificationPage,
+      studentSortBy,
     ]
   );
 
@@ -843,6 +884,93 @@ export default function AdminDashboard() {
     return true;
   });
 
+
+  // 管理者メモ保存（student_profiles.admin_memo へ）
+  const saveAdminMemo = useCallback(async () => {
+    if (!selectedStudent?.id) return;
+    if (!newMemoText.trim()) {
+      toast({ description: "メモ内容を入力してください", variant: "destructive" });
+      return;
+    }
+    const { error } = await supabase
+      .from("student_profiles")
+      .update({ admin_memo: newMemoText.trim() })
+      .eq("id", selectedStudent.id);
+    if (error) {
+      toast({ description: `保存失敗: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({ description: "メモを保存しました" });
+      setSelectedStudent(prev => prev ? { ...prev, admin_memo: newMemoText.trim() } : prev);
+      setNewMemoText("");
+    }
+  }, [selectedStudent?.id, newMemoText, toast]);
+
+  // 一覧行のメモ編集開始
+  const startEditRowMemo = useCallback((studentId: string, current: string | null | undefined) => {
+    setEditingMemoStudentId(studentId);
+    setEditingMemoText(current ?? "");
+  }, []);
+
+  const cancelEditRowMemo = useCallback(() => {
+    setEditingMemoStudentId(null);
+    setEditingMemoText("");
+  }, []);
+
+  // 一覧行のメモ保存（student_profiles.admin_memo へ）
+  const saveRowMemo = useCallback(async () => {
+    if (!editingMemoStudentId) return;
+    try {
+      setIsSavingRowMemo(true);
+      const memo = editingMemoText.trim();
+      const { error } = await supabase
+        .from("student_profiles")
+        .update({ admin_memo: memo })
+        .eq("id", editingMemoStudentId);
+      if (error) {
+        toast({ description: `保存失敗: ${error.message}`, variant: "destructive" });
+        return;
+      }
+      // ローカル一覧へ即時反映
+      setStudents(prev => prev.map(s => s.id === editingMemoStudentId ? { ...s, admin_memo: memo || null } : s));
+      toast({ description: "メモを保存しました" });
+      cancelEditRowMemo();
+    } finally {
+      setIsSavingRowMemo(false);
+    }
+  }, [editingMemoStudentId, editingMemoText, toast, cancelEditRowMemo, setStudents]);
+
+  // 企業メモのインライン編集
+  const startEditCompanyMemo = useCallback((companyId: string, current: string | null | undefined) => {
+    setEditingCompanyId(companyId);
+    setEditingCompanyMemo(current ?? "");
+  }, []);
+
+  const cancelEditCompanyMemo = useCallback(() => {
+    setEditingCompanyId(null);
+    setEditingCompanyMemo("");
+  }, []);
+
+  const saveCompanyMemo = useCallback(async () => {
+    if (!editingCompanyId) return;
+    try {
+      setIsSavingCompanyMemo(true);
+      const memo = editingCompanyMemo.trim();
+      const { error } = await supabase
+        .from("companies")
+        .update({ admin_memo: memo })
+        .eq("id", editingCompanyId);
+      if (error) {
+        toast({ description: `保存失敗: ${error.message}`, variant: "destructive" });
+        return;
+      }
+      setCompanies(prev => prev.map(c => c.id === editingCompanyId ? { ...c, admin_memo: memo || null } : c));
+      toast({ description: "メモを保存しました" });
+      cancelEditCompanyMemo();
+    } finally {
+      setIsSavingCompanyMemo(false);
+    }
+  }, [editingCompanyId, editingCompanyMemo, toast, cancelEditCompanyMemo]);
+
   const openModal = async (type: string, id: string) => {
     setModalState({ type, id });
   
@@ -861,7 +989,7 @@ export default function AdminDashboard() {
     else if (type === "view-student") {
       const { data } = await supabase
         .from("student_profiles")
-        .select("id,full_name,university,graduation_month,created_at")
+        .select("id,full_name,university,graduation_month,created_at,admin_memo")
         .eq("id", id)
         .single();
       if (data) {
@@ -872,14 +1000,16 @@ export default function AdminDashboard() {
           graduation_year: data.graduation_month
             ? new Date(data.graduation_month).getFullYear().toString()
             : "—",
-          created_at: data.created_at ?? null
+          created_at: data.created_at ?? null,
+          admin_memo: data.admin_memo ?? null,
         });
       }
+      setNewMemoText("");
     }
     else if (type === "edit-student") {
       const { data } = await supabase
         .from("student_profiles")
-        .select("full_name, university, graduation_month, user_id")
+        .select("full_name, university, graduation_month, user_id, admin_memo")
         .eq("id", id)
         .single();
       if (data) {
@@ -896,9 +1026,11 @@ export default function AdminDashboard() {
             created_at: prev?.created_at ?? "",
             status: prev?.status ?? "",
             resume_id: prev?.resume_id ?? null,
+            admin_memo: data.admin_memo ?? null,
           })
         );
       }
+      setNewMemoText("");
       // 既存の work_experiences を読み込み
       if (data?.user_id) {
         const { data: resumeData, error: resumeErr } = await supabase
@@ -947,6 +1079,9 @@ export default function AdminDashboard() {
   const closeModal = () => {
     // Close any open dialog
     setModalState({ type: "", id: null });
+    setNewMemoText("");
+    setEditingMemoStudentId(null);
+    setEditingMemoText("");
     // Helper: clears scroll‑locks that might be re‑applied asynchronously
     const clearScrollLocks = () => {
       document.body.style.pointerEvents = "";
@@ -1277,8 +1412,8 @@ export default function AdminDashboard() {
               const q = studentSearchQuery.trim();
               const matchesQuery =
                 q === "" ||
-                [s.full_name, s.university, s.graduation_year, s.phone]
-                  .some((field) => field?.includes(q));
+                [s.full_name, s.university, s.graduation_year, s.phone, s.admin_memo]
+                  .some((field) => field?.includes(q ?? ""));
               return (
                 matchesQuery &&
                 (studentUniversityFilter === "all" || (s.university ?? "").includes(studentUniversityFilter)) &&
@@ -1301,7 +1436,7 @@ export default function AdminDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
+                    {/* <TableHead>ID</TableHead> */}
                     <TableHead>名前</TableHead>
                     <TableHead>大学</TableHead>
                     <TableHead>電話番号</TableHead>
@@ -1309,13 +1444,14 @@ export default function AdminDashboard() {
                     <TableHead>最終ログイン日</TableHead>
                     <TableHead>登録日</TableHead>
                     <TableHead>ステータス</TableHead>
+                    <TableHead>メモ（管理者）</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedStudents.map((s) => (
                     <TableRow key={s.id}>
-                      <TableCell>{s.id}</TableCell>
+                      {/* <TableCell>{s.id}</TableCell> */}
                       <TableCell>{s.full_name}</TableCell>
                       <TableCell>{s.university}</TableCell>
                       <TableCell>{s.phone ?? '—'}</TableCell>
@@ -1328,6 +1464,29 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell>
                         <Badge>{s.status}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[320px]">
+                        {editingMemoStudentId === s.id ? (
+                          <div className="flex flex-col gap-2">
+                            <Textarea
+                              value={editingMemoText}
+                              onChange={(e) => setEditingMemoText(e.target.value)}
+                              placeholder="この学生に関する社内メモ"
+                              className="min-h-[64px]"
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <Button variant="secondary" onClick={cancelEditRowMemo} disabled={isSavingRowMemo}>キャンセル</Button>
+                              <Button onClick={saveRowMemo} disabled={isSavingRowMemo}>{isSavingRowMemo ? "保存中..." : "保存"}</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span title={s.admin_memo ?? undefined} className="block truncate max-w-[240px]">
+                              {s.admin_memo ? (s.admin_memo.length > 40 ? s.admin_memo.slice(0, 40) + "…" : s.admin_memo) : "—"}
+                            </span>
+                            <Button variant="ghost" size="sm" onClick={() => startEditRowMemo(s.id, s.admin_memo ?? "")}>{s.admin_memo ? "編集" : "追加"}</Button>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -1445,27 +1604,49 @@ export default function AdminDashboard() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
+                {/* <TableHead>ID</TableHead> */}
                 <TableHead>企業名</TableHead>
                 <TableHead>求人件数</TableHead>
                 <TableHead>登録日</TableHead>
                 <TableHead>ステータス</TableHead>
+                <TableHead>メモ（管理者）</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {companies.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell>{c.id}</TableCell>
-                  <TableCell>
-                    {c.name ?? c.name ?? "—"}
-                  </TableCell>
+                  {/* <TableCell>{c.id}</TableCell> */}
+                  <TableCell>{c.name ?? "—"}</TableCell>
                   <TableCell>{c.jobs_count}</TableCell>
                   <TableCell>
                     {c.created_at ? format(new Date(c.created_at), "yyyy/MM/dd") : "—"}
                   </TableCell>
                   <TableCell>
                     <Badge>{c.status}</Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[320px]">
+                    {editingCompanyId === c.id ? (
+                      <div className="flex flex-col gap-2">
+                        <Textarea
+                          value={editingCompanyMemo}
+                          onChange={(e) => setEditingCompanyMemo(e.target.value)}
+                          placeholder="この企業に関する社内メモ"
+                          className="min-h-[64px]"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="secondary" onClick={cancelEditCompanyMemo} disabled={isSavingCompanyMemo}>キャンセル</Button>
+                          <Button onClick={saveCompanyMemo} disabled={isSavingCompanyMemo}>{isSavingCompanyMemo ? "保存中..." : "保存"}</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span title={c.admin_memo ?? undefined} className="block truncate max-w-[240px]">
+                          {c.admin_memo ? (c.admin_memo.length > 40 ? c.admin_memo.slice(0, 40) + "…" : c.admin_memo) : "—"}
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={() => startEditCompanyMemo(c.id, c.admin_memo ?? "")}>{c.admin_memo ? "編集" : "追加"}</Button>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -1533,6 +1714,13 @@ export default function AdminDashboard() {
                   </TableCell>
                 </TableRow>
               ))}
+              {companies.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4">
+                    企業が見つかりません
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
           <Pagination className="my-2">
@@ -2007,6 +2195,27 @@ export default function AdminDashboard() {
                   ? format(new Date(selectedStudent.created_at), "yyyy/MM/dd")
                   : "—"}
               </p>
+              <hr className="my-3" />
+              {/* NEXT_PUBLIC_ADMIN_COMPANY_ID を設定すると「（運営）管理者メモ」選択肢が表示されます */}
+              <p className="font-semibold mb-1">メモ（管理者）</p>
+              <div className="mb-2">
+                <Textarea
+                  value={newMemoText}
+                  onChange={(e) => setNewMemoText(e.target.value)}
+                  placeholder="この学生に関する社内メモを入力"
+                  className="min-h-[64px]"
+                />
+              </div>
+              <div className="flex justify-end mb-3">
+                <Button onClick={saveAdminMemo}>保存</Button>
+              </div>
+              {selectedStudent?.admin_memo ? (
+                <div className="p-3 rounded border bg-gray-50 whitespace-pre-wrap">
+                  {selectedStudent.admin_memo}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">現在のメモはありません</p>
+              )}
             </div>
           ) : (
             <Skeleton className="h-24 w-full" />

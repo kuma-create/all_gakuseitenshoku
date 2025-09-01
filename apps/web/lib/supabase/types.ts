@@ -596,6 +596,7 @@ export type Database = {
       companies: {
         Row: {
           address: string | null
+          admin_memo: string | null
           capital_jpy: number | null
           contact_email: string | null
           cover_image: string | null
@@ -624,6 +625,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          admin_memo?: string | null
           capital_jpy?: number | null
           contact_email?: string | null
           cover_image?: string | null
@@ -652,6 +654,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          admin_memo?: string | null
           capital_jpy?: number | null
           contact_email?: string | null
           cover_image?: string | null
@@ -3622,6 +3625,7 @@ export type Database = {
           about: string | null
           address: string | null
           address_line: string | null
+          admin_memo: string | null
           admission_month: string | null
           auth_user_id: string | null
           avatar_url: string | null
@@ -3685,6 +3689,7 @@ export type Database = {
           about?: string | null
           address?: string | null
           address_line?: string | null
+          admin_memo?: string | null
           admission_month?: string | null
           auth_user_id?: string | null
           avatar_url?: string | null
@@ -3748,6 +3753,7 @@ export type Database = {
           about?: string | null
           address?: string | null
           address_line?: string | null
+          admin_memo?: string | null
           admission_month?: string | null
           auth_user_id?: string | null
           avatar_url?: string | null
