@@ -119,6 +119,14 @@ type OverviewRow = {
   scouts: number;
 };
 
+type JobsOverview = {
+  fulltime: number;
+  intern_long: number;
+  internship_short: number;
+  event: number;
+  total: number;
+};
+
 type Student = {
   id: string;
   user_id?: string;
@@ -245,6 +253,13 @@ export default function AdminDashboard() {
     companies: 0,
     applications: 0,
     scouts: 0,
+  });
+  const [jobsOverview, setJobsOverview] = useState<JobsOverview>({
+    fulltime: 0,
+    intern_long: 0,
+    internship_short: 0,
+    event: 0,
+    total: 0,
   });
   const [students, setStudents] = useState<Student[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -508,6 +523,42 @@ export default function AdminDashboard() {
           first ?? { students: 0, companies: 0, applications: 0, scouts: 0 }
         );
 
+        // --- 公開中求人カウント（selection_type 別） -----------------------
+        const todayISO = new Date();
+        const yyyy = todayISO.getFullYear();
+        const mm = String(todayISO.getMonth() + 1).padStart(2, "0");
+        const dd = String(todayISO.getDate()).padStart(2, "0");
+        const today = `${yyyy}-${mm}-${dd}`;
+
+        async function countJobsByType(sel: "fulltime" | "intern_long" | "internship_short" | "event") {
+          const { count, error } = await supabase
+            .from("jobs")
+            .select("*", { count: "exact", head: true })
+            .eq("published", true)
+            .eq("selection_type", sel)
+            .or(`published_until.is.null,published_until.gte.${today}`);
+          if (error) {
+            console.warn("jobs count error", sel, error);
+            return 0;
+          }
+          return count ?? 0;
+        }
+
+        const [cFull, cLong, cShort, cEvent] = await Promise.all([
+          countJobsByType("fulltime"),
+          countJobsByType("intern_long"),
+          countJobsByType("internship_short"),
+          countJobsByType("event"),
+        ]);
+
+        setJobsOverview({
+          fulltime: cFull,
+          intern_long: cLong,
+          internship_short: cShort,
+          event: cEvent,
+          total: (cFull + cLong + cShort + cEvent),
+        });
+
         // 学生一覧
         // ---------- 学生一覧 ----------
         type RawStudent = {
@@ -562,8 +613,7 @@ export default function AdminDashboard() {
                 created_at,
                 status,
                 last_sign_in_at,
-                phone,
-                admin_memo
+                phone
               `)
               .in("user_id", studentIds);
 
@@ -604,10 +654,22 @@ export default function AdminDashboard() {
                     status: s.status ?? "—",
                     role: "student", // 常に student
                     resume_id: resumeMap[s.user_id ?? s.id] ?? null,
-                    admin_memo: (s as any).admin_memo ?? null,
+                    admin_memo: null, // will be hydrated by RPC below
                   };
                 })
               );
+              // admin_memo は列権限で取らないため RPC で補完
+              try {
+                const ids = rawSt.map(s => s.id);
+                const memoPairs = await Promise.all(
+                  ids.map(async (sid) => {
+                    const { data, error } = await supabase.rpc('admin_get_student_memo', { p_student_id: sid });
+                    return [sid, error ? null : (data as string | null)] as const;
+                  })
+                );
+                const memoMap = Object.fromEntries(memoPairs);
+                setStudents(prev => prev.map(s => ({ ...s, admin_memo: memoMap[s.id] ?? null })));
+              } catch (e) { console.warn('student memos rpc failed', e); }
             }
           }
         }
@@ -629,7 +691,6 @@ export default function AdminDashboard() {
             name,
             created_at,
             status,
-            admin_memo,
             jobs!jobs_company_id_fkey(count)
           `
           )
@@ -644,9 +705,20 @@ export default function AdminDashboard() {
             created_at: c.created_at ?? "",
             status: c.status ?? "",
             jobs_count: c.jobs?.[0]?.count ?? 0,
-            admin_memo: (c as any).admin_memo ?? null,
+            admin_memo: null, // will be hydrated by RPC below
           }))
         );
+        try {
+          const ids = rawCompanies.map(c => c.id);
+          const memoPairs = await Promise.all(
+            ids.map(async (cid) => {
+              const { data, error } = await supabase.rpc('admin_get_company_memo', { p_company_id: cid });
+              return [cid, error ? null : (data as string | null)] as const;
+            })
+          );
+          const memoMap = Object.fromEntries(memoPairs);
+          setCompanies(prev => prev.map(c => ({ ...c, admin_memo: memoMap[c.id] ?? null })));
+        } catch (e) { console.warn('company memos rpc failed', e); }
 
         // 求人一覧
         const { data: jbData, error: jbErr } = await supabase
@@ -885,22 +957,20 @@ export default function AdminDashboard() {
   });
 
 
-  // 管理者メモ保存（student_profiles.admin_memo へ）
+  // 管理者メモ保存（student_profiles.admin_memo へ、RPC利用）
   const saveAdminMemo = useCallback(async () => {
     if (!selectedStudent?.id) return;
     if (!newMemoText.trim()) {
       toast({ description: "メモ内容を入力してください", variant: "destructive" });
       return;
     }
-    const { error } = await supabase
-      .from("student_profiles")
-      .update({ admin_memo: newMemoText.trim() })
-      .eq("id", selectedStudent.id);
+    const { error } = await supabase.rpc('admin_set_student_memo', { p_student_id: selectedStudent.id, p_memo: newMemoText.trim() });
     if (error) {
       toast({ description: `保存失敗: ${error.message}`, variant: "destructive" });
     } else {
       toast({ description: "メモを保存しました" });
       setSelectedStudent(prev => prev ? { ...prev, admin_memo: newMemoText.trim() } : prev);
+      setStudents(prev => prev.map(s => s.id === selectedStudent.id ? { ...s, admin_memo: newMemoText.trim() } : s));
       setNewMemoText("");
     }
   }, [selectedStudent?.id, newMemoText, toast]);
@@ -916,21 +986,17 @@ export default function AdminDashboard() {
     setEditingMemoText("");
   }, []);
 
-  // 一覧行のメモ保存（student_profiles.admin_memo へ）
+  // 一覧行のメモ保存（student_profiles.admin_memo へ、RPC利用）
   const saveRowMemo = useCallback(async () => {
     if (!editingMemoStudentId) return;
     try {
       setIsSavingRowMemo(true);
       const memo = editingMemoText.trim();
-      const { error } = await supabase
-        .from("student_profiles")
-        .update({ admin_memo: memo })
-        .eq("id", editingMemoStudentId);
+      const { error } = await supabase.rpc('admin_set_student_memo', { p_student_id: editingMemoStudentId, p_memo: memo });
       if (error) {
         toast({ description: `保存失敗: ${error.message}`, variant: "destructive" });
         return;
       }
-      // ローカル一覧へ即時反映
       setStudents(prev => prev.map(s => s.id === editingMemoStudentId ? { ...s, admin_memo: memo || null } : s));
       toast({ description: "メモを保存しました" });
       cancelEditRowMemo();
@@ -955,10 +1021,7 @@ export default function AdminDashboard() {
     try {
       setIsSavingCompanyMemo(true);
       const memo = editingCompanyMemo.trim();
-      const { error } = await supabase
-        .from("companies")
-        .update({ admin_memo: memo })
-        .eq("id", editingCompanyId);
+      const { error } = await supabase.rpc('admin_set_company_memo', { p_company_id: editingCompanyId, p_memo: memo });
       if (error) {
         toast({ description: `保存失敗: ${error.message}`, variant: "destructive" });
         return;
@@ -989,7 +1052,7 @@ export default function AdminDashboard() {
     else if (type === "view-student") {
       const { data } = await supabase
         .from("student_profiles")
-        .select("id,full_name,university,graduation_month,created_at,admin_memo")
+        .select("id,full_name,university,graduation_month,created_at")
         .eq("id", id)
         .single();
       if (data) {
@@ -1001,15 +1064,19 @@ export default function AdminDashboard() {
             ? new Date(data.graduation_month).getFullYear().toString()
             : "—",
           created_at: data.created_at ?? null,
-          admin_memo: data.admin_memo ?? null,
+          admin_memo: null,
         });
+        try {
+          const { data: memoData } = await supabase.rpc('admin_get_student_memo', { p_student_id: id });
+          setSelectedStudent(prev => prev ? { ...prev, admin_memo: (memoData as string | null) ?? null } : prev);
+        } catch {}
       }
       setNewMemoText("");
     }
     else if (type === "edit-student") {
       const { data } = await supabase
         .from("student_profiles")
-        .select("full_name, university, graduation_month, user_id, admin_memo")
+        .select("full_name, university, graduation_month, user_id")
         .eq("id", id)
         .single();
       if (data) {
@@ -1026,9 +1093,13 @@ export default function AdminDashboard() {
             created_at: prev?.created_at ?? "",
             status: prev?.status ?? "",
             resume_id: prev?.resume_id ?? null,
-            admin_memo: data.admin_memo ?? null,
+            admin_memo: null,
           })
         );
+        try {
+          const { data: memoData } = await supabase.rpc('admin_get_student_memo', { p_student_id: id });
+          setSelectedStudent(prev => prev ? { ...prev, admin_memo: (memoData as string | null) ?? null } : prev);
+        } catch {}
       }
       setNewMemoText("");
       // 既存の work_experiences を読み込み
@@ -1331,18 +1402,46 @@ export default function AdminDashboard() {
         {/* --- 概要 --- */}
         <TabsContent value="overview">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-4">
-            {Object.entries(overview).map(([k, v]) => (
-              <Card key={k}>
-                <CardHeader>
-                  <CardTitle className="capitalize">
-                    {k}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-xl font-bold">
-                  {v}
-                </CardContent>
-              </Card>
-            ))}
+            {/* 既存サマリー */}
+            <Card>
+              <CardHeader><CardTitle>Students</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.students}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Companies</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.companies}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Applications</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.applications}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Scouts</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{overview.scouts}</CardContent>
+            </Card>
+
+            {/* 公開中求人（合計） */}
+            <Card>
+              <CardHeader><CardTitle>Jobs (公開中 合計)</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.total}</CardContent>
+            </Card>
+            {/* カテゴリ別 */}
+            <Card>
+              <CardHeader><CardTitle>本選考</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.fulltime}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>インターン（長期）</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.intern_long}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>インターン（短期）</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.internship_short}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>イベント</CardTitle></CardHeader>
+              <CardContent className="text-xl font-bold">{jobsOverview.event}</CardContent>
+            </Card>
           </div>
         </TabsContent>
 
