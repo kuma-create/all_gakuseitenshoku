@@ -173,54 +173,78 @@ export default function StudentHome() {
     })();
   }, [userId]);
 
-  // ---- フェーズモーダル：登録日から1ヶ月ごとに表示 ----
+  // ---- フェーズモーダル：最終回答日から3ヶ月経過で表示 ----
   useEffect(() => {
-    if (!registeredAt) return;
+    if (!authChecked) return;
 
     (async () => {
       try {
         const last = await getItem("phaseLastRespondedAt");
-        const now = new Date();
-
-        // 登録日から直近の「月次アニバーサリー（日付基準）」を求める
-        const anniv = new Date(registeredAt);
-        anniv.setHours(0, 0, 0, 0);
-
-        while (true) {
-          const next = new Date(anniv);
-          next.setMonth(next.getMonth() + 1);
-          if (next > now) break; // nextが未来になったタイミングで直近のannivが確定
-          anniv.setMonth(anniv.getMonth() + 1);
-        }
-
-        // まだ回答履歴がなければ開く
+        // 回答履歴が無ければ初回として開く
         if (!last) {
           setPhaseOpen(true);
           return;
         }
 
         const lastDate = new Date(last);
-        // 直近のアニバーサリー以降に回答していなければ開く（= 今月分が未回答）
-        if (lastDate < anniv) {
+        const threshold = new Date(lastDate);
+        threshold.setMonth(threshold.getMonth() + 3); // 3ヶ月後
+        const now = new Date();
+
+        // 3ヶ月以上経過していれば表示
+        if (now >= threshold) {
           setPhaseOpen(true);
         } else {
           setPhaseOpen(false);
         }
       } catch {
-        // 何かあれば念のため表示
+        // 例外時は安全側で表示
         setPhaseOpen(true);
       }
     })();
-  }, [registeredAt]);
+  }, [authChecked]);
+
+  // UIラベル → DB保存値（CHECK/ENUM準拠）
+  const PHASE_MAP: Record<string, string> = {
+    "絶賛就活頑張ってます！": "job_hunting",
+    "インターンをやりたい！": "want_intern",
+    "就活もやりつつインターンもやりたい！": "both",
+    "就活は終わって良いインターンを探している！": "intern_after_jobhunt",
+  };
 
   const handlePhaseSelect = useCallback(async (choice: string) => {
     if (!userId) return;
-    await supabase.from("student_profiles").update({ phase_status: choice }).eq("user_id", userId);
+
+    const value = PHASE_MAP[choice];
+    if (!value) {
+      Alert.alert("不正な選択肢", "保存対象の値が不正です");
+      return;
+    }
+
     try {
-      await setItem("phaseStatus", choice);
+      const { error } = await supabase
+        .from("student_profiles")
+        .update({ phase_status: value })
+        .eq("user_id", userId)
+        .select("phase_status")
+        .single();
+
+      if (error) {
+        console.error("[phase_status update]", error);
+        Alert.alert(
+          "更新に失敗しました",
+          `phase_status の保存に失敗しました。\n\n詳細: ${error.message}`
+        );
+        return;
+      }
+
+      await setItem("phaseStatus", value); // 英語キーで保存
       await setItem("phaseLastRespondedAt", new Date().toISOString());
-    } catch {}
-    setPhaseOpen(false);
+      setPhaseOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("更新に失敗しました", e?.message ?? "不明なエラーが発生しました");
+    }
   }, [userId]);
 
   if (!authChecked) {

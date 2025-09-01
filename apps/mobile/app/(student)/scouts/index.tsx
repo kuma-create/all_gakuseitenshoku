@@ -56,6 +56,16 @@ export default function ScoutTabScreen() {
   const [statusTab, setStatusTab] = useState<"all" | "pending" | "accepted">("all");
   const [query, setQuery] = useState<string>("");
 
+  // メッセージの折りたたみ管理（一覧では3行で省略、タップで全文表示）
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   // 認証ユーザー取得
   useEffect(() => {
     const run = async () => {
@@ -247,80 +257,93 @@ export default function ScoutTabScreen() {
   }, [scouts, statusTab, query]);
 
   /* --------------------------- レンダリング ------------------------ */
-  const renderItem = ({ item }: { item: UIScout }) => (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={() => {
-        if (item.status !== "declined" && item.status !== "expired") {
-          router.push({ pathname: "/(student)/scouts/[id]", params: { id: String(item.id) } });
-        }
-      }}
-      style={[styles.card, (item.status === "declined" || item.status === "expired") && { opacity: 0.6 }]}
-    >
-      {/* Status badge */}
-      <View style={[styles.badge, getBadgeStyle(item.status)]}>
-        <Text style={styles.badgeText}>
-          {item.status === "pending" ? "検討中" : item.status === "accepted" ? "承諾" : item.status === "declined" ? "辞退" : "期限切れ"}
-        </Text>
-      </View>
+  const renderItem = ({ item }: { item: UIScout }) => {
+    const isExpanded = expandedIds.has(item.id);
+    const isLong = (item.message || "").length > 120; // 120文字以上を長文とみなす
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => {
+          if (item.status !== "declined" && item.status !== "expired") {
+            router.push({ pathname: "/(student)/scouts/[id]", params: { id: String(item.id) } });
+          }
+        }}
+        style={[styles.card, (item.status === "declined" || item.status === "expired") && { opacity: 0.6 }]}
+      >
+        {/* Status badge */}
+        <View style={[styles.badge, getBadgeStyle(item.status)]}>
+          <Text style={styles.badgeText}>
+            {item.status === "pending" ? "検討中" : item.status === "accepted" ? "承諾" : item.status === "declined" ? "辞退" : "期限切れ"}
+          </Text>
+        </View>
 
-      <View style={{ flexDirection: "row", gap: 12 }}>
-        {/* Company logo */}
-        <View style={styles.logoWrap}>
-          {item.companyLogo ? (
-            <Image source={{ uri: item.companyLogo }} style={styles.logo} resizeMode="cover" />
-          ) : (
-            <View style={[styles.logo, { backgroundColor: "#eee" }]} />
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          {/* Company logo */}
+          <View style={styles.logoWrap}>
+            {item.companyLogo ? (
+              <Image source={{ uri: item.companyLogo }} style={styles.logo} resizeMode="cover" />
+            ) : (
+              <View style={[styles.logo, { backgroundColor: "#eee" }]} />
+            )}
+          </View>
+
+          {/* Meta */}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.company}>{item.companyName}</Text>
+            <Text style={styles.meta}>{item.offerPosition ?? item.position}</Text>
+            <Text style={styles.meta}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+            {item.status === "pending" && (
+              <Text style={[styles.meta, item.daysLeft !== undefined && item.daysLeft <= 3 ? { color: "#dc2626", fontWeight: "600" } : undefined]}>
+                期限まで残り{item.daysLeft}日
+              </Text>
+            )}
+          </View>
+        </View>
+
+        {/* message */}
+        <View style={styles.messageBox}>
+          <Text style={styles.message} numberOfLines={isExpanded ? undefined : 3}>
+            {item.message}
+          </Text>
+          {isLong && (
+            <TouchableOpacity style={styles.expandBtn} onPress={() => toggleExpand(item.id)}>
+              <Text style={styles.expandText}>{isExpanded ? "閉じる" : "全文を表示"}</Text>
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* Meta */}
-        <View style={{ flex: 1 }}>
-          <Text style={styles.company}>{item.companyName}</Text>
-          <Text style={styles.meta}>{item.offerPosition ?? item.position}</Text>
-          <Text style={styles.meta}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+        {/* actions */}
+        <View style={styles.actions}>
           {item.status === "pending" && (
-            <Text style={[styles.meta, item.daysLeft !== undefined && item.daysLeft <= 3 ? { color: "#dc2626", fontWeight: "600" } : undefined]}>
-              期限まで残り{item.daysLeft}日
-            </Text>
+            <>
+              <TouchableOpacity
+                style={[styles.button, styles.outlineDanger]}
+                onPress={() => {
+                  Alert.alert("確認", "本当に辞退しますか？ この操作は取り消せません。", [
+                    { text: "キャンセル", style: "cancel" },
+                    { text: "辞退する", style: "destructive", onPress: () => handleDecline(item.id) },
+                  ]);
+                }}
+              >
+                <Text style={[styles.buttonText, { color: "#b91c1c" }]}>辞退する</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.primaryGreen]} onPress={() => handleAccept(item.id)}>
+                <Text style={[styles.buttonText, { color: "#fff" }]}>承諾する</Text>
+              </TouchableOpacity>
+            </>
           )}
-        </View>
-      </View>
-
-      {/* message */}
-      <Text style={styles.message}>{item.message}</Text>
-
-      {/* actions */}
-      <View style={styles.actions}>
-        {item.status === "pending" && (
-          <>
-            <TouchableOpacity
-              style={[styles.button, styles.outlineDanger]}
-              onPress={() => {
-                Alert.alert("確認", "本当に辞退しますか？ この操作は取り消せません。", [
-                  { text: "キャンセル", style: "cancel" },
-                  { text: "辞退する", style: "destructive", onPress: () => handleDecline(item.id) },
-                ]);
-              }}
-            >
-              <Text style={[styles.buttonText, { color: "#b91c1c" }]}>辞退する</Text>
+          {item.status === "accepted" && item.chatRoomId && (
+            <TouchableOpacity style={[styles.button, styles.primaryBlue]} onPress={() => router.push({ pathname: "/(student)/chat/[id]", params: { id: String(item.chatRoomId) } })}>
+              <Text style={[styles.buttonText, { color: "#fff" }]}>チャットを開く</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.primaryGreen]} onPress={() => handleAccept(item.id)}>
-              <Text style={[styles.buttonText, { color: "#fff" }]}>承諾する</Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {item.status === "accepted" && item.chatRoomId && (
-          <TouchableOpacity style={[styles.button, styles.primaryBlue]} onPress={() => router.push({ pathname: "/(student)/chat/[id]", params: { id: String(item.chatRoomId) } })}>
-            <Text style={[styles.buttonText, { color: "#fff" }]}>チャットを開く</Text>
+          )}
+          <TouchableOpacity style={[styles.button, styles.solid]} onPress={() => router.push({ pathname: "/(student)/scouts/[id]", params: { id: String(item.id) } })}>
+            <Text style={styles.buttonText}>詳細を見る</Text>
           </TouchableOpacity>
-        )}
-        <TouchableOpacity style={[styles.button, styles.solid]} onPress={() => router.push({ pathname: "/(student)/scouts/[id]", params: { id: String(item.id) } })}>
-          <Text style={styles.buttonText}>詳細を見る</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f9fafb" }}>
@@ -437,7 +460,10 @@ const styles = StyleSheet.create({
   logo: { width: 56, height: 56 },
   company: { fontSize: 16, fontWeight: "700", color: "#111827" },
   meta: { marginTop: 4, color: "#6b7280", fontSize: 12 },
-  message: { marginTop: 12, color: "#374151", lineHeight: 20, fontSize: 14 },
+  message: { color: "#374151", lineHeight: 20, fontSize: 14 },
+  messageBox: { marginTop: 12, backgroundColor: "#f9fafb", borderRadius: 10, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: "#e5e7eb" },
+  expandBtn: { marginTop: 8, alignSelf: "flex-start", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: "#eef2ff" },
+  expandText: { fontSize: 12, fontWeight: "700", color: "#3730a3" },
   actions: { marginTop: 16, flexDirection: "row", justifyContent: "flex-end", flexWrap: "wrap", gap: 8 },
   button: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: "#e5e7eb" },
   buttonText: { color: "#111827", fontWeight: "600" },
