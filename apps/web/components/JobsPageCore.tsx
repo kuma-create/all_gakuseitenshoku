@@ -230,7 +230,8 @@ export default function JobsPage({
   const [jobs, setJobs] = useState<JobRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [interestsLoaded, setInterestsLoaded] = useState(false);
   const [events, setEvents] = useState<EventRow[]>([]);
 
   /* UI filter states */
@@ -278,6 +279,7 @@ export default function JobsPage({
     }
   }, [selectionType]);
   const [saved, setSaved] = useState<Set<string>>(new Set())
+  // ※ ログイン済みの場合は後続の Supabase 同期で上書きします
   // 最初に localStorage から読み取って saved セットを初期化
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -293,13 +295,69 @@ export default function JobsPage({
   }, [])
   useEffect(() => {
     let active = true;
+
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (active) setIsLoggedIn(!!data.session);
+      const session = data?.session ?? null;
+      if (active) setIsLoggedIn(!!session);
+
+      // 取得できたら student_profiles.id を特定
+      if (session) {
+        const { data: sp, error: spErr } = await supabase
+          .from("student_profiles")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (!spErr && sp?.id) {
+          if (active) setStudentId(sp.id);
+          // 学生IDが取れたら、お気に入り(job_interests) を読み込み
+          const { data: ji, error: jiErr } = await supabase
+            .from("job_interests")
+            .select("job_id")
+            .eq("student_id", sp.id);
+          if (!jiErr && ji) {
+            const ids = ji.map((r) => r.job_id as string).filter(Boolean);
+            if (active) setSaved(new Set(ids));
+          }
+          if (active) setInterestsLoaded(true);
+        } else {
+          // student_profiles が無い等の場合も読み込み完了フラグだけは立てておく
+          if (active) setInterestsLoaded(true);
+        }
+      } else {
+        // 未ログイン
+        if (active) {
+          setStudentId(null);
+          setInterestsLoaded(true);
+        }
+      }
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsLoggedIn(!!session);
+      if (session) {
+        const { data: sp, error: spErr } = await supabase
+          .from("student_profiles")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (!spErr && sp?.id) {
+          setStudentId(sp.id);
+          const { data: ji, error: jiErr } = await supabase
+            .from("job_interests")
+            .select("job_id")
+            .eq("student_id", sp.id);
+          if (!jiErr && ji) setSaved(new Set(ji.map((r) => r.job_id as string)));
+        } else {
+          setStudentId(null);
+        }
+        setInterestsLoaded(true);
+      } else {
+        setStudentId(null);
+        setInterestsLoaded(true);
+      }
     });
+
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, []);
   const [view, setView] = useState<"grid" | "list">("grid")
@@ -613,16 +671,65 @@ job_tags!job_tags_job_id_fkey (
   const eventJobs = displayed.filter((j) => j.selection_type === "event");
 
   /* ------------- helpers ------------------ */
-  const toggleSave = (id: string) =>
+  // --- job_interests helpers ---
+  const addInterest = async (jobId: string) => {
+    if (!studentId) return;
+    const { error } = await supabase
+      .from("job_interests")
+      .insert({ student_id: studentId, job_id: jobId });
+    if (error) {
+      console.error("addInterest error", error);
+      // 失敗したらロールバック
+      setSaved((prev) => {
+        const next = new Set(prev); next.delete(jobId); return next;
+      });
+    }
+  };
+
+  const removeInterest = async (jobId: string) => {
+    if (!studentId) return;
+    const { error } = await supabase
+      .from("job_interests")
+      .delete()
+      .eq("student_id", studentId)
+      .eq("job_id", jobId);
+    if (error) {
+      console.error("removeInterest error", error);
+      // 失敗したらロールバック
+      setSaved((prev) => {
+        const next = new Set(prev); next.add(jobId); return next;
+      });
+    }
+  };
+
+  const toggleSave = async (id: string) => {
+    // ローカル即時反映（楽観的更新）
     setSaved((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      // 変更を localStorage に反映
-      if (typeof window !== "undefined") {
-        localStorage.setItem("savedJobs", JSON.stringify(Array.from(next)))
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+    if (studentId) {
+      // サーバ同期
+      if (saved.has(id)) {
+        // 直前の状態を参照すると競合するため、存在チェックではなく try-delete/insert に寄せる
+        await removeInterest(id);
+      } else {
+        await addInterest(id);
       }
-      return next
-    })
+    } else {
+      // 未ログインは従来通り localStorage を使用
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("savedJobs");
+        let arr: string[] = [];
+        try { arr = raw ? JSON.parse(raw) : []; } catch { arr = []; }
+        const set = new Set(arr);
+        set.has(id) ? set.delete(id) : set.add(id);
+        localStorage.setItem("savedJobs", JSON.stringify(Array.from(set)));
+      }
+    }
+  };
 
   const tagColor = () => "bg-gray-100 text-gray-800"
 
@@ -1068,6 +1175,7 @@ job_tags!job_tags_job_id_fkey (
               saved={saved}
               toggleSave={toggleSave}
               tagColor={tagColor}
+              isLoggedIn={isLoggedIn}
               singleRow
             />
           </div>
@@ -1093,6 +1201,7 @@ job_tags!job_tags_job_id_fkey (
               saved={saved}
               toggleSave={toggleSave}
               tagColor={tagColor}
+              isLoggedIn={isLoggedIn}
               singleRow
             />
           </div>
@@ -1118,6 +1227,7 @@ job_tags!job_tags_job_id_fkey (
               saved={saved}
               toggleSave={toggleSave}
               tagColor={tagColor}
+              isLoggedIn={isLoggedIn}
               singleRow
             />
           </div>
@@ -1144,6 +1254,7 @@ job_tags!job_tags_job_id_fkey (
           saved={saved}
           toggleSave={toggleSave}
           tagColor={tagColor}
+          isLoggedIn={isLoggedIn}
         />
       </section>
 
@@ -1390,6 +1501,7 @@ function JobGrid({
   saved,
   toggleSave,
   tagColor,
+  isLoggedIn,
   singleRow = false,
 }: {
   jobs: JobRow[];
@@ -1397,6 +1509,7 @@ function JobGrid({
   saved: Set<string>;
   toggleSave: (id: string) => void;
   tagColor: (t: string) => string;
+  isLoggedIn: boolean;
   singleRow?: boolean;
 }) {
   if (!jobs.length)
@@ -1494,9 +1607,10 @@ function JobGrid({
               size="icon"
               aria-pressed={saved.has(j.id)}
               aria-label={saved.has(j.id) ? "保存済み" : "保存する"}
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleSave(j.id)
+              title={isLoggedIn ? "保存/解除" : "ログインすると端末間で同期されます"}
+              onClick={async (e) => {
+                e.stopPropagation();
+                await toggleSave(j.id);
               }}
             >
               <Heart className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""} />
@@ -1600,9 +1714,10 @@ function JobGrid({
             className="absolute right-2 top-2 bg-white/80 hover:bg-white rounded-full"
             aria-pressed={saved.has(j.id)}
             aria-label={saved.has(j.id) ? "保存済み" : "保存する"}
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleSave(j.id)
+            title={isLoggedIn ? "保存/解除" : "ログインすると端末間で同期されます"}
+            onClick={async (e) => {
+              e.stopPropagation();
+              await toggleSave(j.id);
             }}
           >
             <Heart size={18} className={saved.has(j.id) ? "fill-red-500 text-red-500" : ""} />

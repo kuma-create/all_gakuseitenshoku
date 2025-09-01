@@ -23,7 +23,17 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 // 依存は既存のまま
 import type { Database } from "@/lib/supabase/types";
+
 import { supabase } from "src/lib/supabase";
+
+// ────────────────────────────────────────────────
+// Theme Colors (light-friendly)
+// ────────────────────────────────────────────────
+const THEME = {
+  primary: "#2563EB",       // Blue 600
+  primaryLight: "#E8F0FE",  // very light blue for my bubbles
+  textDark: "#0F172A",      // Slate 900
+};
 
 // ────────────────────────────────────────────────
 // 型定義
@@ -376,8 +386,8 @@ export default function ChatDetailScreen() {
         behavior={Platform.select({ ios: "padding", android: undefined })}
         keyboardVerticalOffset={headerHeight}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.chatArea}>
+        {Platform.OS === "ios" ? (
+          <View style={styles.chatArea} onStartShouldSetResponderCapture={() => false}>
             <FlatList
               ref={listRef}
               data={dataWithSeparators}
@@ -391,13 +401,15 @@ export default function ChatDetailScreen() {
                   <Bubble message={item} isMine={item.sender === (isStudent ? "student" : "company")} />
                 ))
               }
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+              keyboardDismissMode="on-drag"
+              contentInsetAdjustmentBehavior="always"
               contentContainerStyle={[
                 styles.listContent,
                 {
+                  flexGrow: 1,
                   paddingTop: 0,
-                  // 入力バー本体 + セーフエリア + (キーボード時は最小) + (キーボード時はタブ0)
                   paddingBottom: inputHeight + (insets.bottom || 0) + dynamicExtraGap + dynamicTabOffset,
                 },
               ]}
@@ -418,7 +430,52 @@ export default function ChatDetailScreen() {
               </TouchableOpacity>
             )}
           </View>
-        </TouchableWithoutFeedback>
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.chatArea}>
+              <FlatList
+                ref={listRef}
+                data={dataWithSeparators}
+                keyExtractor={(item) => ("__type" in item ? item.id : item.id)}
+                renderItem={({ item }) =>
+                  ("__type" in item ? (
+                    <View style={styles.separatorWrap}>
+                      <Text style={styles.separatorText}>{item.label}</Text>
+                    </View>
+                  ) : (
+                    <Bubble message={item} isMine={item.sender === (isStudent ? "student" : "company")} />
+                  ))
+                }
+                keyboardShouldPersistTaps="handled"
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                keyboardDismissMode="on-drag"
+                contentContainerStyle={[
+                  styles.listContent,
+                  {
+                    flexGrow: 1,
+                    paddingTop: 0,
+                    paddingBottom: inputHeight + (insets.bottom || 0) + dynamicExtraGap + dynamicTabOffset,
+                  },
+                ]}
+                onContentSizeChange={scrollToEnd}
+                onScroll={onListScroll}
+                scrollEventThrottle={16}
+              />
+
+              {showScrollToBottom && (
+                <TouchableOpacity
+                  style={[
+                    styles.scrollToBottom,
+                    { bottom: (bottomReserve + dynamicExtraGap) + inputHeight + (isKeyboardOpen ? 8 : 40) }
+                  ]}
+                  onPress={scrollToEnd}
+                >
+                  <Text style={styles.scrollToBottomText}>↓ 最新へ</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </TouchableWithoutFeedback>
+        )}
 
         <View
           style={[
@@ -488,7 +545,7 @@ const styles = StyleSheet.create({
   chatArea: { flex: 1 },
   listContent: { paddingHorizontal: 12, paddingTop: 0, paddingBottom: 0 },
 
-  headerCta: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: "#111827" },
+  headerCta: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: THEME.primary },
   headerCtaText: { color: "#fff", fontWeight: "600" },
 
   inputBar: {
@@ -522,7 +579,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
     minWidth: 68,
     borderRadius: 12,
-    backgroundColor: "#111827",
+    backgroundColor: THEME.primary,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
@@ -536,11 +593,11 @@ const styles = StyleSheet.create({
   rowOther: { justifyContent: "flex-start" },
 
   bubble: { maxWidth: "80%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },
-  bubbleMine: { backgroundColor: "#111827", borderTopRightRadius: 4, marginLeft: "20%" },
+  bubbleMine: { backgroundColor: THEME.primaryLight, borderTopRightRadius: 4, marginLeft: "20%" },
   bubbleOther: { backgroundColor: "#F3F4F6", borderTopLeftRadius: 4, marginRight: "20%" },
 
   text: { fontSize: 17, lineHeight: 24 },
-  textMine: { color: "#fff" },
+  textMine: { color: THEME.textDark },
   textOther: { color: "#111827" },
 
   meta: { marginTop: 4, fontSize: 12, color: "#4B5563", textAlign: "right" },
@@ -566,7 +623,7 @@ const styles = StyleSheet.create({
     right: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: "#111827",
+    backgroundColor: THEME.primary,
     borderRadius: 18,
     shadowColor: "#000",
     shadowOpacity: 0.12,

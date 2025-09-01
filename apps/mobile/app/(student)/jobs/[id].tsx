@@ -94,6 +94,7 @@ type Job = {
   event_date?: string | null;
   event_time?: string | null;
   format?: string | null;
+  cover_image_url?: string | null;
 
   // 旧スキーマ互換フィールド（存在する場合のみ使用）
   benefits?: string | null;
@@ -442,6 +443,7 @@ export default function JobDetailScreen() {
 
           {/* 右カラム相当：応募 / 保存 / 企業情報 / 関連 */}
           <ApplyCard
+            jobId={state.job.id as string}
             hasApplied={state.hasApplied}
             onApplyPress={async () => {
               try {
@@ -503,7 +505,23 @@ function HeaderBlock({ job, company, tags }: { job: Job; company: Company; tags:
 
   return (
     <View style={styles.headerCard}>
-      <View style={{ height: 96, backgroundColor: "#dc2626", opacity: 0.9 }} />
+      <View
+        style={{
+          height: 96,
+          overflow: "hidden",
+          backgroundColor: job?.cover_image_url ? "transparent" : "#dc2626",
+        }}
+      >
+        {job?.cover_image_url ? (
+          <Image
+            source={{ uri: job.cover_image_url }}
+            style={styles.headerBgImage}
+            resizeMode="cover"
+            accessible
+            accessibilityLabel="求人イメージ"
+          />
+        ) : null}
+      </View>
       <View style={{ marginTop: -24, padding: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           {company?.logo ? (
@@ -563,15 +581,75 @@ function HeaderBlock({ job, company, tags }: { job: Job; company: Company; tags:
   );
 }
 
-function ApplyCard({ hasApplied, onApplyPress }: { hasApplied: boolean; onApplyPress: () => void }) {
+function ApplyCard({ jobId, hasApplied, onApplyPress }: { jobId: string; hasApplied: boolean; onApplyPress: () => void }) {
   const [saved, setSaved] = useState(false);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [loadingInterest, setLoadingInterest] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const raw = await AsyncStorage.getItem("savedJobsMobile");
-      setSaved(raw === "1");
+      const { data: sessionRes } = await supabase.auth.getSession();
+      const session = sessionRes?.session ?? null;
+      if (session) {
+        const { data: sp, error: spErr } = await supabase
+          .from("student_profiles")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (!spErr && sp?.id) {
+          setStudentId(sp.id);
+          const { data: ji, error: jiErr } = await supabase
+            .from("job_interests")
+            .select("id")
+            .eq("student_id", sp.id)
+            .eq("job_id", jobId)
+            .limit(1);
+          if (!jiErr) setSaved(!!(ji && ji.length));
+        } else {
+          setStudentId(null);
+        }
+      } else {
+        // 未ログイン: 求人ごとにローカル保存へフォールバック
+        const raw = await AsyncStorage.getItem(`savedJobsMobile:${jobId}`);
+        setSaved(raw === "1");
+      }
+      setLoadingInterest(false);
     })();
-  }, []);
+  }, [jobId]);
+
+  const toggle = useCallback(async () => {
+    // 楽観的更新
+    setSaved((prev) => !prev);
+
+    if (studentId) {
+      try {
+        if (!saved) {
+          const { error } = await supabase
+            .from("job_interests")
+            .insert({ student_id: studentId, job_id: jobId });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("job_interests")
+            .delete()
+            .eq("student_id", studentId)
+            .eq("job_id", jobId);
+          if (error) throw error;
+        }
+      } catch {
+        // 失敗時ロールバック
+        setSaved((prev) => !prev);
+        Alert.alert("エラー", "興味ありの更新に失敗しました");
+      }
+    } else {
+      // 未ログイン: ジョブ別キーで端末保存
+      try {
+        await AsyncStorage.setItem(`savedJobsMobile:${jobId}`, !saved ? "1" : "0");
+      } catch {
+        setSaved((prev) => !prev);
+      }
+    }
+  }, [studentId, jobId, saved]);
 
   return (
     <View style={styles.card}>
@@ -590,12 +668,9 @@ function ApplyCard({ hasApplied, onApplyPress }: { hasApplied: boolean; onApplyP
           <Text style={styles.primaryBtnText}>{hasApplied ? "応募済み" : "この求人に応募する"}</Text>
         </Pressable>
         <Pressable
-          style={[saved ? styles.savedBtn : styles.outlineBtn, { flex: 1 }]}
-          onPress={async () => {
-            const next = !saved;
-            setSaved(next);
-            await AsyncStorage.setItem("savedJobsMobile", next ? "1" : "0");
-          }}
+          style={[saved ? styles.savedBtn : styles.outlineBtn, { flex: 1, opacity: loadingInterest ? 0.6 : 1 }]}
+          disabled={loadingInterest}
+          onPress={toggle}
         >
           <Text style={saved ? styles.savedBtnText : styles.outlineBtnText}>
             {saved ? "興味ありに登録済み" : "興味ありに登録"}
@@ -917,6 +992,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: "#e5e7eb",
     marginBottom: 12,
+  },
+  headerBgImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerBgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#dc2626",
+    opacity: 0.85,
   },
   logo: {
     width: 72,
