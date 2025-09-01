@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { format } from "date-fns";
@@ -74,6 +72,8 @@ export default function ChatScreen() {
       last_created: string | null;
       is_unread: boolean;
       job_id?: string | null;
+      job_title?: string | null;
+      job_name?: string | null;
       [key: string]: any;
     };
 
@@ -86,7 +86,7 @@ export default function ChatScreen() {
         ? format(new Date(r.last_created), "yyyy/MM/dd HH:mm", { locale: ja })
         : "-",
       unread: r.is_unread,
-      position: null,
+      position: (r.job_title ?? r.job_name) ?? null,
       type: r.job_id ? "apply" : "scout",
     }));
 
@@ -135,7 +135,8 @@ export default function ChatScreen() {
       if (!q) return true;
       return (
         c.company.toLowerCase().includes(q) ||
-        (c.lastMessage ?? "").toLowerCase().includes(q)
+        (c.lastMessage ?? "").toLowerCase().includes(q) ||
+        (c.position ?? "").toLowerCase().includes(q)
       );
     });
   }, [chats, query, tab]);
@@ -285,9 +286,29 @@ export default function ChatScreen() {
                     </View>
                   )}
                 </View>
+                {/* 応募/スカウトの見出しと職種名 */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 999,
+                      backgroundColor: item.type === "apply" ? "#eef2ff" : "#f1f5f9",
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, color: item.type === "apply" ? "#3730a3" : "#475569" }}>
+                      {item.type === "apply" ? "応募" : "スカウト"}
+                    </Text>
+                  </View>
+                  {item.type === "apply" && !!item.position && (
+                    <Text numberOfLines={1} style={{ fontSize: 12, color: "#444", flexShrink: 1 }}>
+                      {item.position}
+                    </Text>
+                  )}
+                </View>
                 <Text
                   numberOfLines={1}
-                  style={{ color: "#666", marginTop: 2 }}
+                  style={{ color: "#666", marginTop: 4 }}
                 >
                   {item.lastMessage}
                 </Text>
