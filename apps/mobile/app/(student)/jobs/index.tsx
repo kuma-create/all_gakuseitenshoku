@@ -4,6 +4,8 @@
 // 2025-08-12
 
 import { Stack, useRouter } from "expo-router";
+import { useHeaderHeight } from "@react-navigation/elements";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -17,7 +19,11 @@ import {
     View,
     ScrollView,
     Modal,
+    Platform,
+    useWindowDimensions,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 
 // Supabase クライアントのパスはプロジェクトに合わせて調整
 import { supabase } from "src/lib/supabase";
@@ -127,11 +133,17 @@ const SALARY_OPTIONS = [
 const isEventLike = (t: string) => ["event", "internship_short"].includes(canon(t));
 const canonSel = (v?: string | null) => (v === "intern_long" ? "internship_long" : (v ?? ""));
 
+
 /* =========================================
  * Screen: JobsIndex (UI/UX 改善)
  * =======================================*/
 export default function JobsIndexScreen() {
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
+
+  const { width } = useWindowDimensions();
+  const isCompact = width < 380;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +157,47 @@ export default function JobsIndexScreen() {
   >("all");
   const [refreshing, setRefreshing] = useState(false);
 
+  // --- Favorite jobs state ---
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const savingRef = useRef<Record<string, boolean>>({});
+  // load favorites (job_interests) or local fallback
+  useEffect(() => {
+    (async () => {
+      const { data: sessionRes } = await supabase.auth.getSession();
+      const session = sessionRes?.session ?? null;
+      if (session) {
+        const { data: sp, error: spErr } = await supabase
+          .from("student_profiles")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (!spErr && sp?.id) {
+          setStudentId(sp.id);
+          const { data: ji, error: jiErr } = await supabase
+            .from("job_interests")
+            .select("job_id")
+            .eq("student_id", sp.id);
+          if (!jiErr && ji) {
+            setSavedIds(new Set(ji.map((r: any) => r.job_id as string)));
+          }
+        } else {
+          setStudentId(null);
+        }
+      } else {
+        setStudentId(null);
+        // local fallback: array stored as JSON under key 'savedJobsMobile:list'
+        try {
+          const raw = await AsyncStorage.getItem('savedJobsMobile:list');
+          const arr: string[] = raw ? JSON.parse(raw) : [];
+          setSavedIds(new Set(arr));
+        } catch {
+          setSavedIds(new Set());
+        }
+      }
+    })();
+  }, []);
+
   // ---- Filter UI states (WEB版互換) ----
   const [industriesSelected, setIndustriesSelected] = useState<string[]>([]);
   const [jobTypesSelected, setJobTypesSelected] = useState<string[]>([]);
@@ -153,6 +206,7 @@ export default function JobsIndexScreen() {
   const [eventTo, setEventTo] = useState<string>("");       // YYYY-MM (短期のみ)
   const [eventFormat, setEventFormat] = useState<string>("all"); // online | onsite | hybrid | all
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<"new" | "deadline" | "salary_high" | "salary_low" | "recommended">("new");
 
   // --- Debounce query to reduce re-renders
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -246,6 +300,72 @@ export default function JobsIndexScreen() {
     setRefreshing(false);
   }, [fetchJobs]);
 
+  const persistLocalList = async (set: Set<string>) => {
+    const arr = Array.from(set);
+    try { await AsyncStorage.setItem('savedJobsMobile:list', JSON.stringify(arr)); } catch {}
+    // keep per-job keys for compatibility with detail page implementation
+    try {
+      await Promise.all(arr.map(id => AsyncStorage.setItem(`savedJobsMobile:${id}`, '1')));
+    } catch {}
+  };
+
+  const addInterest = async (jobId: string) => {
+    if (!studentId) return;
+    const { error } = await supabase
+      .from('job_interests')
+      .insert({ student_id: studentId, job_id: jobId });
+    if (error) throw error;
+  };
+
+  const removeInterest = async (jobId: string) => {
+    if (!studentId) return;
+    const { error } = await supabase
+      .from('job_interests')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('job_id', jobId);
+    if (error) throw error;
+  };
+
+  const toggleSaved = useCallback(async (jobId: string) => {
+    if (savingRef.current[jobId]) return; // prevent double taps
+    savingRef.current[jobId] = true;
+    // optimistic update
+    setSavedIds(prev => {
+      const next = new Set(prev);
+      next.has(jobId) ? next.delete(jobId) : next.add(jobId);
+      return next;
+    });
+
+    try {
+      if (studentId) {
+        if (savedIds.has(jobId)) {
+          await removeInterest(jobId);
+        } else {
+          await addInterest(jobId);
+        }
+      } else {
+        // local
+        setSavedIds(prev => {
+          const next = new Set(prev);
+          // already toggled above; just persist
+          persistLocalList(next);
+          return next;
+        });
+      }
+    } catch (e) {
+      // rollback on failure
+      setSavedIds(prev => {
+        const next = new Set(prev);
+        next.has(jobId) ? next.delete(jobId) : next.add(jobId);
+        return next;
+      });
+      Platform.OS !== 'web' && console.warn('Failed to toggle favorite', e);
+    } finally {
+      savingRef.current[jobId] = false;
+    }
+  }, [studentId, savedIds]);
+
   const displayed = useMemo(() => {
     const q = debouncedQuery.trim().toLowerCase();
 
@@ -320,8 +440,34 @@ export default function JobsIndexScreen() {
         matchesFormat &&
         matchesEventDate
       );
+    }).sort((a, b) => {
+      switch (sortKey) {
+        case "recommended":
+          // 推薦（is_recommended=trueを先頭、その後は新着）
+          if ((b.is_recommended ? 1 : 0) !== (a.is_recommended ? 1 : 0)) {
+            return (b.is_recommended ? 1 : 0) - (a.is_recommended ? 1 : 0);
+          }
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case "deadline":
+          // 期日が近い順（未設定は最後）
+          const ad = a.application_deadline ? new Date(a.application_deadline).getTime() : Number.MAX_SAFE_INTEGER;
+          const bd = b.application_deadline ? new Date(b.application_deadline).getTime() : Number.MAX_SAFE_INTEGER;
+          return ad - bd;
+        case "salary_high":
+          // 高い順（max→minの存在を考慮）
+          const aPayH = (a.salary_max ?? a.salary_min ?? 0);
+          const bPayH = (b.salary_max ?? b.salary_min ?? 0);
+          return bPayH - aPayH;
+        case "salary_low":
+          const aPayL = (a.salary_min ?? a.salary_max ?? 0);
+          const bPayL = (b.salary_min ?? b.salary_max ?? 0);
+          return aPayL - bPayL;
+        case "new":
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
     });
-  }, [jobs, debouncedQuery, industriesSelected, jobTypesSelected, selectionType, salaryMin, eventFrom, eventTo, eventFormat]);
+  }, [jobs, debouncedQuery, industriesSelected, jobTypesSelected, selectionType, salaryMin, eventFrom, eventTo, eventFormat, sortKey]);
 
   const activeFiltersCount =
     (industriesSelected.length ? 1 : 0) +
@@ -346,33 +492,45 @@ export default function JobsIndexScreen() {
   /* ---------- render ---------- */
   return (
     <>
-      <Stack.Screen options={{ title: "選考一覧", headerBackTitle: "戻る" }} />
-      <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { paddingTop: (insets.top || 0) + 4 }]}>
+        <Text accessibilityRole="header" style={styles.pageTitle}>募集を探す</Text>
         {/* search */}
         <View style={styles.searchRow}>
-          <TextInput
-            value={query}
-            onChangeText={onChangeQuery}
-            placeholder="職種・会社名・キーワード"
-            style={styles.searchInput}
-            returnKeyType="search"
-            accessibilityLabel="求人検索"
-            clearButtonMode="while-editing"
-          />
+          <View style={styles.searchWrap}>
+            <Ionicons name="search" size={18} color="#6b7280" accessibilityLabel="検索" />
+            <TextInput
+              value={query}
+              onChangeText={onChangeQuery}
+              placeholder="キーワードで検索"
+              style={styles.searchInputInline}
+              returnKeyType="search"
+              accessibilityLabel="求人検索"
+              clearButtonMode="while-editing"
+            />
+          </View>
+          {!isCompact && (
+            <TouchableOpacity style={styles.filterPill} onPress={() => setFilterOpen(true)} accessibilityRole="button">
+              <Ionicons name="filter" size={16} color="#111827" />
+              <Text style={styles.filterPillText}>フィルター</Text>
+              {activeFiltersCount > 0 && (
+                <View style={styles.filterCount}><Text style={styles.filterCountText}>{activeFiltersCount}</Text></View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
+        {isCompact && (
+          <View style={styles.filterPillRow}>
+            <TouchableOpacity style={styles.filterPill} onPress={() => setFilterOpen(true)} accessibilityRole="button">
+              <Ionicons name="filter" size={16} color="#111827" />
+              <Text style={styles.filterPillText}>フィルター</Text>
+              {activeFiltersCount > 0 && (
+                <View style={styles.filterCount}><Text style={styles.filterCountText}>{activeFiltersCount}</Text></View>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* filter bar */}
-        <View style={styles.filterBar}>
-          <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterOpen(true)} accessibilityRole="button">
-            <Text style={styles.filterBtnText}>フィルター</Text>
-            {activeFiltersCount > 0 && (
-              <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{activeFiltersCount}</Text></View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.clearAllBtn} onPress={clearAllFilters} accessibilityRole="button">
-            <Text style={styles.clearAllText}>すべてクリア</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* active filters (chips) */}
         {activeFiltersCount > 0 && (
@@ -420,6 +578,8 @@ export default function JobsIndexScreen() {
           setEventTo={setEventTo}
           eventFormat={eventFormat}
           setEventFormat={setEventFormat}
+          sortKey={sortKey}
+          setSortKey={setSortKey}
         />
 
         {/* states */}
@@ -446,7 +606,14 @@ export default function JobsIndexScreen() {
             data={displayed}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingBottom: 24, gap: 12, paddingTop: 4 }}
-            renderItem={({ item }) => <MemoJobCard item={item} onPress={onPressJob} />}
+            renderItem={({ item }) => (
+              <MemoJobCard
+                item={item}
+                onPress={onPressJob}
+                saved={savedIds.has(item.id)}
+                onToggle={() => toggleSaved(item.id)}
+              />
+            )}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
@@ -476,8 +643,7 @@ function Chip({ text }: { text: string }) {
   );
 }
 
-function JobCard({ item, onPress }: { item: JobRow; onPress: (id: string) => void }) {
-  const hasLogo = !!item.companies?.logo;
+function JobCard({ item, onPress, saved, onToggle }: { item: JobRow; onPress: (id: string) => void; saved: boolean; onToggle: () => void }) {
   return (
     <TouchableOpacity
       style={styles.card}
@@ -485,11 +651,16 @@ function JobCard({ item, onPress }: { item: JobRow; onPress: (id: string) => voi
       accessibilityRole="button"
       accessibilityLabel={`${item.companies?.name ?? "企業名不明"}の求人：${item.title ?? "タイトル不明"}`}
     >
-      {/* header */}
+      {/* cover image (optional) */}
+      {item.cover_image_url ? (
+        <Image source={{ uri: item.cover_image_url }} style={styles.cardCover} resizeMode="cover" />
+      ) : null}
+
+      {/* header with logo & company/title */}
       <View style={styles.cardHeader}>
         <View style={styles.logoWrap}>
-          {hasLogo ? (
-            <Image source={{ uri: item.companies!.logo! }} style={styles.logo} resizeMode="contain" />
+          {item.companies?.logo ? (
+            <Image source={{ uri: item.companies.logo }} style={styles.logo} resizeMode="contain" />
           ) : (
             <View style={[styles.logo, styles.logoFallback]}>
               <Text style={styles.logoFallbackText}>{initialsFromName(item.companies?.name ?? "?")}</Text>
@@ -497,12 +668,8 @@ function JobCard({ item, onPress }: { item: JobRow; onPress: (id: string) => voi
           )}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.company} numberOfLines={1}>
-            {item.companies?.name ?? "企業名未登録"}
-          </Text>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title ?? "募集タイトル未登録"}
-          </Text>
+          <Text style={styles.company} numberOfLines={1}>{item.companies?.name ?? "企業名未登録"}</Text>
+          <Text style={styles.title} numberOfLines={2}>{item.title ?? "募集タイトル未登録"}</Text>
           <View style={styles.chipsRow}>
             <Chip text={selectionLabel(item.selection_type ?? undefined)} />
             {!!item.location && <Chip text={item.location} />}
@@ -520,23 +687,17 @@ function JobCard({ item, onPress }: { item: JobRow; onPress: (id: string) => voi
         </View>
       ) : null}
 
-      {/* footer */}
-      {item.salary_min || item.salary_max || item.application_deadline ? (
-        <View style={styles.footerRow}>
-          {item.salary_min || item.salary_max ? (
-            <Text style={styles.meta} numberOfLines={1}>
-              {item.salary_min && item.salary_max
-                ? `${item.salary_min}万 – ${item.salary_max}万`
-                : item.salary_min
-                ? `${item.salary_min}万〜`
-                : `${item.salary_max}万以下`}
-            </Text>
-          ) : null}
-          {item.application_deadline ? (
-            <Text style={styles.meta}>締切 {formatDeadline(item.application_deadline)}</Text>
-          ) : null}
+      {/* footer meta & actions */}
+      <View style={styles.footerRowBetween}>
+        <Text style={styles.meta} numberOfLines={1}>
+          {item.application_deadline ? `締切 ${formatDeadline(item.application_deadline)}` : (item.created_at ? new Date(item.created_at).toLocaleDateString() : "")}
+        </Text>
+        <View style={{ flexDirection: "row", gap: 14 }}>
+          <TouchableOpacity onPress={onToggle} accessibilityRole="button" accessibilityLabel={saved ? "お気に入り解除" : "お気に入りに保存"}>
+            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={20} color={saved ? "#ef4444" : "#6b7280"} />
+          </TouchableOpacity>
         </View>
-      ) : null}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -607,6 +768,8 @@ function FilterSheet(props: {
   setEventTo: (v: string) => void;
   eventFormat: string;
   setEventFormat: (v: string) => void;
+  sortKey: "new" | "deadline" | "salary_high" | "salary_low" | "recommended";
+  setSortKey: (v: "new" | "deadline" | "salary_high" | "salary_low" | "recommended") => void;
 }) {
   const {
     open, onClose,
@@ -617,6 +780,7 @@ function FilterSheet(props: {
     eventFrom, setEventFrom,
     eventTo, setEventTo,
     eventFormat, setEventFormat,
+    sortKey, setSortKey,
   } = props;
 
   return (
@@ -683,6 +847,18 @@ function FilterSheet(props: {
                 </View>
               </View>
             )}
+
+            <View style={{ gap: 8 }}>
+              <Text style={styles.sheetLabel}>並び替え</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {[
+                  { key: "new", label: "新着順" },
+                  { key: "deadline", label: "締切が近い順" },
+                ].map((t) => (
+                  <TogglePill key={t.key} text={t.label} active={sortKey === (t.key as any)} onPress={() => setSortKey(t.key as any)} />
+                ))}
+              </View>
+            </View>
           </ScrollView>
 
           <View style={styles.sheetFooter}>
@@ -702,11 +878,20 @@ function FilterSheet(props: {
 /* ---------- styles ---------- */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f9fafb" },
+  pageTitle: { fontSize: 22, fontWeight: "800", color: "#111827", paddingHorizontal: 16, paddingTop: 0 },
   center: { paddingTop: 48, alignItems: "center", gap: 10, paddingHorizontal: 16 },
   muted: { color: "#6b7280" },
   error: { color: "#b91c1c", fontWeight: "600", textAlign: "center" },
 
-  searchRow: { padding: 16 },
+  searchRow: { paddingHorizontal: 16, paddingTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+  filterPill: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 9999, paddingVertical: 8, paddingHorizontal: 12, position: "relative" },
+  filterPillText: { marginLeft: 6, fontWeight: "700", color: "#111827" },
+  filterCount: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 9, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center" },
+  filterCountText: { color: "white", fontSize: 11, fontWeight: "800" },
+
+
+  cardCover: { width: "100%", height: 160, borderRadius: 12, marginBottom: 10 },
+  footerRowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
   searchInput: {
     backgroundColor: "white",
     borderRadius: 9999,
@@ -714,6 +899,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: "#e5e7eb",
+    fontSize: 16,
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  searchIcon: { opacity: 0.7 },
+  searchInputInline: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
     fontSize: 16,
   },
 
@@ -805,13 +1010,6 @@ const styles = StyleSheet.create({
   },
   clearBtnText: { color: "white", fontWeight: "700" },
 
-  filterBar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, marginTop: 4, marginBottom: 6 },
-  filterBtn: { position: "relative", backgroundColor: "#111827", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 9999 },
-  filterBtnText: { color: "white", fontWeight: "700" },
-  filterBadge: { position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center" },
-  filterBadgeText: { color: "white", fontSize: 11, fontWeight: "800" },
-  clearAllBtn: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 9999, backgroundColor: "#f3f4f6" },
-  clearAllText: { color: "#ef4444", fontWeight: "700" },
 
   badgePill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#eef2ff", borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 6 },
   badgePillText: { color: "#3730a3", fontSize: 12, fontWeight: "700" },
@@ -834,4 +1032,5 @@ const styles = StyleSheet.create({
   footerBtnText: { color: "white", fontWeight: "800" },
   footerBtnGhost: { backgroundColor: "#f3f4f6" },
   footerBtnGhostText: { color: "#111827", fontWeight: "800" },
+  filterPillRow: { paddingHorizontal: 16, marginTop: 6, marginBottom: 2 },
 });

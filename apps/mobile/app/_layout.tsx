@@ -76,6 +76,10 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
+          // iOSスワイプ戻りを明示的に有効化（1つ前の画面に戻る）
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+          gestureDirection: "horizontal",
         }}
       />
     </QueryClientProvider>
