@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from "react";
 // Props expected by the radar chart
-type RadarChartProps = { data: CareerScoreBreakdown };
+// Chart component expects a simple label->value map
+type RadarChartProps = { data: Record<string, number> };
 
 const CareerRadarChartLazy = React.lazy(() =>
   import("../../../components/ipo/charts/CareerRadarChart").then((m: any) => ({
@@ -141,6 +142,23 @@ interface CareerScoreBreakdown {
   Fit: number;
   Vitality: number;
 }
+
+// 日本語ラベルマップ（表示用）
+const JA_LABELS: Record<string, string> = {
+  Communication: 'コミュニケーション',
+  Logic: '論理性',
+  Leadership: 'リーダーシップ',
+  Fit: '適合度',
+  Vitality: '活力',
+};
+// レーダーチャートの表示順（12時から時計回り）
+const AXIS_ORDER: Array<keyof typeof JA_LABELS> = [
+  'Communication',
+  'Logic',
+  'Leadership',
+  'Fit',
+  'Vitality',
+];
 
 export default function IPOMobileDashboard() {
   const router = useRouter();
@@ -353,6 +371,11 @@ export default function IPOMobileDashboard() {
     Vitality:      round1(clamp05(raw.Vitality)),
   };
 
+  // チャート表示用：キーを日本語に変換（順序固定：12時→時計回り）
+  const breakdownJa: Record<string, number> = Object.fromEntries(
+    AXIS_ORDER.map((k) => [JA_LABELS[k], Number(breakdown[k as keyof CareerScoreBreakdown] ?? 0)])
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -463,17 +486,17 @@ export default function IPOMobileDashboard() {
             {/* Radar Chart */}
             <View style={{ alignItems: "center", marginBottom: 12 }}>
               <Suspense fallback={<Text style={{ color: "#6B7280" }}>Loading chart...</Text>}>
-                <CareerRadarChartLazy data={breakdown} />
+                <CareerRadarChartLazy data={breakdownJa} />
               </Suspense>
             </View>
             {/* Simple numeric list for breakdown on mobile */}
             <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
-              {Object.entries(breakdown).map(([key, value]) => (
-                <View key={key} style={{ width: "48%", marginBottom: 10, alignItems: "center" }}>
-                  <Text style={{ fontSize: 20, fontWeight: "800", color: "#1D4ED8" }}>
-                    {Number(value).toFixed(1)}
+              {AXIS_ORDER.map((key) => (
+                <View key={key} style={{ width: '48%', marginBottom: 10, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#1D4ED8' }}>
+                    {Number(breakdown[key as keyof CareerScoreBreakdown] ?? 0).toFixed(1)}
                   </Text>
-                  <Text style={{ color: "#374151", marginTop: 4 }}>{key}</Text>
+                  <Text style={{ color: '#374151', marginTop: 4 }}>{JA_LABELS[key]}</Text>
                 </View>
               ))}
             </View>

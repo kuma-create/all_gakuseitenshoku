@@ -41,6 +41,16 @@ type ClarityInfo = {
   desired_industries?: string[] | null;
   desired_roles?: string[] | null;
 };
+
+// 日本語ラベルマップ（表示用）
+const JA_LABELS: Record<string, string> = {
+  Communication: 'コミュニケーション',
+  Logic: '論理性',
+  Leadership: 'リーダーシップ',
+  Fit: '適合度',
+  Vitality: '活力',
+};
+
 type AgeOrGrade = { age?: number | null; grade?: string | null };
 
 const clamp = (v: number, min = 0, max = 100) => Math.max(min, Math.min(max, v));
@@ -149,7 +159,7 @@ function calculateCareerScoreFromResume(text: string) {
     .map(([k]) => `${k} が強みです`);
   const improvements = Object.entries(breakdown)
     .filter(([, v]) => v < 50)
-    .map(([k]) => `${k} を伸ばす余地があります（定量成果・役割の明記を追加）`);
+    .map(([k]) => `${JA_LABELS[k as keyof typeof JA_LABELS] ?? k} を伸ばす余地があります（定量成果・役割の明記を追加）`);
   const recommendations: string[] = [];
   if (breakdown.Leadership < 55) recommendations.push('プロジェクトの主導経験や役割・体制（人数、期間）を追記しましょう');
   if (breakdown.Logic < 65) recommendations.push('KPI/データ活用（改善率や母数）を数値で記載すると説得力が増します');
@@ -513,7 +523,17 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     localStorage.setItem('ipo-onboarding-progress', JSON.stringify(updated));
   };
 
+  // レーダーチャートの表示順（12時から時計回り）
+  const AXIS_ORDER: Array<keyof typeof JA_LABELS> = [
+    'Communication',
+    'Logic',
+    'Leadership',
+    'Fit',
+    'Vitality',
+  ];
+
   // キャリアスコアデータ（計算されたものを使用、フォールバック付き）
+  // 元データ（英語キー保持）
   const careerScoreData = careerScore?.breakdown ?? {
     Communication: 0,
     Logic: 0,
@@ -521,6 +541,11 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     Fit: 0,
     Vitality: 0,
   };
+
+  // チャート表示用：キーを日本語に変換し、指定順に整列
+  const careerScoreDataJa = Object.fromEntries(
+    AXIS_ORDER.map((k) => [JA_LABELS[k], Number(careerScoreData[k] ?? 0)])
+  );
   
   // 前回からの変化を計算
   const getScoreChange = () => {
@@ -894,18 +919,21 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               <CardContent className="p-4 sm:p-6">
                 <div className="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto">
                   <div className="min-w-[320px] sm:min-w-0">
-                    <CareerRadarChart data={careerScoreData} />
+                    <CareerRadarChart data={careerScoreDataJa} />
                   </div>
                 </div>
                 <div className="mt-4 sm:mt-6 grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 text-sm">
-                  {Object.entries(careerScoreData).map(([key, value]) => (
-                    <div key={key} className="text-center">
-                      <div className="font-bold text-lg text-gray-900">
-                        {value ? Math.round(value) : '-'}
+                  {AXIS_ORDER.map((key) => {
+                    const value = careerScoreData[key] ?? 0;
+                    return (
+                      <div key={key} className="text-center">
+                        <div className="font-bold text-lg text-gray-900">
+                          {value ? Math.round(value) : '-'}
+                        </div>
+                        <div className="text-gray-600">{JA_LABELS[key]}</div>
                       </div>
-                      <div className="text-gray-600">{key}</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 {/* AI インサイト */}

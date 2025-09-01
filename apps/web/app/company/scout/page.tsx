@@ -140,10 +140,10 @@ export default function ScoutPage() {
   const [genders, setGenders] = useState<string[]>([])
   const [gradYears, setGradYears]         = useState<number[]>([])
   const [statuses, setStatuses]           = useState<string[]>([])
-  const [selectedMajor, setSelectedMajor] = useState<string>("all")
   const [hasInternship, setHasInternship] = useState<boolean>(false)
   const [skills, setSkills]               = useState<string[]>([])
   const [qualificationsFilter, setQualificationsFilter] = useState<string[]>([])
+  const [preferredIndustry, setPreferredIndustry] = useState<string>("all")
   /** 希望職種（ドロップダウン：all or specific） */
   const [desiredPosition, setDesiredPosition] = useState<string>("all")
   /** 希望勤務地（ドロップダウン：all or specific） */
@@ -391,6 +391,15 @@ export default function ScoutPage() {
   const availableDesiredPositions = JOB_POSITIONS
   /** 希望勤務地リスト（固定） */
   const availableDesiredWorkLocations = PREFECTURES
+  
+  /** 志望業界リスト（学生から動的生成） */
+const availablePreferredIndustries = useMemo(() => {
+  return [...new Set(
+    students
+      .flatMap((s) => (Array.isArray(s.preferred_industries) ? s.preferred_industries : []))
+      .filter((v): v is string => v != null),
+  )].sort((a, b) => a.localeCompare(b, "ja"))
+}, [students])
 
   /** オファー済み学生の id 一覧（scouts.offer_amount または offer_position が入っている学生を対象） */
   const offeredIds = useMemo<Set<string>>(() => {
@@ -475,10 +484,6 @@ export default function ScoutPage() {
       list = list.filter((s) => !offeredIds.has(s.id))
     }
 
-    /* 3) 専攻 */
-    if (selectedMajor !== "all") {
-      list = list.filter((s) => (s.major ?? "") === selectedMajor)
-    }
 
     // 4) 地域フィルタ削除
 
@@ -552,6 +557,11 @@ export default function ScoutPage() {
       })
     }
 
+    /* 6.5) 志望業界（preferred_industries） */
+    if (preferredIndustry !== "all") {
+      list = list.filter((s) => (s.preferred_industries ?? []).includes(preferredIndustry))
+    }
+
     /* 9) 希望勤務地 */
     if (desiredWorkLocation !== "all") {
       list = list.filter((s) =>
@@ -583,7 +593,6 @@ export default function ScoutPage() {
     gradYears,
     statuses,
     excludeOffer,
-    selectedMajor,
     hasInternship,
     experienceJobTypes,
     skills,
@@ -595,6 +604,7 @@ export default function ScoutPage() {
     offeredIds,
     positionFilters,
     phaseFilter,
+    preferredIndustry,
   ])
 
   /* ── 送信処理（Drawer 経由） ───────────── */
@@ -658,13 +668,13 @@ export default function ScoutPage() {
                     setSearch("")
                     setGradYears([])
                     setStatuses([])
-                    setSelectedMajor("all")
                     setHasInternship(false)
                     setSkills([])
                     setQualificationsFilter([])
                     setDesiredPosition("all")
                     setDesiredWorkLocation("all")
                     setGenders([])
+                    setPreferredIndustry("all")
                     setPositionFilters([])
                     setPhaseFilter("all")
                     setSortBy("score")
@@ -778,27 +788,6 @@ export default function ScoutPage() {
                       <label htmlFor={`gender-${g}`} className="ml-2 text-sm">{g}</label>
                     </div>
                   ))}
-                </div>
-              </details>
-
-              {/* 専攻 */}
-              <details className="group mb-3">
-                <summary className="cursor-pointer text-sm font-semibold select-none py-2">専攻</summary>
-                <div className="pl-1">
-                  <select
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    value={selectedMajor}
-                    onChange={(e) => setSelectedMajor(e.target.value)}
-                  >
-                    <option value="all">全て</option>
-                    {[...new Set(
-                      students
-                        .map((s) => s.major)
-                        .filter((m): m is string => m != null),
-                    )].map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
                 </div>
               </details>
 
@@ -920,6 +909,26 @@ export default function ScoutPage() {
                 </div>
               </details>
 
+             {/* 志望業界 */}
+              <details className="group mb-3">
+                <summary className="cursor-pointer text-sm font-semibold select-none py-2">志望業界</summary>
+                <div className="pl-1">
+                  <select
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={preferredIndustry}
+                    onChange={(e) => setPreferredIndustry(e.target.value)}
+                  >
+                    <option value="all">全て</option>
+                    {availablePreferredIndustries.map((ind) => (
+                      <option key={ind} value={ind}>{ind}</option>
+                    ))}
+                  </select>
+                  {availablePreferredIndustries.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">業界データがまだありません</p>
+                  )}
+                </div>
+              </details>
+
               {/* 希望職種 */}
               <details className="group mb-3">
                 <summary className="cursor-pointer text-sm font-semibold select-none py-2">希望職種</summary>
@@ -964,7 +973,6 @@ export default function ScoutPage() {
                     setSearch("")
                     setGradYears([])
                     setStatuses([])
-                    setSelectedMajor("all")
                     setHasInternship(false)
                     setSkills([])
                     setQualificationsFilter([])
@@ -974,6 +982,7 @@ export default function ScoutPage() {
                     setPositionFilters([])
                     setPhaseFilter("all")
                     setSortBy("score")
+                    setPreferredIndustry("all")
                   }}
                 >
                   リセット
