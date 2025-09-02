@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, SafeAreaView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking } from "react-native";
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Circle } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useEffect, useState, useRef } from "react";
@@ -9,6 +9,9 @@ const { width, height } = Dimensions.get("window");
 const SPLASH_DURATION = 1200; // was 1500
 const SPLASH_LOGO_SIZE = Math.min(260, Math.floor(width * 0.6));
 const HERO_LOGO_SIZE = Math.min(140, Math.floor(width * 0.38));
+
+const TERMS_URL = "https://culture.gakuten.co.jp/terms"; // 利用規約
+const PRIVACY_URL = "https://culture.gakuten.co.jp/privacy"; // 個人情報取扱い
 
 const HeroBlobBg = () => {
   return (
@@ -43,6 +46,97 @@ const HeroBlobBg = () => {
 export default function RootIndex() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
+
+  // Inline auth state
+  const [mode, setMode] = useState<"signup" | "login">("signup");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPW, setShowPW] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  type Role = "student" | "company" | "company_admin" | "admin";
+  const fetchUserRole = async (userId: string): Promise<Role> => {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .single();
+    if (error || !data) return "student";
+    return data.role as Role;
+  };
+
+  const jpError = (raw: string) => {
+    const s = (raw || "").toLowerCase();
+    if (s.includes("invalid login credentials")) return "メールアドレスまたはパスワードが正しくありません。";
+    if (s.includes("email not confirmed")) return "メール認証が完了していません。メールをご確認ください。";
+    return raw;
+  };
+
+  const handleLogin = async () => {
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail || !password) {
+      setError("メールとパスワードを入力してください。");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: targetEmail,
+        password,
+      });
+      if (signInError) throw signInError;
+      await supabase.auth.refreshSession();
+      const { data: { user } } = await supabase.auth.getUser();
+      const role: Role = user ? await fetchUserRole(user.id) : "student";
+      if (role !== "student") {
+        await supabase.auth.signOut();
+        setError("企業アカウントのログインはこのアプリではご利用いただけません。");
+        return;
+      }
+      router.replace("/(student)");
+    } catch (e: any) {
+      setError(jpError(e?.message || "ログインに失敗しました"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async () => {
+    setError(null);
+    setSuccess(null);
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail || !password) {
+      setError("メールとパスワードを入力してください。");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("パスワードが一致しません");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: targetEmail,
+        password,
+        options: {
+          data: { user_type: "student" },
+        },
+      });
+      if (error) throw error;
+      setSuccess("確認メールを送信しました。メール記載の手順で認証を完了してください。");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      setError(jpError(e?.message || "登録に失敗しました"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Animated values for splash and hero opacity
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const heroOpacity = useRef(new Animated.Value(0)).current;
@@ -121,18 +215,6 @@ export default function RootIndex() {
 
   const isLoggedIn = !!session;
 
-  const goStudent = () => {
-    const target = "/(student)";
-    if (isLoggedIn) router.push(target);
-    else router.push(`/auth/login?next=${encodeURIComponent(target)}`);
-  };
-
-  const goIPO = () => {
-    const target = "/(student)/ipo/dashboard";
-    if (isLoggedIn) router.push(target);
-    else router.push(`/auth/login?next=${encodeURIComponent(target)}`);
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       {/* Splash Screen */}
@@ -185,16 +267,107 @@ export default function RootIndex() {
                 style={styles.logoLarge}
               />
             </View>
-            <Text style={styles.titleHero}>{"キャリア解像度を高め\n未来を切り拓こう"}</Text>
-            <Text style={styles.subtitleHero}>
-              学生転職 × IPO大学 が、あなたの可能性を広げる
-            </Text>
+
+            {/* Segmented tabs */}
+            <View style={styles.segmentWrap}>
+              <Pressable
+                onPress={() => { setMode("signup"); setError(null); setSuccess(null); }}
+                style={[styles.segmentTab, mode === "signup" ? styles.segmentActive : styles.segmentInactive]}
+              >
+                <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.segmentText, mode === "signup" ? styles.segmentTextActive : styles.segmentTextInactive]}>新規登録</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { setMode("login"); setError(null); setSuccess(null); }}
+                style={[styles.segmentTab, mode === "login" ? styles.segmentActive : styles.segmentInactive]}
+              >
+                <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.segmentText, mode === "login" ? styles.segmentTextActive : styles.segmentTextInactive]}>ログイン</Text>
+              </Pressable>
+            </View>
+
+            {/* Error / Success messages */}
+            {error ? (
+              <View style={styles.alertError}><Text style={styles.alertErrorText}>{error}</Text></View>
+            ) : null}
+            {success ? (
+              <View style={styles.alertSuccess}><Text style={styles.alertSuccessText}>{success}</Text></View>
+            ) : null}
+
+            {/* Email */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>メールアドレス</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="your@email.com"
+                placeholderTextColor="#9ca3af"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.input}
+              />
+            </View>
+
+            {/* Password */}
+            <View style={styles.inputGroup}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={styles.inputLabel}>パスワード</Text>
+                {mode === "login" && (
+                  <Pressable onPress={() => router.push("/auth/forgot-password" as any)}>
+                    <Text style={styles.linkText}>パスワードをお忘れ？</Text>
+                  </Pressable>
+                )}
+              </View>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                secureTextEntry={!showPW}
+                autoCapitalize="none"
+                style={styles.input}
+              />
+              <Pressable onPress={() => setShowPW((v) => !v)}>
+                <Text style={styles.togglePW}>{showPW ? "非表示" : "表示"}</Text>
+              </Pressable>
+            </View>
+
+            {/* Confirm Password for signup */}
+            {mode === "signup" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>パスワード（確認）</Text>
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="••••••••"
+                  secureTextEntry={!showPW}
+                  autoCapitalize="none"
+                  style={styles.input}
+                />
+              </View>
+            )}
+
+            {mode === "signup" && (
+              <View style={styles.termsWrap}>
+                <Pressable onPress={() => Linking.openURL(TERMS_URL)}>
+                  <Text style={styles.termsLink}>利用規約</Text>
+                </Pressable>
+                <Text>および</Text>
+                <Pressable onPress={() => Linking.openURL(PRIVACY_URL)}>
+                  <Text style={styles.termsLink}>個人情報取扱い</Text>
+                </Pressable>
+                <Text>をご確認のうえご登録ください。</Text>
+              </View>
+            )}
+
+            {/* Primary action */}
             <TouchableOpacity
-              style={[styles.button, styles.red, styles.buttonShadow]}
-              onPress={goStudent}
+              style={[styles.button, styles.red, styles.buttonShadow, { marginTop: 6, opacity: loading ? 0.7 : 1 }]}
+              onPress={mode === "signup" ? handleSignup : handleLogin}
+              disabled={loading}
               activeOpacity={0.9}
             >
-              <Text style={styles.buttonText}>始める</Text>
+              {loading ? <ActivityIndicator color="#fff" /> : (
+                <Text style={styles.buttonText}>{mode === "signup" ? "新規登録して始める" : "ログイン"}</Text>
+              )}
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -207,11 +380,12 @@ const styles = StyleSheet.create({
   containerHero: {
     flex: 1,
     paddingHorizontal: 20,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
+    paddingTop: 200,
   },
   logos: {
-    flexDirection: "column",
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
@@ -220,10 +394,11 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   logoLarge: {
-    width: 280,
-    height: 80,
+    width: 160,
+    height: 56,
     resizeMode: "contain",
     alignSelf: "center",
+    marginHorizontal: 8,
     marginVertical: 8,
   },
   titleHero: {
@@ -257,6 +432,11 @@ const styles = StyleSheet.create({
   red: {
     backgroundColor: "#D33F49",
   },
+  outline: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#D33F49",
+  },
   blue: {
     backgroundColor: "#007AFF",
   },
@@ -272,4 +452,64 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+
+  segmentWrap: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: "#E9EEF5",
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 12,
+    width: "100%",
+    maxWidth: 360,
+  },
+  segmentTab: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    minWidth: 140,
+  },
+  segmentActive: {
+    backgroundColor: "#fff",
+  },
+  segmentInactive: {
+    backgroundColor: "transparent",
+  },
+  segmentText: { fontWeight: "700" },
+  segmentTextActive: { color: "#0A0A0A" },
+  segmentTextInactive: { color: "#5B6B7C" },
+
+  inputGroup: { width: "100%", maxWidth: 360, marginBottom: 10 },
+  inputLabel: { fontSize: 12, color: "#374151", marginBottom: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+  },
+  linkText: { fontSize: 12, color: "#dc2626" },
+  togglePW: { alignSelf: "flex-end", fontSize: 12, color: "#6b7280", marginTop: 6 },
+
+  alertError: { borderWidth: 1, borderColor: "#FECACA", backgroundColor: "#FEF2F2", padding: 10, borderRadius: 8, marginBottom: 8, maxWidth: 360 },
+  alertErrorText: { color: "#b91c1c" },
+  alertSuccess: { borderWidth: 1, borderColor: "#BBF7D0", backgroundColor: "#F0FDF4", padding: 10, borderRadius: 8, marginBottom: 8, maxWidth: 360 },
+  alertSuccessText: { color: "#16a34a" },
+
+  // Terms notice styles
+  termsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    marginTop: 6,
+    marginBottom: 6,
+    maxWidth: 360,
+  },
+  termsText: { color: "#374151" },
+  termsLink: { color: "#2563eb", textDecorationLine: "underline" },
 });
