@@ -380,8 +380,9 @@ const styles = StyleSheet.create({
   containerHero: {
     flex: 1,
     paddingHorizontal: 20,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
+    paddingTop: 200,
   },
   logos: {
     flexDirection: "row",
