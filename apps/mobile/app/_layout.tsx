@@ -57,7 +57,7 @@ export default function RootLayout() {
     if (!session) {
       const isPublic = inAuth || PUBLIC_PATHS.includes(pathname);
       if (!isPublic) {
-        router.replace("/auth/login");
+        router.replace("/");
         return;
       }
     }
@@ -76,9 +76,9 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          // iOSスワイプ戻りを明示的に有効化（1つ前の画面に戻る）
+          // スワイプで「直前の1画面」を戻る（履歴がある場合のみ）
           gestureEnabled: true,
-          fullScreenGestureEnabled: true,
+          fullScreenGestureEnabled: false,     // 端スワイプのみにして誤作動を減らす。エッジ幅はプラットフォーム既定を利用し、fullScreenGestureは無効のままにして単一画面戻りを担保
           gestureDirection: "horizontal",
         }}
       />
