@@ -15,7 +15,64 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+
 import { motion, AnimatePresence } from 'framer-motion';
+
+// --- iCalendar (.ics) helper ----------------------------------------------
+const escapeICS = (s: string) => (s || "").replace(/[\\;,\n]/g, (m) => ({"\\":"\\\\",";":"\\;",",":"\\,","\n":"\\n"}[m] as string));
+const buildICSFile = (ev: CalendarEvent) => {
+  const startBase = new Date(ev.date);
+  let start = new Date(startBase);
+  let end = new Date(startBase);
+  if (ev.time && /^\d{2}:\d{2}$/.test(ev.time)) {
+    const [hh, mm] = ev.time.split(":").map(Number);
+    start.setHours(hh, mm ?? 0, 0, 0);
+  }
+  if (ev.endTime && /^\d{2}:\d{2}$/.test(ev.endTime)) {
+    const [eh, em] = ev.endTime.split(":").map(Number);
+    end = new Date(start);
+    end.setHours(eh, em ?? 0, 0, 0);
+  } else if (ev.time) {
+    end = new Date(start);
+    end.setMinutes(end.getMinutes() + 60);
+  } else {
+    // all-day
+    start = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+    end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 1);
+  }
+  const uid = `${ev.id || `tmp-${Date.now()}`}@ipo-calendar`;
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//IPO Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${ymdHisZ(new Date())}`,
+    `DTSTART:${ymdHisZ(start)}`,
+    `DTEND:${ymdHisZ(end)}`,
+    `SUMMARY:${escapeICS(ev.title)}`,
+    ev.location ? `LOCATION:${escapeICS(ev.location)}` : '',
+    ev.description ? `DESCRIPTION:${escapeICS(ev.description)}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+  return new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+};
+const downloadICS = (ev: CalendarEvent) => {
+  const blob = buildICSFile(ev);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(ev.title || 'event').replace(/[^\w\-]+/g,'_')}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+// --------------------------------------------------------------------------
 
 
 interface CalendarEvent {
@@ -129,6 +186,8 @@ type StageForm = {
   location: string;
   notes: string;
   status: StageStatus;
+  tagsText?: string;
+  category?: CalendarEvent['category'];
 };
 const castStageStatus = (s?: string): StageStatus => {
   const allowed: StageStatus[] = ['scheduled', 'pending', 'passed', 'failed'];
@@ -267,6 +326,16 @@ export default function CalendarPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showEventDetail, setShowEventDetail] = useState(false);
+
+  const [createForm, setCreateForm] = useState({
+    title: '',
+    category: 'personal' as CalendarEvent['category'],
+    date: new Date().toISOString().slice(0,10),
+    time: '',
+    endTime: '',
+    location: '',
+    description: '',
+  });
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -825,6 +894,8 @@ export default function CalendarPage() {
       location: selectedEvent.location || '',
       notes: selectedEvent.description || '',
       status: castStageStatus(selectedEvent.stageStatus),
+      tagsText: (selectedEvent.tags || []).join(', '),
+      category: selectedEvent.category,
     });
 
     return (
@@ -860,6 +931,14 @@ export default function CalendarPage() {
                   )}
                 </div>
                 {isStage && (
+                  <div className="mt-2">
+                    <Button variant="outline" size="sm" onClick={() => setEditMode(v => !v)}>
+                      {editMode ? '編集をやめる' : '編集'}
+                    </Button>
+                  </div>
+                )}
+                {/* 編集ボタン for personal/private events */}
+                {!isStage && !selectedEvent.isPublic && (
                   <div className="mt-2">
                     <Button variant="outline" size="sm" onClick={() => setEditMode(v => !v)}>
                       {editMode ? '編集をやめる' : '編集'}
@@ -953,18 +1032,18 @@ export default function CalendarPage() {
                     <Label htmlFor="stage-name">名称</Label>
                     <Input id="stage-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                   </div>
-                <div>
-                  <Label htmlFor="stage-status">ステータス</Label>
-                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StageStatus })}>
-                    <SelectTrigger id="stage-status"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="scheduled">予定</SelectItem>
-                      <SelectItem value="pending">保留</SelectItem>
-                      <SelectItem value="passed">合格</SelectItem>
-                      <SelectItem value="failed">不合格</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div>
+                    <Label htmlFor="stage-status">ステータス</Label>
+                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StageStatus })}>
+                      <SelectTrigger id="stage-status"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="scheduled">予定</SelectItem>
+                        <SelectItem value="pending">保留</SelectItem>
+                        <SelectItem value="passed">合格</SelectItem>
+                        <SelectItem value="failed">不合格</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label htmlFor="stage-date">日付</Label>
                     <Input id="stage-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
@@ -985,6 +1064,80 @@ export default function CalendarPage() {
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setEditMode(false)}>キャンセル</Button>
                   <Button onClick={() => updateStageEvent(selectedEvent.id.replace('stage-',''), { ...form })}>保存</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Inline edit form for personal/private events */}
+            {!isStage && editMode && (
+              <div className="p-4 border rounded-md bg-muted/20 space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="event-title">タイトル</Label>
+                    <Input id="event-title" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="event-date">日付</Label>
+                    <Input id="event-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="event-time">時間</Label>
+                    <Input id="event-time" type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+                  </div>
+                  {/* Category selector */}
+                  <div>
+                    <Label htmlFor="event-category">カテゴリ</Label>
+                    <Select value={form.category ?? selectedEvent.category} onValueChange={(v) => setForm({ ...form, category: v as CalendarEvent['category'] })}>
+                      <SelectTrigger id="event-category"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(EVENT_CATEGORIES).map(([key, c]) => (
+                          <SelectItem key={key} value={key}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="event-location">場所</Label>
+                    <Input id="event-location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="event-tags">タグ（カンマ区切り）</Label>
+                    <Input id="event-tags" placeholder="例: インターン, OB訪問" value={form.tagsText ?? ''} onChange={(e) => setForm({ ...form, tagsText: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="event-notes">詳細</Label>
+                    <Textarea id="event-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setEditMode(false)}>キャンセル</Button>
+                  <Button onClick={async () => {
+                    try {
+                      const tagsArr = (form.tagsText ?? '').split(',').map(s => s.trim()).filter(Boolean);
+                      const idNum = Number(selectedEvent.id);
+                      const idValue = Number.isFinite(idNum) ? idNum : selectedEvent.id; // bigint列対策
+                      const cat = (form.category ?? selectedEvent.category);
+                      const { error } = await supabase
+                        .from('ipo_calendar_events')
+                        .update({
+                          title: form.name,
+                          date: form.date,
+                          time: form.time || null,
+                          location: form.location,
+                          description: form.notes,
+                          tags: tagsArr.length ? tagsArr : [],
+                          category: cat,
+                        })
+                        .eq('id', idValue as any);
+                      if (error) throw error;
+                      setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, title: form.name, date: new Date(`${form.date}T${form.time || '00:00'}:00`).toISOString(), time: form.time, location: form.location, description: form.notes, tags: tagsArr, category: cat } : e));
+                      setSelectedEvent(prev => prev ? { ...prev, title: form.name, date: new Date(`${form.date}T${form.time || '00:00'}:00`).toISOString(), time: form.time, location: form.location, description: form.notes, tags: tagsArr, category: cat } : prev);
+                      setEditMode(false);
+                    } catch (e) {
+                      console.error(e);
+                      setError('予定の更新に失敗しました');
+                    }
+                  }}>保存</Button>
                 </div>
               </div>
             )}
@@ -1091,10 +1244,168 @@ export default function CalendarPage() {
                 <Bell className="w-4 h-4" />
                 <span>通知設定</span>
               </Button>
-              <Button className="flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
-                <span>予定を追加</span>
-              </Button>
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center space-x-2" onClick={() => setShowCreateDialog(true)}>
+                    <Plus className="w-4 h-4" />
+                    <span>予定を追加</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-screen max-w-[100vw] sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>個人予定を追加</DialogTitle>
+                    <DialogDescription>自分用の予定を作成して、Google/Appleカレンダーに登録できます。</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="md:col-span-2">
+                      <Label htmlFor="c-title">タイトル</Label>
+                      <Input id="c-title" value={createForm.title} onChange={(e)=>setCreateForm({...createForm,title:e.target.value})} />
+                    </div>
+                    <div>
+                      <Label htmlFor="c-date">日付</Label>
+                      <Input id="c-date" type="date" value={createForm.date} onChange={(e)=>setCreateForm({...createForm,date:e.target.value})} />
+                    </div>
+                    <div>
+                      <Label htmlFor="c-time">開始時間（任意）</Label>
+                      <Input id="c-time" type="time" value={createForm.time} onChange={(e)=>setCreateForm({...createForm,time:e.target.value})} />
+                    </div>
+                    <div>
+                      <Label htmlFor="c-end">終了時間（任意）</Label>
+                      <Input id="c-end" type="time" value={createForm.endTime} onChange={(e)=>setCreateForm({...createForm,endTime:e.target.value})} />
+                    </div>
+                    <div>
+                      <Label htmlFor="c-category">カテゴリ</Label>
+                      <Select value={createForm.category} onValueChange={(v)=>setCreateForm({...createForm,category: v as CalendarEvent['category']})}>
+                        <SelectTrigger id="c-category"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(EVENT_CATEGORIES).map(([key, c]) => (
+                            <SelectItem key={key} value={key}>{c.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="c-location">場所（任意）</Label>
+                      <Input id="c-location" value={createForm.location} onChange={(e)=>setCreateForm({...createForm,location:e.target.value})} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="c-desc">詳細（任意）</Label>
+                      <Textarea id="c-desc" value={createForm.description} onChange={(e)=>setCreateForm({...createForm,description:e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={()=>setShowCreateDialog(false)}>閉じる</Button>
+                    <Button onClick={async ()=>{
+                      // Create a local event object for calendar links
+                      const newEvent: CalendarEvent = {
+                        id: `local-${Date.now()}`,
+                        title: createForm.title || '無題の予定',
+                        type: 'task',
+                        category: createForm.category,
+                        date: new Date(createForm.date + (createForm.time ? `T${createForm.time}:00` : 'T00:00:00')).toISOString(),
+                        time: createForm.time || undefined,
+                        endTime: createForm.endTime || undefined,
+                        location: createForm.location || undefined,
+                        description: createForm.description || '',
+                        priority: 'low',
+                        isPublic: false,
+                        maxParticipants: undefined,
+                        currentParticipants: 0,
+                        organizer: '自分',
+                        tags: [],
+                        registrationDeadline: undefined,
+                        requirements: undefined,
+                        benefits: undefined,
+                        targetAudience: undefined,
+                        isRegistered: true,
+                        registrationStatus: 'open',
+                      };
+                      try {
+                        // Persist to Supabase (private event)
+                        const { data, error } = await supabase.from('ipo_calendar_events').insert({
+                          title: newEvent.title,
+                          type: newEvent.type,
+                          category: newEvent.category,
+                          date: new Date(createForm.date).toISOString(),
+                          time: createForm.time || null,
+                          end_time: createForm.endTime || null,
+                          location: createForm.location || null,
+                          description: newEvent.description,
+                          priority: 'low',
+                          is_public: false,
+                          max_participants: null,
+                          organizer: '自分',
+                          tags: [],
+                          registration_deadline: null,
+                          requirements: null,
+                          benefits: null,
+                          target_audience: null,
+                          registration_status: 'open',
+                        }).select('id').single();
+                        if (error) throw error;
+                        // reflect to UI state
+                        const savedId = String(data.id);
+                        setEvents(prev => [{ ...newEvent, id: savedId }, ...prev]);
+                        setShowCreateDialog(false);
+                        setCreateForm({ title:'', category:'personal', date: new Date().toISOString().slice(0,10), time:'', endTime:'', location:'', description:'' });
+                        // Optional: immediately open detail dialog
+                        startTransition(()=>{ setSelectedEvent({ ...newEvent, id: savedId }); setShowEventDetail(true); });
+                      } catch(e) {
+                        console.error(e);
+                        setError('予定の作成に失敗しました');
+                      }
+                    }}>保存</Button>
+                    <Button variant="outline" onClick={()=>{
+                      const ev: CalendarEvent = {
+                        id: `local-${Date.now()}`,
+                        title: createForm.title || '無題の予定',
+                        type: 'task',
+                        category: createForm.category,
+                        date: new Date(createForm.date + (createForm.time ? `T${createForm.time}:00` : 'T00:00:00')).toISOString(),
+                        time: createForm.time || undefined,
+                        endTime: createForm.endTime || undefined,
+                        location: createForm.location || undefined,
+                        description: createForm.description || '',
+                        priority: 'low',
+                        isPublic: false,
+                        maxParticipants: undefined,
+                        currentParticipants: 0,
+                        organizer: '自分',
+                        tags: [],
+                        isRegistered: true,
+                        registrationStatus: 'open',
+                      };
+                      // Apple/Outlook: download .ics
+                      downloadICS(ev);
+                    }}>Apple/Outlook に追加 (.ics)</Button>
+                    <a
+                      href={buildGoogleCalendarUrl({
+                        id: 'new',
+                        title: createForm.title || '無題の予定',
+                        type: 'task',
+                        category: createForm.category,
+                        date: new Date(createForm.date + (createForm.time ? `T${createForm.time}:00` : 'T00:00:00')).toISOString(),
+                        time: createForm.time || undefined,
+                        endTime: createForm.endTime || undefined,
+                        location: createForm.location || undefined,
+                        description: createForm.description || '',
+                        priority: 'low',
+                        isPublic: false,
+                        maxParticipants: undefined,
+                        currentParticipants: 0,
+                        organizer: '自分',
+                        tags: [],
+                        isRegistered: true,
+                        registrationStatus: 'open',
+                      })}
+                      target="_blank" rel="noopener noreferrer"
+                      onClick={(e)=> e.stopPropagation()}
+                    >
+                      <Button variant="outline">Googleカレンダーに追加</Button>
+                    </a>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </motion.div>
