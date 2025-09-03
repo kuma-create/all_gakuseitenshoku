@@ -94,6 +94,13 @@ export async function middleware(req: NextRequest) {
     const headers = mwCorsHeaders(req.headers.get('origin'));
     return new NextResponse(null, { status: 204, headers });
   }
+  // Attach CORS headers for all other /api/* requests (e.g., POST)
+  if (req.nextUrl.pathname.startsWith('/api/')) {
+    const res = NextResponse.next();
+    const headers = mwCorsHeaders(req.headers.get('origin'));
+    Object.entries(headers).forEach(([k, v]) => res.headers.set(k, v));
+    return res;
+  }
 
   // ----- PUBLIC: /lp marketing pages -----
   if (req.nextUrl.pathname.startsWith("/lp")) {

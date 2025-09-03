@@ -7,10 +7,17 @@
      * 画像アップロード（expo-image-picker + blob 経由で Supabase Storage）
 ------------------------------------------------------------------ */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Image, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Image, Platform, Modal, Pressable, FlatList } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+
 import { supabase } from "src/lib/supabase";
+const gradYearOptions = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() + i);
+// Wheel constants (module scope so styles can reference them)
+const ITEM_HEIGHT = 42;
+const WHEEL_SHIFT_ROWS = 0; // ハイライトを中央（0行オフセット）
 
 /* ---------------- マスタ ---------------- */
 const genderOptions = ["男性", "女性", "回答しない"] as const;
@@ -155,6 +162,155 @@ export default function OnboardingProfileMobile() {
   /* アバター（ImagePicker） */
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [yearPickerOpen, setYearPickerOpen] = useState(false);
+
+  // 大学名ピッカー用
+  const [uniPickerOpen, setUniPickerOpen] = useState(false);
+  const [uniQuery, setUniQuery] = useState("");
+  const [universities, setUniversities] = useState<string[]>([
+    "北海道大学","東北大学","東京大学","名古屋大学","京都大学","大阪大学","九州大学",
+    "早稲田大学","慶應義塾大学","上智大学","東京工業大学","一橋大学","筑波大学",
+    "神戸大学","広島大学","岡山大学","立命館大学","同志社大学","関西学院大学",
+    "明治大学","法政大学","中央大学","青山学院大学","学習院大学",
+  ]);
+
+  // 生年月日ピッカー
+  const [birthPickerOpen, setBirthPickerOpen] = useState(false);
+  const [birthYear, setBirthYear] = useState<number | null>(null);
+  const [birthMonth, setBirthMonth] = useState<number | null>(null);
+  const [birthDay, setBirthDay] = useState<number | null>(null);
+  // DateTimePicker用一時日付
+  const [birthTempDate, setBirthTempDate] = useState<Date>(new Date(2000, 0, 1));
+
+  const birthYears = useMemo(() => Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i), []);
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+  const daysInMonth = useCallback((y: number, m: number) => new Date(y, m, 0).getDate(), []);
+  const days = useMemo(() => {
+    const y = birthYear ?? new Date().getFullYear();
+    const m = birthMonth ?? 1;
+    return Array.from({ length: daysInMonth(y, m) }, (_, i) => i + 1);
+  }, [birthYear, birthMonth, daysInMonth]);
+
+  // 月変更時に日数を超えていたら末日に丸める
+  useEffect(() => {
+    if (birthYear && birthMonth) {
+      const max = daysInMonth(birthYear, birthMonth);
+      if (birthDay && birthDay > max) setBirthDay(max);
+    }
+  }, [birthYear, birthMonth]);
+
+
+  const openBirthPicker = () => {
+    if (form.birth_date && /\d{4}-\d{2}-\d{2}/.test(form.birth_date)) {
+      const [y, m, d] = form.birth_date.split("-").map((v) => parseInt(v, 10));
+      setBirthYear(y); setBirthMonth(m); setBirthDay(d);
+      setBirthTempDate(new Date(y, m - 1, d));
+    } else {
+      setBirthYear(2000); setBirthMonth(1); setBirthDay(1);
+      setBirthTempDate(new Date(2000, 0, 1));
+    }
+    setBirthPickerOpen(true);
+  };
+
+  const confirmBirth = () => {
+    if (birthYear && birthMonth && birthDay) {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      onChange("birth_date", `${birthYear}-${pad(birthMonth)}-${pad(birthDay)}`);
+    }
+    setBirthPickerOpen(false);
+  };
+
+  // ===== Wheel-like picker helpers =====
+  const WheelColumn = ({ data, selectedIndex, onChange }: { data: string[]; selectedIndex: number; onChange: (idx: number) => void }) => {
+    const headerFooter = ITEM_HEIGHT * 2; // two-item spacer top/bottom
+    const initialOffset = ITEM_HEIGHT * (selectedIndex + 2);
+    const listRef = React.useRef<FlatList<string>>(null);
+    const [activeIndex, setActiveIndex] = React.useState<number>(selectedIndex);
+    const didInit = React.useRef(false);
+    React.useEffect(() => {
+      setActiveIndex(selectedIndex);
+      // 既に初期化済み（モーダルを開いた直後に birthYear などが遅れて入るケース）でも
+      // props 変更に追従してスクロール位置を合わせる
+      if (didInit.current && listRef.current) {
+        const newOffset = ITEM_HEIGHT * (selectedIndex + 2);
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToOffset({ offset: newOffset, animated: false });
+        });
+      }
+    }, [selectedIndex]);
+
+    const renderItem = ({ item, index }: { item: string; index: number }) => (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => {
+          setActiveIndex(index);
+          onChange(index);
+        }}
+      >
+        <View style={[styles.wheelItem, { height: ITEM_HEIGHT }]}>
+          <Text style={[styles.modalItemText, index === activeIndex && styles.wheelItemActive]}>{item}</Text>
+          {index === activeIndex ? (
+            <Text style={styles.wheelCheck}>✓</Text>
+          ) : (
+            <View style={{ width: 18 }} />
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+
+    // 修正: 中央行基準で idx を計算し、中央の行が activeIndex になる
+    const handleMomentumEnd = (e: any) => {
+      const off = e.nativeEvent.contentOffset.y as number;
+      const centerOffset = headerFooter;
+      const idx = Math.round((off - centerOffset) / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(idx, data.length - 1));
+      setActiveIndex(clamped);
+      onChange(clamped);
+    };
+
+    const handleDragEnd = (e: any) => {
+      handleMomentumEnd(e);
+    };
+
+    const handleScroll = (e: any) => {
+      const off = e.nativeEvent.contentOffset.y as number;
+      const centerOffset = headerFooter;
+      const idx = Math.round((off - centerOffset) / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(idx, data.length - 1));
+      setActiveIndex(clamped);
+      // NOTE: onChange はスクロール確定時にのみ呼ぶ
+    };
+
+    return (
+      <FlatList
+        ref={listRef}
+        data={data}
+        keyExtractor={(it, idx) => `${it}-${idx}`}
+        showsVerticalScrollIndicator={false}
+        onMomentumScrollEnd={handleMomentumEnd}
+        onScrollEndDrag={handleDragEnd}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        snapToInterval={ITEM_HEIGHT}
+        snapToAlignment="center"
+        decelerationRate="fast"
+        bounces={false}
+        ListHeaderComponent={<View style={{ height: headerFooter }} />}
+        ListFooterComponent={<View style={{ height: headerFooter }} />}
+        style={[styles.pickerCol, { maxHeight: ITEM_HEIGHT * 5 }]}
+        renderItem={renderItem}
+        onLayout={() => {
+          if (didInit.current) return;
+          requestAnimationFrame(() => {
+            listRef.current?.scrollToOffset({ offset: initialOffset, animated: false });
+            setActiveIndex(selectedIndex);
+            // 初期レイアウトでは onChange を呼ばず、ユーザー操作を優先
+            didInit.current = true;
+          });
+        }}
+      />
+    );
+  };
 
   const addWorkExperience = () => {
     const newId = workExperiences.length
@@ -237,6 +393,33 @@ export default function OnboardingProfileMobile() {
     })();
   }, []);
 
+  // 大学名マスタの取得（Webの実装を参考に、4つのJSONを統合）
+  useEffect(() => {
+    const sources = [
+      "https://gakuten.co.jp/universities_graduate.json",
+      "https://gakuten.co.jp/universities_national.json",
+      "https://gakuten.co.jp/universities_private.json",
+      "https://gakuten.co.jp/universities_public.json",
+    ] as const;
+    (async () => {
+      try {
+        const all = await Promise.all(
+          sources.map((url) => fetch(url).then((r) => (r.ok ? r.json() : [])).catch(() => []))
+        );
+        const merged = all.flatMap((raw: any) => {
+          const arr = Array.isArray(raw) ? raw : raw?.universities ?? raw?.data ?? [];
+          return Array.isArray(arr) ? arr : [];
+        });
+        const cleaned = Array.from(new Set(
+          merged.map((v: any) => (typeof v === "string" ? v.trim() : "")).filter((v: string) => v.length > 0)
+        )).sort((a: string, b: string) => a.localeCompare(b, "ja"));
+        if (cleaned.length) setUniversities(cleaned);
+      } catch (e) {
+        console.warn("universities fetch failed", e);
+      }
+    })();
+  }, []);
+
   /* ---------------- 入力フォーマッタ --------------- */
   const formatZip = (v: string) => {
     const digits = v.replace(/\D/g, "").slice(0, 7);
@@ -270,6 +453,11 @@ export default function OnboardingProfileMobile() {
     });
   };
 
+  // 現在のステップをスキップ（保存せずに次へ）
+  const handleSkipStep = () => {
+    setStep((s) => (s + 1) as typeof step);
+  };
+
   /* ---------------- ステップ保存（次へ） --------------- */
   const handleNextStep = async () => {
     try {
@@ -281,7 +469,11 @@ export default function OnboardingProfileMobile() {
           first_name_kana: form.first_name_kana,
           phone: form.phone,
           gender: form.gender,
-          birth_date: form.birth_date,
+          birth_date: form.birth_date ? form.birth_date : undefined,
+          university: form.university,
+          faculty: form.faculty,
+          department: form.department,
+          ...(form.graduation_month ? { graduation_month: `${form.graduation_month}-01` } : {}),
         });
       }
       if (step === 2) {
@@ -290,19 +482,8 @@ export default function OnboardingProfileMobile() {
           prefecture: form.prefecture,
           city: form.city,
           address_line: form.address_line,
-        });
-      }
-      if (step === 3) {
-        const partial: Partial<FormState> = {
-          university: form.university,
-          faculty: form.faculty,
-          department: form.department,
           join_ipo: form.join_ipo,
-          ...(form.graduation_month
-            ? { graduation_month: `${form.graduation_month}-01` }
-            : {}),
-        };
-        await savePartial(partial);
+        });
 
         // 監視通知（join_ipo）
         if (form.join_ipo) {
@@ -323,6 +504,10 @@ export default function OnboardingProfileMobile() {
             console.error("send-email (system) error", sysEmailErr);
           }
         }
+
+        // Step3 はスキップし、Step4（職歴）へ
+        setStep(4);
+        return;
       }
       setStep((s) => (s + 1) as typeof step);
     } catch (err: any) {
@@ -433,7 +618,7 @@ export default function OnboardingProfileMobile() {
     <View style={styles.header}>
       <Text style={styles.title}>ユーザー登録</Text>
       <Text style={styles.subTitle}>
-        {step < 4 ? `残り${4 - step}ステップで完了` : "入力内容を確認して登録"}
+        簡単3分で完了
       </Text>
     </View>
   );
@@ -442,6 +627,24 @@ export default function OnboardingProfileMobile() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {Header}
+
+        {/* Step2: 上部にスキップボタンを配置 */}
+        {step === 2 && (
+          <View style={{ alignItems: 'flex-end', marginBottom: 8 }}>
+            <TouchableOpacity style={[styles.button, styles.ghost]} onPress={handleSkipStep}>
+              <Text style={[styles.buttonText, { color: '#111827' }]}>スキップ</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Step4: 上部にスキップボタンを配置（職歴は後から入力可） */}
+        {step === 4 && (
+          <View style={{ alignItems: 'flex-end', marginBottom: 8 }}>
+            <TouchableOpacity style={[styles.button, styles.ghost]} onPress={handleSubmit}>
+              <Text style={[styles.buttonText, { color: '#111827' }]}>スキップ</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {error ? (
           <View style={styles.alert}>
@@ -462,28 +665,225 @@ export default function OnboardingProfileMobile() {
             </TwoCol>
             <Field label="電話番号" keyboardType="phone-pad" value={form.phone} onChangeText={(v) => onChange("phone", v)} />
 
-            {/* 性別 */}
+            {/* 性別（チップ選択） */}
             <Text style={styles.label}>性別</Text>
             <View style={styles.genderRow}>
-              {genderOptions.map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  onPress={() => onChange("gender", g)}
-                  style={[styles.chip, form.gender === g && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, form.gender === g && styles.chipTextActive]}>{g}</Text>
-                </TouchableOpacity>
-              ))}
+              {genderOptions.map((g) => {
+                const active = form.gender === g;
+                return (
+                  <TouchableOpacity key={g} onPress={() => onChange("gender", g)} style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{g}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            <Field
-              label="生年月日（YYYY-MM-DD）"
-              placeholder="YYYY-MM-DD"
-              value={form.birth_date}
-              onChangeText={(v) => onChange("birth_date", v)}
-            />
+            {/* 大学名（検索付きプルダウン） */}
+            <Text style={styles.label}>大学名</Text>
+            <Pressable onPress={() => { setUniPickerOpen(true); setUniQuery(""); }} style={[styles.input, { justifyContent: "center" }]}>
+              <Text style={{ color: form.university ? "#111827" : "#9ca3af", fontSize: 16 }}>
+                {form.university || "大学名を入力 / 選択"}
+              </Text>
+            </Pressable>
 
-            {/* 顔写真 */}
+            <Modal visible={uniPickerOpen} animationType="slide" transparent>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalTitle}>大学名を検索</Text>
+                  <TextInput
+                    value={uniQuery}
+                    onChangeText={setUniQuery}
+                    placeholder="大学名を入力"
+                    placeholderTextColor="#9ca3af"
+                    style={[styles.input, { marginBottom: 8 }]}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
+                    {universities
+                      .filter((u) => (uniQuery ? u.toLowerCase().includes(uniQuery.toLowerCase()) : true))
+                      .slice(0, 150)
+                      .map((u) => (
+                        <TouchableOpacity
+                          key={u}
+                          style={styles.modalItem}
+                          onPress={() => { onChange("university", u); setUniPickerOpen(false); }}
+                        >
+                          <Text style={styles.modalItemText}>{u}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    {uniQuery && (
+                      <TouchableOpacity
+                        style={[styles.modalItem, { backgroundColor: "#f9fafb" }]}
+                        onPress={() => { onChange("university", uniQuery); setUniPickerOpen(false); }}
+                      >
+                        <Text style={[styles.modalItemText, { color: "#2563eb" }]}>「{uniQuery}」をそのまま使用</Text>
+                      </TouchableOpacity>
+                    )}
+                  </ScrollView>
+                  <TouchableOpacity style={[styles.outlineBtn, { marginTop: 12 }]} onPress={() => setUniPickerOpen(false)}>
+                    <Text style={styles.outlineBtnText}>閉じる</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+
+            <TwoCol>
+              <Field label="学部名" value={form.faculty} onChangeText={(v) => onChange("faculty", v)} />
+              <Field label="学科名" value={form.department} onChangeText={(v) => onChange("department", v)} />
+            </TwoCol>
+
+            {/* 何年度卒（プルダウン） */}
+            <Text style={styles.label}>何年度卒</Text>
+            <Pressable onPress={() => setYearPickerOpen(true)} style={[styles.input, { justifyContent: "center" }]}>
+              <Text style={{ color: (form.graduation_month ? "#111827" : "#9ca3af"), fontSize: 16 }}>
+                {form.graduation_month ? `${(form.graduation_month).slice(0,4)}年卒` : "選択してください"}
+              </Text>
+            </Pressable>
+
+            <Modal visible={yearPickerOpen} animationType="slide" transparent>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalTitle}>何年度卒を選択</Text>
+                  <ScrollView style={{ maxHeight: 320 }}>
+                    {gradYearOptions.map((y) => (
+                      <TouchableOpacity
+                        key={y}
+                        style={styles.modalItem}
+                        onPress={() => {
+                          onChange("graduation_month", `${y}-03`);
+                          setYearPickerOpen(false);
+                        }}
+                      >
+                        <Text style={styles.modalItemText}>{y}年卒</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <TouchableOpacity style={[styles.outlineBtn, { marginTop: 12 }]} onPress={() => setYearPickerOpen(false)}>
+                    <Text style={styles.outlineBtnText}>閉じる</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+
+            <Text style={styles.label}>生年月日</Text>
+            <Pressable onPress={openBirthPicker} style={[styles.input, { justifyContent: "center" }]}>
+              <Text style={{ color: form.birth_date ? "#111827" : "#9ca3af", fontSize: 16 }}>
+                {form.birth_date || "選択してください"}
+              </Text>
+            </Pressable>
+
+            <Modal visible={birthPickerOpen} animationType="slide" transparent>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalTitle}>生年月日を選択</Text>
+
+                  {Platform.OS === 'ios' ? (
+                    (
+                      <View>
+                        {/* iOS toolbar (キャンセル / 生年月日 / 完了) */}
+                        <View style={styles.iosToolbar}>
+                          <TouchableOpacity onPress={() => setBirthPickerOpen(false)}>
+                            <Text style={styles.iosToolbarBtn}>キャンセル</Text>
+                          </TouchableOpacity>
+                          <Text style={styles.iosToolbarTitle}>生年月日</Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              const y = birthTempDate.getFullYear();
+                              const m = birthTempDate.getMonth() + 1;
+                              const d = birthTempDate.getDate();
+                              const pad = (n: number) => String(n).padStart(2, '0');
+                              onChange('birth_date', `${y}-${pad(m)}-${pad(d)}`);
+                              setBirthYear(y); setBirthMonth(m); setBirthDay(d);
+                              setBirthPickerOpen(false);
+                            }}
+                          >
+                            <Text style={[styles.iosToolbarBtn, { fontWeight: '700' }]}>完了</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* iOS wheel picker */}
+                        <View style={{ alignItems: 'center' }}>
+                          <DateTimePicker
+                            value={birthTempDate}
+                            mode="date"
+                            display="spinner"
+                            onChange={(_e: DateTimePickerEvent, d?: Date) => { if (d) setBirthTempDate(d); }}
+                            maximumDate={new Date()}
+                            minimumDate={new Date(1940, 0, 1)}
+                            locale="ja-JP"
+                            themeVariant="light"
+                          />
+                        </View>
+                      </View>
+                    )
+                  ) : Platform.OS === 'android' ? (
+                    <View style={{ alignItems: 'center' }}>
+                      <DateTimePicker
+                        value={birthTempDate}
+                        mode="date"
+                        display="calendar"
+                        onChange={(_e: DateTimePickerEvent, d?: Date) => { if (d) setBirthTempDate(d); }}
+                        maximumDate={new Date()}
+                        minimumDate={new Date(1940, 0, 1)}
+                      />
+                    </View>
+                  ) : (
+                    <View>
+                      <View style={styles.pickerRow}>
+                        <View style={styles.wheelOverlay} pointerEvents="none" />
+                        <WheelColumn
+                          data={["--", ...birthYears.map(String)]}
+                          selectedIndex={(birthYear ? birthYears.indexOf(birthYear) + 1 : 0)}
+                          onChange={(idx) => setBirthYear(idx === 0 ? null : birthYears[idx - 1])}
+                        />
+                        <WheelColumn
+                          data={["--", ...months.map(String)]}
+                          selectedIndex={(birthMonth ? months.indexOf(birthMonth) + 1 : 0)}
+                          onChange={(idx) => setBirthMonth(idx === 0 ? null : months[idx - 1])}
+                        />
+                        <WheelColumn
+                          data={["--", ...days.map(String)]}
+                          selectedIndex={(birthDay ? days.indexOf(birthDay) + 1 : 0)}
+                          onChange={(idx) => setBirthDay(idx === 0 ? null : days[idx - 1])}
+                        />
+                      </View>
+                      <Text style={[styles.helpText, { marginTop: 6 }]}>中央の行が選択中です</Text>
+                    </View>
+                  )}
+
+                  {Platform.OS !== 'ios' && (
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                      <TouchableOpacity style={[styles.outlineBtn, { flex: 1 }]} onPress={() => setBirthPickerOpen(false)}>
+                        <Text style={styles.outlineBtnText}>キャンセル</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.button, { flex: 1 }]}
+                        onPress={() => {
+                          if (Platform.OS === 'web') {
+                            // Wheel 値は state に即時反映済み
+                            confirmBirth();
+                            return;
+                          }
+                          // Android 用（calendar）
+                          const y = birthTempDate.getFullYear();
+                          const m = birthTempDate.getMonth() + 1;
+                          const d = birthTempDate.getDate();
+                          const pad = (n: number) => String(n).padStart(2, '0');
+                          onChange('birth_date', `${y}-${pad(m)}-${pad(d)}`);
+                          setBirthYear(y); setBirthMonth(m); setBirthDay(d);
+                          setBirthPickerOpen(false);
+                        }}
+                      >
+                        <Text style={styles.buttonText}>決定</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </Modal>
+
+            {/* プロフィール写真 */}
             <Text style={styles.label}>自分らしい写真</Text>
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} style={styles.avatar} />
@@ -531,23 +931,32 @@ export default function OnboardingProfileMobile() {
             />
             <Field label="市区町村" value={form.city} onChangeText={(v) => onChange("city", v)} />
             <Field label="それ以降の住所" value={form.address_line} onChangeText={(v) => onChange("address_line", v)} />
+
+            <Text style={[styles.helpText, { marginTop: 6 }]}>※ 後からマイページで入力できます（スキップ可）</Text>
+
+            {/* IPO 参加希望（住所入力の下） */}
+            <View style={{ marginTop: 12 }}>
+              <ToggleRow
+                label="選抜コミュニティ IPO への参加を希望する"
+                value={form.join_ipo}
+                onChange={(v) => onChange("join_ipo", v)}
+              />
+            </View>
+
+            <View style={[styles.btnRow, { marginTop: 12 }]}>
+              <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => setStep((s) => (s - 1) as typeof step)}>
+                <Text style={[styles.buttonText, { color: '#111827' }]}>戻る</Text>
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity style={[styles.button]} onPress={handleNextStep}>
+                  <Text style={styles.buttonText}>保存して次へ</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         )}
 
-        {step === 3 && (
-          <View style={styles.card}>
-            <Field label="大学名" value={form.university} onChangeText={(v) => onChange("university", v)} />
-            <Field label="学部名" value={form.faculty} onChangeText={(v) => onChange("faculty", v)} />
-            <Field label="学科名" value={form.department} onChangeText={(v) => onChange("department", v)} />
-            <Field label="卒業予定年月（YYYY-MM）" placeholder="2027-03" value={form.graduation_month ?? ""} onChangeText={(v) => onChange("graduation_month", v)} />
 
-            <ToggleRow
-              label="選抜コミュニティ IPO への参加を希望する"
-              value={form.join_ipo}
-              onChange={(v) => onChange("join_ipo", v)}
-            />
-          </View>
-        )}
 
         {step === 4 && (
           <View style={styles.card}>
@@ -600,25 +1009,27 @@ export default function OnboardingProfileMobile() {
           </View>
         )}
 
-        {/* ボタン行 */}
-        <View style={styles.btnRow}>
-          {step > 1 ? (
-            <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => setStep((s) => (s - 1) as typeof step)}>
-              <Text style={[styles.buttonText, { color: "#111827" }]}>戻る</Text>
+        {/* ボタン行（Step2 はカード内に専用行を表示）*/}
+        {step !== 2 && (
+          <View style={styles.btnRow}>
+            {step > 1 ? (
+              <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => setStep((s) => (s - 1) as typeof step)}>
+                <Text style={[styles.buttonText, { color: "#111827" }]}>戻る</Text>
+              </TouchableOpacity>
+            ) : <View />}
+            <TouchableOpacity
+              style={[styles.button, (loading || avatarUploading) && styles.buttonDisabled]}
+              disabled={loading || avatarUploading}
+              onPress={step < 4 ? handleNextStep : handleSubmit}
+            >
+              {loading || avatarUploading ? (
+                <ActivityIndicator />
+              ) : (
+                <Text style={styles.buttonText}>{step < 4 ? '保存して次へ' : '登録する'}</Text>
+              )}
             </TouchableOpacity>
-          ) : <View />}
-          <TouchableOpacity
-            style={[styles.button, (loading || avatarUploading) && styles.buttonDisabled]}
-            disabled={loading || avatarUploading}
-            onPress={step < 4 ? handleNextStep : handleSubmit}
-          >
-            {loading || avatarUploading ? (
-              <ActivityIndicator />
-            ) : (
-              <Text style={styles.buttonText}>{step < 4 ? "保存して次へ" : "登録する"}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -744,6 +1155,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   secondary: { backgroundColor: "#f3f4f6" },
+  ghost: { backgroundColor: '#f3f4f6' },
 
   helpText: { fontSize: 12, color: "#6b7280" },
   errText: { fontSize: 12, color: "#b91c1c" },
@@ -758,4 +1170,31 @@ const styles = StyleSheet.create({
   link: { color: "#2563eb", textDecorationLine: "underline", fontSize: 13 },
   twoCol: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   col: { flexBasis: "48%", flexGrow: 1 },
-});
+
+
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
+  modalBody: { backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  modalTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8, color: "#111827" },
+  modalItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
+  modalItemText: { fontSize: 16, color: "#111827" },
+  pickerRow: { flexDirection: "row", gap: 8 },
+  pickerCol: { maxHeight: 260, minWidth: 100 },
+  wheelItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12 },
+  wheelItemActive: { fontWeight: "700" },
+  wheelOverlay: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
+    height: ITEM_HEIGHT,
+    marginTop: -(ITEM_HEIGHT / 2) + (ITEM_HEIGHT * WHEEL_SHIFT_ROWS),
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#e5e7eb",
+    zIndex: 1,
+  },
+  wheelCheck: { fontSize: 16, color: "#2563eb", fontWeight: "700" },
+  iosToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 8 },
+  iosToolbarBtn: { fontSize: 16, color: '#2563eb' },
+  iosToolbarTitle: { fontSize: 16, color: '#111827', fontWeight: '600' },
+  });

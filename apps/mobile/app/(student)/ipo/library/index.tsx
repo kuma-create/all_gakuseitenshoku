@@ -28,13 +28,35 @@ import {
   Quote,
   User as UserIcon,
 } from "lucide-react-native";
-import { Picker } from "@react-native-picker/picker";
+
 
 
 const makeIcon = (type: "industry" | "occupation") => {
   const IconComp = type === "industry" ? Building : Briefcase;
   return <IconComp size={24} />;
 };
+
+const Chip = ({ label, active, onPress }: { label: string; active?: boolean; onPress: () => void }) => (
+  <Pressable onPress={onPress} style={[styles.chip, active ? styles.chipActive : null]}>
+    <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>{label}</Text>
+  </Pressable>
+);
+
+const Segmented = <T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (v: T) => void;
+}) => (
+  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segmentedRow}>
+    {options.map((opt) => (
+      <Chip key={opt.value} label={opt.label} active={value === opt.value} onPress={() => onChange(opt.value)} />
+    ))}
+  </ScrollView>
+);
 
 interface LibraryItem {
   id: string;
@@ -601,6 +623,7 @@ export default function LibraryScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
+        stickyHeaderIndices={[0]}
         renderItem={({ item }) => (
           <Pressable onPress={() => handleItemClick(item)} style={styles.card}>
             <View style={styles.cardTopRow}>
@@ -640,7 +663,7 @@ export default function LibraryScreen() {
           </Pressable>
         )}
         ListHeaderComponent={
-          <View>
+          <View style={styles.stickyHeader}>
             <Text style={styles.h1}>業界・職種ライブラリ</Text>
             <Text style={styles.subtitle}>500社以上の詳細データと社員インタビューで、あなたの理想のキャリアを見つけよう</Text>
 
@@ -656,21 +679,28 @@ export default function LibraryScreen() {
                   returnKeyType="search"
                 />
               </View>
-              <View style={styles.pickersRow}>
-                <View style={styles.pickerWrap}>
-                  <Picker selectedValue={selectedFilter} onValueChange={(v) => setSelectedFilter(v)}>
-                    <Picker.Item label="すべて" value="all" />
-                    <Picker.Item label="業界" value="industry" />
-                    <Picker.Item label="職種" value="occupation" />
-                  </Picker>
-                </View>
-                <View style={styles.pickerWrap}>
-                  <Picker selectedValue={sortBy} onValueChange={(v) => setSortBy(v)}>
-                    <Picker.Item label="トレンド順" value="trend" />
-                    <Picker.Item label="年収順" value="salary" />
-                    <Picker.Item label="名前順" value="name" />
-                  </Picker>
-                </View>
+              <View style={styles.filtersWrap}>
+                <Text style={styles.filterLabel}>種別</Text>
+                <Segmented
+                  options={[
+                    { label: "すべて", value: "all" as const },
+                    { label: "業界", value: "industry" as const },
+                    { label: "職種", value: "occupation" as const },
+                  ]}
+                  value={selectedFilter}
+                  onChange={(v) => setSelectedFilter(v as FilterType)}
+                />
+
+                <Text style={styles.filterLabel}>並び替え</Text>
+                <Segmented
+                  options={[
+                    { label: "トレンド", value: "trend" as const },
+                    { label: "年収", value: "salary" as const },
+                    { label: "名前", value: "name" as const },
+                  ]}
+                  value={sortBy}
+                  onChange={(v) => setSortBy(v)}
+                />
               </View>
             </View>
           </View>
@@ -699,8 +729,6 @@ const styles = StyleSheet.create({
   searchRow: { marginBottom: 12 },
   searchBox: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: "#e5e7eb" },
   input: { flex: 1, fontSize: 14 },
-  pickersRow: { flexDirection: "row", marginTop: 8, gap: 8 },
-  pickerWrap: { flex: 1, backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#e5e7eb" },
 
   card: { backgroundColor: "#fff", borderRadius: 12, padding: 12, marginTop: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   cardTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 8, gap: 10 },
@@ -764,4 +792,13 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#e5e7eb", alignItems: "center", justifyContent: "center" },
   progressOuter: { height: 8, backgroundColor: "#e5e7eb", borderRadius: 999, overflow: "hidden", marginTop: 6 },
   progressInner: { height: 8, backgroundColor: "#3b82f6" },
+
+  stickyHeader: { backgroundColor: "#f9fafb", paddingBottom: 4 },
+  filtersWrap: { marginTop: 8 },
+  filterLabel: { fontSize: 12, color: "#6b7280", marginBottom: 6, marginTop: 8 },
+  segmentedRow: { gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#eef2ff", borderWidth: 1, borderColor: "#e5e7eb", marginRight: 8 },
+  chipActive: { backgroundColor: "#1d4ed8", borderColor: "#1d4ed8" },
+  chipText: { fontSize: 12, color: "#374151" },
+  chipTextActive: { color: "#fff", fontWeight: "700" },
 });

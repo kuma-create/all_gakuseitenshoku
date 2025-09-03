@@ -13,6 +13,8 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter, Link } from "expo-router";
 import { supabase } from "../../src/lib/supabase";
 
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || "https://culture.gakuten.co.jp";
+
 export default function SignUp() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -22,6 +24,8 @@ export default function SignUp() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
   const canSubmit = useMemo(
     () => !!email && !!password && !!confirmPassword && password === confirmPassword,
@@ -43,21 +47,43 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          // 学生専用としてメタデータ固定
-          data: { user_type: "student" },
-          emailRedirectTo: undefined,
-        },
-      });
-      if (error) throw error;
+      // WEB版と同じ挙動: Next.js の /api/signup にPOSTし、サーバ側でメール送信＆redirectを制御
+      const targetEmail = email.trim().toLowerCase();
+      const gradYear = new Date().getFullYear();
+      const defaultGraduationMonth = `${gradYear}-03-31`;
 
-      setSuccess("確認メールを送信しました。メール記載の手順で認証を完了してください。");
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
+      const payload = {
+        email: targetEmail,
+        password,
+        first_name: firstName || "",
+        last_name: lastName || "",
+        referral_source: "mobile",
+        referral_code: "",
+        graduation_month: defaultGraduationMonth,
+      };
+
+      const res = await fetch(`${API_BASE}/api/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let json: any = {};
+      try { json = await res.json(); } catch {}
+
+      if (!res.ok) {
+        const msg: string = json?.error || "登録中に問題が発生しました。もう一度お試しください。";
+        if (/already|exists|duplicate/i.test(msg)) {
+          setError("そのメールアドレスはすでに登録されています。ログインしてください。");
+        } else {
+          setError(msg);
+        }
+      } else {
+        setSuccess("確認メールを送信しました。メール記載の手順で認証を完了してください。");
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+      }
     } catch (e: any) {
       setError(e?.message ?? "登録に失敗しました。もう一度お試しください。");
     } finally {
@@ -134,6 +160,52 @@ export default function SignUp() {
 
             {/* Form（学生のみ） */}
             <View style={{ gap: 12 }}>
+              {/* Last Name */}
+              <View>
+                <Text style={{ marginBottom: 6, fontSize: 12 }}>苗字</Text>
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="山田"
+                    placeholderTextColor="#9ca3af"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: "#e5e7eb",
+                      borderRadius: 8,
+                      paddingVertical: 12,
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                    }}
+                  />
+                </View>
+              </View>
+
+              {/* First Name */}
+              <View>
+                <Text style={{ marginBottom: 6, fontSize: 12 }}>名前</Text>
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="太郎"
+                    placeholderTextColor="#9ca3af"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: "#e5e7eb",
+                      borderRadius: 8,
+                      paddingVertical: 12,
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                    }}
+                  />
+                </View>
+              </View>
+
               {/* Email */}
               <View>
                 <Text style={{ marginBottom: 6, fontSize: 12 }}>メールアドレス</Text>

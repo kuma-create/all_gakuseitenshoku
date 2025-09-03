@@ -1,9 +1,13 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking, Platform } from "react-native";
+import * as LinkingExpo from "expo-linking";
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Circle } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useEffect, useState, useRef } from "react";
 import type { Session } from "@supabase/supabase-js";
+
 import { supabase } from "../src/lib/supabase";
+
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || "https://gakuten.co.jp";
 
 const { width, height } = Dimensions.get("window");
 const SPLASH_DURATION = 1200; // was 1500
@@ -119,23 +123,86 @@ export default function RootIndex() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      // WEB版と同等: Next.js の /api/signup にPOSTし、メール送信とredirectはサーバー側で統一制御
+      const gradYear = new Date().getFullYear();
+      const defaultGraduationMonth = `${gradYear}-03-31`;
+
+      const payload = {
         email: targetEmail,
         password,
-        options: {
-          data: { user_type: "student" },
-        },
+        first_name: "",
+        last_name: "",
+        referral_source: "mobile",
+        referral_code: "",
+        graduation_month: defaultGraduationMonth,
+      };
+
+      const res = await fetch(`${API_BASE}/api/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (error) throw error;
-      setSuccess("確認メールを送信しました。メール記載の手順で認証を完了してください。");
-      setPassword("");
-      setConfirmPassword("");
+
+      let json: any = {};
+      try { json = await res.json(); } catch {}
+
+      if (!res.ok) {
+        const msg: string = json?.error || "登録に失敗しました。もう一度お試しください。";
+        if (/already|exists|duplicate/i.test(msg)) {
+          setError("既に登録済みのメールアドレスです。ログインしてください。");
+        } else {
+          setError(msg);
+        }
+      } else {
+        setSuccess("確認メールを送信しました。メール記載の手順で認証を完了してください。");
+        setPassword("");
+        setConfirmPassword("");
+      }
     } catch (e: any) {
       setError(jpError(e?.message || "登録に失敗しました"));
     } finally {
       setLoading(false);
     }
   };
+  // Handle deep links for Supabase email confirmations (native)
+  useEffect(() => {
+    const handleUrl = async (url?: string | null) => {
+      if (!url) return;
+      try {
+        const parsed = LinkingExpo.parse(url);
+        const qp = parsed.queryParams || {} as any;
+        const token_hash = qp.token_hash as string | undefined;
+        const type = (qp.type as string | undefined) || "signup";
+        if (token_hash) {
+          // Verify the email confirmation or other OTP-based links
+          const { error } = await supabase.auth.verifyOtp({
+            type: type as any, // 'signup' | 'invite' | 'magiclink' | 'recovery' | 'email_change'
+            token_hash,
+          });
+          if (error) {
+            setError(jpError(error.message));
+          } else {
+            setSuccess("メール認証が完了しました。ログインできます。");
+            // 取得したセッションで学生ダッシュボードへ
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const role: Role = await fetchUserRole(user.id);
+              if (role === "student") router.replace("/(student)");
+            }
+          }
+        }
+      } catch (e: any) {
+        // 解析や検証に失敗しても致命的ではない
+        console.warn("Deep link handling error", e?.message || e);
+      }
+    };
+
+    // Initial URL (app cold start)
+    Linking.getInitialURL().then(handleUrl);
+    // Runtime URL events
+    const sub = Linking.addEventListener("url", (event) => handleUrl(event.url));
+    return () => sub.remove();
+  }, []);
 
   // Animated values for splash and hero opacity
   const splashOpacity = useRef(new Animated.Value(1)).current;
