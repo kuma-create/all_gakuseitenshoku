@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   SafeAreaView,
   View,
@@ -10,6 +11,7 @@ import {
   Modal,
   ActivityIndicator,
   StyleSheet,
+  Linking, Share, Platform,
 } from 'react-native';
 import {
   Calendar as CalendarIcon,
@@ -96,6 +98,93 @@ const EVENT_CATEGORIES: Record<CalendarEvent['category'], { label: string; icon:
   personal: { label: '個人予定', icon: CalendarIcon, tint: '#6b7280', chipBg: '#f3f4f6' },
 };
 
+// ---- Calendar helpers ----
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const ymdHisZ = (d: Date) => {
+  const yyyy = d.getUTCFullYear();
+  const MM = pad2(d.getUTCMonth() + 1);
+  const DD = pad2(d.getUTCDate());
+  const hh = pad2(d.getUTCHours());
+  const mm = pad2(d.getUTCMinutes());
+  const ss = pad2(d.getUTCSeconds());
+  return `${yyyy}${MM}${DD}T${hh}${mm}${ss}Z`;
+};
+const buildGoogleCalendarUrl = (ev: CalendarEvent) => {
+// Format as HH:MM, zero-padded
+const hhmm = (d: Date) => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const start = new Date(ev.date);
+  let dtStart = ymdHisZ(start);
+  let dtEnd = ymdHisZ(new Date(start.getTime() + 60 * 60 * 1000));
+  if (ev.time && /^\d{2}:\d{2}$/.test(ev.time)) {
+    const [hh, mm] = ev.time.split(':').map(Number);
+    start.setHours(hh, mm ?? 0, 0, 0);
+    dtStart = ymdHisZ(new Date(start));
+    if (ev.endTime && /^\d{2}:\d{2}$/.test(ev.endTime)) {
+      const [eh, em] = ev.endTime.split(':').map(Number);
+      const end = new Date(start);
+      end.setHours(eh, em ?? 0, 0, 0);
+      dtEnd = ymdHisZ(end);
+    } else {
+      dtEnd = ymdHisZ(new Date(start.getTime() + 60 * 60 * 1000));
+    }
+  } else {
+    // all-day
+    const s = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+    const e = new Date(s); e.setUTCDate(e.getUTCDate() + 1);
+    dtStart = ymdHisZ(s);
+    dtEnd = ymdHisZ(e);
+  }
+  const text = encodeURIComponent(ev.title || '無題の予定');
+  const details = encodeURIComponent(ev.description || '');
+  const location = encodeURIComponent(ev.location || '');
+  const dates = `${dtStart}/${dtEnd}`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dates}&details=${details}&location=${location}`;
+};
+const escapeICS = (s: string) => (s || '').replace(/[\\;,\n]/g, (m) => ({'\\':'\\\\',';':'\\;',',':'\\,','\n':'\\n'} as any)[m]);
+const buildICS = (ev: CalendarEvent) => {
+  const startBase = new Date(ev.date);
+  let start = new Date(startBase);
+  let end = new Date(startBase);
+  if (ev.time && /^\d{2}:\d{2}$/.test(ev.time)) {
+    const [hh, mm] = ev.time.split(':').map(Number);
+    start.setHours(hh, mm ?? 0, 0, 0);
+  }
+  if (ev.endTime && /^\d{2}:\d{2}$/.test(ev.endTime)) {
+    const [eh, em] = ev.endTime.split(':').map(Number);
+    end = new Date(start); end.setHours(eh, em ?? 0, 0, 0);
+  } else if (ev.time) {
+    end = new Date(start.getTime() + 60 * 60 * 1000);
+  } else {
+    start = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+    end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
+  }
+  const uid = `${ev.id || `tmp-${Date.now()}`}@ipo-calendar`;
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//IPO Calendar Mobile//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${ymdHisZ(new Date())}`,
+    `DTSTART:${ymdHisZ(start)}`,
+    `DTEND:${ymdHisZ(end)}`,
+    `SUMMARY:${escapeICS(ev.title)}`,
+    ev.location ? `LOCATION:${escapeICS(ev.location)}` : '',
+    ev.description ? `DESCRIPTION:${escapeICS(ev.description)}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+  return ics;
+};
+const openICS = async (ev: CalendarEvent) => {
+  // Use a data URL so it opens in the default handler (Calendar) via browser
+  const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(buildICS(ev))}`;
+  await Linking.openURL(dataUrl);
+};
+// ---------------------------
+
 const TabValues = ['events', 'week', 'month'] as const;
 
 type Tab = typeof TabValues[number];
@@ -114,6 +203,23 @@ export default function CalendarScreen() {
   // Keep horizontal chip scroll position so it doesn't jump back to start on re-render
   const chipScrollRef = useRef<ScrollView | null>(null);
   const chipScrollX = useRef(0);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    title: '',
+    category: 'personal' as CalendarEvent['category'],
+    date: new Date().toISOString().slice(0,10),
+    time: '',
+    endTime: '',
+    location: '',
+    description: '',
+    tagsText: '',
+  });
+  const [editMode, setEditMode] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showEditStartTimePicker, setShowEditStartTimePicker] = useState(false);
+  const [showEditEndTimePicker, setShowEditEndTimePicker] = useState(false);
 
   const runIdle = (cb: () => void) => setTimeout(cb, 0);
 
@@ -432,7 +538,7 @@ export default function CalendarScreen() {
           <Bell size={18} color={'#111827'} />
           <Text style={styles.ghostBtnText}></Text>
         </TouchableOpacity>*/}
-        <TouchableOpacity style={styles.primaryBtnSm}>
+        <TouchableOpacity style={styles.primaryBtnSm} onPress={() => setShowCreate(true)}>
           <Plus size={18} color={'#fff'} />
           <Text style={styles.primaryBtnSmText}>予定を追加</Text>
         </TouchableOpacity>
@@ -587,6 +693,194 @@ export default function CalendarScreen() {
         );
       })()}
 
+      {/* Create Modal */}
+      <Modal visible={showCreate} animationType="slide" onRequestClose={() => setShowCreate(false)}>
+        <SafeAreaView style={styles.modalSafe}>
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
+            <TouchableOpacity onPress={() => setShowCreate(false)} style={{ marginBottom: 8 }}>
+              <Text style={{ color: '#2563eb' }}>閉じる</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>個人予定を追加</Text>
+            <View style={{ gap: 10, marginTop: 12 }}>
+              <Text>タイトル</Text>
+              <TextInput value={createForm.title} onChangeText={(v)=>setCreateForm({...createForm,title:v})} style={styles.searchBox} />
+              <Text>日付</Text>
+              {Platform.OS === 'ios' || Platform.OS === 'android' ? (
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.searchBox}>
+                  <Text>{createForm.date}</Text>
+                </TouchableOpacity>
+              ) : (
+                <TextInput value={createForm.date} onChangeText={(v)=>setCreateForm({...createForm,date:v})} placeholder="YYYY-MM-DD" style={styles.searchBox} />
+              )}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date(createForm.date)}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) {
+                      const isoDate = selectedDate.toISOString().slice(0,10);
+                      setCreateForm({...createForm,date: isoDate});
+                    }
+                  }}
+                />
+              )}
+              <Text>開始時間（任意）</Text>
+              {(Platform.OS === 'ios' || Platform.OS === 'android') ? (
+                <TouchableOpacity onPress={()=>setShowStartTimePicker(true)} style={styles.searchBox}>
+                  <Text>{createForm.time || 'HH:MM'}</Text>
+                </TouchableOpacity>
+              ) : (
+                <TextInput value={createForm.time} onChangeText={(v)=>setCreateForm({...createForm,time:v})} placeholder="HH:MM" style={styles.searchBox} />
+              )}
+              {showStartTimePicker && (
+                <DateTimePicker
+                  value={new Date(`1970-01-01T${createForm.time || '09:00'}:00`) }
+                  mode="time"
+                  display="default"
+                  is24Hour
+                  onChange={(event, selectedDate) => {
+                    setShowStartTimePicker(false);
+                    if (selectedDate) {
+                      setCreateForm({...createForm, time: hhmm(selectedDate)});
+                    }
+                  }}
+                />
+              )}
+              <Text>終了時間（任意）</Text>
+              {(Platform.OS === 'ios' || Platform.OS === 'android') ? (
+                <TouchableOpacity onPress={()=>setShowEndTimePicker(true)} style={styles.searchBox}>
+                  <Text>{createForm.endTime || 'HH:MM'}</Text>
+                </TouchableOpacity>
+              ) : (
+                <TextInput value={createForm.endTime} onChangeText={(v)=>setCreateForm({...createForm,endTime:v})} placeholder="HH:MM" style={styles.searchBox} />
+              )}
+              {showEndTimePicker && (
+                <DateTimePicker
+                  value={new Date(`1970-01-01T${createForm.endTime || (createForm.time || '10:00')}:00`) }
+                  mode="time"
+                  display="default"
+                  is24Hour
+                  onChange={(event, selectedDate) => {
+                    setShowEndTimePicker(false);
+                    if (selectedDate) {
+                      setCreateForm({...createForm, endTime: hhmm(selectedDate)});
+                    }
+                  }}
+                />
+              )}
+              <Text>カテゴリ</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {Object.entries(EVENT_CATEGORIES).map(([key, cat]) => (
+                  <TouchableOpacity key={key} onPress={()=>setCreateForm({...createForm, category: key as CalendarEvent['category']})} style={[styles.chip, createForm.category===key && { backgroundColor: cat.chipBg, borderColor: cat.tint }]}>
+                    <Text style={[styles.chipText, createForm.category===key && { color: '#111827' }]}>{cat.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text>場所（任意）</Text>
+              <TextInput value={createForm.location} onChangeText={(v)=>setCreateForm({...createForm,location:v})} style={styles.searchBox} />
+              <Text>詳細（任意）</Text>
+              <TextInput value={createForm.description} onChangeText={(v)=>setCreateForm({...createForm,description:v})} multiline style={[styles.searchBox,{height:100,textAlignVertical:'top'}]} />
+              <Text>タグ（カンマ区切り）</Text>
+              <TextInput value={createForm.tagsText} onChangeText={(v)=>setCreateForm({...createForm,tagsText:v})} style={styles.searchBox} />
+              <View style={{ flexDirection:'row', gap: 8, marginTop: 12 }}>
+                <TouchableOpacity onPress={async ()=>{
+                  // Save to Supabase
+                  try {
+                    const tagsArr = (createForm.tagsText||'').split(',').map(s=>s.trim()).filter(Boolean);
+                    const { data, error } = await supabase.from('ipo_calendar_events').insert({
+                      title: createForm.title || '無題の予定',
+                      type: 'task',
+                      category: createForm.category,
+                      date: new Date(createForm.date).toISOString(),
+                      time: createForm.time || null,
+                      end_time: createForm.endTime || null,
+                      location: createForm.location || null,
+                      description: createForm.description || '',
+                      priority: 'low',
+                      is_public: false,
+                      max_participants: null,
+                      organizer: '自分',
+                      tags: tagsArr,
+                      registration_deadline: null,
+                      target_audience: null,
+                      registration_status: 'open',
+                    }).select('id').single();
+                    if (error) throw error;
+                    const savedId = String(data.id);
+                    const newEvent: CalendarEvent = {
+                      id: savedId,
+                      title: createForm.title || '無題の予定',
+                      type: 'task',
+                      category: createForm.category,
+                      date: new Date(createForm.date + (createForm.time ? `T${createForm.time}:00` : 'T00:00:00')).toISOString(),
+                      time: createForm.time || undefined,
+                      endTime: createForm.endTime || undefined,
+                      location: createForm.location || undefined,
+                      description: createForm.description || '',
+                      priority: 'low',
+                      isPublic: false,
+                      maxParticipants: undefined,
+                      currentParticipants: 0,
+                      organizer: '自分',
+                      tags: tagsArr,
+                      isRegistered: true,
+                      registrationStatus: 'open',
+                    };
+                    setEvents(prev=>[newEvent, ...prev]);
+                    setShowCreate(false);
+                    setCreateForm({ title:'', category:'personal', date: new Date().toISOString().slice(0,10), time:'', endTime:'', location:'', description:'', tagsText:'' });
+                  } catch(e) {
+                    console.error(e);
+                    setError('予定の作成に失敗しました');
+                  }
+                }} style={styles.primaryBtn}>
+                  <Text style={styles.primaryBtnText}>保存</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={()=>{
+                  const ev: CalendarEvent = {
+                    id: `local-${Date.now()}`,
+                    title: createForm.title || '無題の予定',
+                    type: 'task',
+                    category: createForm.category,
+                    date: new Date(createForm.date).toISOString(),
+                    time: createForm.time || undefined,
+                    endTime: createForm.endTime || undefined,
+                    location: createForm.location || undefined,
+                    description: createForm.description || '',
+                    priority: 'low', isPublic:false, currentParticipants:0, organizer:'自分', tags:[]
+                  };
+                  const url = buildGoogleCalendarUrl(ev);
+                  Linking.openURL(url);
+                }} style={[styles.ghostBtn,{flexDirection:'row',alignItems:'center',gap:6}]}> 
+                  <CalendarIcon size={16} color={'#111827'} />
+                  <Text style={styles.ghostBtnText}>Googleカレンダー</Text>
+                </TouchableOpacity>
+                {/* 
+                <TouchableOpacity onPress={()=>{
+                  const ev: CalendarEvent = {
+                    id: `local-${Date.now()}`,
+                    title: createForm.title || '無題の予定',
+                    type: 'task', category: createForm.category,
+                    date: new Date(createForm.date).toISOString(),
+                    time: createForm.time || undefined,
+                    endTime: createForm.endTime || undefined,
+                    location: createForm.location || undefined,
+                    description: createForm.description || '', priority:'low', isPublic:false, currentParticipants:0, organizer:'自分', tags:[]
+                  };
+                  openICS(ev);
+                }} style={[styles.ghostBtn,{flexDirection:'row',alignItems:'center',gap:6}]}> 
+                  <CalendarIcon size={16} color={'#111827'} />
+                  <Text style={styles.ghostBtnText}>Apple/Outlook (.ics)</Text>
+                </TouchableOpacity>
+                */}
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
       {/* Detail Modal */}
       <Modal visible={showDetail} animationType="slide" onRequestClose={() => setShowDetail(false)}>
         <SafeAreaView style={styles.modalSafe}>
@@ -625,6 +919,11 @@ export default function CalendarScreen() {
                             </View>
                           )}
                         </View>
+                        {!selectedEvent.isPublic && (
+                          <TouchableOpacity onPress={()=>setEditMode(v=>!v)} style={[styles.ghostBtn,{marginTop:8}]}> 
+                            <Text style={styles.ghostBtnText}>{editMode ? '編集をやめる' : '編集'}</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </View>
 
@@ -654,6 +953,96 @@ export default function CalendarScreen() {
                           </View>
                         </View>
                       </View>
+
+                      {editMode && (
+                        <View style={{ gap: 10, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: '#e5e7eb', borderRadius: 8 }}>
+                          <Text style={styles.sectionTitle}>予定を編集</Text>
+                          <Text>タイトル</Text>
+                          <TextInput value={selectedEvent.title} onChangeText={(v)=>setSelectedEvent(prev=>prev?{...prev,title:v}:prev)} style={styles.searchBox} />
+                          <Text>日付</Text>
+                          <TextInput value={selectedEvent.date.slice(0,10)} onChangeText={(v)=>setSelectedEvent(prev=>prev?{...prev,date:new Date(v + (prev.time?`T${prev.time}:00`:'T00:00:00')).toISOString()}:prev)} style={styles.searchBox} />
+                          <Text>時間</Text>
+                          {(Platform.OS === 'ios' || Platform.OS === 'android') ? (
+                            <View style={{ flexDirection:'row', gap: 8 }}>
+                              <TouchableOpacity onPress={()=>setShowEditStartTimePicker(true)} style={[styles.searchBox, { flex: 1 }]}>
+                                <Text>{selectedEvent.time || '開始 HH:MM'}</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={()=>setShowEditEndTimePicker(true)} style={[styles.searchBox, { flex: 1 }]}>
+                                <Text>{selectedEvent.endTime || '終了 HH:MM'}</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <TextInput value={selectedEvent.time || ''} onChangeText={(v)=>setSelectedEvent(prev=>prev?{...prev,time:v}:prev)} placeholder="HH:MM" style={styles.searchBox} />
+                          )}
+                          {showEditStartTimePicker && (
+                            <DateTimePicker
+                              value={new Date(`1970-01-01T${selectedEvent.time || '09:00'}:00`) }
+                              mode="time"
+                              display="default"
+                              is24Hour
+                              onChange={(event, selectedDate) => {
+                                setShowEditStartTimePicker(false);
+                                if (selectedDate) {
+                                  setSelectedEvent(prev=>prev?{...prev, time: hhmm(selectedDate)}:prev);
+                                }
+                              }}
+                            />
+                          )}
+                          {showEditEndTimePicker && (
+                            <DateTimePicker
+                              value={new Date(`1970-01-01T${selectedEvent.endTime || (selectedEvent.time || '10:00')}:00`) }
+                              mode="time"
+                              display="default"
+                              is24Hour
+                              onChange={(event, selectedDate) => {
+                                setShowEditEndTimePicker(false);
+                                if (selectedDate) {
+                                  setSelectedEvent(prev=>prev?{...prev, endTime: hhmm(selectedDate)}:prev);
+                                }
+                              }}
+                            />
+                          )}
+                          <Text>場所</Text>
+                          <TextInput value={selectedEvent.location || ''} onChangeText={(v)=>setSelectedEvent(prev=>prev?{...prev,location:v}:prev)} style={styles.searchBox} />
+                          <Text>カテゴリ</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                            {Object.entries(EVENT_CATEGORIES).map(([key, cat]) => (
+                              <TouchableOpacity key={key} onPress={()=>setSelectedEvent(prev=>prev?{...prev, category: key as CalendarEvent['category']}:prev)} style={[styles.chip, selectedEvent.category===key && { backgroundColor: cat.chipBg, borderColor: cat.tint }]}>
+                                <Text style={[styles.chipText, selectedEvent.category===key && { color: '#111827' }]}>{cat.label}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                          <Text>タグ（カンマ区切り）</Text>
+                          <TextInput value={(selectedEvent.tags||[]).join(', ')} onChangeText={(v)=>setSelectedEvent(prev=>prev?{...prev, tags: v.split(',').map(s=>s.trim()).filter(Boolean)}:prev)} style={styles.searchBox} />
+                          <Text>詳細</Text>
+                          <TextInput value={selectedEvent.description || ''} onChangeText={(v)=>setSelectedEvent(prev=>prev?{...prev,description:v}:prev)} multiline style={[styles.searchBox,{height:100,textAlignVertical:'top'}]} />
+                          <View style={{ flexDirection:'row', justifyContent:'flex-end', gap: 8 }}>
+                            <TouchableOpacity onPress={()=>setEditMode(false)} style={styles.ghostBtn}><Text style={styles.ghostBtnText}>キャンセル</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={async ()=>{
+                              try {
+                                if (!selectedEvent) return;
+                                const idNum = Number(selectedEvent.id);
+                                const idValue: any = Number.isFinite(idNum) ? idNum : selectedEvent.id;
+                                const { error } = await supabase.from('ipo_calendar_events').update({
+                                  title: selectedEvent.title,
+                                  date: selectedEvent.date.slice(0,10),
+                                  time: selectedEvent.time || null,
+                                  end_time: selectedEvent.endTime || null,
+                                  location: selectedEvent.location || null,
+                                  description: selectedEvent.description || '',
+                                  tags: selectedEvent.tags || [],
+                                  category: selectedEvent.category,
+                                }).eq('id', idValue);
+                                if (error) throw error;
+                                setEvents(prev=>prev.map(e=> e.id===selectedEvent.id ? {...e, ...selectedEvent } : e));
+                                setEditMode(false);
+                              } catch(e){
+                                console.error(e); setError('予定の更新に失敗しました');
+                              }
+                            }} style={styles.primaryBtn}><Text style={styles.primaryBtnText}>保存</Text></TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
 
                       {!!selectedEvent.maxParticipants && (
                         <View style={{ gap: 8 }}>
