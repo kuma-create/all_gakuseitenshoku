@@ -106,9 +106,10 @@ const calculateCareerScoreFromResume = (text: string) => {
 };
 
 const CareerRadarChartLazy = React.lazy(() =>
-  import("../../../components/ipo/charts/CareerRadarChart").then((m: any) => ({
-    default: (m.default ?? m.CareerRadarChart) as React.ComponentType<RadarChartProps>,
-  }))
+  import("../../../components/ipo/charts/CareerRadarChart").then((m: any) => {
+    const Comp = (m as any)?.CareerRadarChart ?? ((props: any) => null);
+    return { default: Comp as React.ComponentType<RadarChartProps> };
+  })
 );
 import {
   ActivityIndicator,
