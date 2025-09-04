@@ -73,13 +73,13 @@ export default function AppHeader({ title }: AppHeaderProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.replace("/auth/login");
+    router.replace("/");
   };
 
   const logoutAndClose = async () => {
     await supabase.auth.signOut();
     closeMenu();
-    router.replace("/auth/login");
+    router.replace("/");
   };
 
   const handleMenuPress = () => {

@@ -8,7 +8,7 @@
 ------------------------------------------------------------------ */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator, Image, Platform, Modal, Pressable, FlatList } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter } from "expo-router"; import type { Href } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -604,7 +604,7 @@ export default function OnboardingProfileMobile() {
         if (expErr) throw expErr;
       }
 
-      router.replace("/(student)");
+      router.replace("/(student)/onboarding/goals" as unknown as Href);
     } catch (err: any) {
       console.error(err);
       setError(err.message ?? "保存できませんでした。");

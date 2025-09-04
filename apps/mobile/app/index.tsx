@@ -95,13 +95,31 @@ export default function RootIndex() {
       if (signInError) throw signInError;
       await supabase.auth.refreshSession();
       const { data: { user } } = await supabase.auth.getUser();
-      const role: Role = user ? await fetchUserRole(user.id) : "student";
+      if (!user) {
+        setError("ユーザー情報の取得に失敗しました。もう一度お試しください。");
+        return;
+      }
+      const userId = user.id;
+      const role: Role = await fetchUserRole(userId);
       if (role !== "student") {
         await supabase.auth.signOut();
         setError("企業アカウントのログインはこのアプリではご利用いただけません。");
         return;
       }
-      router.replace("/(student)");
+      // 学生のログイン後遷移を post_login_path で出し分け（デフォルトは '/ipo'）
+      let targetHref = "/(student)";
+      try {
+        const { data: prof } = await supabase
+          .from("student_profiles")
+          .select("post_login_path")
+          .eq("user_id", userId)
+          .single();
+        const post = prof?.post_login_path as string | null | undefined;
+        if (post === "/") targetHref = "/(student)";
+        else if (post === "/ipo") targetHref = "/(student)/ipo";
+        else targetHref = "/(student)/ipo"; // 未設定時は /ipo
+      } catch {}
+      router.replace(targetHref as any);
     } catch (e: any) {
       setError(jpError(e?.message || "ログインに失敗しました"));
     } finally {
@@ -187,7 +205,22 @@ export default function RootIndex() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
               const role: Role = await fetchUserRole(user.id);
-              if (role === "student") router.replace("/(student)");
+              if (role === "student") {
+                // メール確認後も post_login_path を考慮
+                let targetHref = "/(student)";
+                try {
+                  const { data: prof } = await supabase
+                    .from("student_profiles")
+                    .select("post_login_path")
+                    .eq("user_id", user.id)
+                    .single();
+                  const post = prof?.post_login_path as string | null | undefined;
+                  if (post === "/") targetHref = "/(student)";
+                  else if (post === "/ipo") targetHref = "/(student)/ipo";
+                  else targetHref = "/(student)/ipo";
+                } catch {}
+                router.replace(targetHref as any);
+              }
             }
           }
         }
