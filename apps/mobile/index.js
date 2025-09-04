@@ -1,11 +1,9 @@
-// 1) これが最初（Gesture Handler の初期化）
 import 'react-native-gesture-handler';
-
-// 2) Hermes で Metro の require が未定義なケースを吸収する一行
-//    Metro が expose する __r を require にブリッジ（存在する時だけ）
-if (typeof globalThis.require === 'undefined' && typeof globalThis.__r === 'function') {
-  globalThis.require = globalThis.__r;
+if (global.ErrorUtils?.setGlobalHandler) {
+  const prev = global.ErrorUtils.getGlobalHandler?.();
+  global.ErrorUtils.setGlobalHandler((e, isFatal) => {
+    console.log('[FATAL]', e?.message);
+    console.log('[STACK]', e?.stack);
+    prev && prev(e, isFatal);
+  });
 }
-
-// 3) Expo Router のブートストラップ（最後）
-import 'expo-router/entry';

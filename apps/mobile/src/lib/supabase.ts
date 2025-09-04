@@ -1,64 +1,9 @@
+import 'react-native-gesture-handler';
 import { createClient, type AuthError } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-
-// --- SSR window/localStorage shim (prevents AsyncStorage web build from crashing on Node) ---
-(() => {
-  try {
-    if (typeof (globalThis as any).window === 'undefined' && typeof globalThis !== 'undefined') {
-      const g: any = globalThis as any;
-      if (!g.window) {
-        g.window = {};
-      }
-      if (!g.window.localStorage) {
-        const noop = () => {};
-        g.window.localStorage = {
-          getItem: (_k: string) => null,
-          setItem: (_k: string, _v: string) => noop(),
-          removeItem: (_k: string) => noop(),
-          clear: () => noop(),
-          key: (_i: number) => null,
-          length: 0,
-        };
-      }
-    }
-  } catch {}
-})();
-
-// --- Neutralize Expo Web/SSR mis-detection of React Native ---
-// Some toolchains set navigator.product = 'ReactNative' during Web/SSR.
-// Supabase Auth checks this flag and will try to use AsyncStorage, which crashes on SSR (no window).
-// Force it to look like a browser while `window` is undefined.
-(() => {
-  try {
-    if (typeof (globalThis as any).window === 'undefined' && typeof globalThis !== 'undefined') {
-      const nav = (globalThis as any).navigator;
-      if (nav && nav.product === 'ReactNative') {
-        try {
-          Object.defineProperty(nav, 'product', { value: 'Browser' });
-        } catch {
-          (globalThis as any).navigator = { ...nav, product: 'Browser' };
-        }
-      }
-    }
-  } catch {}
-})();
-
-// Load RN URL polyfill only on real React Native runtime (not SSR/Web)
-// Using dynamic import to avoid touching global navigator on Node/Web.
-// This ensures `navigator.product` isn't spoofed by the polyfill during SSR.
-void (async () => {
-  try {
-    if (
-      typeof globalThis !== 'undefined' &&
-      (globalThis as any).navigator?.product === 'ReactNative' &&
-      typeof (globalThis as any).document === 'undefined'
-    ) {
-      // @ts-expect-error: react-native-url-polyfill has no type declarations for the "auto" entry
-      await import('react-native-url-polyfill/auto');
-    }
-  } catch {}
-})();
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import 'react-native-url-polyfill/auto';
 
 // --- Storage shim that avoids importing async-storage during SSR/Web build ---
 // Detect true React Native runtime (Expo Go / native) rather than Platform.OS
@@ -82,8 +27,7 @@ const hasWebLocalStorage =
 const storageShim = {
   getItem: async (k: string) => {
     if (isReactNativeRuntime) {
-      const mod = await import('@react-native-async-storage/async-storage');
-      return mod.default.getItem(k);
+      return AsyncStorage.getItem(k);
     }
     if (hasWebLocalStorage) {
       return (globalThis as any).window.localStorage.getItem(k);
@@ -92,8 +36,7 @@ const storageShim = {
   },
   setItem: async (k: string, v: string) => {
     if (isReactNativeRuntime) {
-      const mod = await import('@react-native-async-storage/async-storage');
-      return mod.default.setItem(k, v);
+      return AsyncStorage.setItem(k, v);
     }
     if (hasWebLocalStorage) {
       (globalThis as any).window.localStorage.setItem(k, v);
@@ -101,8 +44,7 @@ const storageShim = {
   },
   removeItem: async (k: string) => {
     if (isReactNativeRuntime) {
-      const mod = await import('@react-native-async-storage/async-storage');
-      return mod.default.removeItem(k);
+      return AsyncStorage.removeItem(k);
     }
     if (hasWebLocalStorage) {
       (globalThis as any).window.localStorage.removeItem(k);
@@ -144,10 +86,9 @@ export async function resetIfBadSession(err?: unknown) {
   if (msg.includes("Invalid Refresh Token") || msg.includes("Refresh Token Not Found")) {
     try {
       if (isReactNativeRuntime) {
-        const mod = await import('@react-native-async-storage/async-storage');
-        const keys = await mod.default.getAllKeys();
+        const keys = await AsyncStorage.getAllKeys();
         const sbKey = keys.find((k: string) => k.includes('auth-token'));
-        if (sbKey) await mod.default.removeItem(sbKey);
+        if (sbKey) await AsyncStorage.removeItem(sbKey);
       } else if (hasWebLocalStorage) {
         (globalThis as any).window.localStorage.removeItem('supabase.auth.token');
       }

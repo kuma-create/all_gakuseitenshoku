@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": false,
     "target": "ES2021",
     "skipLibCheck": true,
@@ -10,8 +14,14 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "baseUrl": ".",
-    "typeRoots": ["./node_modules/@types", "./node_modules/next/types"],
-    "types": ["node", "next"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/next/types"
+    ],
+    "types": [
+      "node",
+      "next"
+    ],
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -22,12 +32,24 @@
       }
     ],
     "paths": {
-      "@/*": ["apps/web/*"],
-      "@/app/*": ["apps/web/app/*"],
-      "@/components/*": ["apps/web/components/*"],
-      "@/lib/*": ["apps/web/lib/*"],
-      "@/utils/*": ["apps/web/utils/*"],
-      "@/styles/*": ["apps/web/styles/*"]
+      "@/*": [
+        "apps/web/*"
+      ],
+      "@/app/*": [
+        "apps/web/app/*"
+      ],
+      "@/components/*": [
+        "apps/web/components/*"
+      ],
+      "@/lib/*": [
+        "apps/web/lib/*"
+      ],
+      "@/utils/*": [
+        "apps/web/utils/*"
+      ],
+      "@/styles/*": [
+        "apps/web/styles/*"
+      ]
     }
   },
   "include": [
@@ -36,5 +58,8 @@
     "apps/web/**/*.tsx",
     "apps/web/.next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ],
+  "extends": "expo/tsconfig.base"
 }

@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking, Platform } from "react-native";
 import * as LinkingExpo from "expo-linking";
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Circle } from "react-native-svg";

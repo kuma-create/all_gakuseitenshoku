@@ -7,6 +7,18 @@ import { ROLE_DEST } from "../src/constants/routes";
 import { useUserRole } from "../src/hooks/useUserRole";
 import { supabase } from "../src/lib/supabase";
 
+// ----- Global error hook (router root) -----
+if ((global as any)?.ErrorUtils?.setGlobalHandler) {
+  const prev = (global as any).ErrorUtils.getGlobalHandler?.();
+  (global as any).ErrorUtils.setGlobalHandler((e: any, isFatal?: boolean) => {
+    try {
+      console.log('[FATAL]', e?.message);
+      console.log('[STACK]', e?.stack);
+    } catch {}
+    if (typeof prev === 'function') prev(e, isFatal);
+  });
+}
+
 /**
  * 認証ガード（Step 1+ ロール別遷移）
  * - 未ログイン: /auth/login へ
