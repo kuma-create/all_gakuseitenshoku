@@ -61,7 +61,7 @@ type FormData = {
   hourlyWageMax: string
   travelExpense: string
   nearestStation: string
-  remunerationType: "hourly" | "commission",
+  remunerationType: "hourly" | "commission" | "monthly",
   commissionRate: string,
   minDailyHours: string,
   /* Event */
@@ -208,8 +208,8 @@ const fetchJob = async (id: string) => {
     travelExpense  : internLong.travel_expense  ?? "",
     nearestStation : internLong.nearest_station ?? "",
     remunerationType:
-      internLong.remuneration_type === "commission" || internLong.remuneration_type === "hourly"
-        ? (internLong.remuneration_type as "hourly" | "commission")
+      ["hourly", "commission", "monthly"].includes(internLong.remuneration_type)
+        ? (internLong.remuneration_type as "hourly" | "commission" | "monthly")
         : "hourly",
     commissionRate: internLong.commission_rate ?? "",
     minDailyHours:
@@ -523,9 +523,13 @@ export default function JobEditPage() {
             newErrors.hourlyWageMax = "最大時給は最低時給以上にしてください";
           }
         }
-      } else {
+      } else if (formData.remunerationType === "commission") {
         if (!formData.commissionRate.trim()) {
           newErrors.commissionRate = "歩合の条件を入力してください";
+        }
+      } else if (formData.remunerationType === "monthly") {
+        if (!formData.salary.trim()) {
+          newErrors.salary = "月給を入力してください（例: 25万円 など）";
         }
       }
     }
@@ -640,7 +644,11 @@ export default function JobEditPage() {
             hourly_wage_max     : formData.remunerationType === "hourly" && formData.hourlyWageMax ? parseNumber(formData.hourlyWageMax) : null,
             remuneration_type   : formData.remunerationType,
             commission_rate     : formData.remunerationType === "commission" ? (formData.commissionRate || null) : null,
-            is_paid             : formData.remunerationType === "commission" ? true : !!parseNumber(formData.hourlyWageMin),
+            is_paid             : formData.remunerationType === "commission"
+                                  ? true
+                                  : formData.remunerationType === "monthly"
+                                  ? true
+                                  : !!parseNumber(formData.hourlyWageMin),
             travel_expense      : formData.travelExpense || null,
             nearest_station     : formData.nearestStation || null,
             benefits            : formData.benefits || null,
@@ -865,6 +873,13 @@ export default function JobEditPage() {
     )
   }
 
+  function formatMonthlySalary(s: string) {
+    const t = (s || "").trim();
+    if (!t) return "月給（要相談）";
+    const hasUnit = /円|万/.test(t);
+    return `月給 ${hasUnit ? t : `${t}円`}`;
+  }
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-3xl">
       <div className="flex flex-col space-y-6">
@@ -995,21 +1010,37 @@ export default function JobEditPage() {
 
                 <div>
                   <Label htmlFor="employmentType">雇用形態</Label>
-                  <Select
-                    value={formData.employmentType}
-                    onValueChange={(v) => setFormData((p) => ({ ...p, employmentType: v }))}
-                  >
-                    <SelectTrigger id="employmentType" className="mt-1">
-                      <SelectValue placeholder="雇用形態を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="正社員">正社員</SelectItem>
-                      <SelectItem value="契約社員">契約社員</SelectItem>
-                      <SelectItem value="パート・アルバイト">パート・アルバイト</SelectItem>
-                      <SelectItem value="インターン">インターン</SelectItem>
-                      <SelectItem value="業務委託">業務委託</SelectItem>
-                    </SelectContent>
-                  </Select>
+            <Select
+              value={formData.employmentType}
+              onValueChange={(v) => setFormData((p) => ({ ...p, employmentType: v }))}
+            >
+              <SelectTrigger id="employmentType" className="mt-1">
+                <SelectValue placeholder="雇用形態を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="正社員">正社員</SelectItem>
+                <SelectItem value="契約社員">契約社員</SelectItem>
+                <SelectItem value="パート・アルバイト">パート・アルバイト</SelectItem>
+                <SelectItem value="インターン">インターン</SelectItem>
+                <SelectItem value="業務委託">業務委託</SelectItem>
+              </SelectContent>
+            </Select>
+            {/* 報酬形態 select (if present) */}
+            {/* Example: */}
+            {/* <Select
+                value={formData.remunerationType}
+                onValueChange={(v) => setFormData((p) => ({ ...p, remunerationType: v as "hourly" | "commission" | "monthly" }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="報酬形態を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hourly">時給</SelectItem>
+                  <SelectItem value="commission">歩合</SelectItem>
+                  <SelectItem value="monthly">月給</SelectItem>
+                </SelectContent>
+              </Select>
+            */}
                 </div>
               </div>
             )}
@@ -1333,7 +1364,7 @@ export default function JobEditPage() {
                     <Select
                       value={formData.remunerationType}
                       onValueChange={(v) =>
-                        setFormData((p) => ({ ...p, remunerationType: v as "hourly" | "commission" }))
+                        setFormData((p) => ({ ...p, remunerationType: v as "hourly" | "commission" | "monthly" }))
                       }
                     >
                       <SelectTrigger id="remunerationType" className="mt-1">
@@ -1342,11 +1373,12 @@ export default function JobEditPage() {
                       <SelectContent>
                         <SelectItem value="hourly">時給</SelectItem>
                         <SelectItem value="commission">歩合</SelectItem>
+                        <SelectItem value="monthly">月給</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* 時給 or 歩合 */}
+                  {/* 時給 or 歩合 or 月給 */}
                   {formData.remunerationType === "hourly" ? (
                     <div className="">
                       <Label className="flex items-center gap-1">
@@ -1383,7 +1415,7 @@ export default function JobEditPage() {
                         <p className="text-sm text-red-500 mt-1">{errors.hourlyWageMax}</p>
                       )}
                     </div>
-                  ) : (
+                  ) : formData.remunerationType === "commission" ? (
                     <div className="">
                       <Label htmlFor="commissionRate" className="flex items-center gap-1">
                         歩合<span className="text-red-500">*</span>
@@ -1393,13 +1425,31 @@ export default function JobEditPage() {
                         name="commissionRate"
                         value={formData.commissionRate}
                         onChange={handleInputChange}
-                        className={`mt-1 ${
-                          errors.commissionRate ? "border-red-500" : ""
-                        }`}
+                        className={`mt-1 ${errors.commissionRate ? "border-red-500" : ""}`}
                         placeholder="例: アポイント1件あたり10000円"
                       />
                       {errors.commissionRate && (
                         <p className="text-sm text-red-500 mt-1">{errors.commissionRate}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="">
+                      <Label htmlFor="salary" className="flex items-center gap-1">
+                        月給<span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative mt-1">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                        <Input
+                          id="salary"
+                          name="salary"
+                          value={formData.salary}
+                          onChange={handleInputChange}
+                          className={`pl-10 ${errors.salary ? "border-red-500" : ""}`}
+                          placeholder="例: 25万円（または 25万〜40万）"
+                        />
+                      </div>
+                      {errors.salary && (
+                        <p className="text-sm text-red-500 mt-1">{errors.salary}</p>
                       )}
                     </div>
                   )}
@@ -1882,12 +1932,12 @@ export default function JobEditPage() {
                             label="報酬"
                             value={
                               formData.remunerationType === "hourly"
-                                ? formData.hourlyWageMin
-                                  ? `${formData.hourlyWageMin}${formData.hourlyWageMax ? `〜${formData.hourlyWageMax}` : ""}円／時`
-                                  : "要相談"
-                                : formData.commissionRate
-                                ? `歩合 ${formData.commissionRate}`
-                                : "歩合"
+                                ? (formData.hourlyWageMin
+                                    ? `${formData.hourlyWageMin}${formData.hourlyWageMax ? `〜${formData.hourlyWageMax}` : ""}円／時`
+                                    : "要相談")
+                                : formData.remunerationType === "commission"
+                                ? (formData.commissionRate ? `歩合 ${formData.commissionRate}` : "歩合")
+                                : formatMonthlySalary(formData.salary)
                             }
                           />
                           <SummaryItem

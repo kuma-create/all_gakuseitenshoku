@@ -115,28 +115,26 @@ export default function FeaturesPage() {
     (u) => u.status === 'completed'
   )
   const rewardYen = completed.length * 2000
-  const referralLink = `https://gakuten.co.jp/refer/${referral.code}`
+  const referralCode = referral.code
 
-  // ── コピー & シェア（モバイル） ─────────────────────
+  // ── コピー & シェア（コード専用・URLなし） ─────────────────────
   const handleCopy = async () => {
     try {
-      // クリップボードへコピー
-      await navigator.clipboard.writeText(referralLink)
+      // クリップボードへコードをコピー
+      await navigator.clipboard.writeText(referralCode)
 
       // スマホ / タブレット判定
-      const isMobile =
-        /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
-      // Web Share API が使える端末でのみシェアシートを表示
+      // Web Share API が使える端末ではテキストのみ共有（URLは付けない）
       if (isMobile && typeof (navigator as any).share === 'function') {
         await (navigator as any).share({
-          title: '学生転職',
-          text: '学生転職に登録してAmazonギフト券をもらおう！',
-          url: referralLink,
+          title: '学生転職 招待コード',
+          text: `学生転職の招待コード: ${referralCode}\nアプリ/WEBの登録画面で入力してください。`,
         })
       } else {
-        // PC などでは従来のアラート
-        alert('リンクをコピーしました')
+        // PC等では通知
+        alert('招待コードをコピーしました')
       }
     } catch (err) {
       console.error('Copy / Share error', err)
@@ -199,7 +197,7 @@ export default function FeaturesPage() {
                       </h2>
                     </div>
                     <p className="mt-2">
-                      友達を紹介して、お互いに特典をゲットしよう！
+                      友達を紹介して、お互いに特典をゲットしよう！（※ 招待コード入力方式）
                     </p>
                   </div>
 
@@ -248,13 +246,13 @@ export default function FeaturesPage() {
                       {/* 紹介リンク */}
                       <section>
                         <h3 className="mb-2 text-lg font-bold">
-                          あなたの紹介リンク
+                          あなたの招待コード
                         </h3>
                         <div className="flex items-center gap-2">
                           <Input
-                            value={referralLink}
+                            value={referralCode}
                             readOnly
-                            className="bg-gray-50"
+                            className="bg-gray-50 font-mono tracking-widest"
                           />
                           <Button
                             variant="outline"
@@ -262,9 +260,12 @@ export default function FeaturesPage() {
                             onClick={handleCopy}
                           >
                             <Share className="h-4 w-4" />
-                            <span>コピー</span>
+                            <span>コードをコピー</span>
                           </Button>
                         </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          ※ 登録画面の「招待コード」欄にこのコードを入力してください。
+                        </p>
                       </section>
 
                       {/* SNS シェア */}
@@ -280,8 +281,8 @@ export default function FeaturesPage() {
                             <a
                               target="_blank"
                               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                                '学生転職に登録してAmazonギフト券をもらおう！'
-                              )}&url=${encodeURIComponent(referralLink)}`}
+                                `学生転職に登録してAmazonギフト券をもらおう！\n招待コード: ${referralCode}`
+                              )}`}
                             >
                               {/* simple X icon */}
                               <svg
@@ -304,7 +305,7 @@ export default function FeaturesPage() {
                             <a
                               target="_blank"
                               href={`https://line.me/R/msg/text/?${encodeURIComponent(
-                                `学生転職に登録して一緒に特典をもらおう！\n${referralLink}`
+                                `学生転職に登録して一緒に特典をもらおう！\n招待コード: ${referralCode}\n登録画面で入力してね`
                               )}`}
                             >
                               <svg
@@ -396,18 +397,18 @@ export default function FeaturesPage() {
                       {[
                         {
                           step: 1,
-                          title: 'あなた専用の紹介リンクを取得',
-                          desc: 'このページに表示されている紹介リンクをコピーします。',
+                          title: 'あなた専用の招待コードを取得',
+                          desc: 'このページに表示されている招待コードをコピーします。',
                         },
                         {
                           step: 2,
-                          title: '友達に紹介リンクを送る',
-                          desc: 'SNS、メール、メッセージアプリなどで友達に紹介リンクを送ります。',
+                          title: '友達に招待コードを送る',
+                          desc: 'SNS、メール、メッセージアプリなどで招待コードを送ります。',
                         },
                         {
                           step: 3,
-                          title: '友達が登録・プロフィール完成',
-                          desc: '友達が学生転職に登録し、プロフィールを完成させると、お互いに特典がもらえます。',
+                          title: '友達が登録時にコードを入力',
+                          desc: '友達が学生転職に登録時に招待コードを入力し、プロフィールを完成させると、お互いに特典がもらえます。',
                         },
                       ].map((item) => (
                         <div key={item.step} className="flex items-start gap-4">
