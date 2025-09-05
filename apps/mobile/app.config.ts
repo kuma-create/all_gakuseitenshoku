@@ -16,7 +16,7 @@ const config: ExpoConfig = {
   version: "1.0.0",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
-  newArchEnabled: false,
+
 
   icon: "./assets/images/icon.png",
 

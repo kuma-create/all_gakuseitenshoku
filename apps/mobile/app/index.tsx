@@ -150,14 +150,17 @@ export default function RootIndex() {
         password,
         first_name: "",
         last_name: "",
-        referral_source: "mobile",
         referral_code: "",
         graduation_month: defaultGraduationMonth,
       };
 
       const res = await fetch(`${API_BASE}/api/signup`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Client": "mobile",
+          "X-Client-Platform": Platform.OS,
+        },
         body: JSON.stringify(payload),
       });
 
