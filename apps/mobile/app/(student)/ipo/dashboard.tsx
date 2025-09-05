@@ -122,9 +122,10 @@ import {
   Pressable,
   StyleSheet,
   Alert,
+  Image, // add this import
 } from "react-native";
 import { Brain, RefreshCw, Clock } from "lucide-react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // If you already have a shared supabase client for mobile, prefer that import.
@@ -269,6 +270,8 @@ const AXIS_ORDER: Array<keyof typeof JA_LABELS> = [
 ];
 
 export default function IPOMobileDashboard() {
+  // Allow previewing the post-signup popup via URL param: ?showPopup=1
+  const { showPopup } = useLocalSearchParams<{ showPopup?: string }>();
   const router = useRouter();
   const [isAuthed, setIsAuthed] = useState<boolean>(true);
 
@@ -457,6 +460,11 @@ export default function IPOMobileDashboard() {
   // Decide whether to show the post-signup popup (scoped to this page only)
   useEffect(() => {
     (async () => {
+      // Preview override via query param
+      if (showPopup === "1") {
+        setShowPostSignup(true);
+        return;
+      }
       try {
         const [choice, dismissedAt] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.CHOICE),
@@ -475,7 +483,7 @@ export default function IPOMobileDashboard() {
         setShowPostSignup(true);
       }
     })();
-  }, []);
+  }, [showPopup]);
 
   const scoreChange = React.useMemo(() => {
     if (!careerScore || scoreHistory.length < 2) return null as number | null;
@@ -792,6 +800,12 @@ export default function IPOMobileDashboard() {
     await AsyncStorage.setItem(STORAGE_KEYS.CHOICE, "later");
     await AsyncStorage.setItem(STORAGE_KEYS.DISMISSED_AT, new Date().toISOString());
     setShowPostSignup(false);
+  }, []);
+
+  // === DEV helper: force open the popup in preview ===
+  const debugOpenPopup = useCallback(async () => {
+    await AsyncStorage.multiRemove([STORAGE_KEYS.CHOICE, STORAGE_KEYS.DISMISSED_AT]);
+    setShowPostSignup(true);
   }, []);
 
   if (loading) {
@@ -1211,15 +1225,21 @@ export default function IPOMobileDashboard() {
           <View style={{ width: "100%", maxWidth: 420, borderRadius: 16, backgroundColor: "#fff", padding: 16, borderColor: "#E5E7EB", borderWidth: 1 }}>
             {/* Illustration placeholder */}
             <View style={{ width: "100%", height: 140, borderRadius: 12, overflow: "hidden", backgroundColor: "#F3F4F6", marginBottom: 12, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 36 }}>🤝</Text>
+              <Image
+                source={require("../../../assets/images/new_popup.png")}
+                style={{ width: "100%", height: "100%", resizeMode: "cover" }}
+              />
             </View>
             <Text style={{ fontSize: 16, fontWeight: "800", marginBottom: 6, textAlign: "center" }}>早速、自己分析から始めてみよう！</Text>
-            {/*<Text style={{ color: "#6B7280", lineHeight: 20, textAlign: "center" }}>
-              AIで自己分析を進めるか、
+            <Text style={{ color: "#6B7280", lineHeight: 20, textAlign: "center" }}>
+              新規登録が完了しました。
             </Text>
              <Text style={{ color: "#6B7280", lineHeight: 20, textAlign: "center" }}>
-              プロに30分の無料相談を予約しましょう。
-            </Text>*/}
+              まずはAIで自己分析から始めてみましょう。
+            </Text>
+            <Text style={{ color: "#6B7280", lineHeight: 20, textAlign: "center" }}>
+              プロに相談したいという方は下をクリック‼︎
+            </Text>
 
             <View style={{ marginTop: 16, gap: 8 }}>
               <TouchableOpacity style={{ backgroundColor: "#111827", paddingVertical: 12, borderRadius: 10, alignItems: "center" }}>
@@ -1241,6 +1261,16 @@ export default function IPOMobileDashboard() {
         </View>
       </Modal>
 
+      {/* Dev-only floating button to debug popup (preview) */}
+      {__DEV__ && (
+        <Pressable
+          onPress={debugOpenPopup}
+          style={[styles.fab, { left: 16, right: undefined, backgroundColor: "#374151" }]}
+          accessibilityLabel="デバッグ: ポップアップを開く"
+        >
+          <Text style={styles.fabText}>Popup</Text>
+        </Pressable>
+      )}
       {/* Floating AI button */}
       <Pressable onPress={() => onNavigateToTool('aiChat')} style={styles.fab} accessibilityLabel="AIに相談する">
         <Brain size={20} color={'#fff'} />
