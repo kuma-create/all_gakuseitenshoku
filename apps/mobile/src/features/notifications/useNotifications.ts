@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { supabase } from 'src/lib/supabase';
 import { fetchNotifications, fetchUnreadCount, markRead, markAllRead } from './api';
 import { NotificationRow } from './types';
+import { emitUnreadCountUpdate } from './unreadEvents';
 
 type State = {
   items: NotificationRow[];
@@ -25,6 +26,7 @@ export function useNotifications(pageSize = 20) {
   });
   const offsetRef = useRef(0);
   const idSet = useRef<Set<string>>(new Set());
+  const userIdRef = useRef<string | null>(null);
 
   const loadInitial = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
@@ -74,45 +76,69 @@ export function useNotifications(pageSize = 20) {
     await loadInitial();
   }, [loadInitial]);
 
-  // Realtime subscribe
+  // Realtime subscribe (current user only)
   useEffect(() => {
-    const channel = supabase
-      .channel('realtime:public:notifications')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        (payload) => {
-          const row = payload.new as NotificationRow;
-          // in_app/bothのみ・重複除去
-          if (row.user_id && (row.channel === 'in_app' || row.channel === 'both') && !idSet.current.has(row.id)) {
-            idSet.current.add(row.id);
-            setState((s) => ({
-              ...s,
-              items: [row, ...s.items],
-              unread: (s.unread ?? 0) + (row.is_read ? 0 : 1),
-            }));
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'notifications' },
-        (payload) => {
-          const row = payload.new as NotificationRow;
-          setState((s) => {
-            const idx = s.items.findIndex((x) => x.id === row.id);
-            if (idx === -1) return s;
-            const prev = s.items[idx];
-            const nextItems = [...s.items];
-            nextItems[idx] = { ...prev, ...row };
-            const unreadDelta = prev.is_read === false && row.is_read === true ? -1 : 0;
-            return { ...s, items: nextItems, unread: s.unread + unreadDelta };
-          });
-        }
-      )
-      .subscribe();
+    let unsub: (() => void) | null = null;
+    let mounted = true;
 
-    return () => { supabase.removeChannel(channel); };
+    (async () => {
+      // Resolve current user id once
+      const { data } = await supabase.auth.getUser();
+      const uid = data?.user?.id ?? null;
+      userIdRef.current = uid;
+
+      const channel = supabase
+        .channel('realtime:public:notifications')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications' },
+          (payload) => {
+            const row = payload.new as NotificationRow;
+            if (!mounted) return;
+            // Only accept rows for the current user and in-app channels
+            if (
+              row &&
+              uid &&
+              row.user_id === uid &&
+              (row.channel === 'in_app' || row.channel === 'both') &&
+              !idSet.current.has(row.id)
+            ) {
+              idSet.current.add(row.id);
+              setState((s) => ({
+                ...s,
+                items: [row, ...s.items],
+                unread: (s.unread ?? 0) + (row.is_read ? 0 : 1),
+              }));
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'notifications' },
+          (payload) => {
+            const row = payload.new as NotificationRow;
+            if (!mounted) return;
+            if (!(row && uid && row.user_id === uid)) return;
+            setState((s) => {
+              const idx = s.items.findIndex((x) => x.id === row.id);
+              if (idx === -1) return s;
+              const prev = s.items[idx];
+              const nextItems = [...s.items];
+              nextItems[idx] = { ...prev, ...row };
+              const unreadDelta = prev.is_read === false && row.is_read === true ? -1 : 0;
+              return { ...s, items: nextItems, unread: s.unread + unreadDelta };
+            });
+          }
+        )
+        .subscribe();
+
+      unsub = () => { supabase.removeChannel(channel); };
+    })();
+
+    return () => {
+      mounted = false;
+      if (unsub) unsub();
+    };
   }, []);
 
   // Foreground resume → 軽い再同期
@@ -145,6 +171,11 @@ export function useNotifications(pageSize = 20) {
     }));
     try { await markAllRead(); } catch { /* noop */ }
   }, []);
+
+  // 未読数の外部連携（ベルへ即時反映）
+  useEffect(() => {
+    emitUnreadCountUpdate(state.unread);
+  }, [state.unread]);
 
   return {
     ...state,

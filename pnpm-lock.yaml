@@ -575,6 +575,12 @@ importers:
         specifier: ^5.99.9
         version: 5.101.3
 
+  packages/notifications:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.43.0
+        version: 2.56.0
+
 packages:
 
   '@0no-co/graphql.web@1.2.0':
@@ -12326,7 +12332,7 @@ snapshots:
       nullthrows: 1.1.1
       yargs: 17.7.2
 
-  '@react-native/community-cli-plugin@0.79.5(@react-native-community/cli@20.0.1)':
+  '@react-native/community-cli-plugin@0.79.5(@react-native-community/cli@20.0.1(typescript@5.8.3))':
     dependencies:
       '@react-native/dev-middleware': 0.79.5
       chalk: 4.1.2
@@ -12406,9 +12412,7 @@ snapshots:
       metro-runtime: 0.83.1
     transitivePeerDependencies:
       - '@babel/core'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 
@@ -18947,7 +18951,7 @@ snapshots:
       '@jest/create-cache-key-function': 29.7.0
       '@react-native/assets-registry': 0.79.5
       '@react-native/codegen': 0.79.5(@babel/core@7.28.3)
-      '@react-native/community-cli-plugin': 0.79.5(@react-native-community/cli@20.0.1)
+      '@react-native/community-cli-plugin': 0.79.5(@react-native-community/cli@20.0.1(typescript@5.8.3))
       '@react-native/gradle-plugin': 0.79.5
       '@react-native/js-polyfills': 0.79.5
       '@react-native/normalize-colors': 0.79.5
@@ -18995,7 +18999,7 @@ snapshots:
       '@jest/create-cache-key-function': 29.7.0
       '@react-native/assets-registry': 0.79.5
       '@react-native/codegen': 0.79.5(@babel/core@7.28.3)
-      '@react-native/community-cli-plugin': 0.79.5(@react-native-community/cli@20.0.1)
+      '@react-native/community-cli-plugin': 0.79.5(@react-native-community/cli@20.0.1(typescript@5.8.3))
       '@react-native/gradle-plugin': 0.79.5
       '@react-native/js-polyfills': 0.79.5
       '@react-native/normalize-colors': 0.79.5
