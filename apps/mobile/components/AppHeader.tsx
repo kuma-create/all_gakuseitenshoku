@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { supabase } from "../src/lib/supabase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NotificationBell } from "./notifications/NotificationBell";
 
 interface AppHeaderProps {
   title: string;
@@ -73,13 +74,13 @@ export default function AppHeader({ title }: AppHeaderProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.replace("/auth/login");
+    router.replace("/");
   };
 
   const logoutAndClose = async () => {
     await supabase.auth.signOut();
     closeMenu();
-    router.replace("/auth/login");
+    router.replace("/");
   };
 
   const handleMenuPress = () => {
@@ -150,9 +151,14 @@ export default function AppHeader({ title }: AppHeaderProps) {
           </Pressable>
         </View>
         <View style={{ position: "absolute", right: 16, top: headerPaddingTop, height: baseBarHeight, justifyContent: "center" }}>
-          <Pressable onPress={handleMenuPress} style={{ padding: 8 }} accessibilityRole="button" accessibilityLabel="メニューを開く">
-            <Menu size={24} color="#000" />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ marginRight: 8 }}>
+              <NotificationBell />
+            </View>
+            <Pressable onPress={handleMenuPress} style={{ padding: 8 }} accessibilityRole="button" accessibilityLabel="メニューを開く">
+              <Menu size={24} color="#000" />
+            </Pressable>
+          </View>
         </View>
       </View>
 

@@ -228,6 +228,13 @@ const styles = StyleSheet.create({
   },
 });
 
+// === Post-signup choice popup (local only on this page) ===
+const LATER_COOLDOWN_DAYS = 30;
+const STORAGE_KEYS = {
+  CHOICE: "postSignupChoice",            // 'ai' | 'consult' | 'later'
+  DISMISSED_AT: "postSignupDismissedAt", // ISO string
+} as const;
+
 interface PeerReview {
   id: string;
   reviewer: string;
@@ -281,6 +288,9 @@ export default function IPOMobileDashboard() {
   const [completedOnboardingSteps, setCompletedOnboardingSteps] = useState<number[]>([]);
   const [isFirstTime, setIsFirstTime] = useState(false);
   const [analysisCompletion, setAnalysisCompletion] = useState(0);
+
+  // Post-signup choice popup state (this page only)
+  const [showPostSignup, setShowPostSignup] = useState(false);
 
   // === Weekly AI Diagnosis (週次AI診断) ===
   const [lastDiagnosisAt, setLastDiagnosisAt] = useState<string | null>(null);
@@ -440,6 +450,29 @@ export default function IPOMobileDashboard() {
         } catch {}
       } finally {
         setLoading(false);
+      }
+    })();
+  }, []);
+
+  // Decide whether to show the post-signup popup (scoped to this page only)
+  useEffect(() => {
+    (async () => {
+      try {
+        const [choice, dismissedAt] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.CHOICE),
+          AsyncStorage.getItem(STORAGE_KEYS.DISMISSED_AT),
+        ]);
+
+        if (choice === "ai" || choice === "consult") return; // already decided
+        if (choice === "later" && dismissedAt) {
+          const last = new Date(dismissedAt).getTime();
+          const cool = LATER_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+          if (Date.now() - last < cool) return;
+        }
+        setShowPostSignup(true);
+      } catch {
+        // on error, show to be safe
+        setShowPostSignup(true);
       }
     })();
   }, []);
@@ -741,6 +774,25 @@ export default function IPOMobileDashboard() {
       setIsDiagnosing(false);
     }
   }, [computeNextDiagnosis]);
+
+  // Handlers for popup actions
+  const handleChooseAI = useCallback(async () => {
+    await AsyncStorage.setItem(STORAGE_KEYS.CHOICE, "ai");
+    setShowPostSignup(false);
+    router.push("/ipo/analysis" as any);
+  }, [router]);
+
+  const handleChooseConsult = useCallback(async () => {
+    await AsyncStorage.setItem(STORAGE_KEYS.CHOICE, "consult");
+    setShowPostSignup(false);
+    router.push("/ipo/calendar" as any); // change route if your scheduling page differs
+  }, [router]);
+
+  const handleChooseLater = useCallback(async () => {
+    await AsyncStorage.setItem(STORAGE_KEYS.CHOICE, "later");
+    await AsyncStorage.setItem(STORAGE_KEYS.DISMISSED_AT, new Date().toISOString());
+    setShowPostSignup(false);
+  }, []);
 
   if (loading) {
     return (
@@ -1152,6 +1204,43 @@ export default function IPOMobileDashboard() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Post-signup choice Popup (only on this page) */}
+      <Modal visible={showPostSignup} transparent animationType="fade" onRequestClose={() => setShowPostSignup(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <View style={{ width: "100%", maxWidth: 420, borderRadius: 16, backgroundColor: "#fff", padding: 16, borderColor: "#E5E7EB", borderWidth: 1 }}>
+            {/* Illustration placeholder */}
+            <View style={{ width: "100%", height: 140, borderRadius: 12, overflow: "hidden", backgroundColor: "#F3F4F6", marginBottom: 12, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 36 }}>🤝</Text>
+            </View>
+            <Text style={{ fontSize: 16, fontWeight: "800", marginBottom: 6, textAlign: "center" }}>早速、自己分析から始めてみよう！</Text>
+            {/*<Text style={{ color: "#6B7280", lineHeight: 20, textAlign: "center" }}>
+              AIで自己分析を進めるか、
+            </Text>
+             <Text style={{ color: "#6B7280", lineHeight: 20, textAlign: "center" }}>
+              プロに30分の無料相談を予約しましょう。
+            </Text>*/}
+
+            <View style={{ marginTop: 16, gap: 8 }}>
+              <TouchableOpacity style={{ backgroundColor: "#111827", paddingVertical: 12, borderRadius: 10, alignItems: "center" }}>
+                <Text
+                  style={{ color: "#fff", fontWeight: "700" }}
+                  onPress={handleChooseAI}
+                >
+                  AIと就活を進める
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleChooseConsult} style={{ borderColor: "#D1D5DB", borderWidth: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" }}>
+                <Text style={{ fontWeight: "700" }}>プロに30分無料相談</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleChooseLater} style={{ alignSelf: "center", padding: 8 }}>
+                <Text style={{ color: "#6B7280" }}>あとで</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Floating AI button */}
       <Pressable onPress={() => onNavigateToTool('aiChat')} style={styles.fab} accessibilityLabel="AIに相談する">
         <Brain size={20} color={'#fff'} />

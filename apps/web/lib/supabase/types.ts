@@ -3659,6 +3659,7 @@ export type Database = {
           phase_status: string | null
           phone: string | null
           plan: string | null
+          post_login_path: string | null
           postal_code: string | null
           pr_body: string | null
           pr_text: string | null
@@ -3723,6 +3724,7 @@ export type Database = {
           phase_status?: string | null
           phone?: string | null
           plan?: string | null
+          post_login_path?: string | null
           postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
@@ -3787,6 +3789,7 @@ export type Database = {
           phase_status?: string | null
           phone?: string | null
           plan?: string | null
+          post_login_path?: string | null
           postal_code?: string | null
           pr_body?: string | null
           pr_text?: string | null
@@ -4798,6 +4801,22 @@ export type Database = {
           room_id: string
         }[]
       }
+      admin_get_company_memo: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
+      admin_get_student_memo: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
+      admin_set_company_memo: {
+        Args: { p_company_id: string; p_memo: string }
+        Returns: undefined
+      }
+      admin_set_student_memo: {
+        Args: { p_memo: string; p_student_id: string }
+        Returns: undefined
+      }
       auto_grade_answer: {
         Args: { p_answer_raw: Json; p_question_id: string }
         Returns: number
@@ -4879,6 +4898,8 @@ export type Database = {
           company_name: string
           id: string
           is_unread: boolean
+          job_id: string
+          job_title: string
           last_created: string
           last_message: string
           student_id: string
