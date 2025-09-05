@@ -121,7 +121,7 @@ export default function NewJobPage() {
     /* intern long only */
     hourlyWageMin   : "",
     hourlyWageMax   : "",
-    remunerationType: "hourly", // "hourly" | "commission"
+    remunerationType: "hourly", // "hourly" | "commission" | "monthly"
     commissionRate  : "",
     minDailyHours   : "",
 
@@ -379,9 +379,13 @@ export default function NewJobPage() {
             newErrors.hourlyWageMax = "最大時給は最低時給以上にしてください";
           }
         }
-      } else {
+      } else if (formData.remunerationType === "commission") {
         if (!formData.commissionRate.trim())
           newErrors.commissionRate = "歩合を入力してください";
+      } else if (formData.remunerationType === "monthly") {
+        if (!formData.salary.trim()) {
+          newErrors.salary = "月給を入力してください（例: 25万円 など）";
+        }
       }
     }
 
@@ -546,7 +550,7 @@ export default function NewJobPage() {
             {
               selection_id        : jobId,   // FK (同値)
               job_id              : jobId,
-              working_hours       : formData.workingHours || null,              
+              working_hours       : formData.workingHours || null,
               work_days_per_week  : parseNumber(formData.workDaysPerWeek),
               hourly_wage_min     : formData.remunerationType === "hourly"
                                       ? parseNumber(formData.hourlyWageMin)
@@ -556,9 +560,15 @@ export default function NewJobPage() {
                                       : null,
               is_paid             : formData.remunerationType === "hourly"
                                       ? !!parseNumber(formData.hourlyWageMin)
+                                      : formData.remunerationType === "commission"
+                                      ? true
+                                      : formData.remunerationType === "monthly"
+                                      ? true
                                       : false,
               remuneration_type   : formData.remunerationType,
-              commission_rate     : formData.commissionRate || null,
+              commission_rate     : formData.remunerationType === "commission"
+                                      ? formData.commissionRate || null
+                                      : null,
               travel_expense     : formData.travelExpense || null,
               nearest_station    : formData.nearestStation || null,
               benefits           : formData.benefits || null,
@@ -681,6 +691,13 @@ export default function NewJobPage() {
           <p className="text-gray-700">{text}</p>
         </div>
       )
+    }
+
+    function formatMonthlySalary(s: string) {
+      const t = (s || "").trim();
+      if (!t) return "月給（要相談）";
+      const hasUnit = /円|万/.test(t);
+      return `月給 ${hasUnit ? t : `${t}円`}`;
     }
 
   return (
@@ -1228,11 +1245,12 @@ export default function NewJobPage() {
                         <SelectContent>
                           <SelectItem value="hourly">時給</SelectItem>
                           <SelectItem value="commission">歩合</SelectItem>
+                          <SelectItem value="monthly">月給</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    {/* 時給 or 歩合 */}
+                    {/* 時給 or 歩合 or 月給 */}
                     {formData.remunerationType === "hourly" ? (
                       <div className="md:col-span-2">
                         <Label className="flex items-center gap-1">
@@ -1269,7 +1287,7 @@ export default function NewJobPage() {
                           <p className="text-sm text-red-500 mt-1">{errors.hourlyWageMax}</p>
                         )}
                       </div>
-                    ) : (
+                    ) : formData.remunerationType === "commission" ? (
                       <div className="md:col-span-2">
                         <Label htmlFor="commissionRate" className="flex items-center gap-1">
                           歩合<span className="text-red-500">*</span>
@@ -1279,13 +1297,31 @@ export default function NewJobPage() {
                           name="commissionRate"
                           value={formData.commissionRate}
                           onChange={handleInputChange}
-                          className={`mt-1 ${
-                            errors.commissionRate ? "border-red-500" : ""
-                          }`}
+                          className={`mt-1 ${errors.commissionRate ? "border-red-500" : ""}`}
                           placeholder="例: アポイント1件あたり10000円"
                         />
                         {errors.commissionRate && (
                           <p className="text-sm text-red-500 mt-1">{errors.commissionRate}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="md:col-span-2">
+                        <Label htmlFor="salary" className="flex items-center gap-1">
+                          月給<span className="text-red-500">*</span>
+                        </Label>
+                        <div className="relative mt-1">
+                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
+                          <Input
+                            id="salary"
+                            name="salary"
+                            value={formData.salary}
+                            onChange={handleInputChange}
+                            className={`pl-10 ${errors.salary ? "border-red-500" : ""}`}
+                            placeholder="例: 25万円（または 25万〜40万）"
+                          />
+                        </div>
+                        {errors.salary && (
+                          <p className="text-sm text-red-500 mt-1">{errors.salary}</p>
                         )}
                       </div>
                     )}
@@ -1578,12 +1614,12 @@ export default function NewJobPage() {
                             label="報酬"
                             value={
                               formData.remunerationType === "hourly"
-                                ? formData.hourlyWageMin
-                                  ? `${formData.hourlyWageMin}${formData.hourlyWageMax ? `〜${formData.hourlyWageMax}` : ""}円／時`
-                                  : "要相談"
-                                : formData.commissionRate
-                                ? `歩合 ${formData.commissionRate}`
-                                : "歩合"
+                                ? (formData.hourlyWageMin
+                                    ? `${formData.hourlyWageMin}${formData.hourlyWageMax ? `〜${formData.hourlyWageMax}` : ""}円／時`
+                                    : "要相談")
+                                : formData.remunerationType === "commission"
+                                ? (formData.commissionRate ? `歩合 ${formData.commissionRate}` : "歩合")
+                                : formatMonthlySalary(formData.salary)
                             }
                           />
                           <SummaryItem

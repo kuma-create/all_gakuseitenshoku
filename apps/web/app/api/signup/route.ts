@@ -20,7 +20,7 @@ function corsHeadersFor(origin: string | null) {
     "Access-Control-Allow-Origin": allow,
     "Vary": "Origin",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client, X-Client-Platform",    
     "Access-Control-Max-Age": "86400",
   } as Record<string, string>;
 }
@@ -145,19 +145,36 @@ export async function POST(req: Request) {
       return jsonWithCors(req, { error: profileErr.message }, 500);
     }
 
-    /* 5) Magic Link 生成 (#access_token & refresh_token 付き) ----------- */
-    const { data: linkData, error: linkErr } =
-      await supabase.auth.admin.generateLink({
-        email,
-        type: "magiclink",
-        options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/email-callback`,
-        },
-      });
+    /* 5) リンク生成（Web=magiclinkのまま / Mobile=signup+DeepLink） ---- */
+    // モバイル/WEB判定: referral_source が無い環境でもヘッダで推定
+    const hdr = req.headers;
+    const ua = (hdr.get("user-agent") || "");
+    const xClient = (hdr.get("x-client") || hdr.get("x-client-platform") || "").toLowerCase();
 
-    // linkData の形は v2.36 以降で action_link に変わったので両対応
-    const inviteUrl =
-      (linkData as any)?.action_link || (linkData as any)?.properties?.action_link;
+    // Expo/React Native 由来の UA や独自ヘッダでモバイルを検知
+    const uaLooksMobileRN = /Expo|React\s*Native|okhttp/i.test(ua);
+
+    const isMobileSignup =
+      (xClient === "mobile") ||
+      uaLooksMobileRN;
+
+    // DeepLink の既定値（必要に応じて環境変数で上書き可）
+    const APP_DEEP_LINK = process.env.APP_DEEP_LINK_REDIRECT || "gakuten://confirm"; // 例: myapp://confirm
+
+    const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
+      email,
+      // モバイルは verifyOtp 用の `signup` を使う（token_hash が付与され、redirectTo に遷移）
+      // Web は従来通り magiclink（access_token 付与）
+      type: (isMobileSignup ? "signup" : "magiclink") as any,
+      options: {
+        redirectTo: isMobileSignup
+          ? APP_DEEP_LINK // 例: gakuten://confirm?type=signup&token_hash=...
+          : `${process.env.NEXT_PUBLIC_SITE_URL}/email-callback`,
+      },
+    });
+
+    // v2.36 以降で action_link に統一。互換のため両対応
+    const inviteUrl = (linkData as any)?.action_link || (linkData as any)?.properties?.action_link;
 
     if (linkErr || !inviteUrl) {
       return jsonWithCors(

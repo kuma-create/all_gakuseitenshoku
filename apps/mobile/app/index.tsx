@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking, Platform } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking, Platform, KeyboardAvoidingView, ScrollView } from "react-native";
 import * as LinkingExpo from "expo-linking";
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Circle } from "react-native-svg";
 import { useRouter } from "expo-router";
@@ -60,6 +60,17 @@ export default function RootIndex() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // 招待コード state/validation
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteValid, setInviteValid] = useState<boolean | null>(null);
+  const INVITE_RE = /^[A-Za-z0-9]{4,16}$/; // 半角英数 4~16
+  const onChangeInvite = (val: string) => {
+    const normalized = val.replace(/\s+/g, "");
+    setInviteCode(normalized);
+    if (normalized.length === 0) setInviteValid(null);
+    else setInviteValid(INVITE_RE.test(normalized));
+  };
 
   type Role = "student" | "company" | "company_admin" | "admin";
   const fetchUserRole = async (userId: string): Promise<Role> => {
@@ -141,6 +152,13 @@ export default function RootIndex() {
     }
     setLoading(true);
     try {
+      // 招待コードの形式チェック（クライアント側）
+      const code = inviteCode.trim();
+      if (code && !INVITE_RE.test(code)) {
+        setError("招待コードの形式が正しくありません（半角英数字4〜16桁）。");
+        setLoading(false);
+        return;
+      }
       // WEB版と同等: Next.js の /api/signup にPOSTし、メール送信とredirectはサーバー側で統一制御
       const gradYear = new Date().getFullYear();
       const defaultGraduationMonth = `${gradYear}-03-31`;
@@ -151,7 +169,7 @@ export default function RootIndex() {
         first_name: "",
         last_name: "",
         referral_source: "mobile",
-        referral_code: "",
+        referral_code: code,
         graduation_month: defaultGraduationMonth,
       };
 
@@ -175,6 +193,7 @@ export default function RootIndex() {
         setSuccess("確認メールを送信しました。メール記載の手順で認証を完了してください。");
         setPassword("");
         setConfirmPassword("");
+        setInviteCode(""); setInviteValid(null);
       }
     } catch (e: any) {
       setError(jpError(e?.message || "登録に失敗しました"));
@@ -356,120 +375,153 @@ export default function RootIndex() {
       >
         <View style={[StyleSheet.absoluteFill, { backgroundColor: "#F7FBFF" }]}>
           <HeroBlobBg />
-          <Animated.View style={[styles.containerHero, { transform: [{ translateY: heroTranslateY }] }]}>
-            <View style={styles.logos}>
-              <Image
-                source={require("../assets/images/logo6.png")}
-                style={styles.logoLarge}
-              />
-              <Image
-                source={require("../assets/images/IPO_logo2.png")}
-                style={styles.logoLarge}
-              />
-            </View>
-
-            {/* Segmented tabs */}
-            <View style={styles.segmentWrap}>
-              <Pressable
-                onPress={() => { setMode("signup"); setError(null); setSuccess(null); }}
-                style={[styles.segmentTab, mode === "signup" ? styles.segmentActive : styles.segmentInactive]}
-              >
-                <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.segmentText, mode === "signup" ? styles.segmentTextActive : styles.segmentTextInactive]}>新規登録</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => { setMode("login"); setError(null); setSuccess(null); }}
-                style={[styles.segmentTab, mode === "login" ? styles.segmentActive : styles.segmentInactive]}
-              >
-                <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.segmentText, mode === "login" ? styles.segmentTextActive : styles.segmentTextInactive]}>ログイン</Text>
-              </Pressable>
-            </View>
-
-            {/* Error / Success messages */}
-            {error ? (
-              <View style={styles.alertError}><Text style={styles.alertErrorText}>{error}</Text></View>
-            ) : null}
-            {success ? (
-              <View style={styles.alertSuccess}><Text style={styles.alertSuccessText}>{success}</Text></View>
-            ) : null}
-
-            {/* Email */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>メールアドレス</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="your@email.com"
-                placeholderTextColor="#9ca3af"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
-              />
-            </View>
-
-            {/* Password */}
-            <View style={styles.inputGroup}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={styles.inputLabel}>パスワード</Text>
-                {mode === "login" && (
-                  <Pressable onPress={() => router.push("/auth/forgot-password" as any)}>
-                    <Text style={styles.linkText}>パスワードをお忘れ？</Text>
-                  </Pressable>
-                )}
-              </View>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                secureTextEntry={!showPW}
-                autoCapitalize="none"
-                style={styles.input}
-              />
-              <Pressable onPress={() => setShowPW((v) => !v)}>
-                <Text style={styles.togglePW}>{showPW ? "非表示" : "表示"}</Text>
-              </Pressable>
-            </View>
-
-            {/* Confirm Password for signup */}
-            {mode === "signup" && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>パスワード（確認）</Text>
-                <TextInput
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="••••••••"
-                  secureTextEntry={!showPW}
-                  autoCapitalize="none"
-                  style={styles.input}
-                />
-              </View>
-            )}
-
-            {mode === "signup" && (
-              <View style={styles.termsWrap}>
-                <Pressable onPress={() => Linking.openURL(TERMS_URL)}>
-                  <Text style={styles.termsLink}>利用規約</Text>
-                </Pressable>
-                <Text>および</Text>
-                <Pressable onPress={() => Linking.openURL(PRIVACY_URL)}>
-                  <Text style={styles.termsLink}>個人情報取扱い</Text>
-                </Pressable>
-                <Text>をご確認のうえご登録ください。</Text>
-              </View>
-            )}
-
-            {/* Primary action */}
-            <TouchableOpacity
-              style={[styles.button, styles.red, styles.buttonShadow, { marginTop: 6, opacity: loading ? 0.7 : 1 }]}
-              onPress={mode === "signup" ? handleSignup : handleLogin}
-              disabled={loading}
-              activeOpacity={0.9}
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+          >
+            <ScrollView
+              contentContainerStyle={styles.scrollContainer}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              {loading ? <ActivityIndicator color="#fff" /> : (
-                <Text style={styles.buttonText}>{mode === "signup" ? "新規登録して始める" : "ログイン"}</Text>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+              <Animated.View style={[styles.containerHero, { transform: [{ translateY: heroTranslateY }] }]}>
+                <View style={styles.logos}>
+                  <Image
+                    source={require("../assets/images/logo6.png")}
+                    style={styles.logoLarge}
+                  />
+                  <Image
+                    source={require("../assets/images/IPO_logo2.png")}
+                    style={styles.logoLarge}
+                  />
+                </View>
+
+                {/* Segmented tabs */}
+                <View style={styles.segmentWrap}>
+                  <Pressable
+                    onPress={() => { setMode("signup"); setError(null); setSuccess(null); }}
+                    style={[styles.segmentTab, mode === "signup" ? styles.segmentActive : styles.segmentInactive]}
+                  >
+                    <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.segmentText, mode === "signup" ? styles.segmentTextActive : styles.segmentTextInactive]}>新規登録</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => { setMode("login"); setError(null); setSuccess(null); }}
+                    style={[styles.segmentTab, mode === "login" ? styles.segmentActive : styles.segmentInactive]}
+                  >
+                    <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.segmentText, mode === "login" ? styles.segmentTextActive : styles.segmentTextInactive]}>ログイン</Text>
+                  </Pressable>
+                </View>
+
+                {/* Error / Success messages */}
+                {error ? (
+                  <View style={styles.alertError}><Text style={styles.alertErrorText}>{error}</Text></View>
+                ) : null}
+                {success ? (
+                  <View style={styles.alertSuccess}><Text style={styles.alertSuccessText}>{success}</Text></View>
+                ) : null}
+
+                {/* Email */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>メールアドレス</Text>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.input}
+                  />
+                </View>
+
+                {/* Password */}
+                <View style={styles.inputGroup}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={styles.inputLabel}>パスワード</Text>
+                    {mode === "login" && (
+                      <Pressable onPress={() => router.push("/auth/forgot-password" as any)}>
+                        <Text style={styles.linkText}>パスワードをお忘れ？</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="••••••••"
+                    secureTextEntry={!showPW}
+                    autoCapitalize="none"
+                    style={styles.input}
+                  />
+                  <Pressable onPress={() => setShowPW((v) => !v)}>
+                    <Text style={styles.togglePW}>{showPW ? "非表示" : "表示"}</Text>
+                  </Pressable>
+                </View>
+
+                {/* Confirm Password for signup */}
+                {mode === "signup" && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>パスワード（確認）</Text>
+                    <TextInput
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder="••••••••"
+                      secureTextEntry={!showPW}
+                      autoCapitalize="none"
+                      style={styles.input}
+                    />
+                  </View>
+                )}
+
+                {/* Invite code input for signup */}
+                {mode === "signup" && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>招待コード</Text>
+                    <TextInput
+                      value={inviteCode}
+                      onChangeText={onChangeInvite}
+                      placeholderTextColor="#9ca3af"
+                      autoCapitalize="none"
+                      keyboardType="default"
+                      autoCorrect={false}
+                      style={styles.input}
+                    />
+                    <Text style={[
+                      styles.helperText,
+                      inviteValid === true ? styles.helperTextOk : inviteValid === false ? styles.helperTextBad : null
+                    ]}>
+                    </Text>
+                  </View>
+                )}
+
+                {mode === "signup" && (
+                  <View style={styles.termsWrap}>
+                    <Pressable onPress={() => Linking.openURL(TERMS_URL)}>
+                      <Text style={styles.termsLink}>利用規約</Text>
+                    </Pressable>
+                    <Text>および</Text>
+                    <Pressable onPress={() => Linking.openURL(PRIVACY_URL)}>
+                      <Text style={styles.termsLink}>個人情報取扱い</Text>
+                    </Pressable>
+                    <Text>をご確認のうえご登録ください。</Text>
+                  </View>
+                )}
+
+                {/* Primary action */}
+                <TouchableOpacity
+                  style={[styles.button, styles.red, styles.buttonShadow, { marginTop: 6, opacity: loading ? 0.7 : 1 }]}
+                  onPress={mode === "signup" ? handleSignup : handleLogin}
+                  disabled={loading || (mode === "signup" && inviteValid === false)}
+                  activeOpacity={0.9}
+                >
+                  {loading ? <ActivityIndicator color="#fff" /> : (
+                    <Text style={styles.buttonText}>{mode === "signup" ? "新規登録して始める" : "ログイン"}</Text>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Animated.View>
     </View>
@@ -477,12 +529,19 @@ export default function RootIndex() {
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    paddingTop: 200,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    alignItems: "center",
+  },
   containerHero: {
     flex: 1,
+    width: "100%",
     paddingHorizontal: 20,
     justifyContent: "flex-start",
     alignItems: "center",
-    paddingTop: 200,
   },
   logos: {
     flexDirection: "row",
@@ -584,6 +643,7 @@ const styles = StyleSheet.create({
   inputGroup: { width: "100%", maxWidth: 360, marginBottom: 10 },
   inputLabel: { fontSize: 12, color: "#374151", marginBottom: 6 },
   input: {
+    width: "100%",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 8,
@@ -593,6 +653,10 @@ const styles = StyleSheet.create({
   },
   linkText: { fontSize: 12, color: "#dc2626" },
   togglePW: { alignSelf: "flex-end", fontSize: 12, color: "#6b7280", marginTop: 6 },
+
+  helperText: { fontSize: 11, color: "#6b7280", marginTop: 4 },
+  helperTextOk: { color: "#16a34a" },
+  helperTextBad: { color: "#b91c1c" },
 
   alertError: { borderWidth: 1, borderColor: "#FECACA", backgroundColor: "#FEF2F2", padding: 10, borderRadius: 8, marginBottom: 8, maxWidth: 360 },
   alertErrorText: { color: "#b91c1c" },
