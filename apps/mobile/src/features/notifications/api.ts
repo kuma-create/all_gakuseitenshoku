@@ -1,6 +1,7 @@
 // apps/mobile/src/features/notifications/api.ts
 import { supabase } from 'src/lib/supabase';
 import { NotificationRow } from './types';
+import { emitUnreadCountUpdate } from './unreadEvents';
 
 const BASE = 'notifications';
 
@@ -31,6 +32,9 @@ export async function markRead(id: string) {
     .update({ is_read: true })
     .eq('id', id);
   if (error) throw error;
+
+  const unread = await fetchUnreadCount();
+  emitUnreadCountUpdate(unread);
 }
 
 export async function markAllRead() {
@@ -39,4 +43,7 @@ export async function markAllRead() {
     .update({ is_read: true })
     .eq('is_read', false);
   if (error) throw error;
+
+  const unread = await fetchUnreadCount();
+  emitUnreadCountUpdate(unread);
 }
