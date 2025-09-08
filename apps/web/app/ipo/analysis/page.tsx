@@ -1739,27 +1739,6 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         a, button { -webkit-tap-highlight-color: transparent; }
         .analysis-page-root .menu-link:active { background-color: transparent !important; }
       `}</style>
-      {/* Header */}
-      <header className="bg-card/95 backdrop-blur-sm border-b border-border sticky top-0 z-40">
-        <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/ipo/dashboard')}
-              className="p-2 hover:bg-muted/80 transition-colors"
-              aria-label="ダッシュボードに戻る"
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <h1 className="font-bold text-foreground text-lg sm:text-xl lg:text-2xl truncate">自己分析</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">AIと対話しながら自己分析を進めましょう</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0 sm:pt-6 sm:pb-0 lg:pt-8 lg:pb-0">
         {/* Desktop (lg+) */}

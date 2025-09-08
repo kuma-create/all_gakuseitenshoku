@@ -61,8 +61,10 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
 
   const handleNavigate = (route: Route) => {
     navigate(route);
-    // Auto close the sidebar on mobile after navigating to a different item
-    if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
+    // Auto close the sidebar only on mobile after navigating
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   const navItems = [
@@ -115,6 +117,28 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       description: '学生転職ホームに戻る'
     },
   ];
+
+  const routeMeta: Record<Route, { title: string; subtitle?: string } | undefined> = {
+    '/ipo': { title: 'IPO University', subtitle: 'キャリア開発プラットフォーム' },
+    '/ipo/dashboard': { title: 'ダッシュボード', subtitle: 'キャリア進捗の確認' },
+    '/ipo/analysis': { title: '自己分析', subtitle: 'AIと対話しながら自己分析を進めましょう' },
+    '/ipo/selection': { title: '選考管理', subtitle: '企業選考の進捗管理' },
+    '/ipo/case': { title: 'ケース', subtitle: '問題解決スキル向上' },
+    '/ipo/calendar': { title: 'カレンダー', subtitle: 'スケジュール管理' },
+    '/ipo/library': { title: 'ライブラリ', subtitle: '業界・職種情報' },
+    '/ipo/diagnosis': { title: '診断', subtitle: '性格・適職診断' },
+    '/ipo/settings': { title: '設定' },
+    '/ipo/login': undefined,
+  };
+
+  // Nested route meta resolver: picks the longest matching prefix in routeMeta
+  const resolveRouteMeta = (path: string) => {
+    const entries = Object.entries(routeMeta) as [Route, { title: string; subtitle?: string } | undefined][];
+    const match = entries
+      .filter(([prefix]) => path.startsWith(prefix))
+      .sort((a, b) => b[0].length - a[0].length)[0];
+    return match ? match[1] : undefined;
+  };
 
   const handleLogout = () => {
     // Clear user data and navigate to home
@@ -186,11 +210,11 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                         if (currentRoute !== item.route) {
                           handleNavigate(item.route);
                         } else {
-                          // Even if user taps the same route, still close on small screens
-                          if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
+                          // If tapping the same route, only close on mobile
+                          if (isMobile) {
+                            setOpenMobile(false);
+                          }
                         }
-                        // Extra safety: always try to close on small screens after any tap
-                        if (isMobile) { setOpenMobile(false); } else { setOpen(false); }
                       }}
                       isActive={currentRoute === item.route}
                       tooltip={item.description}
@@ -265,21 +289,20 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       
       <SidebarInset>
         {/* Header with sidebar trigger */}
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <div className="h-4 w-px bg-sidebar-border" />
-            <div className="flex items-center space-x-2">
-              {/* Quick Actions in Header */}
-              <button
-                onClick={() => navigate('/ipo/analysis')}
-                className="inline-flex items-center space-x-2 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors text-sm font-medium"
-              >
-                <Brain className="w-4 h-4" />
-                <span className="hidden sm:block">AI分析</span>
-              </button>
-            </div>
-          </div>
+        <header className="flex h-10 shrink-0 items-center gap-3 px-3 transition-[width,height] ease-linear border-b border-sidebar-border">
+          <SidebarTrigger className="-ml-1" />
+          {(() => {
+            const meta = resolveRouteMeta(String(currentRoute));
+            if (!meta) return null;
+            return (
+              <div className="flex items-baseline gap-2">
+                <h1 className="text-base font-semibold">{meta.title}</h1>
+                {meta.subtitle ? (
+                  <span className="text-sm text-muted-foreground hidden sm:inline">{meta.subtitle}</span>
+                ) : null}
+              </div>
+            );
+          })()}
         </header>
         
         {/* Main Content */}
