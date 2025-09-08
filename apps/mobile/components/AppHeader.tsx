@@ -112,18 +112,28 @@ export default function AppHeader({ title }: AppHeaderProps) {
   // --- Secondary nav (AppHeader2) setup ---
   const header2NavItems: Array<{ label: string; path: string }> = [
     { label: "ホーム", path: "/ipo/dashboard" },
-    { label: "学生転職", path: "/ipo" },
-    { label: "求人検索", path: "/jobs" },
-    { label: "スカウト", path: "/scouts" },
-    { label: "チャット", path: "/chat" },
+    { label: "学生転職", path: "/(student)" },
+    { label: "求人検索", path: "/(student)/jobs" },
+    { label: "スカウト", path: "/(student)/scouts" },
+    { label: "チャット", path: "/(student)/chat" },
     { label: "友達紹介", path: "/referral" },
   ];
 
+  // Normalize paths by removing Expo Router group segments like /(student)
+  const normalizePath = (p: string) => p.replace(/\([^/]+\)/g, "").replace(/\/+/g, "/");
+
   const deriveActiveLabel = (p: string) => {
-    const exact = header2NavItems.find((it) => it.path === p);
-    if (exact) return exact.label;
-    const pref = header2NavItems.find((it) => p.startsWith(it.path) && it.path !== "/");
-    return pref ? pref.label : "ホーム";
+    const np = normalizePath(p || "/");
+    let matched: { label: string; path: string } | undefined;
+    for (const it of header2NavItems) {
+      const itNorm = normalizePath(it.path);
+      if (np.startsWith(itNorm)) {
+        if (!matched || itNorm.length > normalizePath(matched.path).length) {
+          matched = it;
+        }
+      }
+    }
+    return matched ? matched.label : "ホーム";
   };
 
   const activeHeader2Label = deriveActiveLabel(pathname || "/");
@@ -188,6 +198,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
         items={header2NavItems}
         activeLabel={activeHeader2Label}
         onPressItem={() => {}}
+        currentPath={pathname || "/"}
       />
 
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={closeMenu}>
@@ -253,9 +264,11 @@ export type AppHeader2Props = {
   activeLabel?: string;
   /** タブ押下時に親へ通知（任意） */
   onPressItem?: (label: string, path: string) => void;
+  /** 現在のパス（色テーマ判定用） */
+  currentPath?: string;
 };
 
-export function AppHeader2({ onNavigate, items, activeLabel, onPressItem }: AppHeader2Props) {
+export function AppHeader2({ onNavigate, items, activeLabel, onPressItem, currentPath }: AppHeader2Props) {
   const navItems: Array<{ label: string; path: string }> =
     items && items.length
       ? items
@@ -269,12 +282,13 @@ export function AppHeader2({ onNavigate, items, activeLabel, onPressItem }: AppH
         ];
 
   const current = activeLabel ?? "ホーム";
-  const BRAND_BLUE = "#2563EB";
+  const isIpoPage = (currentPath ?? "/").startsWith("/ipo");
+  const BRAND_COLOR = isIpoPage ? "#2563EB" : "#DC2626"; // blue for /ipo, red otherwise
 
   return (
     <View
       style={{
-        backgroundColor: BRAND_BLUE,
+        backgroundColor: BRAND_COLOR,
         paddingVertical: 10,
         borderRadius: 0,
         marginBottom: 12,
@@ -297,13 +311,13 @@ export function AppHeader2({ onNavigate, items, activeLabel, onPressItem }: AppH
               paddingVertical: 8,
               paddingHorizontal: 14,
               backgroundColor: it.label === current ? "#FFFFFF" : "transparent",
-              borderRadius: 999,
+              borderRadius: 24,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text
                 style={{
-                  color: it.label === current ? BRAND_BLUE : "#FFFFFF",
+                  color: it.label === current ? BRAND_COLOR : "#FFFFFF",
                   fontWeight: "800",
                   fontSize: 12,
                 }}
