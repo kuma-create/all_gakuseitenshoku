@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { LazyImage } from "@/components/ui/lazy-image"
 import { Badge } from "@/components/ui/badge"
+import { usePathname } from "next/navigation"
 
 type Item = {
   id: string
@@ -15,6 +16,12 @@ type Item = {
 }
 
 export default function ChatList({ items }: { items: Item[] }) {
+  const pathname = usePathname();
+  // 一覧は /chat トップのときだけ表示。それ以外（/chat/[id] など）は非表示。
+  const isChatTop = pathname === "/chat" || pathname?.startsWith("/chat?");
+  if (!isChatTop) {
+    return null;
+  }
   return (
     <ul className="space-y-4">
       {items.map((c) => (
@@ -55,7 +62,7 @@ export default function ChatList({ items }: { items: Item[] }) {
             </div>
 
             {/* 更新日時 */}
-            <span className="whitespace-nowrap text-xs text-gray-400">
+            <span className="ml-auto whitespace-nowrap text-xs text-gray-400">
               {c.time}
             </span>
           </Link>

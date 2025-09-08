@@ -424,8 +424,9 @@ export function ModernChatUI({
           </div>
         </div>
       )}
-      {/* Chat header - always visible */}
-      <div className="sticky top-12 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
+      {/* Chat header (企業側のみ表示) */}
+      {currentUser === "company" && (
+        <div className="sticky top-12 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border dark:border-gray-600">
@@ -478,7 +479,8 @@ export function ModernChatUI({
             </Tabs>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Main content area with dynamic padding for sidebar */}
       <Tabs
@@ -755,14 +757,16 @@ export function ModernChatUI({
           </div>
         </TabsContent>
 
-        {/* Profile tab - now fixed to the right side on desktop */}
-        <TabsContent
-          value="profile"
-          className="fixed top-[64px] right-0 w-full md:w-[350px] h-[calc(100%-64px)] overflow-y-auto p-0 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10"
-        >
-            {/* --- Student detail (reuse scout component) --- */}
-            <StudentDetailTabs student={studentForDetail} showContact />
-        </TabsContent>
+        {/* Profile tab - company only */}
+        {currentUser === "company" && (
+          <TabsContent
+            value="profile"
+            className="fixed top-[64px] right-0 w-full md:w-[350px] h-[calc(100%-64px)] overflow-y-auto p-0 m-0 bg-white dark:bg-gray-800 border-l dark:border-gray-700 shadow-md z-10"
+          >
+              {/* --- Student detail (reuse scout component) --- */}
+              <StudentDetailTabs student={studentForDetail} showContact />
+          </TabsContent>
+        )}
 
 
         {/* Job details tab removed. */}
