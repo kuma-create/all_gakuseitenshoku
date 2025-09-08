@@ -58,7 +58,7 @@ export default function IPOLayout() {
         name="selection/index"
         options={{
           href: '/ipo/selection',
-          title: '選考状況',
+          title: '選考•ES管理',
           tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={24} color={color} />,
           tabBarItemStyle: { display: 'none' },
         }}
@@ -66,10 +66,10 @@ export default function IPOLayout() {
 
       {/* 対策 */}
       <Tabs.Screen
-        name="c"
+        name="case/index"
         options={{
           href: '/ipo/case',
-          title: '対策',
+          title: '選考対策',
           tabBarIcon: ({ color }) => <Feather name="target" size={24} color={color} />,
           tabBarItemStyle: { display: 'none' },
         }}
@@ -104,6 +104,17 @@ export default function IPOLayout() {
           href: '/ipo/calendar',
           title: '予定',
           tabBarIcon: ({ color }) => <Feather name="calendar" size={24} color={color} />,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+
+      {/* プロフィール */}
+      <Tabs.Screen
+        name="profile/index"
+        options={{
+          href: '/profile',
+          title: 'プロフィール',
+          tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,
           tabBarItemStyle: { display: 'none' },
         }}
       />

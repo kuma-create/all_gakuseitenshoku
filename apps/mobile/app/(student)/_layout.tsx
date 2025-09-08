@@ -1,6 +1,6 @@
 // app/(student)/_layout.tsx
 import { Feather } from '@expo/vector-icons';
-import { Link, Slot, usePathname, useRouter } from "expo-router";
+import { Link, Slot, usePathname } from "expo-router";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -83,7 +83,6 @@ function getTitle(pathname: string) {
 
 export default function StudentLayout() {
   const pathname = usePathname();
-  const router = useRouter();
 
   // Normalize pathname to ignore route groups like /(student)
   const normalize = (p: string) => {

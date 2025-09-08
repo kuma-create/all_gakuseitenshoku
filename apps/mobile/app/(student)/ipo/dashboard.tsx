@@ -2,8 +2,6 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from "react";
 import FloatingActionButton from "../../../components/FloatingActionButton";
-import * as AppHeader2Module from "../../../components/AppHeader2";
-const AppHeader2 = (AppHeader2Module as any).default ?? (AppHeader2Module as any).AppHeader2;
 import { BannerCarousel } from "../../../components/BannerCarousel";
 // Props expected by the radar chart
 // Chart component expects a simple label->value map
@@ -241,82 +239,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// === Full-Width Top Tabs (edge-to-edge, horizontal scroll) ===
-const FullWidthTopTabs = ({
-  activeKey,
-  onSelect,
-  showRecommendDot = true,
-}: {
-  activeKey: string;
-  onSelect: (key: string) => void;
-  showRecommendDot?: boolean;
-}) => {
-  const items: Array<{ key: string; label: string; dot?: boolean }> = [
-    { key: "home", label: "ホーム" },
-    { key: "gakuten", label: "学生転職" },
-    { key: "search", label: "求人検索" },
-    { key: "scout", label: "スカウト" },
-    { key: "chat", label: "チャット" },
-    { key: "referral", label: "友達紹介" },
-  ];
-  return (
-    <View
-      style={{
-        marginHorizontal: -16,
-        marginTop: -8, // remove upper spacing
-        paddingVertical: 6, // smaller vertical padding
-        backgroundColor: "#2563EB",
-      }}
-    >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-      >
-        {items.map(({ key, label, dot }) => {
-          const isActive = key === activeKey;
-          return (
-            <TouchableOpacity
-              key={key}
-              onPress={() => onSelect(key)}
-              activeOpacity={0.9}
-              style={{
-                paddingHorizontal: 16,
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 6,
-                backgroundColor: isActive ? "#FFFFFF" : "transparent",
-                borderRadius: 20,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: "800",
-                    color: isActive ? "#2563EB" : "#FFFFFF",
-                  }}
-                >
-                  {label}
-                </Text>
-                {dot ? (
-                  <View
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: 999,
-                      backgroundColor: "#FDE047",
-                    }}
-                  />
-                ) : null}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-};
 
 // === Post-signup choice popup (local only on this page) ===
 const LATER_COOLDOWN_DAYS = 30;
@@ -414,15 +336,7 @@ export default function IPOMobileDashboard() {
     [router]
   );
 
-  const handleFullWidthTabSelect = useCallback((key: string) => {
-    setTopTabActive(key);
-    if (key === "home") navigateFn("/ipo/dashboard");
-    else if (key === "gakuten") navigateFn("/ipo");
-    else if (key === "search") navigateFn("/jobs");
-    else if (key === "scout") navigateFn("/scouts");
-    else if (key === "chat") navigateFn("/chat");
-    else if (key === "referral") navigateFn("/referral");
-  }, [navigateFn]);
+
 
   const onNavigateToTool = useCallback(
     (key: string) => {
@@ -964,7 +878,7 @@ export default function IPOMobileDashboard() {
         )}
         {/* Top Navigation */}
         {/* Full-width top tabs */}
-        <FullWidthTopTabs activeKey={topTabActive} onSelect={handleFullWidthTabSelect} />
+        {/* Top Navigation removed (AppHeader2 not used) */}
         {/* 
         <View style={{ marginBottom: 12 }}>
           <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}>ホーム</Text>
