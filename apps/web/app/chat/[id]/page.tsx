@@ -384,20 +384,13 @@ export default function StudentChatPage() {
             <p className="text-sm font-medium truncate">{chat.company.name}</p>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              variant={tab === "chat" ? "default" : "ghost"}
-              onClick={() => setTab("chat")}
-            >
-              チャット
-            </Button>
             {chat.job && (
               <Button
                 size="sm"
                 variant={tab === "job" ? "secondary" : "ghost"}
-                onClick={() => setTab("job")}
+                onClick={() => setTab(tab === "job" ? "chat" : "job")}
               >
-                募集要項
+                {tab === "job" ? "チャットを見る" : "募集要項"}
               </Button>
             )}
           </div>

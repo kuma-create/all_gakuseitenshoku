@@ -189,7 +189,7 @@ const fetchChats = useCallback(async () => {
       console.error(e)
       setError(e.message)
       toast({
-        title: "チャットの取得に失敗しました",
+        title: "の取得に失敗しました",
         description: e.message,
         variant: "destructive",
       })
