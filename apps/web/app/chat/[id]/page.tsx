@@ -353,14 +353,6 @@ export default function StudentChatPage() {
     [chat, chatId, currentUserId, startTransition]
   );
 
-  // 一時的にグローバルヘッダーを隠す
-  useEffect(() => {
-    const siteHeader = document.getElementById("siteHeader"); // サイト共通ヘッダーの id を想定
-    if (siteHeader) siteHeader.style.display = "none";
-    return () => {
-      if (siteHeader) siteHeader.style.display = "";
-    };
-  }, []);
 
   /* ───────────── ローディング表示 ───────────── */
   if (!chat) {
@@ -377,12 +369,69 @@ export default function StudentChatPage() {
 
   return (
     /* 2行×2列グリッド: [header] / [chat | sidebar] */
-    <div className="grid h-[calc(100vh-4rem)] grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid min-h-screen pt-[64px] md:pt-[72px] grid-rows-[1fr] md:grid-cols-[minmax(0,1fr)_360px]">
 
       {/* ── Chat column (row 1, col 0) ── */}
       <div className="flex flex-col h-full min-h-0 min-w-0 border-r overflow-hidden md:flex">
+        {/* --- 上部ヘッダー（会社名 / タブ切替） --- */}
+        <div className="sticky top-0 z-10 flex items-center justify-between h-14 px-4 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center gap-2 min-w-0">
+            <img
+              src={chat.company.logo ?? "/placeholder.svg"}
+              alt={chat.company.name}
+              className="h-7 w-7 rounded-md object-cover"
+            />
+            <p className="text-sm font-medium truncate">{chat.company.name}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant={tab === "chat" ? "default" : "ghost"}
+              onClick={() => setTab("chat")}
+            >
+              チャット
+            </Button>
+            {chat.job && (
+              <Button
+                size="sm"
+                variant={tab === "job" ? "secondary" : "ghost"}
+                onClick={() => setTab("job")}
+              >
+                募集要項
+              </Button>
+            )}
+          </div>
+        </div>
+        {/* --- モバイル: 募集要項（タブで切替表示） --- */}
+        {tab === "job" && chat.job && (
+          <div className="md:hidden border-b bg-muted/30">
+            <div className="space-y-2 p-4">
+              <h2 className="text-base font-semibold">募集要項</h2>
+              <p className="text-lg font-medium">{chat.job.title}</p>
+
+              <div className="space-y-2 text-sm mt-2">
+                <InfoRow icon={Briefcase} label="雇用形態" value={chat.job.work_type} />
+                <InfoRow icon={MapPin}    label="勤務地"   value={chat.job.location} />
+                <InfoRow icon={Users}     label="給与"     value={chat.job.salary_range} />
+                {chat.job.requirements && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {chat.job.requirements.split(",").map((s) => (
+                      <Badge key={s.trim()} variant="secondary">{s.trim()}</Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {chat.job.description && (
+                <p className="mt-3 whitespace-pre-wrap text-sm">
+                  {chat.job.description}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         {/* --- 内部スクロール領域 --- */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 pt-4 pb-32">
           <ModernChatUI
             messages={chat.messages}
             onSendMessage={handleSendMessage}
@@ -396,89 +445,102 @@ export default function StudentChatPage() {
 
       {/* ── Sidebar (row 1, col 1) ── */}
       <aside className={clsx(
-        "h-full overflow-y-auto bg-background",
-        "hidden md:block",
-        tab === "job" && "block"
+        "h-full overflow-y-auto bg-background border-l",
+        "hidden md:block"
       )}>
-        <div className="space-y-6 p-4">
-          {tab === "chat" && (
-            <>
-              {isStudent ? (
-                /* ---- Company Info ---- */
-                <>
-                  <h2 className="text-base font-semibold">会社情報</h2>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={chat.company.logo ?? "/placeholder.svg"}
-                      alt={chat.company.name}
-                      className="h-10 w-10 rounded-lg object-cover"
-                    />
-                    <div>
-                      <p className="font-medium">{chat.company.name}</p>
-                      {chat.company.industry && (
-                        <p className="text-xs text-muted-foreground">
-                          {chat.company.industry}
-                        </p>
+        <div className="space-y-6">
+          <div className="sticky top-0 z-10 flex items-center justify-between h-12 px-4 border-b bg-background">
+            <h2 className="text-sm font-semibold">会社情報</h2>
+            {chat.job && (
+              <Button
+                size="sm"
+                variant={tab === "job" ? "secondary" : "ghost"}
+                onClick={() => setTab(tab === "job" ? "chat" : "job")}
+              >
+                {tab === "job" ? "チャットを見る" : "募集要項"}
+              </Button>
+            )}
+          </div>
+          <div className="p-4 space-y-6">
+            {tab === "chat" && (
+              <>
+                {isStudent ? (
+                  /* ---- Company Info ---- */
+                  <>
+                    <h2 className="text-base font-semibold">会社情報</h2>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={chat.company.logo ?? "/placeholder.svg"}
+                        alt={chat.company.name}
+                        className="h-10 w-10 rounded-lg object-cover"
+                      />
+                      <div>
+                        <p className="font-medium">{chat.company.name}</p>
+                        {chat.company.industry && (
+                          <p className="text-xs text-muted-foreground">
+                            {chat.company.industry}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <InfoRow icon={MapPin}   label="所在地"   value={chat.company.location} />
+                      <InfoRow icon={Users}    label="社員数"   value={chat.company.employee_count?.toString()} />
+                      <InfoRow icon={Calendar} label="設立"     value={chat.company.founded_year?.toString()} />
+                      {chat.company.website && (
+                        <a
+                          href={chat.company.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          公式サイト
+                        </a>
                       )}
                     </div>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <InfoRow icon={MapPin}   label="所在地"   value={chat.company.location} />
-                    <InfoRow icon={Users}    label="社員数"   value={chat.company.employee_count?.toString()} />
-                    <InfoRow icon={Calendar} label="設立"     value={chat.company.founded_year?.toString()} />
-                    {chat.company.website && (
-                      <a
-                        href={chat.company.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        公式サイト
-                      </a>
+                    {chat.company.description && (
+                      <p className="rounded-lg bg-gray-50 p-3 text-sm">
+                        {chat.company.description.split("\n")[0]}...
+                      </p>
                     )}
-                  </div>
-                  {chat.company.description && (
-                    <p className="rounded-lg bg-gray-50 p-3 text-sm">
-                      {chat.company.description.split("\n")[0]}...
-                    </p>
-                  )}
-                </>
-              ) : (
-                /* ---- Placeholder for company view (show student profile) ---- */
-                <p className="text-sm text-muted-foreground">
-                  学生プロフィールをここに表示
-                </p>
-              )}
-            </>
-          )}
-
-          {tab === "job" && chat.job && (
-            <>
-              <h2 className="text-base font-semibold">募集要項</h2>
-              <p className="text-lg font-medium">{chat.job.title}</p>
-
-              <div className="space-y-2 text-sm mt-4">
-                <InfoRow icon={Briefcase} label="雇用形態" value={chat.job.work_type} />
-                <InfoRow icon={MapPin}    label="勤務地"   value={chat.job.location} />
-                <InfoRow icon={Users}     label="給与"     value={chat.job.salary_range} />
-                {/* 必須スキル（requirements をカンマ区切りで表示） */}
-                {chat.job.requirements && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {chat.job.requirements.split(",").map((s) => (
-                      <Badge key={s.trim()} variant="secondary">{s.trim()}</Badge>
-                    ))}
-                  </div>
+                  </>
+                ) : (
+                  /* ---- Placeholder for company view (show student profile) ---- */
+                  <p className="text-sm text-muted-foreground">
+                    学生プロフィールをここに表示
+                  </p>
                 )}
-              </div>
+              </>
+            )}
 
-              {chat.job.description && (
-                <p className="mt-4 whitespace-pre-wrap text-sm">
-                  {chat.job.description}
-                </p>
-              )}
-            </>
-          )}
+            {tab === "job" && chat.job && (
+              <>
+                <h2 className="text-base font-semibold">募集要項</h2>
+                <p className="text-lg font-medium">{chat.job.title}</p>
+
+                <div className="space-y-2 text-sm mt-4">
+                  <InfoRow icon={Briefcase} label="雇用形態" value={chat.job.work_type} />
+                  <InfoRow icon={MapPin}    label="勤務地"   value={chat.job.location} />
+                  <InfoRow icon={Users}     label="給与"     value={chat.job.salary_range} />
+                  {/* 必須スキル（requirements をカンマ区切りで表示） */}
+                  {chat.job.requirements && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {chat.job.requirements.split(",").map((s) => (
+                        <Badge key={s.trim()} variant="secondary">{s.trim()}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {chat.job.description && (
+                  <p className="mt-4 whitespace-pre-wrap text-sm">
+                    {chat.job.description}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </aside>
     </div>

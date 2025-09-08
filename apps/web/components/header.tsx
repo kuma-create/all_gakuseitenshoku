@@ -174,6 +174,7 @@ export default function Header() {
   const isIpoOrLpStudents27 = pathname.startsWith("/ipo") || pathname.startsWith("/lp/students/27");
   // トップページ判定（トップではメニューを極力シンプルに）
   const isHome = pathname === "/";
+  const isInternships = pathname.startsWith("/internships");
   if (isIpoOrLpStudents27) {
     return null;
   }
@@ -187,7 +188,7 @@ export default function Header() {
           <Image src="/logo.png" alt="学生転職" width={120} height={32} priority />
         </Link>
         {/* 未ログイン時に表示するトップナビ（PC） */}
-        {ready && !isLoggedIn && !isHome && (
+        {ready && !isLoggedIn && !isHome && !isInternships && (
           <nav className="hidden md:flex items-center gap-6">
             <Link
               href="/jobs"
@@ -221,7 +222,7 @@ export default function Header() {
         )}
 
         {/* ===== PC ナビ ===== */}
-        {ready && isLoggedIn && !isHome && (
+        {ready && isLoggedIn && !isHome && !isInternships && (
           <nav className="hidden gap-6 md:flex">
             {main.map(({ href, label, icon: Icon }) =>
               label === "マイページ" && userType === "student" ? (
@@ -340,7 +341,7 @@ export default function Header() {
             )}
 
             {/* Hamburger Sheet（トップページでは非表示） */}
-            {!isHome && (
+            {!isHome && !isInternships && (
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon">
