@@ -10,20 +10,23 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function IPOLayout() {
   const colorScheme = useColorScheme();
+
+  // Common options: keep tabs/screens alive, but **hide only the visible tab bar**
   const common: BottomTabNavigationOptions = {
     headerShown: false,
-    tabBarActiveTintColor: '#3B82F6', // blue-500
-    tabBarInactiveTintColor: '#9CA3AF', // gray-400
-    tabBarButton: (p) => <HapticTab {...p} />,
-    // フッターは透過させない
+    tabBarActiveTintColor: '#3B82F6',
+    tabBarInactiveTintColor: '#9CA3AF',
+    tabBarButton: () => null, // hide individual tab buttons (no footer buttons)
     tabBarStyle: Platform.select({
-      ios: { position: 'absolute', backgroundColor: '#fff', borderTopColor: '#e5e7eb', borderTopWidth: 1 },
-      default: { backgroundColor: '#fff', borderTopColor: '#e5e7eb', borderTopWidth: 1 },
+      ios: { height: 0, backgroundColor: 'transparent', borderTopWidth: 0 },
+      default: { height: 0, backgroundColor: 'transparent', borderTopWidth: 0 },
     }),
-    tabBarLabelStyle: { fontSize: 11 },
+    tabBarLabelStyle: { display: 'none' },
     tabBarItemStyle: { display: 'none' },
+    lazy: true,
   };
 
+  // Render Tabs so child routes remain active & navigable via links/href, but the footer itself is hidden
   return (
     <Tabs screenOptions={common}>
       {/* ホーム */}
@@ -33,7 +36,7 @@ export default function IPOLayout() {
           href: '/ipo/dashboard',
           title: 'ホーム',
           tabBarIcon: ({ color }) => <Feather name="home" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
+          tabBarItemStyle: { display: 'none' },
         }}
       />
 
@@ -43,11 +46,10 @@ export default function IPOLayout() {
         options={{
           href: '/ipo/analysis',
           title: '自己分析',
-          // 近いアイコンとして "cpu" を使用（Feather に brain は無いため）
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="brain" size={24} color={color} />
           ),
-          tabBarItemStyle: { display: 'flex' },
+          tabBarItemStyle: { display: 'none' },
         }}
       />
 
@@ -58,18 +60,18 @@ export default function IPOLayout() {
           href: '/ipo/selection',
           title: '選考状況',
           tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
+          tabBarItemStyle: { display: 'none' },
         }}
       />
 
       {/* 対策 */}
       <Tabs.Screen
-        name="case/index"
+        name="c"
         options={{
           href: '/ipo/case',
           title: '対策',
           tabBarIcon: ({ color }) => <Feather name="target" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
+          tabBarItemStyle: { display: 'none' },
         }}
       />
 
@@ -80,7 +82,7 @@ export default function IPOLayout() {
           href: '/ipo/library',
           title: '調べる',
           tabBarIcon: ({ color }) => <Feather name="search" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
+          tabBarItemStyle: { display: 'none' },
         }}
       />
 
@@ -91,9 +93,10 @@ export default function IPOLayout() {
           href: '/ipo/diagnosis',
           title: '診断',
           tabBarIcon: ({ color }) => <Feather name="activity" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
+          tabBarItemStyle: { display: 'none' },
         }}
       />
+
       {/* カレンダー */}
       <Tabs.Screen
         name="calendar/index"
@@ -101,9 +104,9 @@ export default function IPOLayout() {
           href: '/ipo/calendar',
           title: '予定',
           tabBarIcon: ({ color }) => <Feather name="calendar" size={24} color={color} />,
-          tabBarItemStyle: { display: 'flex' },
+          tabBarItemStyle: { display: 'none' },
         }}
-      />      
+      />
     </Tabs>
   );
 }

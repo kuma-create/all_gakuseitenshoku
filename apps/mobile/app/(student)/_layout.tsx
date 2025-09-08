@@ -62,11 +62,11 @@ function BottomBar() {
   return (
     <SafeAreaView style={{ backgroundColor: "#fff" }} edges={["bottom"]}>
       <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: "#e5e7eb", backgroundColor: "#fff", height: BOTTOM_BAR_HEIGHT }}>
-        <Item href="/(student)" label="ホーム" iconName="home" active={isActive("/(student)")} />
-        <Item href="/(student)/jobs" label="探す" iconName="search" active={isActive("/(student)/jobs")} />
-        <Item href="/(student)/scouts" label="スカウト" iconName="mail" active={isActive("/(student)/scouts")} />
-        <Item href="/(student)/chat" label="チャット" iconName="message-circle" active={isActive("/(student)/chat")} />
-        <Item href="/(student)/ipo/dashboard" label="IPO大学" iconName="book" active={isActive("/(student)/ipo/dashboard")} />
+        <Item href="/ipo/dashboard" label="ホーム" iconName="home" active={isActive("/ipo/dashboard")} />
+        <Item href="/ipo/selection" label="選考•ES管理" iconName="bar-chart-2" active={isActive("/ipo/selection")} />
+        <Item href="/ipo/diagnosis" label="自己分析" iconName="activity" active={isActive("/ipo/diagnosis")} />
+        <Item href="/ipo/case" label="選考対策" iconName="target" active={isActive("/ipo/case")} />
+        <Item href="/(student)/profile" label="プロフィール" iconName="book" active={isActive("/(student)/profile")} />
       </View>
     </SafeAreaView>
   );
@@ -97,7 +97,7 @@ export default function StudentLayout() {
   const normPath = normalize(pathname);
 
   // Hide bar/header on auth and on any /ipo path
-  const hideBar = normPath.startsWith("/auth") || normPath.startsWith("/ipo");
+  const hideBar = normPath.startsWith("/auth");
   const hideHeader = normPath.startsWith("/auth");
   const title = getTitle(pathname);
 
