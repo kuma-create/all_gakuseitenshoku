@@ -55,6 +55,7 @@ interface SelectionStage {
   status: 'pending' | 'passed' | 'failed' | 'scheduled';
   date?: string;
   time?: string;
+  /** 会場テキスト or 面接URL（どちらでも可） */
   location?: string;
   feedback?: string;
   interviewer?: string;
@@ -195,6 +196,13 @@ const INDUSTRIES = [
   '公務員',
   'その他'
 ];
+
+const WEEKDAYS_JA = ['日','月','火','水','木','金','土'];
+const isTodayIso = (iso: string) => {
+  const t = new Date();
+  const todayIso = new Date(t.getFullYear(), t.getMonth(), t.getDate()).toISOString().split('T')[0];
+  return iso === todayIso;
+};
 
 export function SelectionPage({ navigate }: SelectionPageProps) {
   const router = useRouter();
@@ -466,6 +474,46 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         Math.round(companies.filter(c => c.overallRating).reduce((acc, c) => acc + (c.overallRating || 0), 0) / 
         companies.filter(c => c.overallRating).length * 10) / 10 : 0
     };
+  }, [companies]);
+
+  // 次の7日間のカレンダー用データと直近予定
+  const next7Days = useMemo(() => {
+    const days: { iso: string; label: string; count: number }[] = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const iso = d.toISOString().split('T')[0];
+      const label = `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
+      days.push({ iso, label, count: 0 });
+    }
+    companies.forEach(c => {
+      c.stages.forEach(s => {
+        if (s.status === 'scheduled' && s.date) {
+          const idx = days.findIndex(dd => dd.iso === s.date);
+          if (idx >= 0) days[idx].count += 1;
+        }
+      });
+    });
+    return days;
+  }, [companies]);
+
+  const upcomingStages = useMemo(() => {
+    // 直近の予定（status: scheduled）を3件まで
+    const items: { company: Company; stage: SelectionStage }[] = [];
+    companies.forEach(c => {
+      c.stages.forEach(s => {
+        if (s.status === 'scheduled' && s.date) {
+          items.push({ company: c, stage: s });
+        }
+      });
+    });
+    items.sort((a, b) => {
+      const at = new Date(`${a.stage.date}T${a.stage.time || '00:00'}`).getTime();
+      const bt = new Date(`${b.stage.date}T${b.stage.time || '00:00'}`).getTime();
+      return at - bt;
+    });
+    return items.slice(0, 3);
   }, [companies]);
 
   // Form handlers
@@ -1146,23 +1194,98 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
       </div>
 
       <div className="w-full max-w-[100dvw] mx-0 px-4 sm:max-w-7xl sm:mx-auto sm:px-6 lg:px-8 py-3 sm:py-6">
-        {/* Horizontal Scrolling Stats Cards */}
+        {/* Horizontal Scrolling Stats Cards + Mini Calendar */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="mb-4 sm:mb-6"
+          className="mb-4 sm:mb-6 space-y-3"
         >
+          {/* 直近の予定（1週間） */}
+          <Card className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-gray-900">直近の予定（1週間）</span>
+              </div>
+              {upcomingStages.length === 0 && (
+                <span className="text-xs text-gray-500">予定はありません</span>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <div className="flex gap-2 min-w-max">
+                {next7Days.map(d => {
+                  const weekday = WEEKDAYS_JA[new Date(d.iso).getDay()];
+                  const today = isTodayIso(d.iso);
+                  return (
+                    <div
+                      key={d.iso}
+                      className={`relative border rounded-lg px-2.5 py-2 text-center bg-white min-w-[74px] ${
+                        today ? 'ring-2 ring-blue-400 border-blue-300 bg-blue-50/40' : 'border-gray-200'
+                      }`}
+                      aria-current={today ? 'date' : undefined}
+                    >
+                      <div className="text-[10px] text-gray-500 leading-none">{d.iso}</div>
+                      <div className="mt-0.5 text-base font-bold tracking-tight">
+                        {d.label} <span className={`text-[10px] align-top ml-0.5 ${weekday === '土' ? 'text-blue-600' : weekday === '日' ? 'text-red-500' : 'text-gray-500'}`}>（{weekday}）</span>
+                      </div>
+                      <div
+                        className={`mt-1 inline-flex items-center justify-center text-[11px] px-2 h-5 rounded-full ${
+                          d.count > 0 ? 'bg-blue-600/10 text-blue-700' : 'bg-gray-100 text-gray-500'
+                        }`}
+                        title={`${d.count} 件の予定`}
+                      >
+                        {d.count} 件
+                      </div>
+                      {today && <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {upcomingStages.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {upcomingStages.map(({ company, stage }) => {
+                  const isUrl = stage.location && /^https?:\/\//.test(stage.location);
+                  return (
+                    <Card key={stage.id} className="p-2.5 hover:shadow-sm">
+                      <div className="flex items-start gap-2">
+                        <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-3.5 h-3.5 text-blue-700" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs text-gray-500">
+                            {stage.date}{stage.time ? ` ${stage.time}` : ''}
+                          </div>
+                          <div className="text-sm font-medium text-gray-900 truncate">{company.name}</div>
+                          <div className="text-xs text-gray-600 truncate flex items-center gap-1">
+                            <span>{stage.name}</span>
+                            {isUrl && (
+                              <a
+                                href={stage.location!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 text-blue-600 underline decoration-dotted"
+                              >
+                                面接URL
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Stats Cards（総応募数を除外） */}
           <ScrollArea className="w-full">
             <div className="flex space-x-3 pb-2 pr-1">
               {[
-                { 
-                  label: '総応募数', 
-                  value: stats.total, 
-                  color: 'text-blue-600',
-                  bgColor: 'bg-blue-50',
-                  icon: Briefcase
-                },
                 { 
                   label: '選考中', 
                   value: stats.inProgress, 
@@ -1203,10 +1326,10 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                     <div className={`inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg ${bgColor} mb-1.5`}>
                       <Icon className={`w-3 h-3 sm:w-4 sm:h-4 ${color}`} />
                     </div>
-                    <div className={`text-lg sm:text-xl font-bold ${color} mb-0.5`}>
-                      {value}
+                    <div className={`text-xl sm:text-2xl font-extrabold ${color} mb-0.5 leading-none`}>
+                      {label === '平均評価' ? `${value}/5` : value}
                     </div>
-                    <div className="text-xs text-gray-600">{label}</div>
+                    <div className="text-[11px] text-gray-600">{label}</div>
                   </Card>
                 </motion.div>
               ))}
@@ -1592,7 +1715,13 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                                         {stage.location && (
                                           <div className="flex items-center space-x-1 mt-1">
                                             <MapPin className="w-3 h-3" />
-                                            <span>{stage.location}</span>
+                                            {/^https?:\/\//.test(stage.location) ? (
+                                              <a href={stage.location} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline decoration-dotted">
+                                                面接URLを開く
+                                              </a>
+                                            ) : (
+                                              <span>{stage.location}</span>
+                                            )}
                                           </div>
                                         )}
                                       </div>

@@ -1,6 +1,6 @@
 // app/(student)/_layout.tsx
 import { Feather } from '@expo/vector-icons';
-import { Link, Slot, usePathname, useRouter } from "expo-router";
+import { Link, Slot, usePathname } from "expo-router";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -64,7 +64,7 @@ function BottomBar() {
       <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: "#e5e7eb", backgroundColor: "#fff", height: BOTTOM_BAR_HEIGHT }}>
         <Item href="/ipo/dashboard" label="ホーム" iconName="home" active={isActive("/ipo/dashboard")} />
         <Item href="/ipo/selection" label="選考•ES管理" iconName="bar-chart-2" active={isActive("/ipo/selection")} />
-        <Item href="/ipo/diagnosis" label="自己分析" iconName="activity" active={isActive("/ipo/diagnosis")} />
+        <Item href="/ipo/analysis" label="自己分析" iconName="activity" active={isActive("/ipo/analysis")} />
         <Item href="/ipo/case" label="選考対策" iconName="target" active={isActive("/ipo/case")} />
         <Item href="/(student)/profile" label="プロフィール" iconName="book" active={isActive("/(student)/profile")} />
       </View>
@@ -83,7 +83,6 @@ function getTitle(pathname: string) {
 
 export default function StudentLayout() {
   const pathname = usePathname();
-  const router = useRouter();
 
   // Normalize pathname to ignore route groups like /(student)
   const normalize = (p: string) => {
