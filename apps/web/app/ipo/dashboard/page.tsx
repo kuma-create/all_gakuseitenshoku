@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 import React, { useState, useEffect, useCallback, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,6 +14,9 @@ import { CareerScoreInfo } from '@/components/CareerScoreInfo';
 import OnboardingGuide from '@/components/OnboardingGuide';
 import { createClient as createSbClient } from '@/lib/supabase/client';
 import { RefreshCw, Clock as ClockIcon } from "lucide-react";
+import Image from 'next/image';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 
 interface DashboardPageProps {
@@ -311,6 +315,23 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [isFirstTime, setIsFirstTime] = useState(false);
   const [analysisCompletion, setAnalysisCompletion] = useState(0);
 
+  const [profileName, setProfileName] = useState<string>('');
+  const [university, setUniversity] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [profileCompletion, setProfileCompletion] = useState<number>(0);
+  const [missingFields, setMissingFields] = useState<number>(0);
+
+  // AI対話UI
+  const [aiMessage, setAiMessage] = useState<string>('');
+  const [aiIsSending, setAiIsSending] = useState<boolean>(false);
+  const [nextActions, setNextActions] = useState<string[]>([]);
+
+  // シンプルなチャット履歴
+  type ChatTurn = { role: 'user' | 'assistant'; content: string };
+  const [aiHistory, setAiHistory] = useState<ChatTurn[]>([]);
+  const pushTurn = (role: 'user' | 'assistant', content: string) =>
+    setAiHistory((prev) => [...prev, { role, content }]);
+
   // toast
   const { toast } = useToast();
 
@@ -318,6 +339,35 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [lastDiagnosisAt, setLastDiagnosisAt] = useState<string | null>(null);
   const [nextDiagnosisAt, setNextDiagnosisAt] = useState<string | null>(null);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
+
+  // ===== Jobs rail (締切間近 / おすすめ) =====
+  type JobCard = { id: string; title: string; company: string; image_url?: string | null; deadline?: string | null; tag?: '締切間近' | 'おすすめ' | 'NEW' };
+  const [jobsRail, setJobsRail] = useState<JobCard[]>([]);
+  const formatDate = (iso?: string | null) => (iso ? (iso.slice(0,10)) : '');
+
+  // ===== Banner Section (Baseme-like) =====
+  const bannerItems = [
+    { id: 'ai', title: 'AI自己分析を進めよう', subtitle: '最短5分で診断', href: '/ipo/analysis', badge: 'おすすめ' },
+    { id: 'case', title: 'ケース対策で差をつける', subtitle: '頻出テーマを予習', href: '/ipo/case', badge: '人気' },
+    { id: 'calendar', title: '選考スケジュールを整える', subtitle: '1週間のTODO整理', href: '/ipo/calendar', badge: 'NEW' },
+  ];
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const bannerRef = React.useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) return;
+    const children = Array.from(el.querySelectorAll('[data-banner]')) as HTMLElement[];
+    if (children.length === 0) return;
+    const idx = Math.max(0, Math.min(bannerIndex, children.length - 1));
+    const child = children[idx];
+    el.scrollTo({ left: child.offsetLeft - 16, behavior: 'smooth' });
+  }, [bannerIndex]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBannerIndex((i) => (i + 1) % bannerItems.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   const computeNextDiagnosis = useCallback((iso?: string | null) => {
     const base = iso ? new Date(iso) : new Date();
@@ -510,12 +560,163 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             lastUpdated: (latestScoreRow.scored_at ?? new Date().toISOString()),
           });
         }
+
+        // 8) プロフィール取得（氏名・大学・アバター）
+        try {
+          const { data: prof } = await supabase
+            .from('student_profiles')
+            .select('full_name, university, avatar_url')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (prof) {
+            setProfileName(prof.full_name || '');
+            setUniversity(prof.university || '');
+            setAvatarUrl(prof.avatar_url || '');
+            // プロフィール完成度（3項目：氏名・大学・アバター）
+            const totalFields = 3;
+            const filled = [prof.full_name, prof.university, prof.avatar_url].filter((v) => !!(v && String(v).trim())).length;
+            setProfileCompletion(Math.round((filled / totalFields) * 100));
+            setMissingFields(Math.max(0, totalFields - filled));
+          }
+        } catch {}
+
+        // 9) ネクストでやるべきこと（簡易生成）
+        const recs: string[] = [];
+        if (latestScoreRow?.overall != null) {
+          if (latestScoreRow.overall < 60) recs.push('プロフィールを更新して実績を数値で追記');
+          if ((analysisCompletion ?? 0) < 60) recs.push('自己分析の未完了セクションを進める');
+        }
+        const insightRecs = (latestScoreRow?.insights?.recommendations ?? []) as string[];
+        setNextActions([...(recs || []), ...((insightRecs || []).slice(0,3))]);
+        // 10) 締切間近 / おすすめの求人
+        try {
+          const soonLimitDays = 10;
+          const nowISO = new Date().toISOString();
+          const soonISO = new Date(Date.now() + soonLimitDays * 24 * 60 * 60 * 1000).toISOString();
+          let combined: JobCard[] = [];
+
+          // a) jobs テーブルがあれば
+          try {
+            const { data: soon } = await supabase
+              .from('jobs')
+              .select('id, title, company_name, thumbnail_url, image_url, application_deadline, recommended_score, created_at')
+              .gte('application_deadline', nowISO)
+              .lte('application_deadline', soonISO)
+              .order('application_deadline', { ascending: true })
+              .limit(8);
+            if (Array.isArray(soon)) {
+              combined.push(
+                ...soon.map((r: any) => ({
+                  id: String(r.id),
+                  title: r.title || '募集職種',
+                  company: r.company_name || '企業名',
+                  image_url: r.thumbnail_url || r.image_url || null,
+                  deadline: r.application_deadline || null,
+                  tag: '締切間近',
+                }))
+              );
+            }
+            const { data: recs } = await supabase
+              .from('jobs')
+              .select('id, title, company_name, thumbnail_url, image_url, application_deadline, recommended_score, created_at')
+              .gte('recommended_score', 70)
+              .order('recommended_score', { ascending: false })
+              .limit(8);
+            if (Array.isArray(recs)) {
+              combined.push(
+                ...recs.map((r: any) => ({
+                  id: String(r.id),
+                  title: r.title || '募集職種',
+                  company: r.company_name || '企業名',
+                  image_url: r.thumbnail_url || r.image_url || null,
+                  deadline: r.application_deadline || null,
+                  tag: 'おすすめ',
+                }))
+              );
+            }
+          } catch {}
+
+          // b) fallback: intern_long_details があれば
+          if (combined.length === 0) {
+            try {
+              const { data: soon2 } = await supabase
+                .from('intern_long_details')
+                .select('id, title, company, image_url, deadline, created_at')
+                .not('deadline', 'is', null)
+                .order('deadline', { ascending: true })
+                .limit(12);
+              if (Array.isArray(soon2)) {
+                combined = soon2.map((r: any) => ({
+                  id: String(r.id),
+                  title: r.title || 'インターン募集',
+                  company: r.company || '企業名',
+                  image_url: r.image_url || null,
+                  deadline: r.deadline || null,
+                  tag: '締切間近',
+                }));
+              }
+            } catch {}
+          }
+
+          // c) 最後のフォールバック（ダミー）
+          if (combined.length === 0) {
+            combined = [
+              { id: 'demo1', title: 'JINS 1day Summer Internship', company: '株式会社ジンズ', image_url: '/demo/jins.jpg', deadline: soonISO.slice(0,10), tag: '締切間近' },
+              { id: 'demo2', title: 'データアナリスト', company: 'PayPay株式会社', image_url: '/demo/paypay.jpg', deadline: soonISO.slice(0,10), tag: 'おすすめ' },
+              { id: 'demo3', title: '新卒向け業務職', company: '東京ガス株式会社', image_url: '/demo/tokyogas.jpg', deadline: soonISO.slice(0,10), tag: 'NEW' },
+            ];
+          }
+
+          // ユニーク化して格納
+          const uniq = new Map<string, JobCard>();
+          combined.forEach((j) => uniq.set(j.id, j));
+          setJobsRail(Array.from(uniq.values()));
+        } catch {
+          // ignore
+        }
       } catch (e) {
         // fallback: 0%
         setAnalysisCompletion(0);
       }
     })();
   }, []);
+
+  // AIチャット送信ハンドラ（useEffectの外に配置）
+  const handleSendAi = async () => {
+    const msg = aiMessage.trim();
+    if (!msg) return;
+    setAiIsSending(true);
+    try {
+      // 送信を履歴に反映
+      pushTurn('user', msg);
+      setAiMessage('');
+
+      // 実API呼び出し（/api/ai/chat）
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, source: 'dashboard' }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`API Error ${res.status}: ${text || res.statusText}`);
+      }
+
+      // 期待レスポンス: { reply: string }
+      const data = await res.json().catch(() => ({}));
+      const reply: string = (data && (data.reply || data.answer || data.content)) ?? '（応答を取得できませんでした）';
+      pushTurn('assistant', reply);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      toast({ title: 'AI送信エラー', description: message, variant: 'destructive' });
+    } finally {
+      setAiIsSending(false);
+    }
+  };
+
+  // AI入力のチップ候補（コンポーネントスコープ）
+  const promptChips = ['履歴書を要約して', '今週の優先タスク教えて', '志望動機の添削', 'ケース面接の練習'];
   
   const handleOnboardingStepComplete = (stepId: number) => {
     const updated = [...completedOnboardingSteps, stepId];
@@ -749,10 +950,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     }
   }, [computeNextDiagnosis, toast]);
   return (
-    <div className="bg-background overflow-x-hidden">
+    <div className="bg-white overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        {/* Header */}
-        <div className="mb-6">
+        {/* Header (moved to top) */}
+        <div className="mb-2 sm:mb-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">ダッシュボード</h1>
@@ -763,7 +964,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 <Button
                   variant="outline"
                   onClick={() => startTransition(() => setShowOnboardingGuide(true))}
-                  className="flex items-center justify-center space-x-2 border-orange-200 text-orange-700 hover:bg-orange-50 w-full sm:w-auto"
+                  className="flex items-center justify-center space-x-2 border border-orange-300 text-orange-700 hover:bg-orange-50 w-full sm:w-auto"
                 >
                   <BookOpen className="w-4 h-4" />
                   <span>進め方ガイド</span>
@@ -777,14 +978,298 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             </div>
           </div>
         </div>
+        {/* Top Section: Left Profile / Right AI & Next Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-5 sm:mb-6">
+          {/* Left: Profile Summary */}
+          <Card className="lg:col-span-1 rounded-2xl shadow-sm bg-white border border-slate-200">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                {/* Avatar + Progress */}
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100">
+                    <img src={avatarUrl || '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
+                  </div>
+                  {/* Gradient progress ring */}
+                  <svg className="absolute -inset-1 w-24 h-24 -rotate-90" viewBox="0 0 36 36" aria-hidden>
+                    <circle cx="18" cy="18" r="16" className="stroke-slate-200" strokeWidth="3" fill="none" />
+                    <defs>
+                      <linearGradient id="avatar-progress-gradient" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#6366f1" />
+                        <stop offset="1" stopColor="#3b82f6" />
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      stroke="url(#avatar-progress-gradient)"
+                      strokeWidth="3"
+                      fill="none"
+                      strokeDasharray={`${Math.max(0, Math.min(100, profileCompletion))}, 100`}
+                    />
+                  </svg>
+                </div>
+
+                {/* Profile Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-lg font-bold text-slate-900 truncate">{profileName || 'ユーザー'}</div>
+                  <div className="text-sm text-slate-600 truncate">{university || '大学未設定'}</div>
+                  <div className="text-xs text-slate-500 mt-1">あと{missingFields}項目で検索上位に表示されやすくなります</div>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="mt-5 flex gap-3">
+                <Button
+                  onClick={runWeeklyDiagnosis}
+                  disabled={isDiagnosing}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1 ${isDiagnosing ? 'animate-spin' : ''}`} />
+                  週次AI診断
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigateFn('/settings/profile')}
+                  className="flex-1 border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                >
+                  プロフィールを編集
+                </Button>
+              </div>
+              {/* Compact Metrics inside Profile Card */}
+              <div className="mt-5 border-t pt-4">
+                <div className="grid grid-cols-1 gap-3">
+                  {/* Career Score */}
+                  <div className="p-3 rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-medium text-gray-600">キャリアスコア</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xl font-bold text-gray-900">{careerScore?.overall ?? 0}</p>
+                      {getTrendIcon()}
+                      {scoreChange && (
+                        <span className={`text-xs ${scoreChange > 0 ? 'text-green-600' : scoreChange < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {scoreChange > 0 ? '+' : ''}{scoreChange}
+                        </span>
+                      )}
+                    </div>
+                    <ProgressBar progress={careerScore?.overall ?? 0} className="mt-2" />
+                  </div>
+
+                  {/* Analysis Completion */}
+                  <div className="p-3 rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-medium text-gray-600">自己分析完了度</p>
+                    </div>
+                    <div className="text-xl font-bold text-gray-900">{analysisCompletion}%</div>
+                    <ProgressBar progress={analysisCompletion} className="mt-2" />
+                  </div>
+
+                  {/* Weekly AI Diagnosis */}
+                  <div className="p-3 rounded-xl border border-slate-200">
+                    <p className="text-xs font-medium text-gray-600 mb-1.5">週次AI診断</p>
+                    <div className="text-xs text-gray-700 flex items-center gap-2">
+                      <ClockIcon className="w-4 h-4" />
+                      <span>{lastDiagnosisAt ? `最終: ${(lastDiagnosisAt ?? '').slice(0,10)}` : '未実行'}</span>
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1">次回目安: {nextDiagnosisAt ? nextDiagnosisAt.slice(0,10) : '—'}</div>
+                    <div className="mt-2">
+                      <Button
+                        onClick={runWeeklyDiagnosis}
+                        disabled={isDiagnosing || !shouldRunWeekly(lastDiagnosisAt)}
+                        className={shouldRunWeekly(lastDiagnosisAt)
+                          ? 'h-8 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700'
+                          : 'h-8 px-3 border border-indigo-300 text-indigo-700 hover:bg-indigo-50'}
+                        variant={shouldRunWeekly(lastDiagnosisAt) ? 'default' : 'outline'}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isDiagnosing ? 'animate-spin' : ''}`} />
+                        {isDiagnosing ? '診断中…' : (shouldRunWeekly(lastDiagnosisAt) ? '今すぐ診断' : '実行済み')}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Right: AI Chat and Next Actions */}
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="rounded-2xl shadow-[0_6px_24px_rgba(17,24,39,0.06)] bg-white border border-slate-200">
+              <CardHeader className="p-6">
+                <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">
+                  AIに何でも聞いてください
+                </h2>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {promptChips.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className="px-3 py-1.5 text-sm rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 active:scale-[0.99] transition"
+                      onClick={() => setAiMessage((v) => (v ? `${v}\n${p}` : p))}
+                      aria-label={`チップ: ${p}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                {/* 履歴表示 */}
+                <div className="mb-4 max-h-64 overflow-y-auto space-y-3 pr-1" aria-live="polite">
+                  {aiHistory.length === 0 ? (
+                    <div className="text-sm text-slate-500">まずは質問を入力してみましょう。例：「今週の優先タスク教えて」</div>
+                  ) : (
+                    aiHistory.map((t, i) => (
+                      <div
+                        key={i}
+                        className={`rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                          t.role === 'user'
+                            ? 'bg-slate-100 text-slate-800'
+                            : 'bg-indigo-50 text-slate-900 border border-indigo-200'
+                        }`}
+                      >
+                        <span className="mr-2 text-xs font-semibold text-slate-500">{t.role === 'user' ? 'あなた' : 'AI'}</span>
+                        {t.content}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* 入力行 */}
+                <div className="flex gap-2 items-start">
+                  <textarea
+                    className="flex-1 border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 resize-y min-h-[44px]"
+                    placeholder="何でも聞いてください（Enterで送信 / Shift+Enterで改行）"
+                    value={aiMessage}
+                    onChange={(e) => setAiMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendAi();
+                      }
+                    }}
+                    aria-label="AIへの質問入力"
+                  />
+                  <Button
+                    onClick={handleSendAi}
+                    disabled={aiIsSending || !aiMessage.trim()}
+                    className="min-w-20 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700"
+                  >
+                    {aiIsSending ? '送信中…' : '送信'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl shadow-[0_6px_24px_rgba(17,24,39,0.06)] bg-white border border-slate-200">
+              <CardHeader className="p-4 sm:p-6">
+                <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">
+                  次にやるべきこと
+                </h2>
+                <p className="text-sm text-muted-foreground">プロフィール/診断結果から、今日やるべき具体アクションを提案します</p>
+              </CardHeader>
+              <CardContent className="p-6 space-y-3">
+                {nextActions && nextActions.length > 0 ? (
+                  nextActions.map((a, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 transition">
+                      <span className="mt-1 inline-block size-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"></span>
+                      <div className="text-sm text-slate-700 break-words flex-1">{a}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-slate-500">提案は現在ありません。プロフィールを2つ更新すると提案が増えます。</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Banner Section (Baseme-like) */}
+        <Card className="rounded-2xl bg-white border border-slate-200 mb-6">
+          <CardContent className="p-4 sm:p-5">
+            <div
+              ref={bannerRef}
+              className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar"
+            >
+              {bannerItems.map((b, i) => (
+                <button
+                  key={b.id}
+                  data-banner
+                  onClick={() => navigateFn(b.href)}
+                  className="snap-start shrink-0 w-[260px] sm:w-[340px] h-28 rounded-xl p-4 text-left border border-slate-200 bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 active:scale-[0.99] transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/70 border border-indigo-200 text-indigo-700">{b.badge}</span>
+                    <span className="text-xs text-slate-500">▶</span>
+                  </div>
+                  <div className="mt-2 font-semibold text-slate-900">{b.title}</div>
+                  <div className="text-sm text-slate-600">{b.subtitle}</div>
+                </button>
+              ))}
+            </div>
+            {/* dots */}
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {bannerItems.map((_, i) => (
+                <button
+                  key={i}
+                  aria-label={`banner ${i + 1}`}
+                  onClick={() => setBannerIndex(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === bannerIndex ? 'w-6 bg-indigo-500' : 'w-2.5 bg-slate-300'}`}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Jobs Rail: 締切間近 / おすすめ */}
+        {jobsRail.length > 0 && (
+          <Card className="rounded-2xl bg-white border border-slate-200 mb-6">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-end justify-between mb-3">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">締切間近の求人</h3>
+                  <p className="text-xs text-slate-500">おすすめ求人も含まれます</p>
+                </div>
+                <Button variant="outline" className="h-8 px-3 border-indigo-300 text-indigo-700 hover:bg-indigo-50" onClick={() => navigateFn('/jobs?sort=deadline')}>
+                  すべて見る
+                </Button>
+              </div>
+              <div className="flex gap-4 overflow-x-auto no-scrollbar">
+                {jobsRail.map((j) => (
+                  <div key={j.id} className="shrink-0 w-[260px] sm:w-[300px] rounded-xl border border-slate-200 bg-white hover:shadow-sm transition">
+                    <div className="relative h-36 rounded-t-xl overflow-hidden bg-slate-100">
+                      {j.image_url ? (
+                        <Image src={j.image_url} alt={j.title} fill sizes="(max-width: 768px) 260px, 300px" className="object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 grid place-items-center text-slate-400 text-sm">No image</div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">{j.tag || 'NEW'}</span>
+                        {j.deadline && (<span className="text-[11px] text-slate-500">締切: {formatDate(j.deadline)}</span>)}
+                      </div>
+                      <div className="text-xs text-slate-600 truncate">{j.company}</div>
+                      <div className="text-sm font-semibold text-slate-900 line-clamp-2 min-h-[2.5rem]">{j.title}</div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <Button variant="outline" className="h-8 px-3 border-slate-300" onClick={() => navigateFn(`/jobs/${j.id}`)}>詳細</Button>
+                        <Button className="h-8 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700">気になる</Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* First Time User Welcome */}
         {isFirstTime && (
           <div className="mb-8">
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200">
+            <Card className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-slate-300">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Gift className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
@@ -796,25 +1281,25 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                       自己分析から選考対策まで、あなたの就活を徹底サポートします。
                     </p>
                     <div className="flex items-center space-x-3">
-                      <Button 
-                        onClick={() => {
-                          startTransition(() => {
-                            setShowOnboardingGuide(true);
-                            setIsFirstTime(false);
-                          });
-                        }}
-                        className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                      >
-                        <Rocket className="w-4 h-4" />
-                        <span>ガイドを開始する</span>
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => startTransition(() => setIsFirstTime(false))}
-                        className="text-gray-600"
-                      >
-                        後で確認する
-                      </Button>
+                    <Button 
+                      onClick={() => {
+                        startTransition(() => {
+                          setShowOnboardingGuide(true);
+                          setIsFirstTime(false);
+                        });
+                      }}
+                      className="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+                    >
+                      <Rocket className="w-4 h-4" />
+                      <span>ガイドを開始する</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startTransition(() => setIsFirstTime(false))}
+                      className="border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                    >
+                      後で確認する
+                    </Button>
                     </div>
                   </div>
                 </div>
@@ -823,80 +1308,16 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           </div>
         )}
 
-        {/* Header Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">キャリアスコア</p>
-                  <div className="flex items-center space-x-2">
-                    <p className="text-2xl font-bold text-gray-900">
-                      {careerScore?.overall ?? 0}
-                    </p>
-                    {getTrendIcon()}
-                    {scoreChange && (
-                      <span className={`text-sm ${scoreChange > 0 ? 'text-green-600' : scoreChange < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                        {scoreChange > 0 ? '+' : ''}{scoreChange}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <TrendingUp className="w-8 h-8 text-blue-500 shrink-0" />
-              </div>
-              <ProgressBar progress={careerScore?.overall ?? 0} className="mt-4" />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">自己分析完了度</p>
-                  <p className="text-2xl font-bold text-gray-900">{analysisCompletion}%</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-sky-500 shrink-0" />
-              </div>
-              <ProgressBar progress={analysisCompletion} className="mt-4" />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">週次AI診断</p>
-                  <div className="text-sm text-gray-700 flex items-center gap-2">
-                    <ClockIcon className="w-4 h-4" />
-                    <span>{lastDiagnosisAt ? `最終: ${(lastDiagnosisAt ?? '').slice(0,10)}` : '未実行'}</span>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    次回目安: {nextDiagnosisAt ? nextDiagnosisAt.slice(0,10) : '—'}
-                  </div>
-                </div>
-                <Button
-                  onClick={runWeeklyDiagnosis}
-                  disabled={isDiagnosing || !shouldRunWeekly(lastDiagnosisAt)}
-                  className="flex items-center gap-2"
-                  variant={shouldRunWeekly(lastDiagnosisAt) ? 'default' : 'outline'}
-                >
-                  <RefreshCw className={`w-4 h-4 ${isDiagnosing ? 'animate-spin' : ''}`} />
-                  {isDiagnosing ? '診断中...' : (shouldRunWeekly(lastDiagnosisAt) ? '今すぐ診断' : '実行済み')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Career Score Radar */}
-            <Card>
+            <Card className="bg-white border border-slate-200">
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">キャリアスコア詳細</h2>
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">キャリアスコア詳細</h2>
                     <p className="text-gray-600">5つの軸であなたの強みを可視化</p>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -904,13 +1325,13 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowScoreInfo(true)}
-                      className="flex items-center space-x-1"
+                      className="flex items-center space-x-1 border border-blue-300 text-blue-600 hover:bg-blue-50"
                     >
                       <HelpCircle className="w-4 h-4" />
                       <span>詳細を見る</span>
                     </Button>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{careerScore?.overall ?? 0}</div>
+                      <div className="text-2xl font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">{careerScore?.overall ?? 0}</div>
                       <div className="text-sm text-gray-500">総合スコア</div>
                     </div>
                   </div>
@@ -989,30 +1410,30 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           <div className="space-y-8">
 
             {/* Quick Actions */}
-            <Card>
+            <Card className="bg-white border border-slate-200">
               <CardHeader className="p-4 sm:p-6">
-                <h2 className="text-lg font-bold text-gray-900">クイックアクション</h2>
+                <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">クイックアクション</h2>
               </CardHeader>
               <CardContent className="space-y-2 sm:space-y-3 p-4 sm:p-6">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start py-5 sm:py-6"
+                <Button
+                  variant="outline"
+                  className="w-full justify-start py-5 sm:py-6 border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
                   onClick={() => navigateFn('/ipo/analysis')}
                 >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   AI自己分析を続ける
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start py-5 sm:py-6"
+                <Button
+                  variant="outline"
+                  className="w-full justify-start py-5 sm:py-6 border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
                   onClick={() => navigateFn('/ipo/case')}
                 >
                   <Target className="w-4 h-4 mr-2" />
                   ケース問題を解く
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start py-5 sm:py-6"
+                <Button
+                  variant="outline"
+                  className="w-full justify-start py-5 sm:py-6 border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
                   onClick={() => navigateFn('/ipo/calendar')}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
