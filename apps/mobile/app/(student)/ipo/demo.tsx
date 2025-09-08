@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from "react";
 import FloatingActionButton from "../../../components/FloatingActionButton";
+import * as AppHeader2Module from "../../../components/AppHeader2";
+const AppHeader2 = (AppHeader2Module as any).default ?? (AppHeader2Module as any).AppHeader2;
 import { BannerCarousel } from "../../../components/BannerCarousel";
 // Props expected by the radar chart
 // Chart component expects a simple label->value map
@@ -126,7 +128,7 @@ import {
   Alert,
   Image, // add this import
 } from "react-native";
-import { Brain, RefreshCw, Clock } from "lucide-react-native";
+import { Brain, RefreshCw, Clock, CheckSquare, ChevronRight } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -191,11 +193,11 @@ const MetricCard = ({
       }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <View style={{ flexShrink: 1, paddingRight: 8 }}>
-          <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "600" }}>{label}</Text>
-          <Text style={{ fontSize: 24, color: "#111827", fontWeight: "800", marginTop: 2 }}>{value}</Text>
+        <View style={{ flexShrink: 1, paddingRight: 8, alignItems: "center" }}>
+          <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "600", textAlign: "center" }}>{label}</Text>
+          <Text style={{ fontSize: 24, color: "#111827", fontWeight: "800", marginTop: 2, textAlign: "center" }}>{value}</Text>
           {subtitle ? (
-            <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>{subtitle}</Text>
+            <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 4, textAlign: "center" }}>{subtitle}</Text>
           ) : null}
         </View>
         {icon}
@@ -208,38 +210,6 @@ const MetricCard = ({
     </View>
   </TouchableOpacity>
 );
-// Top navigation header for dashboard
-const TopNav = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
-  const items: Array<{ label: string; path: string }> = [
-    { label: "ホーム", path: "/ipo/demo" },
-    { label: "学生転職", path: "/ipo" },
-    { label: "求人検索", path: "/ipo/jobs" },
-    { label: "スカウト", path: "/ipo/scouts" },
-    { label: "イベント", path: "/ipo/events" },
-  ];
-  return (
-    <View style={{ backgroundColor: "#EFF6FF", paddingVertical: 8, borderRadius: 12, marginBottom: 12, borderColor: "#BFDBFE", borderWidth: 1 }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}>
-        {items.map((it) => (
-          <TouchableOpacity
-            key={it.label}
-            onPress={() => onNavigate(it.path)}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              backgroundColor: "#2563EB",
-              borderRadius: 999,
-              borderColor: "#1D4ED8",
-              borderWidth: 1,
-            }}
-          >
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>{it.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-};
 
 const Pill = ({ text }: { text: string }) => (
   <View style={{ backgroundColor: "#111827", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
@@ -905,7 +875,7 @@ export default function IPOMobileDashboard() {
           </View>
         )}
         {/* Top Navigation */}
-        <TopNav onNavigate={navigateFn} />
+        <AppHeader2 onNavigate={navigateFn} />
         {/* 
         <View style={{ marginBottom: 12 }}>
           <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}>ホーム</Text>
@@ -1018,19 +988,48 @@ export default function IPOMobileDashboard() {
         </View>
 
         {/* ToDo リスト */}
-        <View style={{ marginTop: 12, backgroundColor: "#FFFFFF", borderRadius: 12, borderColor: "#E5E7EB", borderWidth: 1 }}>
-          <View style={{ padding: 16, borderBottomColor: "#E5E7EB", borderBottomWidth: 1 }}>
-            <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>ToDoリスト</Text>
+        <View style={{ marginTop: 16, backgroundColor: "#FFFFFF", borderRadius: 12, borderColor: "#E5E7EB", borderWidth: 1 }}>
+          {/* Header (icon + title) */}
+          <View
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderBottomColor: "#E5E7EB",
+              borderBottomWidth: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <CheckSquare size={16} color={"#3B82F6"} />
+            <Text style={{ fontSize: 14, fontWeight: "800", color: "#111827" }}>ToDoリスト</Text>
           </View>
-          <View style={{ padding: 12 }}>
-            <TouchableOpacity
-              onPress={() => navigateFn("/ipo/profile")}
-              style={{ borderColor: "#D1D5DB", borderWidth: 1, padding: 12, borderRadius: 10, marginBottom: 8, backgroundColor: "#F9FAFB" }}
+
+          {/* Single item (compact, chevron only) */}
+          <TouchableOpacity
+            onPress={() => navigateFn("/ipo/preferences")}
+            activeOpacity={0.8}
+            style={{ paddingHorizontal: 14, paddingVertical: 12 }}
+          >
+            <View
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderColor: "#E5E7EB",
+                borderWidth: 1,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
             >
-              <Text style={{ fontWeight: "700" }}>プロフィールを埋めよう</Text>
-              <Text style={{ color: "#6B7280", marginTop: 4, fontSize: 12 }}>基本情報・経験・スキルを入力してスカウト精度を上げましょう</Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#111827" }}>
+                プロフィールを埋めましょう
+              </Text>
+              <ChevronRight size={18} color={"#3B82F6"} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Banner */}
