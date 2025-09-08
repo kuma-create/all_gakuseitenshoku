@@ -1005,7 +1005,7 @@ export default function IPOMobileDashboard() {
             }}
           >
             <CheckSquare size={16} color={"#3B82F6"} />
-            <Text style={{ fontSize: 14, fontWeight: "800", color: "#111827" }}>ToDoリスト</Text>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: "#111827" }}>次にやるべきこと</Text>
           </View>
 
           {/* Single item (compact, chevron only) */}
