@@ -142,7 +142,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
           <Text style={{ fontSize: 16, color: "#111827" }}>スカウト</Text>
         </View>
       ),
-      onPress: () => navigateAndClose("/scout"),
+      onPress: () => navigateAndClose("/scouts"),
     },
   ];
 

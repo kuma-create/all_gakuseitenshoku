@@ -65,6 +65,7 @@ export default function IPOLayout() {
       />
 
       {/* 対策 */}
+      {/*
       <Tabs.Screen
         name="case/index"
         options={{
@@ -74,6 +75,7 @@ export default function IPOLayout() {
           tabBarItemStyle: { display: 'none' },
         }}
       />
+      */}
 
       {/* 調べる */}
       <Tabs.Screen
