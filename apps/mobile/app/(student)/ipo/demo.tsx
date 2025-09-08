@@ -1,10 +1,7 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, Suspense } from "react";
-import FloatingActionButton from "../../../components/FloatingActionButton";
-import * as AppHeader2Module from "../../../components/AppHeader2";
-const AppHeader2 = (AppHeader2Module as any).default ?? (AppHeader2Module as any).AppHeader2;
-import { BannerCarousel } from "../../../components/BannerCarousel";
 // Props expected by the radar chart
 // Chart component expects a simple label->value map
 
@@ -128,7 +125,7 @@ import {
   Alert,
   Image, // add this import
 } from "react-native";
-import { Brain, RefreshCw, Clock, CheckSquare, ChevronRight } from "lucide-react-native";
+import { Brain, RefreshCw, Clock } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -161,54 +158,46 @@ const ProgressBar = ({ progress }: { progress: number }) => {
   );
 };
 
-// Small metric card (with press support)
+// Small metric card
 const MetricCard = ({
   label,
   value,
   subtitle,
   icon,
   progress,
-  onPress,
 }: {
   label: string;
   value: string | number;
   subtitle?: string;
   icon?: React.ReactNode;
   progress?: number;
-  onPress?: () => void;
 }) => (
-  <TouchableOpacity
-    activeOpacity={onPress ? 0.8 : 1}
-    onPress={onPress}
-    style={{ flex: 1 }}
+  <View
+    style={{
+      flex: 1,
+      padding: 16,
+      backgroundColor: "#FFFFFF",
+      borderRadius: 12,
+      borderColor: "#E5E7EB",
+      borderWidth: 1,
+    }}
   >
-    <View
-      style={{
-        flex: 1,
-        padding: 16,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 12,
-        borderColor: "#E5E7EB",
-        borderWidth: 1,
-      }}
-    >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <View style={{ flexShrink: 1, paddingRight: 8, alignItems: "center" }}>
-          <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "600", textAlign: "center" }}>{label}</Text>
-          <Text style={{ fontSize: 24, color: "#111827", fontWeight: "800", marginTop: 2, textAlign: "center" }}>{value}</Text>
-          {subtitle ? (
-            <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 4, textAlign: "center" }}>{subtitle}</Text>
-          ) : null}
-        </View>
-        {icon}
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <View style={{ flexShrink: 1, paddingRight: 8 }}>
+        <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "600" }}>{label}</Text>
+        <Text style={{ fontSize: 24, color: "#111827", fontWeight: "800", marginTop: 2 }}>{value}</Text>
+        {subtitle ? (
+          <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>{subtitle}</Text>
+        ) : null}
       </View>
-      {typeof progress === "number" && (
-        <View style={{ marginTop: 10 }}>
-          <ProgressBar progress={progress} />
-        </View>
-      )}
+      {icon}
     </View>
-  </TouchableOpacity>
+    {typeof progress === "number" && (
+      <View style={{ marginTop: 10 }}>
+        <ProgressBar progress={progress} />
+      </View>
+    )}
+  </View>
 );
 
 const Pill = ({ text }: { text: string }) => (
@@ -240,83 +229,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 });
-
-// === Full-Width Top Tabs (edge-to-edge, horizontal scroll) ===
-const FullWidthTopTabs = ({
-  activeKey,
-  onSelect,
-  showRecommendDot = true,
-}: {
-  activeKey: string;
-  onSelect: (key: string) => void;
-  showRecommendDot?: boolean;
-}) => {
-  const items: Array<{ key: string; label: string; dot?: boolean }> = [
-    { key: "home", label: "ホーム" },
-    { key: "gakuten", label: "学生転職" },
-    { key: "search", label: "求人検索" },
-    { key: "scout", label: "スカウト" },
-    { key: "chat", label: "チャット" },
-    { key: "referral", label: "友達紹介" },
-  ];
-  return (
-    <View
-      style={{
-        marginHorizontal: -16,
-        marginTop: -8, // remove upper spacing
-        paddingVertical: 6, // smaller vertical padding
-        backgroundColor: "#2563EB",
-      }}
-    >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-      >
-        {items.map(({ key, label, dot }) => {
-          const isActive = key === activeKey;
-          return (
-            <TouchableOpacity
-              key={key}
-              onPress={() => onSelect(key)}
-              activeOpacity={0.9}
-              style={{
-                paddingHorizontal: 16,
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 6,
-                backgroundColor: isActive ? "#FFFFFF" : "transparent",
-                borderRadius: 20,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: "800",
-                    color: isActive ? "#2563EB" : "#FFFFFF",
-                  }}
-                >
-                  {label}
-                </Text>
-                {dot ? (
-                  <View
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: 999,
-                      backgroundColor: "#FDE047",
-                    }}
-                  />
-                ) : null}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-};
 
 // === Post-signup choice popup (local only on this page) ===
 const LATER_COOLDOWN_DAYS = 30;
@@ -363,7 +275,6 @@ export default function IPOMobileDashboard() {
   const { showPopup } = useLocalSearchParams<{ showPopup?: string }>();
   const router = useRouter();
   const [isAuthed, setIsAuthed] = useState<boolean>(true);
-  const [topTabActive, setTopTabActive] = useState<string>("home");
 
   const [peerReviews, setPeerReviews] = useState<PeerReview[]>([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -404,8 +315,6 @@ export default function IPOMobileDashboard() {
   }, []);
 
   const [loading, setLoading] = useState(true);
-  const scrollRef = React.useRef<ScrollView | null>(null);
-  const [detailY, setDetailY] = useState<number>(0);
 
   const navigateFn = useCallback(
     (route: string) => {
@@ -413,16 +322,6 @@ export default function IPOMobileDashboard() {
     },
     [router]
   );
-
-  const handleFullWidthTabSelect = useCallback((key: string) => {
-    setTopTabActive(key);
-    if (key === "home") navigateFn("/ipo/dashboard");
-    else if (key === "gakuten") navigateFn("/ipo");
-    else if (key === "search") navigateFn("/jobs");
-    else if (key === "scout") navigateFn("/scouts");
-    else if (key === "chat") navigateFn("/chat");
-    else if (key === "referral") navigateFn("/referral");
-  }, [navigateFn]);
 
   const onNavigateToTool = useCallback(
     (key: string) => {
@@ -951,7 +850,7 @@ export default function IPOMobileDashboard() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
-      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16 }}>
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
         {/* Login required prompt */}
         {!isAuthed && (
           <View style={{ marginBottom: 16, backgroundColor: "#FEF3C7", borderColor: "#FDE68A", borderWidth: 1, borderRadius: 12, padding: 16 }}>
@@ -962,16 +861,11 @@ export default function IPOMobileDashboard() {
             </TouchableOpacity>
           </View>
         )}
-        {/* Top Navigation */}
-        {/* Full-width top tabs */}
-        <FullWidthTopTabs activeKey={topTabActive} onSelect={handleFullWidthTabSelect} />
-        {/* 
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ fontSize: 20, fontWeight: "800", color: "#111827" }}>ホーム</Text>
-          <Text style={{ marginTop: 4, color: "#6B7280" }}>学生転職の主要機能に素早くアクセスしましょう</Text>
+        {/* Header */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 24, fontWeight: "800", color: "#111827" }}></Text>
+          <Text style={{ marginTop: 4, color: "#6B7280" }}>あなたのキャリア開発の進捗を確認しましょう</Text>
         </View>
-
-
 
         {/* First-time Welcome */}
         {isFirstTime && (
@@ -1024,133 +918,188 @@ export default function IPOMobileDashboard() {
         )}
 
         {/* Header Metrics */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8, marginTop: 12, marginBottom: 4 }}>
-          <View style={{ width: '32%' }}>
-            <MetricCard
-              label="キャリアスコア"
-              value={careerScore?.overall ?? 0}
-              // subtitle={
-              //   scoreChange === null
-              //     ? undefined
-              //     : `${scoreChange > 0 ? "+" : ""}${scoreChange}（前回比）`
-              // }
-              progress={Math.max(0, Math.min(100, careerScore?.overall ?? 0))}
-            />
-          </View>
-          <View style={{ width: '32%' }}>
-            <MetricCard
-              label="自己分析完了度"
-              value={`${analysisCompletion}%`}
-              progress={Math.max(0, Math.min(100, analysisCompletion))}
-            />
-          </View>
-          {/* 週次AI診断カード */}
-          <View style={{ width: '32%' }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <MetricCard
+            label="キャリアスコア"
+            value={careerScore?.overall ?? 0}
+            subtitle={
+              scoreChange === null
+                ? undefined
+                : `${scoreChange > 0 ? "+" : ""}${scoreChange}（前回比）`
+            }
+            icon={<Text style={{ fontSize: 28 }}>📈</Text>}
+            progress={Math.max(0, Math.min(100, careerScore?.overall ?? 0))}
+          />
+          <MetricCard
+            label="自己分析完了度"
+            value={`${analysisCompletion}%`}
+            icon={<Text style={{ fontSize: 28 }}>📊</Text>}
+            progress={Math.max(0, Math.min(100, analysisCompletion))}
+          />
+        </View>
+
+        {/* Weekly AI Diagnosis Card (NEW) */}
+        <View style={{ flex: 1, padding: 16, backgroundColor: "#FFFFFF", borderRadius: 12, borderColor: "#E5E7EB", borderWidth: 1, marginTop: 12 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flexShrink: 1, paddingRight: 8 }}>
+              <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "600" }}>週次AI診断</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                <Clock size={16} color={"#6B7280"} />
+                <Text style={{ fontSize: 12, color: "#374151" }}>{lastDiagnosisAt ? `最終: ${String(lastDiagnosisAt).slice(0,10)}` : "未実行"}</Text>
+              </View>
+              <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
+                次回目安: {nextDiagnosisAt ? String(nextDiagnosisAt).slice(0,10) : "—"}
+              </Text>
+            </View>
             <TouchableOpacity
               onPress={runWeeklyDiagnosis}
-              disabled={isDiagnosing}
-              activeOpacity={0.8}
+              disabled={isDiagnosing || !shouldRunWeekly(lastDiagnosisAt)}
               style={{
-                flex: 1,
-                padding: 12,
-                backgroundColor: "#FFFFFF",
-                borderRadius: 12,
-                borderColor: "#E5E7EB",
-                borderWidth: 1,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "600" }}>週次AI診断</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                    <Clock size={12} color={"#6B7280"} />
-                    <Text style={{ fontSize: 12, color: "#374151" }}>
-                      {lastDiagnosisAt
-                        ? new Date(lastDiagnosisAt).toISOString().slice(0, 10).replace(/-/g, "/")
-                        : "—"}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ToDo リスト */}
-        <View style={{ marginTop: 16, backgroundColor: "#FFFFFF", borderRadius: 12, borderColor: "#E5E7EB", borderWidth: 1 }}>
-          {/* Header (icon + title) */}
-          <View
-            style={{
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderBottomColor: "#E5E7EB",
-              borderBottomWidth: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <CheckSquare size={16} color={"#3B82F6"} />
-            <Text style={{ fontSize: 14, fontWeight: "800", color: "#111827" }}>ToDoリスト</Text>
-          </View>
-
-          {/* Single item (compact, chevron only) */}
-          <TouchableOpacity
-            onPress={() => navigateFn("/ipo/preferences")}
-            activeOpacity={0.8}
-            style={{ paddingHorizontal: 14, paddingVertical: 12 }}
-          >
-            <View
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderColor: "#E5E7EB",
-                borderWidth: 1,
-                borderRadius: 10,
+                opacity: isDiagnosing || !shouldRunWeekly(lastDiagnosisAt) ? 0.6 : 1,
+                backgroundColor: shouldRunWeekly(lastDiagnosisAt) ? "#111827" : "#FFFFFF",
+                borderColor: "#D1D5DB",
+                borderWidth: shouldRunWeekly(lastDiagnosisAt) ? 0 : 1,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
+                borderRadius: 10,
                 flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "space-between",
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "700", color: "#111827" }}>
-                プロフィールを埋めましょう
+              <RefreshCw size={16} color={shouldRunWeekly(lastDiagnosisAt) ? "#fff" : "#111827"} />
+              <Text style={{ marginLeft: 6, color: shouldRunWeekly(lastDiagnosisAt) ? "#fff" : "#111827", fontWeight: "700" }}>
+                {isDiagnosing ? "診断中..." : (shouldRunWeekly(lastDiagnosisAt) ? "今すぐ診断" : "実行済み")}
               </Text>
-              <ChevronRight size={18} color={"#3B82F6"} />
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+          <View style={{ marginTop: 10 }}>
+            <ProgressBar progress={Math.max(0, Math.min(100, careerScore?.overall ?? 0))} />
+          </View>
         </View>
 
-        {/* Banner */}
-        <BannerCarousel
-          items={[
-            { key: "c1", title: "準備中", image: require("../../../assets/images/goals4.png"), onPress: () => navigateFn("/ipo/events") },
-            { key: "c2", title: "準備中", image: require("../../../assets/images/goals5.png"), onPress: () => navigateFn("/ipo/profile") },
-          ]}
-          height={96}
-          interval={3200}
-        />
+        {/* Career Score Detail */}
+        <View style={{ marginTop: 16, backgroundColor: "#FFFFFF", borderRadius: 12, borderColor: "#E5E7EB", borderWidth: 1 }}>
+          <View style={{ padding: 16, borderBottomColor: "#E5E7EB", borderBottomWidth: 1 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View>
+                <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>キャリアスコア詳細</Text>
+                <Text style={{ color: "#6B7280", marginTop: 4 }}>5つの軸であなたの強みを可視化</Text>
+              </View>
+              {/*<TouchableOpacity
+                onPress={() => setShowScoreInfo(true)}
+                style={{ borderColor: "#D1D5DB", borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+              >
+                <Text>詳細を見る</Text>
+              </TouchableOpacity>*/}
+            </View>
+          </View>
+          <View style={{ padding: 16 }}>
+            {/* Radar Chart */}
+            <View style={{ alignItems: "center", marginBottom: 12 }}>
+              <Suspense fallback={<Text style={{ color: "#6B7280" }}>Loading chart...</Text>}>
+                <CareerRadarChartLazy data={breakdownJa} />
+              </Suspense>
+            </View>
+            {/* Simple numeric list for breakdown on mobile */}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+              {AXIS_ORDER.map((key) => (
+                <View key={key} style={{ width: '48%', marginBottom: 10, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#1D4ED8' }}>
+                    {Number(breakdown[key as keyof CareerScoreBreakdown] ?? 0).toFixed(1)}
+                  </Text>
+                  <Text style={{ color: '#374151', marginTop: 4 }}>{JA_LABELS[key]}</Text>
+                </View>
+              ))}
+            </View>
 
+            {/* Insights */}
+            {careerScore?.insights && (
+              <View style={{ gap: 12, marginTop: 8 }}>
+                {careerScore.insights.strengths?.length > 0 && (
+                  <View style={{ backgroundColor: "#ECFDF5", padding: 12, borderRadius: 10 }}>
+                    <Text style={{ color: "#065F46", fontWeight: "700", marginBottom: 6 }}>💪 あなたの強み</Text>
+                    {careerScore.insights.strengths.map((t, idx) => (
+                      <Text key={`s-${idx}`} style={{ color: "#047857", marginTop: 2 }}>• {t}</Text>
+                    ))}
+                  </View>
+                )}
+                {careerScore.insights.improvements?.length > 0 && (
+                  <View style={{ backgroundColor: "#FFF7ED", padding: 12, borderRadius: 10 }}>
+                    <Text style={{ color: "#9A3412", fontWeight: "700", marginBottom: 6 }}>🎯 改善ポイント</Text>
+                    {careerScore.insights.improvements.map((t, idx) => (
+                      <Text key={`i-${idx}`} style={{ color: "#B45309", marginTop: 2 }}>• {t}</Text>
+                    ))}
+                  </View>
+                )}
+                {careerScore.insights.recommendations?.length > 0 && (
+                  <View style={{ backgroundColor: "#EFF6FF", padding: 12, borderRadius: 10 }}>
+                    <Text style={{ color: "#1D4ED8", fontWeight: "700", marginBottom: 6 }}>💡 おすすめアクション</Text>
+                    {careerScore.insights.recommendations.map((t, idx) => (
+                      <Text key={`r-${idx}`} style={{ color: "#1D4ED8", marginTop: 2 }}>• {t}</Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
 
+        {/* Peer Reviews (Coming soon) */}
+        <View style={{ marginTop: 16, backgroundColor: "#FFFFFF", borderRadius: 12, borderColor: "#E5E7EB", borderWidth: 1, opacity: 0.6 }}>
+          <View style={{ padding: 16, borderBottomColor: "#E5E7EB", borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>Peerレビュー</Text>
+              <Pill text="COMING SOON" />
+            </View>
+            <TouchableOpacity onPress={() => setShowReviewModal(true)} style={{ backgroundColor: "#111827", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>
+              <Text style={{ color: "#fff", fontWeight: "700" }}>レビューを書く</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ padding: 16 }}>
+            {peerReviews.length === 0 ? (
+              <Text style={{ color: "#6B7280" }}>まだレビューはありません。</Text>
+            ) : (
+              peerReviews.map((r) => (
+                <View key={r.id} style={{ borderColor: "#E5E7EB", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={{ fontWeight: "700", color: "#111827", marginRight: 8 }}>{r.reviewer}</Text>
+                      <Text style={{ color: "#F59E0B" }}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</Text>
+                    </View>
+                    <Text style={{ color: "#6B7280" }}>{r.date}</Text>
+                  </View>
+                  <Text style={{ color: "#374151" }}>{r.comment}</Text>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
 
-
-
-        {/* 機能選択 */}
-        <View style={{ marginTop: 16 }}>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827", marginBottom: 8 }}>機能</Text>
-          <BannerCarousel
-            items={[
-              { key: "f1", title: "自己分析を進める", image: require("../../../assets/images/goals2.png"), onPress: () => navigateFn("/ipo/analysis") },
-              { key: "f2", title: "選考状況を管理する", image: require("../../../assets/images/goals1.png"), onPress: () => navigateFn("/ipo/selection") },
-              { key: "f3", title: "ケースやWebテストの練習", image: require("../../../assets/images/goals3.png"), onPress: () => navigateFn("/ipo/case") },
-              { key: "f4", title: "業界や職種情報を見る", image: require("../../../assets/images/goals4.png"), onPress: () => navigateFn("/ipo/library") },
-              { key: "f5", title: "性格や価値観を診断する", image: require("../../../assets/images/goals5.png"), onPress: () => navigateFn("/ipo/diagnosis") },
-            ]}
-            height={100}
-            cardsPerScreen={2.2}
-            gap={10}
-            showDots={true}
-          />
+        {/* Quick Actions */}
+        <View style={{ marginTop: 16, backgroundColor: "#FFFFFF", borderRadius: 12, borderColor: "#E5E7EB", borderWidth: 1 }}>
+          <View style={{ padding: 16, borderBottomColor: "#E5E7EB", borderBottomWidth: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>クイックアクション</Text>
+          </View>
+          <View style={{ padding: 12 }}>
+            <TouchableOpacity
+              onPress={() => navigateFn("/ipo/analysis")}
+              style={{ borderColor: "#D1D5DB", borderWidth: 1, padding: 12, borderRadius: 10, marginBottom: 8 }}
+            >
+              <Text>AI自己分析を続ける</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigateFn("/ipo/case")}
+              style={{ borderColor: "#D1D5DB", borderWidth: 1, padding: 12, borderRadius: 10, marginBottom: 8 }}
+            >
+              <Text>ケース問題を解く</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigateFn("/ipo/calendar")}
+              style={{ borderColor: "#D1D5DB", borderWidth: 1, padding: 12, borderRadius: 10 }}
+            >
+              <Text>今週の予定を確認</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -1315,11 +1264,19 @@ export default function IPOMobileDashboard() {
 
       {/* Dev-only floating button to debug popup (preview) */}
       {__DEV__ && (
-        <FloatingActionButton label="Popup" onPress={debugOpenPopup} position="left" />
+        <Pressable
+          onPress={debugOpenPopup}
+          style={[styles.fab, { left: 16, right: undefined, backgroundColor: "#374151" }]}
+          accessibilityLabel="デバッグ: ポップアップを開く"
+        >
+          <Text style={styles.fabText}>Popup</Text>
+        </Pressable>
       )}
       {/* Floating AI button */}
-      <FloatingActionButton label="AIに相談する" onPress={() => onNavigateToTool('aiChat')} />
+      <Pressable onPress={() => onNavigateToTool('aiChat')} style={styles.fab} accessibilityLabel="AIに相談する">
+        <Brain size={20} color={'#fff'} />
+        <Text style={styles.fabText}>AIに相談する</Text>
+      </Pressable>
     </View>
   );
 }
-
