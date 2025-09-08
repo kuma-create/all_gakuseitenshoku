@@ -260,13 +260,15 @@ export default function InternInfo({
   return (
     <main className="container mx-auto px-4 py-8 pb-24">
       {/* back */}
-      <Link
-        href="/internships" 
-        className="mb-6 inline-flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-red-600 sm:text-sm"
+      <button
+        type="button"
+        onClick={() => router.back()}
+        aria-label="前のページに戻る"
+        className="mb-6 inline-flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-orange-600 sm:text-sm"
       >
         <ArrowLeft size={16} />
         インターン一覧に戻る
-      </Link>
+      </button>
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* ---------- 左カラム ---------- */}
@@ -304,12 +306,12 @@ export default function InternInfo({
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Link
                       href={`/companies/${company.id}`}
-                      className="text-base font-medium text-red-600 hover:text-red-700 hover:underline sm:text-lg"
+                      className="text-base font-medium text-orange-600 hover:text-orange-700 hover:underline sm:text-lg"
                     >
                       {company.name}
                     </Link>
                     {isNew && (
-                      <Badge className="bg-red-500 text-xs font-medium text-white">
+                      <Badge className="bg-orange-500 text-xs font-medium text-white">
                         新着
                       </Badge>
                     )}
@@ -319,7 +321,7 @@ export default function InternInfo({
                       <Badge
                         key={i}
                         variant="outline"
-                        className="bg-red-50 text-xs text-red-700"
+                        className="bg-orange-50 text-xs text-orange-700"
                       >
                         {t}
                       </Badge>
@@ -418,8 +420,8 @@ export default function InternInfo({
           <Card className="sticky top-4 z-30 bg-white border-0 shadow-md">
             <CardContent className="p-6">
               <div className="space-y-4">
-                <div className="rounded-lg bg-red-50 p-4 text-center">
-                  <h3 className="text-lg font-bold text-red-700">
+                <div className="rounded-lg bg-orange-50 p-4 text-center">
+                  <h3 className="text-lg font-bold text-orange-700">
                     このインターンに応募しますか？
                   </h3>
                   <p className="mt-1 text-sm text-gray-700">
@@ -435,7 +437,7 @@ export default function InternInfo({
                     </Button>
                   ) : (
                     <Button
-                      className="w-full bg-red-600 hover:bg-red-700"
+                      className="w-full bg-orange-600 hover:bg-orange-700"
                       onClick={handleApplyClick}
                     >
                       <Send size={16} className="mr-2" />
@@ -560,7 +562,7 @@ export default function InternInfo({
          <Card className="border-0 shadow-md">
             <CardHeader className="border-b border-gray-100 bg-gray-50 pb-4">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                <ListFilter className="h-5 w-5 text-red-600" />
+                <ListFilter className="h-5 w-5 text-orange-600" />
                 関連インターン
               </CardTitle>
             </CardHeader>
@@ -571,7 +573,7 @@ export default function InternInfo({
                     <li key={r.id} className="flex items-center gap-2">
                       <Link
                         href={`/jobs/${r.id}`}
-                        className="hover:text-red-600 hover:underline"
+                        className="hover:text-orange-600 hover:underline"
                       >
                         {r.title}
                       </Link>
@@ -603,7 +605,7 @@ function SummaryItem({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600">
         {icon}
       </div>
       <div>
@@ -626,7 +628,7 @@ function SectionCard({
   return (
     <Card className="mb-6 border-0 shadow-md">
       <CardHeader className="border-b border-gray-100 bg-gray-50 pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-bold text-red-600">
+        <CardTitle className="flex items-center gap-2 text-lg font-bold text-orange-600">
           {icon && icon}
           {title}
         </CardTitle>

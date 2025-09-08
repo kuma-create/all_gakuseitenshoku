@@ -452,7 +452,7 @@ export default function ClientPage({ id }: { id: string }) {
       <div className="min-h-screen bg-gray-50 pb-20">
         <main className="container mx-auto px-4 py-8">
           <div className="mb-6 flex items-center gap-2">
-            <Button variant="ghost" onClick={() => router.back()} className="text-gray-500 hover:text-red-600">
+            <Button variant="ghost" onClick={() => router.back()} className="text-gray-500 hover:text-orange-600">
               <ArrowLeft className="mr-1 h-4 w-4" />
               戻る
             </Button>
@@ -461,15 +461,15 @@ export default function ClientPage({ id }: { id: string }) {
             <Card className="border-0 shadow-md">
               <CardContent className="p-6">
                 <h1 className="text-2xl font-bold mb-2">{limitedTitle || "求人詳細（限定公開）"}</h1>
-                <p className="text-xs inline-flex items-center rounded-full bg-red-600 px-2 py-0.5 font-medium text-white mb-4">限定公開</p>
+                <p className="text-xs inline-flex items-center rounded-full bg-orange-600 px-2 py-0.5 font-medium text-white mb-4">限定公開</p>
                 <p className="text-sm text-gray-600">
-                  この求人は<strong className="text-red-600">限定公開</strong>です。企業名・企業ロゴ・求人画像・勤務地などの詳細は、ログイン後に表示されます。
+                  この求人は<strong className="text-orange-600">限定公開</strong>です。企業名・企業ロゴ・求人画像・勤務地などの詳細は、ログイン後に表示されます。
                 </p>
                 <div className="mt-6 flex items-center gap-3">
                   <Button asChild variant="outline">
                     <a href="/login">ログイン</a>
                   </Button>
-                  <Button asChild className="bg-red-600 hover:bg-red-700">
+                  <Button asChild className="bg-orange-600 hover:bg-orange-700">
                     <a href="/signup">無料登録</a>
                   </Button>
                 </div>
@@ -483,7 +483,7 @@ export default function ClientPage({ id }: { id: string }) {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="h-10 w-10 animate-spin text-red-500 mb-4" />
+        <Loader2 className="h-10 w-10 animate-spin text-orange-500 mb-4" />
         読み込み中…
       </div>
     )
@@ -491,10 +491,10 @@ export default function ClientPage({ id }: { id: string }) {
   if (error || !job) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <Card className="max-w-md border-red-200 bg-red-50">
+        <Card className="max-w-md border-orange-200 bg-orange-50">
           <CardContent className="p-6 space-y-4 text-center">
-            <AlertCircle className="h-10 w-10 text-red-500 mx-auto" />
-            <p className="text-red-800 font-medium">
+            <AlertCircle className="h-10 w-10 text-orange-500 mx-auto" />
+            <p className="text-orange-800 font-medium">
               {error ?? "選考が見つかりませんでした"}
             </p>
             <Button onClick={() => router.back()}>

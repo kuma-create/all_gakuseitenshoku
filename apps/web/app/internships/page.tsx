@@ -37,33 +37,38 @@ import { cookies } from "next/headers";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://gakuten.co.jp";
 
 export const metadata = {
-  title: "学生転職 | 長期インターン",
+  title: "最強のガクチカを手に入れろ！学転インターン｜長期インターン求人一覧 | 学生転職",
   description:
-    "長期インターンシップを探すなら学生転職。スタートアップから大手まで最新募集を掲載中。",
+    "就活そして社会人を無双したい人へ。最強のガクチカが作れる長期インターンが見つかる。スタートアップから大手までの厳選求人を掲載。無料登録で今日から行動しよう。",
   keywords: [
     "長期インターン",
     "インターンシップ",
+    "学転インターン",
+    "ガクチカ",
     "学生転職",
     "新卒採用",
     "就活",
     "スタートアップ求人",
+    "マーケティング インターン",
+    "エンジニア インターン",
+    "営業 インターン",
   ],
   alternates: {
     canonical: `${siteUrl}/internships`,
   },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "学生転職 | 長期インターン",
+    title: "最強のガクチカを手に入れろ！学転インターン｜長期インターン求人一覧 | 学生転職",
     description:
-      "長期インターンシップを探すなら学生転職。スタートアップから大手まで最新募集を掲載中。",
+      "就活そして社会人を無双したい人へ。最強のガクチカが作れる長期インターンが見つかる。スタートアップから大手までの厳選求人を掲載。無料登録で今日から行動しよう。",
     url: `${siteUrl}/internships`,
     images: ["/ogp/internships.png"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "学生転職 | 長期インターン",
+    title: "最強のガクチカを手に入れろ！学転インターン｜長期インターン求人一覧 | 学生転職",
     description:
-      "長期インターンシップを探すなら学生転職。スタートアップから大手まで最新募集を掲載中。",
+      "就活そして社会人を無双したい人へ。最強のガクチカが作れる長期インターンが見つかる。スタートアップから大手までの厳選求人を掲載。無料登録で今日から行動しよう。",
     images: ["/ogp/internships.png"],
   },
 };
@@ -113,8 +118,8 @@ const features = [
   },
   {
     icon: ShieldCheck,
-    title: "安心のサポート体制",
-    text: "応募から入社後まで、専属キャリアアドバイザーが徹底フォロー。",
+    title: "実践力が魅力",
+    text: "ガクチカとして強みになる実践型のインターンを監修。",
   },
   {
     icon: TrendingUp,
@@ -150,18 +155,21 @@ const testimonials = [
       "このサイトを通じて自分に合う成長環境を見つけ、半年で事業責任者を任されました！",
     name: "早稲田大学 佐藤さん",
     role: "マーケティングインターン",
+    image: "/uni/3517043_l.jpg",
   },
   {
     quote:
       "スタートアップの現場で実践的な開発に携われたことで、エンジニアとして一気にレベルアップできました。",
     name: "慶應義塾大学 鈴木さん",
     role: "エンジニアインターン",
+    image: "/uni/27556652_l.jpg",
   },
   {
     quote:
       "営業インターンで圧倒的な経験を積み、内定先の選択肢が一気に広がりました！",
     name: "東京大学 田中さん",
     role: "営業インターン",
+    image: "/uni/30820664_l.jpg",
   },
 ];
 
@@ -205,6 +213,64 @@ export default async function InternshipTop() {
           url: `${siteUrl}/internships`,
         })}
       </Script>
+      {/* --- Additional JSON-LD Structured Data --- */}
+      <Script id="website-jsonld" type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "学生転職",
+          url: siteUrl,
+          potentialAction: {
+            "@type": "SearchAction",
+            target: `${siteUrl}/jobs/list?selectionType=intern_long&q={search_term_string}`,
+            "query-input": "required name=search_term_string",
+          },
+        })}
+      </Script>
+      <Script id="faq-jsonld" type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "長期インターンは未経験でも応募できますか？",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "多くの求人で未経験歓迎です。募集要項の必須条件をご確認のうえ、まずは気軽にご応募ください。",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "学業との両立は可能ですか？",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "シフトの柔軟な求人も多数あります。週2〜3日、リモート可などの条件で検索できます。",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "応募から内定までの流れは？",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "会員登録→求人検索→応募→面談→内定が基本の流れです。キャリアアドバイザーが選考対策もサポートします。",
+              },
+            },
+          ],
+        })}
+      </Script>
+      <Script id="itemlist-jsonld" type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          itemListElement: (Array.isArray(jobs) ? jobs : []).map((job, idx) => ({
+            "@type": "ListItem",
+            position: idx + 1,
+            url: `${siteUrl}/jobs/${job.id}`,
+            name: job.title,
+          })),
+        })}
+      </Script>
       {/* ---------- Hero ---------- */}
       <section className="relative isolate flex min-h-[60vh] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-600 via-orange-500 to-orange-400">
         {/* Background image (optional) */}
@@ -220,15 +286,14 @@ export default async function InternshipTop() {
 
         <div className="relative mx-auto max-w-5xl px-6 py-24 text-center text-white">
           <h1 className="text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg">
-            本気で成長したい学生のための
+            最強のガクチカを手に入れろ！
             <br className="hidden md:block" />
             <span className="text-6xl md:text-7xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
               学転インターン
             </span>
           </h1>
           <p className="mt-6 text-lg text-white/90">
-            スタートアップからメガベンチャーまで。
-            あなたの“挑戦したい”を叶えるポジションが見つかる。
+            就活そして社会人を無双したい人へ。最強のガクチカが作れる長期インターンが見つかる。
           </p>
           {/* --- Search Bar --- */}
           <form
@@ -262,19 +327,17 @@ export default async function InternshipTop() {
               <Link href="#how-it-works">無料登録</Link>
             </Button>
 
-            {/* Outlined pill button with arrow */}
+            {/* Orange filled pill button with arrow */}
             <Button
               asChild
               size="lg"
-              variant="ghost"
-              className="group rounded-full border border-white px-8 py-3 font-semibold text-white hover:bg-white/10"
+              className="rounded-full bg-orange-600 px-8 py-3 font-semibold text-white hover:bg-orange-500"
             >
               <Link
                 href="/jobs/list?selectionType=intern_long"
                 className="flex items-center gap-2"
               >
                 <span>求人を探す</span>
-                {/* arrow icon */}
                 <svg
                   xmlns="https://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -438,7 +501,7 @@ export default async function InternshipTop() {
 
         <div className="container relative space-y-12">
           <h2 className="relative mx-auto w-max text-center text-3xl font-bold after:block after:h-0.5 after:w-full after:origin-left after:scale-x-100 after:bg-orange-500 after:content-['']">
-            学生転職が選ばれる理由
+            学転インターンが選ばれる理由
           </h2>
 
           <div className="grid gap-8 md:grid-cols-3">
@@ -501,6 +564,16 @@ export default async function InternshipTop() {
               key={t.name}
               className="flex max-w-sm flex-col gap-6 rounded-2xl bg-white/70 p-8 shadow-lg backdrop-blur transition hover:-translate-y-1 hover:shadow-xl"
             >
+              <div className="mx-auto h-16 w-16 overflow-hidden rounded-full ring-2 ring-orange-200">
+                <Image
+                  src={t.image}
+                  alt={`${t.name}の写真`}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 object-cover"
+                  priority={false}
+                />
+              </div>
               <blockquote className="text-sm leading-relaxed text-gray-700 md:text-base">
                 「{t.quote}」
               </blockquote>
