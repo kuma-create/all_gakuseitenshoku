@@ -67,8 +67,8 @@ const SELECTION_ICONS: Record<string, JSX.Element> = {
 const badgeColorMap: Record<string, string> = {
   fulltime: "bg-blue-100 text-blue-800",
   internship_short: "bg-green-100 text-green-800",
-  internship_long: "bg-yellow-100 text-yellow-800",
-  intern_long: "bg-yellow-100 text-yellow-800",
+  internship_long: "bg-orange-100 text-orange-800",
+  intern_long: "bg-orange-100 text-orange-800",
   event: "bg-purple-100 text-purple-800",
 };
 

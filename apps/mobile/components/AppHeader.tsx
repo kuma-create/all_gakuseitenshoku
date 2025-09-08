@@ -1,5 +1,5 @@
 import { useRouter, usePathname } from "expo-router";
-import { Menu } from "lucide-react-native";
+import { Menu, Home, User, ClipboardList, BookOpen, Briefcase, Send, Mail } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { supabase } from "../src/lib/supabase";
@@ -92,28 +92,63 @@ export default function AppHeader({ title }: AppHeaderProps) {
   const menuItems: { label: React.ReactNode; onPress: () => void }[] = [
     {
       label: (
-        <Image
-          source={require("../assets/images/logo5.png")}
-          style={{ width: 160, height: 80, resizeMode: "contain" }}
-        />
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Home size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>ホーム</Text>
+        </View>
       ),
-      onPress: () => navigateAndClose("/"),
+      onPress: () => navigateAndClose("/ipo/dashboard"),
     },
     {
       label: (
-        <Image
-          source={require("../assets/images/IPO_logo2.png")}
-          style={{ width: 160, height: 80, resizeMode: "contain" }}
-        />
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <User size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>自己分析</Text>
+        </View>
       ),
-      onPress: () => navigateAndClose("/ipo/dashboard"),
+      onPress: () => navigateAndClose("/ipo/analysis"),
+    },
+    {
+      label: (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <ClipboardList size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>選考管理</Text>
+        </View>
+      ),
+      onPress: () => navigateAndClose("/ipo/selection"),
+    },
+    {
+      label: (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <BookOpen size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>ライブラリ</Text>
+        </View>
+      ),
+      onPress: () => navigateAndClose("/ipo/library"),
+    },
+    {
+      label: (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Briefcase size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>求人検索</Text>
+        </View>
+      ),
+      onPress: () => navigateAndClose("/jobs"),
+    },
+    {
+      label: (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Send size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>スカウト</Text>
+        </View>
+      ),
+      onPress: () => navigateAndClose("/scout"),
     },
   ];
 
   // --- Secondary nav (AppHeader2) setup ---
   const header2NavItems: Array<{ label: string; path: string }> = [
     { label: "ホーム", path: "/ipo/dashboard" },
-    { label: "学生転職", path: "/(student)" },
     { label: "求人検索", path: "/(student)/jobs" },
     { label: "スカウト", path: "/(student)/scouts" },
     { label: "チャット", path: "/(student)/chat" },
@@ -183,6 +218,14 @@ export default function AppHeader({ title }: AppHeaderProps) {
         </View>
         <View style={{ position: "absolute", right: 16, top: headerPaddingTop, height: baseBarHeight, justifyContent: "center" }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable
+              onPress={() => router.push("/chat" as any)}
+              style={{ padding: 8, marginRight: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel="メッセージへ移動"
+            >
+              <Mail size={22} color="#000" />
+            </Pressable>
             <View style={{ marginRight: 8 }}>
               <NotificationBell />
             </View>
