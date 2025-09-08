@@ -5,6 +5,7 @@ import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity
 import { supabase } from "../src/lib/supabase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "./notifications/NotificationBell";
+import { LinearGradient } from "expo-linear-gradient";
 
 interface AppHeaderProps {
   title: string;
@@ -281,14 +282,18 @@ export function AppHeader2({ onNavigate, items, activeLabel, onPressItem, curren
           { label: "友達紹介", path: "/referral" },
         ];
 
-  const current = activeLabel ?? "ホーム";
+  // When navigating within /ipo pages, keep the white indicator on "ホーム"
   const isIpoPage = (currentPath ?? "/").startsWith("/ipo");
-  const BRAND_COLOR = isIpoPage ? "#2563EB" : "#DC2626"; // blue for /ipo, red otherwise
+  const current = isIpoPage ? "ホーム" : (activeLabel ?? "ホーム");
+  const GRADIENT_COLORS = isIpoPage ? ["#2563EB", "#F97316"] : ["#DC2626", "#9333EA"];
+  const ACCENT_COLOR = GRADIENT_COLORS[0]; // use a solid color for active tab text
 
   return (
-    <View
+    <LinearGradient
+      colors={GRADIENT_COLORS}
+      start={{ x: -0.1, y: 0 }}  // exaggerate the diagonal
+      end={{ x: 1, y: 1.2 }}     // to make it clearly diagonal even with short height
       style={{
-        backgroundColor: BRAND_COLOR,
         paddingVertical: 10,
         borderRadius: 0,
         marginBottom: 12,
@@ -317,7 +322,7 @@ export function AppHeader2({ onNavigate, items, activeLabel, onPressItem, curren
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text
                 style={{
-                  color: it.label === current ? BRAND_COLOR : "#FFFFFF",
+                  color: it.label === current ? ACCENT_COLOR : "#FFFFFF",
                   fontWeight: "800",
                   fontSize: 12,
                 }}
@@ -339,6 +344,6 @@ export function AppHeader2({ onNavigate, items, activeLabel, onPressItem, curren
           </TouchableOpacity>
         ))}
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }

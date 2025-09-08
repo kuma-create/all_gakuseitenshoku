@@ -9,6 +9,7 @@ import { supabase } from "src/lib/supabase"; // ← 必要に応じて修正 (@/
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 /* ------------------------------- 型 ------------------------------- */
 // 必要最小限の型のみ定義（テーブル型は手入力で簡易化）
@@ -348,7 +349,12 @@ export default function ScoutTabScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#f9fafb" }}>
       {/* Header / Search & Tabs */}
-      <View style={styles.headerWrap}>
+      <LinearGradient
+        colors={["#DC2626", "#9333EA"]}
+        start={{ x: -0.1, y: 0 }}
+        end={{ x: 1, y: 1.2 }}
+        style={styles.headerWrap}
+      >
         <Text style={styles.headerTitle}>スカウト一覧</Text>
         <Text style={styles.headerSub}>企業から届いたスカウトを確認しましょう</Text>
 
@@ -381,7 +387,7 @@ export default function ScoutTabScreen() {
             </TouchableOpacity>
           ))}
         </View>
-      </View>
+      </LinearGradient>
 
       {loading && (
         <View style={{ paddingTop: 24 }}>
@@ -411,7 +417,6 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 16,
     paddingHorizontal: 16,
-    backgroundColor: "#b91c1c", // 赤系グラデーションの代替
   },
   headerTitle: { color: "#fff", fontSize: 20, fontWeight: "700" },
   headerSub: { color: "#fff", opacity: 0.9, marginTop: 4 },
@@ -469,7 +474,7 @@ const styles = StyleSheet.create({
   buttonText: { color: "#111827", fontWeight: "600" },
   solid: { backgroundColor: "#f3f4f6" },
   primaryGreen: { backgroundColor: "#16a34a", borderColor: "#16a34a" },
-  primaryBlue: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
+  primaryBlue: { backgroundColor: "#7c3aed", borderColor: "#7c3aed" },
   outlineDanger: { backgroundColor: "#fff", borderColor: "#fecaca" },
   emptyBox: { marginTop: 24, marginHorizontal: 16, borderWidth: 1, borderStyle: "dashed", borderColor: "#d1d5db", backgroundColor: "#f9fafb", borderRadius: 12, padding: 24, alignItems: "center" },
 });
