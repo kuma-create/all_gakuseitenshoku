@@ -21,6 +21,9 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
     work_experiences: any[] | null
   }[]
 
+  /** 経験職種（親から渡される場合がある） */
+  job_types?: string[] | null
+
   /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
   major?: string | null
   location?: string | null
@@ -177,6 +180,9 @@ export default function StudentDetailTabs({ student, showContact = false }: Prop
   const fmtDate = (iso?: string | null) =>
     iso ? iso.slice(0, 7).replace("-", "/") : "―"
 
+  // 正規化: 全角空白除去 + trim + 小文字化
+  const norm = (v?: string | null) => (v ?? "").replace(/\u3000/g, "").trim().toLowerCase()
+
   /* ----- レジュメ( work_experiences ) 取得 ----- */
   const resume: Resume | null =
     Array.isArray(student.resumes) && student.resumes.length
@@ -229,6 +235,27 @@ export default function StudentDetailTabs({ student, showContact = false }: Prop
       setExperiences(list.map((raw: any, idx: number) => normalizeExperience(raw, idx)))
     })()
   }, [resume, student.user_id])
+
+  // 経験職種（表示用）: 優先 student.job_types、無ければ experiences[].payload.jobTypes から抽出
+  const experienceJobTypes: string[] = useMemo(() => {
+    const direct = Array.isArray((student as any)?.job_types)
+      ? ((student as any).job_types as string[]).filter((x) => typeof x === 'string' && x.trim() !== '')
+      : []
+    if (direct.length) {
+      // 重複排除 + 表示安定化（正規化は内部のみ）
+      const uniq = new Map<string, string>()
+      for (const jt of direct) uniq.set(norm(jt), jt)
+      return Array.from(uniq.values())
+    }
+
+    const collected = experiences.flatMap((e) => {
+      const arr = (e?.payload && Array.isArray(e.payload.jobTypes)) ? e.payload.jobTypes : []
+      return arr.filter((v: any) => typeof v === 'string' && v.trim() !== '')
+    })
+    const uniq = new Map<string, string>()
+    for (const jt of collected) uniq.set(norm(jt), jt)
+    return Array.from(uniq.values())
+  }, [student, experiences])
 
   return (
     <div className="flex-1 flex flex-col">
@@ -305,6 +332,24 @@ export default function StudentDetailTabs({ student, showContact = false }: Prop
               </>
             )}
           </Section>
+
+          <Section title="経験職種">
+            {experienceJobTypes.length > 0 ? (
+              <div className="col-span-full flex flex-wrap gap-1">
+                {experienceJobTypes.map((jt) => (
+                  <span
+                    key={jt}
+                    className="text-[11px] px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-700"
+                    title={jt}
+                  >
+                    {jt}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <Field label="" value="―" />
+            )}
+          </Section>
         </TabsContent>
 
         {/* ========== 自己PR TAB ========== */}
@@ -372,6 +417,19 @@ export default function StudentDetailTabs({ student, showContact = false }: Prop
 
           {/* 職歴 */}
           <Section title="職歴・プロジェクト">
+            {experienceJobTypes.length > 0 && (
+              <div className="col-span-full mb-2 flex flex-wrap gap-1">
+                {experienceJobTypes.map((jt) => (
+                  <span
+                    key={jt}
+                    className="text-[11px] px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-700"
+                    title={jt}
+                  >
+                    {jt}
+                  </span>
+                ))}
+              </div>
+            )}
             {experiences.length > 0 ? (
               <div className="col-span-full">
                 {experiences

@@ -28,6 +28,8 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   resumes?: {
     work_experiences: any[] | null
   }[]
+  /** 経験職種（親から渡される場合がある） */
+  job_types?: string[] | null
 
   /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
   major?: string | null
@@ -191,6 +193,40 @@ export default function ScoutDrawer({
     return latest.company_name ?? latest.company ?? latest.name ?? null
   }, [student])
 
+  /**
+   * 経験職種一覧（表示用）
+   * 優先: student.job_types（親が付与）
+   * 次点: resumes[].work_experiences[].jobTypes から抽出
+   */
+  const experienceJobTypes = useMemo(() => {
+    // 1) 親から渡ってきた job_types を優先
+    const direct = Array.isArray((student as any)?.job_types)
+      ? ((student as any).job_types as string[]).filter((x) => typeof x === 'string' && x.trim() !== '')
+      : []
+    if (direct.length) return Array.from(new Set(direct))
+
+    // 2) 履歴書から抽出
+    const resumesArray = Array.isArray(student?.resumes)
+      ? student!.resumes!
+      : student?.resumes
+      ? [student!.resumes as any]
+      : []
+
+    const allWorks: any[] = resumesArray.flatMap((r) =>
+      (r?.work_experiences as any[] | null | undefined) ?? []
+    )
+
+    const collected = allWorks.flatMap((w: any) =>
+      Array.isArray(w?.jobTypes) ? w.jobTypes : []
+    )
+
+    return Array.from(
+      new Set(
+        collected.filter((v) => typeof v === 'string' && v.trim() !== '')
+      )
+    )
+  }, [student])
+
   const isDisabled: boolean =
     !student ||
     !message.trim() ||
@@ -331,6 +367,19 @@ export default function ScoutDrawer({
                           項目入力率 {student.match_score ?? "--"}%
                         </span>
                       </div>
+                      {experienceJobTypes.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {experienceJobTypes.map((jt) => (
+                            <span
+                              key={jt}
+                              className="text-[11px] px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-700"
+                              title={jt}
+                            >
+                              {jt}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

@@ -170,25 +170,15 @@ export default function JobsIndexScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // sync URL query with selectionType (prefer shallow param update to avoid reload)
+  // sync URL query with selectionType (use shallow param update on all platforms to avoid remounts)
   useEffect(() => {
     const currentType = params?.type ? String(params.type) : undefined;
     const nextType = selectionType === "all" ? undefined : selectionType;
     const same = (currentType || undefined) === (nextType || undefined);
     if (same) return; // already in sync
 
-    // On web, setParams updates the query string without remounting.
-    // Fall back to replace only if pathname would change (not the case here).
-    try {
-      if (Platform.OS === 'web') {
-        router.setParams(nextType ? { type: nextType } : {});
-      } else {
-        router.replace({ pathname, params: nextType ? { type: nextType } : {} } as any);
-      }
-    } catch {
-      router.replace({ pathname, params: nextType ? { type: nextType } : {} } as any);
-    }
-  }, [selectionType, pathname, router, params]);
+    router.setParams(nextType ? { type: nextType } : {});
+  }, [selectionType, router, params]);
   const [refreshing, setRefreshing] = useState(false);
 
   // --- Favorite jobs state ---
@@ -568,7 +558,7 @@ export default function JobsIndexScreen() {
 
         {/* active filters (chips) */}
         {activeFiltersCount > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16 }} contentContainerStyle={{ gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.activeFilters} contentContainerStyle={{ gap: 8 }}>
             {industriesSelected.length > 0 && (
               <BadgePill label={`業界: ${industriesSelected.join(" / ")}`} onClose={() => setIndustriesSelected([])} />
             )}
@@ -918,7 +908,7 @@ const styles = StyleSheet.create({
   muted: { color: "#6b7280" },
   error: { color: "#b91c1c", fontWeight: "600", textAlign: "center" },
 
-  searchRow: { paddingHorizontal: 16, paddingTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+  searchRow: { paddingHorizontal: 16, paddingTop: 10, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
   filterPill: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 9999, paddingVertical: 8, paddingHorizontal: 12, position: "relative" },
   filterPillText: { marginLeft: 6, fontWeight: "700", color: "#111827" },
   filterCount: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 9, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center" },
@@ -1068,4 +1058,10 @@ const styles = StyleSheet.create({
   footerBtnGhost: { backgroundColor: "#f3f4f6" },
   footerBtnGhostText: { color: "#111827", fontWeight: "800" },
   filterPillRow: { paddingHorizontal: 16, marginTop: 6, marginBottom: 2 },
-});
+
+  activeFilters: {
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+});  

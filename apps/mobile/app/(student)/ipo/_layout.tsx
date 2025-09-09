@@ -112,7 +112,7 @@ export default function IPOLayout() {
 
       {/* プロフィール */}
       <Tabs.Screen
-        name="profile/index"
+        name="profile"
         options={{
           href: '/profile',
           title: 'プロフィール',
