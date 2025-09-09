@@ -90,6 +90,7 @@ const PUBLIC_ROUTES = new Set([
   "/password-reset-callback",    // パスワード再設定コールバック
   "/auth",                    // Supabase auth-helper routes (/auth/set, /auth/logout)
   "/privacy-policy",   // プライバシーポリシー
+  "/s-ipo-signup",
 ]);
 
 /* ====================================================================== */

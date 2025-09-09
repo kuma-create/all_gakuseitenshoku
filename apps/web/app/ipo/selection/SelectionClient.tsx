@@ -236,6 +236,12 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   // Form states
   type CompanyFormState = {
     name: string;
+    // 新規項目
+    accountId: string;
+    password: string;
+    siteUrl: string;
+
+    // 既存（互換のため残すが UI では非表示）
     industry: string;
     size: Company['size'];
     location: string;
@@ -249,6 +255,9 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
   const [companyForm, setCompanyForm] = useState<CompanyFormState>({
     name: '',
+    accountId: '',
+    password: '',
+    siteUrl: '',
     industry: '',
     size: 'large',
     location: '',
@@ -520,6 +529,9 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   const resetCompanyForm = useCallback(() => {
     setCompanyForm({
       name: '',
+      accountId: '',
+      password: '',
+      siteUrl: '',
       industry: '',
       size: 'large',
       location: '',
@@ -554,6 +566,15 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     }
 
     const nowDate = new Date().toISOString().split('T')[0];
+    const credTags = [
+      companyForm.accountId ? `__id:${companyForm.accountId}` : null,
+      companyForm.password ? `__pw:${companyForm.password}` : null,
+      companyForm.siteUrl ? `__url:${companyForm.siteUrl}` : null,
+    ].filter(Boolean) as string[];
+    const freeTags = companyForm.tags
+      ? companyForm.tags.split(',').map(t => t.trim()).filter(t => t && !t.startsWith('__'))
+      : [] as string[];
+    const mergedTags = [...credTags, ...freeTags];
 
     try {
       // Insert into Supabase
@@ -563,17 +584,14 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
           name: companyForm.name,
           industry: companyForm.industry || null,
           size: companyForm.size,
-          location: companyForm.location || null,
           applied_date: nowDate,
           status: 'applied',
           current_stage: 0,
           priority: companyForm.priority,
-          notes: companyForm.notes || null,
           last_update: nowDate,
-          overall_rating: null,
-          tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
+          tags: mergedTags,
           job_title: companyForm.jobTitle,
-          job_salary: companyForm.salary || null,
+          notes: companyForm.notes || null,
           job_description: companyForm.description || null,
         })
         .select('id')
@@ -586,7 +604,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         name: companyForm.name,
         industry: companyForm.industry,
         size: companyForm.size,
-        location: companyForm.location,
+        location: '',
         appliedDate: nowDate,
         status: 'applied',
         currentStage: 0,
@@ -594,7 +612,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         notes: companyForm.notes,
         lastUpdate: nowDate,
         overallRating: undefined,
-        tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
+        tags: mergedTags,
         stages: [
           {
             id: `${newId}-entry`,
@@ -609,8 +627,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         contacts: [],
         jobDetails: {
           title: companyForm.jobTitle,
-          salary: companyForm.salary,
-          description: companyForm.description
+          description: companyForm.description || undefined,
         }
       };
 
@@ -625,7 +642,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         name: companyForm.name,
         industry: companyForm.industry,
         size: companyForm.size,
-        location: companyForm.location,
+        location: '',
         appliedDate: nowDate,
         status: 'applied',
         currentStage: 0,
@@ -633,7 +650,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         notes: companyForm.notes,
         lastUpdate: nowDate,
         overallRating: undefined,
-        tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
+        tags: mergedTags,
         stages: [
           {
             id: `${Date.now()}-1`,
@@ -648,8 +665,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         contacts: [],
         jobDetails: {
           title: companyForm.jobTitle,
-          salary: companyForm.salary,
-          description: companyForm.description
+          description: companyForm.description || undefined,
         }
       };
       setCompanies(prev => [...prev, newCompany]);
@@ -666,20 +682,29 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
     const nowDate = new Date().toISOString().split('T')[0];
 
+    const credTags = [
+      companyForm.accountId ? `__id:${companyForm.accountId}` : null,
+      companyForm.password ? `__pw:${companyForm.password}` : null,
+      companyForm.siteUrl ? `__url:${companyForm.siteUrl}` : null,
+    ].filter(Boolean) as string[];
+    const freeTags = companyForm.tags
+      ? companyForm.tags.split(',').map(t => t.trim()).filter(t => t && !t.startsWith('__'))
+      : [] as string[];
+    const mergedTags = [...credTags, ...freeTags];
+
     const updatedCompany: Company = {
       ...selectedCompany,
       name: companyForm.name,
       industry: companyForm.industry,
       size: companyForm.size,
-      location: companyForm.location,
+      location: selectedCompany.location, // 入力UIからは外す
       priority: companyForm.priority,
       notes: companyForm.notes,
-      tags: companyForm.tags ? companyForm.tags.split(',').map(t => t.trim()) : [],
+      tags: mergedTags,
       jobDetails: {
         ...selectedCompany.jobDetails,
         title: companyForm.jobTitle,
-        salary: companyForm.salary,
-        description: companyForm.description
+        description: companyForm.description || undefined,
       },
       lastUpdate: nowDate
     };
@@ -691,14 +716,12 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
           name: updatedCompany.name,
           industry: updatedCompany.industry,
           size: updatedCompany.size,
-          location: updatedCompany.location,
           priority: updatedCompany.priority,
-          notes: updatedCompany.notes,
           last_update: nowDate,
-          tags: updatedCompany.tags,
+          tags: mergedTags,
           job_title: updatedCompany.jobDetails.title,
-          job_salary: updatedCompany.jobDetails.salary || null,
-          job_description: updatedCompany.jobDetails.description || null,
+          notes: companyForm.notes || null,
+          job_description: companyForm.description || null,
         })
         .eq('id', selectedCompany.id);
     } catch (e: any) {
@@ -867,8 +890,18 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   }, []);
 
   const openEditCompanyDialog = useCallback((company: Company) => {
+    const cred = (company.tags || []).reduce((acc: any, t) => {
+      if (t.startsWith('__id:')) acc.accountId = t.slice(5);
+      if (t.startsWith('__pw:')) acc.password = t.slice(5);
+      if (t.startsWith('__url:')) acc.siteUrl = t.slice(6);
+      return acc;
+    }, { accountId: '', password: '', siteUrl: '' });
+
     setCompanyForm({
       name: company.name,
+      accountId: cred.accountId,
+      password: cred.password,
+      siteUrl: cred.siteUrl,
       industry: company.industry,
       size: company.size,
       location: company.location,
@@ -1434,7 +1467,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
       {/* Company Detail Dialog */}
       <Dialog open={showCompanyDialog} onOpenChange={setShowCompanyDialog}>
-        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-4xl h-auto max-h-[88dvh] sm:max-h-[90vh] p-0 sm:p-0 flex flex-col overflow-y-auto rounded-2xl sm:rounded-lg">
+        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-4xl h-auto max-h-[88dvh] sm:max-h-[90vh] p-0 sm:p-0 flex flex-col overflow-hidden rounded-2xl sm:rounded-lg">
           {selectedCompany && (
             <>
               <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0 pr-16 sm:pr-6">
@@ -1472,26 +1505,25 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
               </DialogHeader>
 
               <div className="flex-1 overflow-hidden">
-                <Tabs defaultValue="overview" className="h-full flex flex-col">
+                <Tabs defaultValue="stages" className="h-full flex flex-col">
                   <TabsList className="grid w-full grid-cols-3 h-10 flex-shrink-0 bg-gray-100/70 rounded-lg p-1 gap-1">
-                    <TabsTrigger
-                      value="overview"
-                      className="text-xs sm:text-sm rounded-md text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow"
-                    >
-                      概要
-                    </TabsTrigger>
                     <TabsTrigger
                       value="stages"
                       className="text-xs sm:text-sm rounded-md text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow"
                     >
                       選考段階
                     </TabsTrigger>
-                    {/* <TabsTrigger value="contacts" className="text-xs sm:text-sm">連絡先</TabsTrigger> */}
                     <TabsTrigger
                       value="notes"
                       className="text-xs sm:text-sm rounded-md text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow"
                     >
                       メモ
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="overview"
+                      className="text-xs sm:text-sm rounded-md text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow"
+                    >
+                      概要
                     </TabsTrigger>
                   </TabsList>
 
@@ -1799,7 +1831,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
       {/* Add Company Dialog */}
       <Dialog open={showAddCompanyDialog} onOpenChange={setShowAddCompanyDialog}>
-        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-2xl h-auto max-h-[88dvh] sm:max-h-[85vh] p-0 sm:p-0 flex flex-col overflow-y-auto rounded-2xl sm:rounded-lg">
+        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-2xl h-auto max-h-[88dvh] sm:max-h-[85vh] p-0 sm:p-0 flex flex-col overflow-hidden rounded-2xl sm:rounded-lg">
           <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0">
             <DialogTitle>新しい企業を追加</DialogTitle>
             <DialogDescription>
@@ -1807,7 +1839,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 py-4 px-3 sm:px-4">
+          <ScrollArea className="flex-1 h-[70vh] sm:h-[65vh] py-4 px-3 sm:px-4 overflow-y-auto">
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1834,6 +1866,41 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                 </div>
               </div>
 
+              {/* ID/パスワード入力行 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-1 block">ID</Label>
+                  <Input
+                    value={companyForm.accountId}
+                    onChange={(e) => setCompanyForm(prev => ({ ...prev, accountId: e.target.value }))}
+                    placeholder="例: corp-account"
+                    className="h-9"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-1 block">パスワード</Label>
+                  <Input
+                    type="password"
+                    value={companyForm.password}
+                    onChange={(e) => setCompanyForm(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="••••••••"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+
+              {/* サイトURL */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-1 block">サイトURL</Label>
+                <Input
+                  type="url"
+                  value={companyForm.siteUrl}
+                  onChange={(e) => setCompanyForm(prev => ({ ...prev, siteUrl: e.target.value }))}
+                  placeholder="https://example.co.jp"
+                  className="h-9"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-1 block">企業規模</Label>
@@ -1854,32 +1921,11 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">所在地</Label>
-                  <Input
-                    value={companyForm.location}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="例: 東京"
-                    className="h-9"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
                   <Label className="text-sm font-medium text-gray-700 mb-1 block">職種 *</Label>
                   <Input
                     value={companyForm.jobTitle}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, jobTitle: e.target.value }))}
                     placeholder="例: ソフトウェアエンジニア"
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">想定年収</Label>
-                  <Input
-                    value={companyForm.salary}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, salary: e.target.value }))}
-                    placeholder="例: 600-800（万円）"
                     className="h-9"
                   />
                 </div>
@@ -1904,6 +1950,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                 </Select>
               </div>
 
+              {/* タグ, 職務内容, メモ */}
               <div>
                 <Label className="text-sm font-medium text-gray-700 mb-1 block">タグ</Label>
                 <Input
@@ -1957,162 +2004,157 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Company Dialog */}
-      <Dialog open={showEditCompanyDialog} onOpenChange={setShowEditCompanyDialog}>
-        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-2xl h-auto max-h-[88dvh] sm:max-h-[85vh] p-0 sm:p-0 flex flex-col overflow-y-auto rounded-2xl sm:rounded-lg">
-          <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0">
-            <DialogTitle>企業情報を編集</DialogTitle>
-            <DialogDescription>
-              企業情報と応募したポジションの詳細を編集してください。
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="flex-1 py-4 px-3 sm:px-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">企業名 *</Label>
-                  <Input
-                    value={companyForm.name}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="例: Google Japan"
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">業界</Label>
-                  <Select value={companyForm.industry} onValueChange={(value) => setCompanyForm(prev => ({ ...prev, industry: value }))}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="業界を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INDUSTRIES.map((industry) => (
-                        <SelectItem key={industry} value={industry}>{industry}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+{/* Edit Company Dialog */}
+<Dialog open={showEditCompanyDialog} onOpenChange={setShowEditCompanyDialog}>
+  <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-2xl h-auto max-h-[88dvh] sm:max-h-[85vh] p-0 sm:p-0 flex flex-col overflow-hidden rounded-2xl sm:rounded-lg">
+    <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0">
+      <DialogTitle>企業情報を編集</DialogTitle>
+      <DialogDescription>企業情報と応募したポジションの詳細を更新してください。</DialogDescription>
+    </DialogHeader>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">企業規模</Label>
-                  <Select value={companyForm.size} onValueChange={(value: any) => setCompanyForm(prev => ({ ...prev, size: value }))}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(COMPANY_SIZES).map(([key, config]) => (
-                        <SelectItem key={key} value={key}>
-                          <div className="flex items-center space-x-2">
-                            <config.icon className="w-4 h-4" />
-                            <span>{config.label}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">所在地</Label>
-                  <Input
-                    value={companyForm.location}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="例: 東京"
-                    className="h-9"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">職種 *</Label>
-                  <Input
-                    value={companyForm.jobTitle}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, jobTitle: e.target.value }))}
-                    placeholder="例: ソフトウェアエンジニア"
-                    className="h-9"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">想定年収</Label>
-                  <Input
-                    value={companyForm.salary}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, salary: e.target.value }))}
-                    placeholder="例: 600-800（万円）"
-                    className="h-9"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-1 block">優先度</Label>
-                <Select value={companyForm.priority} onValueChange={(value: any) => setCompanyForm(prev => ({ ...prev, priority: value }))}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center space-x-2">
-                          <config.icon className="w-4 h-4" />
-                          <span>{config.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-1 block">タグ</Label>
-                <Input
-                  value={companyForm.tags}
-                  onChange={(e) => setCompanyForm(prev => ({ ...prev, tags: e.target.value }))}
-                  placeholder="カンマ区切りで入力（例: IT, グローバル, 大手）"
-                  className="h-9"
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-1 block">職務内容</Label>
-                <Textarea
-                  value={companyForm.description}
-                  onChange={(e) => setCompanyForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="職務内容の詳細を入力..."
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-1 block">メモ</Label>
-                <Textarea
-                  value={companyForm.notes}
-                  onChange={(e) => setCompanyForm(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="志望動機、特記事項など..."
-                  rows={2}
-                />
-              </div>
-            </div>
-          </ScrollArea>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t flex-shrink-0">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowEditCompanyDialog(false);
-                resetCompanyForm();
-              }}
-            >
-              キャンセル
-            </Button>
-            <Button onClick={handleEditCompany}>
-              <Save className="w-4 h-4 mr-2" />
-              更新
-            </Button>
+    <ScrollArea className="flex-1 h-[70vh] sm:h-[65vh] py-4 px-3 sm:px-4 overflow-y-auto">
+      <div className="space-y-4">
+        {/* 企業名 / 業界 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">企業名 *</Label>
+            <Input
+              value={companyForm.name}
+              onChange={(e) => setCompanyForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="例: Google Japan"
+              className="h-9"
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">業界</Label>
+            <Select value={companyForm.industry} onValueChange={(v) => setCompanyForm(p => ({ ...p, industry: v }))}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="業界を選択" /></SelectTrigger>
+              <SelectContent>
+                {INDUSTRIES.map((i) => (<SelectItem key={i} value={i}>{i}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* ID / パスワード */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">ID</Label>
+            <Input
+              value={companyForm.accountId}
+              onChange={(e) => setCompanyForm(p => ({ ...p, accountId: e.target.value }))}
+              placeholder="例: corp-account"
+              className="h-9"
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">パスワード</Label>
+            <Input
+              type="password"
+              value={companyForm.password}
+              onChange={(e) => setCompanyForm(p => ({ ...p, password: e.target.value }))}
+              placeholder="••••••••"
+              className="h-9"
+            />
+          </div>
+        </div>
+
+        {/* サイトURL */}
+        <div>
+          <Label className="text-sm font-medium text-gray-700 mb-1 block">サイトURL</Label>
+          <Input
+            type="url"
+            value={companyForm.siteUrl}
+            onChange={(e) => setCompanyForm(p => ({ ...p, siteUrl: e.target.value }))}
+            placeholder="https://example.co.jp"
+            className="h-9"
+          />
+        </div>
+
+        {/* 企業規模 / 職種 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">企業規模</Label>
+            <Select value={companyForm.size} onValueChange={(v:any) => setCompanyForm(p => ({ ...p, size: v }))}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(COMPANY_SIZES).map(([k, cfg]) => (
+                  <SelectItem key={k} value={k}>
+                    <div className="flex items-center space-x-2">
+                      <cfg.icon className="w-4 h-4" />
+                      <span>{cfg.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">職種 *</Label>
+            <Input
+              value={companyForm.jobTitle}
+              onChange={(e) => setCompanyForm(p => ({ ...p, jobTitle: e.target.value }))}
+              placeholder="例: ソフトウェアエンジニア"
+              className="h-9"
+            />
+          </div>
+        </div>
+
+        {/* 優先度 */}
+        <div>
+          <Label className="text-sm font-medium text-gray-700 mb-1 block">優先度</Label>
+          <Select value={companyForm.priority} onValueChange={(v:any) => setCompanyForm(p => ({ ...p, priority: v }))}>
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(PRIORITY_CONFIG).map(([k, cfg]) => (
+                <SelectItem key={k} value={k}>
+                  <div className="flex items-center space-x-2">
+                    <cfg.icon className="w-4 h-4" />
+                    <span>{cfg.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* タグ / 職務内容 / メモ */}
+        <div>
+          <Label className="text-sm font-medium text-gray-700 mb-1 block">タグ</Label>
+          <Input
+            value={companyForm.tags}
+            onChange={(e) => setCompanyForm(p => ({ ...p, tags: e.target.value }))}
+            placeholder="カンマ区切りで入力（例: IT, グローバル, 大手）"
+            className="h-9"
+          />
+        </div>
+        <div>
+          <Label className="text-sm font-medium text-gray-700 mb-1 block">職務内容</Label>
+          <Textarea
+            value={companyForm.description}
+            onChange={(e) => setCompanyForm(p => ({ ...p, description: e.target.value }))}
+            placeholder="職務内容の詳細を入力..."
+            rows={2}
+          />
+        </div>
+        <div>
+          <Label className="text-sm font-medium text-gray-700 mb-1 block">メモ</Label>
+          <Textarea
+            value={companyForm.notes}
+            onChange={(e) => setCompanyForm(p => ({ ...p, notes: e.target.value }))}
+            placeholder="志望動機、特記事項など..."
+            rows={2}
+          />
+        </div>
+      </div>
+    </ScrollArea>
+
+    <div className="px-3 sm:px-4 py-3 border-t flex justify-end gap-2">
+      <Button variant="outline" onClick={() => setShowEditCompanyDialog(false)}>キャンセル</Button>
+      <Button onClick={handleEditCompany}>更新</Button>
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* Edit Stage Dialog */}
       <Dialog open={showStageDialog} onOpenChange={setShowStageDialog}>

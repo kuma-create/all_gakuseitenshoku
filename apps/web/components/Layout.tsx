@@ -9,7 +9,10 @@ import {
   LogOut, 
   User,
   BarChart3,
-  FileText
+  FileText,
+  Search,
+  Send,
+  MessageCircle
 } from 'lucide-react';
 
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -41,7 +44,10 @@ type Route =
   | '/ipo/calendar'
   | '/ipo/library'
   | '/ipo/diagnosis'
-  | '/ipo/settings';
+  | '/ipo/settings'
+  | '/student/scouts'
+  | '/chat'
+  | '/jobs';
 
 type UserType = {
   name: string;
@@ -67,18 +73,14 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     }
   };
 
-  const navItems = [
+  type NavItem = { label: string; route: Route; icon: React.ComponentType<any>; description: string };
+
+  const navItems: NavItem[] = [
     { 
-      label: 'ダッシュボード', 
+      label: 'ホーム', 
       route: '/ipo/dashboard' as Route, 
       icon: Home,
       description: 'キャリア進捗の確認'
-    },
-    { 
-      label: 'AI自己分析', 
-      route: '/ipo/analysis' as Route, 
-      icon: Brain,
-      description: 'AIとの対話で自己理解'
     },
     { 
       label: '選考管理', 
@@ -87,34 +89,34 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       description: '企業選考の進捗管理'
     },
     { 
-      label: 'ケース', 
-      route: '/ipo/case' as Route, 
-      icon: Target,
-      description: '問題解決スキル向上'
+      label: '自己分析', 
+      route: '/ipo/analysis' as Route, 
+      icon: Brain,
+      description: 'AIとの対話で自己理解'
+    },    
+    { 
+      label: '求人検索', 
+      route: '/jobs' as Route, 
+      icon: Search,
+      description: '求人を検索する'
     },
     { 
-      label: 'カレンダー', 
-      route: '/ipo/calendar' as Route, 
-      icon: Calendar,
-      description: 'スケジュール管理'
+      label: 'スカウト', 
+      route: '/student/scouts' as Route, 
+      icon: Send,
+      description: 'スカウト・ヘッドハンティング情報'
+    },
+    { 
+      label: 'チャット', 
+      route: '/chat' as Route, 
+      icon: MessageCircle,
+      description: '企業・学生とのチャット'
     },
     { 
       label: 'ライブラリ', 
       route: '/ipo/library' as Route, 
       icon: Library,
       description: '業界・職種情報'
-    },
-    { 
-      label: '診断', 
-      route: '/ipo/diagnosis' as Route, 
-      icon: BarChart3,
-      description: '性格・適職診断'
-    },
-        {
-      label: '学生転職に戻る',
-      route: '/student-dashboard' as Route,
-      icon: User,
-      description: '学生転職ホームに戻る'
     },
   ];
 
@@ -128,7 +130,10 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     '/ipo/library': { title: 'ライブラリ', subtitle: '業界・職種情報' },
     '/ipo/diagnosis': { title: '診断', subtitle: '性格・適職診断' },
     '/ipo/settings': { title: '設定' },
+    '/jobs': { title: '求人検索', subtitle: "求人の検索" },
     '/ipo/login': undefined,
+    '/student/scouts': { title: 'ヘッドハンティング', subtitle: 'スカウト情報の確認' },
+    '/chat': { title: 'チャット', subtitle: '企業や学生とコミュニケーション' },
   };
 
   // Nested route meta resolver: picks the longest matching prefix in routeMeta

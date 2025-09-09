@@ -96,6 +96,13 @@ const STATUS_LABEL: Record<Company["status"], string> = {
   withdrawn: "辞退",
 };
 
+const STATUS_STAGE_LABEL: Record<SelectionStage["status"], string> = {
+  scheduled: "予定",
+  pending: "進行中",
+  passed: "合格",
+  failed: "不合格",
+};
+
 const STATUS_ICON: Record<Company["status"], any> = {
   applied: ArrowLeft, // 代替
   in_progress: Timer,
@@ -176,6 +183,19 @@ export default function SelectionIndex() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<Company | null>(null);
   const [detailTab, setDetailTab] = useState<"overview" | "stages" | "notes">("stages");
+
+  // 選考段階 編集モーダル
+  const [stageEditOpen, setStageEditOpen] = useState(false);
+  const [stageEditing, setStageEditing] = useState<SelectionStage | null>(null);
+  const [stageForm, setStageForm] = useState({
+    name: "",
+    status: "scheduled" as SelectionStage["status"],
+    date: "",
+    time: "",
+    location: "",
+    feedback: "",
+    notes: "",
+  });
 
   // 追加フォーム
   const [form, setForm] = useState({
@@ -398,6 +418,113 @@ export default function SelectionIndex() {
     }
   }, [editForm, editTarget]);
 
+  // 選考段階の保存（新規/更新）
+  const handleSaveStage = useCallback(async () => {
+    if (!detailTarget) return;
+    const payload: any = {
+      company_id: detailTarget.id,
+      name: stageForm.name.trim() || "無題の段階",
+      status: stageForm.status,
+      date: stageForm.date || null,
+      time: stageForm.time || null,
+      location: stageForm.location || null,
+      feedback: stageForm.feedback || null,
+      notes: stageForm.notes || null,
+    };
+
+    try {
+      if (stageEditing && stageEditing.id) {
+        // 更新
+        await supabase.from("ipo_selection_stages").update(payload).eq("id", stageEditing.id);
+        setCompanies((prev) =>
+          prev.map((c) => {
+            if (c.id !== detailTarget.id) return c;
+            return {
+              ...c,
+              stages: c.stages.map((s) =>
+                s.id === stageEditing.id
+                  ? { ...s, ...payload, id: String(stageEditing.id) }
+                  : s,
+              ),
+              lastUpdate: new Date().toISOString().split("T")[0],
+            };
+          }),
+        );
+        setDetailTarget((prev) =>
+          prev && prev.id === detailTarget.id
+            ? {
+                ...prev,
+                stages: prev.stages.map((s) =>
+                  s.id === String(stageEditing.id) ? { ...s, ...payload, id: String(stageEditing.id) } : s,
+                ),
+                lastUpdate: new Date().toISOString().split("T")[0],
+              }
+            : prev,
+        );
+      } else {
+        // 追加
+        const { data: inserted } = await supabase
+          .from("ipo_selection_stages")
+          .insert(payload)
+          .select("id")
+          .single();
+        const newId = inserted?.id ? String(inserted.id) : `${Date.now()}`;
+        const newStage: SelectionStage = { id: newId, ...payload } as SelectionStage;
+        setCompanies((prev) =>
+          prev.map((c) => (c.id === detailTarget.id ? { ...c, stages: [...c.stages, newStage] } : c)),
+        );
+        setDetailTarget((prev) =>
+          prev && prev.id === detailTarget.id
+            ? { ...prev, stages: [...prev.stages, newStage] }
+            : prev,
+        );
+      }
+    } catch (e) {
+      // 楽観的更新（失敗してもローカル反映）)
+      if (stageEditing && stageEditing.id) {
+        setCompanies((prev) =>
+          prev.map((c) => (c.id === detailTarget.id ? { ...c, stages: c.stages.map((s) => (s.id === stageEditing.id ? { ...s, ...payload } : s)) } : c)),
+        );
+        setDetailTarget((prev) =>
+          prev && prev.id === detailTarget.id
+            ? { ...prev, stages: prev.stages.map((s) => (s.id === stageEditing!.id ? { ...s, ...payload } : s)) }
+            : prev,
+        );
+      } else {
+        const newStage: SelectionStage = { id: `${Date.now()}`, ...payload } as SelectionStage;
+        setCompanies((prev) =>
+          prev.map((c) => (c.id === detailTarget.id ? { ...c, stages: [...c.stages, newStage] } : c)),
+        );
+        setDetailTarget((prev) =>
+          prev && prev.id === detailTarget.id
+            ? { ...prev, stages: [...prev.stages, newStage] }
+            : prev,
+        );
+      }
+    } finally {
+      setStageEditOpen(false);
+      setStageEditing(null);
+    }
+  }, [detailTarget, stageForm, stageEditing]);
+
+  // 選考段階の削除
+  const handleDeleteStage = useCallback(async (stageId: string) => {
+    if (!detailTarget) return;
+    try {
+      await supabase.from("ipo_selection_stages").delete().eq("id", stageId);
+    } catch (e) {
+      // no-op
+    } finally {
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === detailTarget.id ? { ...c, stages: c.stages.filter((s) => s.id !== stageId) } : c)),
+      );
+      setDetailTarget((prev) =>
+        prev && prev.id === detailTarget.id
+          ? { ...prev, stages: prev.stages.filter((s) => s.id !== stageId) }
+          : prev,
+      );
+    }
+  }, [detailTarget]);
   // 新規企業の追加
   const handleAddCompany = useCallback(async () => {
     if (!form.name.trim() || !form.jobTitle.trim()) return;
@@ -1071,6 +1198,18 @@ export default function SelectionIndex() {
 
               {detailTab === "stages" && detailTarget ? (
                 <View>
+                  <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setStageEditing(null);
+                        setStageForm({ name: "", status: "scheduled", date: "", time: "", location: "", feedback: "", notes: "" });
+                        setStageEditOpen(true);
+                      }}
+                      style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#2563EB" }}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "700" }}>＋ 追加</Text>
+                    </TouchableOpacity>
+                  </View>
                   {detailTarget.stages.length === 0 ? (
                     <Text style={{ color: "#6B7280" }}>選考段階の記録はありません</Text>
                   ) : (
@@ -1086,12 +1225,46 @@ export default function SelectionIndex() {
                           marginBottom: 8,
                         }}
                       >
-                        <Text style={{ fontWeight: "700" }}>{s.name}</Text>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                          <Text style={{ fontWeight: "700" }}>{s.name}</Text>
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                setStageEditing(s);
+                                setStageForm({
+                                  name: s.name || "",
+                                  status: s.status,
+                                  date: s.date || "",
+                                  time: s.time || "",
+                                  location: s.location || "",
+                                  feedback: s.feedback || "",
+                                  notes: s.notes || "",
+                                });
+                                setStageEditOpen(true);
+                              }}
+                              style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }}
+                            >
+                              <Text style={{ fontSize: 12 }}>編集</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteStage(s.id)}
+                              style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" }}
+                            >
+                              <Text style={{ fontSize: 12, color: "#B91C1C" }}>削除</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
                         <Text style={{ color: "#6B7280", marginTop: 4 }}>
                           {s.date || "-"} {s.time || ""}
                         </Text>
                         {s.feedback ? (
                           <Text style={{ marginTop: 8 }}>FB: {s.feedback}</Text>
+                        ) : null}
+                        {s.notes ? (
+                          <Text style={{ marginTop: 6 }}>メモ: {s.notes}</Text>
+                        ) : null}
+                        {!s.feedback && !s.notes ? (
+                          <Text style={{ marginTop: 8, color: "#9CA3AF" }}>メモはありません</Text>
                         ) : null}
                       </View>
                     ))
@@ -1132,6 +1305,93 @@ export default function SelectionIndex() {
                 }}
               >
                 <Text>閉じる</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 選考段階 編集モーダル */}
+      <Modal visible={stageEditOpen} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "88%" }}>
+            <Text style={{ fontWeight: "700", fontSize: 16 }}>{stageEditing ? "選考段階を編集" : "選考段階を追加"}</Text>
+
+            {[
+              { k: "name", ph: "段階名（例: 一次面接）" },
+              { k: "date", ph: "日付（YYYY-MM-DD）" },
+              { k: "time", ph: "時間（例: 14:00）" },
+              { k: "location", ph: "場所（オンライン/住所など）" },
+            ].map((f) => (
+              <View key={f.k} style={{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10 }}>
+                <TextInput
+                  placeholder={f.ph}
+                  value={(stageForm as any)[f.k]}
+                  onChangeText={(t) => setStageForm((p) => ({ ...(p as any), [f.k]: t }))}
+                />
+              </View>
+            ))}
+
+            {/* ステータス */}
+            <View style={{ marginTop: 10 }}>
+              <Text style={{ fontSize: 12, color: "#6B7280" }}>ステータス</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {(["scheduled", "pending", "passed", "failed"] as const).map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setStageForm((p) => ({ ...p, status: v }))}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      borderRadius: 9999,
+                      borderWidth: 1,
+                      borderColor: stageForm.status === v ? "#2563EB" : "#E5E7EB",
+                      backgroundColor: stageForm.status === v ? "#DBEAFE" : "#FFFFFF",
+                      marginRight: 8,
+                      marginTop: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12 }}>{STATUS_STAGE_LABEL[v]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* フィードバック */}
+            <View style={{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10, minHeight: 80 }}>
+              <TextInput
+                placeholder="フィードバック / メモ"
+                value={stageForm.feedback}
+                onChangeText={(t) => setStageForm((p) => ({ ...p, feedback: t }))}
+                multiline
+              />
+            </View>
+
+            {/* メモ */}
+            <View style={{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10, minHeight: 80 }}>
+              <TextInput
+                placeholder="メモ"
+                value={stageForm.notes}
+                onChangeText={(t) => setStageForm((p) => ({ ...p, notes: t }))}
+                multiline
+              />
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setStageEditOpen(false);
+                  setStageEditing(null);
+                }}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center" }}
+              >
+                <Text>キャンセル</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveStage}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "#2563EB", alignItems: "center" }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>保存</Text>
               </TouchableOpacity>
             </View>
           </View>
