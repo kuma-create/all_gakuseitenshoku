@@ -49,6 +49,41 @@ function formatDate(ts?: string | null): string | null {
   return `${yyyy}/${mm}/${dd}`
 }
 
+/** 正規化: 全角空白除去 + trim + 小文字化 */
+const norm = (v?: string | null) => (v ?? "").replace(/\u3000/g, "").trim().toLowerCase()
+
+/**
+ * 学生の経験職種を抽出（表示/フィルタ用）
+ * 優先: student.job_types
+ * 次点: resumes[].work_experiences[].jobTypes
+ * さらに: stu.work_experiences[].jobTypes（旧スキーマ互換）
+ */
+function getExperienceJobTypes(stu: Student): string[] {
+  // 1) 親から渡っている場合
+  const direct = Array.isArray((stu as any)?.job_types) ? (stu as any).job_types as string[] : []
+  if (direct.length) {
+    const uniq = new Map<string, string>()
+    for (const jt of direct) if (typeof jt === 'string' && jt.trim()) uniq.set(norm(jt), jt)
+    return Array.from(uniq.values())
+  }
+
+  // 2) resumes 由来
+  const resumesArray = Array.isArray(stu.resumes) ? stu.resumes : stu.resumes ? [stu.resumes] : []
+  const fromResumes = resumesArray.flatMap((r: any) => Array.isArray(r?.work_experiences) ? r.work_experiences : [])
+    .flatMap((w: any) => Array.isArray(w?.jobTypes) ? w.jobTypes : [])
+    .filter((v: any) => typeof v === 'string' && v.trim()) as string[]
+
+  // 3) 旧スキーマ互換: student_profiles.work_experiences に jobTypes がある可能性
+  const fromDirect = Array.isArray((stu as any).work_experiences) ? (stu as any).work_experiences : []
+  const fromDirectJobTypes = fromDirect.flatMap((w: any) => Array.isArray(w?.jobTypes) ? w.jobTypes : [])
+    .filter((v: any) => typeof v === 'string' && v.trim()) as string[]
+
+  const all = [...fromResumes, ...fromDirectJobTypes]
+  const uniq = new Map<string, string>()
+  for (const jt of all) uniq.set(norm(jt), jt)
+  return Array.from(uniq.values())
+}
+
 /** 学生リストで追加メタ情報も扱えるよう intersection 型に */
 type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   /** 動的計算されたマッチ度 */
@@ -63,6 +98,9 @@ type Student = Database["public"]["Tables"]["student_profiles"]["Row"] & {
   resumes?: {
     work_experiences: any[] | null
   }[]
+
+  /** 経験職種（親から渡される場合がある） */
+  job_types?: string[] | null
 
   /* ──────── 追加: 型ジェネレーター未更新列を補完 ──────── */
   major?: string | null
@@ -220,6 +258,25 @@ export default function StudentList({ companyId, students, selectedId, onSelect 
                       {[stu.major, stu.location].filter(Boolean).join(" / ")}
                     </p>
                   )}
+                  {/* 経験職種（最大4件 +N 表示） */}
+                  {(() => {
+                    const jts = getExperienceJobTypes(stu)
+                    if (!jts.length) return null
+                    const head = jts.slice(0, 4)
+                    const rest = jts.length - head.length
+                    return (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {head.map((jt) => (
+                          <Badge key={jt} variant="secondary" className="text-[10px]">
+                            {jt}
+                          </Badge>
+                        ))}
+                        {rest > 0 && (
+                          <span className="text-[10px] text-gray-500">+{rest}</span>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {/* 役職・ポジション */}
                   {stu.resumes &&
                     Array.isArray(stu.resumes) &&

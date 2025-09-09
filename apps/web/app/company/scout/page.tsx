@@ -22,6 +22,51 @@ import { Checkbox } from "@/components/ui/checkbox"
 import SkillPicker from "@/components/SkillPicker"
 import QualificationPicker from "@/components/QualificationPicker"
 
+// 正規化: 全角空白除去 + trim + 小文字化
+const norm = (v?: string | null) => (v ?? "").replace(/\u3000/g, "").trim().toLowerCase()
+
+/** 学生オブジェクトから経験職種を抽出（job_types が無ければ resumes から抽出） */
+const getJobTypesFromStudent = (s: Student): string[] => {
+  // 1) 直接フィールド
+  if (Array.isArray((s as any).job_types) && (s as any).job_types.length) {
+    return (s as any).job_types.filter((x: any) => typeof x === 'string' && x.trim() !== '')
+  }
+  // 2) resumes からのフォールバック
+  const resumesArr: any[] = Array.isArray((s as any).resumes)
+    ? (s as any).resumes
+    : (s as any).resumes
+    ? [ (s as any).resumes ]
+    : []
+  const works: any[] = resumesArr.flatMap((r: any) => [
+    ...(Array.isArray(r?.work_experiences) ? r.work_experiences : []),
+    ...(Array.isArray(r?.form_data?.work_experiences) ? r.form_data.work_experiences : []),
+  ])
+  const raw: string[] = []
+  const pushStr = (v: any) => { if (typeof v === 'string' && v.trim() !== '') raw.push(v) }
+  const pushArr = (arr: any) => { if (Array.isArray(arr)) arr.forEach((x) => pushStr(x)) }
+  // work_experiences entries
+  for (const w of works) {
+    pushArr((w as any)?.jobTypes)
+    pushStr((w as any)?.job_type)
+    pushStr((w as any)?.jobType)
+  }
+  // resume 直下も見る
+  for (const r of resumesArr) {
+    pushStr(r?.job_type)
+    pushArr(r?.form_data?.jobTypes)
+    pushArr(r?.form_data?.conditions?.jobTypes)
+    if (Array.isArray(r?.experiences)) {
+      for (const ex of r.experiences) {
+        pushArr(ex?.jobTypes); pushStr(ex?.job_type); pushStr(ex?.jobType)
+      }
+    }
+  }
+  // 正規化して重複排除（表示は原文）
+  const uniq = new Map<string, string>()
+  for (const t of raw) { const k = norm(t); if (k && !uniq.has(k)) uniq.set(k, t) }
+  return Array.from(uniq.values())
+}
+
 /* ──────────────── 定数: ステータス日本語ラベル ──────────────── */
 const STATUS_LABEL: Record<string, string> = {
   sent:     "送信済み",
@@ -57,6 +102,21 @@ const POSITION_OPTIONS = ["メンバー","リーダー","マネージャー","�
 
 /** 固定の希望職種リスト */
 const JOB_POSITIONS = [
+  "エンジニア",
+  "営業",
+  "コンサルタント",
+  "経営・経営企画",
+  "総務・人事",
+  "経理・財務",
+  "企画",
+  "マーケティング",
+  "デザイナー",
+  "広報",
+  "その他",
+] as const
+
+/** 固定の経験職種リスト（UIから削除しない） */
+const FIXED_EXPERIENCE_JOB_TYPES = [
   "エンジニア",
   "営業",
   "コンサルタント",
@@ -186,26 +246,17 @@ export default function ScoutPage() {
       // 🔽 page.tsx の学生取得クエリをこれに置き換え
       const { data: stuRows, error: stuErr } = await sb
         .from("student_profiles")
-        // ← レジュメのみを JOIN。経験職種は別クエリで取得する
+        // レジュメ JOIN（経験職種抽出に必要な列をすべて取得）
         .select(`
           *,
           resumes!left(
             id,
             form_data,
-            work_experiences
+            work_experiences,
+            job_type,
+            experiences
           )
         `)
-      // ───────── 経験職種ビュー ─────────
-      const { data: jtRows, error: jtErr } = await sb
-        .from("student_resume_jobtypes")
-        .select("student_id, job_types")
-      if (jtErr) console.error("student_resume_jobtypes fetch error:", jtErr)
-      const jobTypesMap = new Map<string, string[]>()
-      ;(jtRows ?? []).forEach((r) => {
-        if (r.student_id) {
-          jobTypesMap.set(r.student_id, r.job_types ?? [])
-        }
-      })
       if (stuErr) {
         toast({ title: "学生取得エラー", description: stuErr.message, variant: "destructive" })
       } else {
@@ -227,10 +278,13 @@ export default function ScoutPage() {
           // 自己 PR はタイトルと本文の 2 項目を必須評価とする
           const pPR = [row.pr_title, row.pr_text]
           /* ---------- 希望条件 ---------- */
-          const resume = Array.isArray(row.resumes) && row.resumes.length
-            ? row.resumes[0]
-            : null
-          const cond = (resume?.form_data as any)?.conditions ?? {}
+          const resumesArr: any[] = Array.isArray(row.resumes)
+            ? row.resumes
+            : row.resumes
+            ? [row.resumes]
+            : []
+          const firstResume: any | null = resumesArr.length ? resumesArr[0] : null
+          const cond = (firstResume?.form_data as any)?.conditions ?? {}
           const pPref = [
             // 希望職種
             (Array.isArray(row.desired_positions) && row.desired_positions.length)
@@ -259,29 +313,71 @@ export default function ScoutPage() {
           const prefPct  = pct(pPref)    // 希望条件
           /* ---------- 職務経歴書入力率 ---------- */
           // ---------- work_experiences ---------- //
-          // ソース: ① resumes.work_experiences と ② resumes.form_data.work_experiences
-          // 両方をマージして評価する。必須 3 項目 (company, position, description)
+          // ソース: ① 各 resume の直下 work_experiences と ② form_data.work_experiences
+          // すべての履歴書を走査してマージ。必須 3 項目 (company, position, description)
           let worksRaw: unknown[] = []
-
-          if (resume) {
-            // ① 直下の work_experiences
-            const direct = resume.work_experiences
+          for (const r of resumesArr) {
+            const direct = r?.work_experiences
             if (Array.isArray(direct)) {
               worksRaw.push(...direct)
             } else if (typeof direct === "string") {
               try { worksRaw.push(...JSON.parse(direct)) } catch {/* ignore */}
             }
-
-            // ② form_data.work_experiences
-            const nested = (resume.form_data as any)?.work_experiences
+            const nested = r?.form_data?.work_experiences
             if (Array.isArray(nested)) {
               worksRaw.push(...nested)
             } else if (typeof nested === "string") {
               try { worksRaw.push(...JSON.parse(nested)) } catch {/* ignore */}
             }
           }
-
           const works = worksRaw.filter(Boolean) as any[]  // null/undefined guard
+
+          // ---- 経験職種 抽出: あらゆる格納先を網羅 ----
+          const rawJT: string[] = []
+          const pushStr = (v: any) => {
+            if (typeof v === 'string' && v.trim() !== '') rawJT.push(v)
+          }
+          const pushArr = (arr: any) => {
+            if (Array.isArray(arr)) arr.forEach((x) => pushStr(x))
+          }
+
+          // 0) レジュメ直下のフィールド
+          for (const r of resumesArr) {
+            pushStr(r?.job_type)                                  // resumes.job_type (text)
+            pushArr(r?.form_data?.jobTypes)                       // resumes.form_data.jobTypes (array)
+            pushArr(r?.form_data?.conditions?.jobTypes)           // resumes.form_data.conditions.jobTypes (array)
+            // experiences 配列側にも jobTypes がある可能性
+            if (Array.isArray(r?.experiences)) {
+              for (const ex of r.experiences) {
+                pushArr(ex?.jobTypes)
+                pushStr(ex?.job_type)
+                pushStr(ex?.jobType)
+              }
+            }
+          }
+
+          // 1) work_experiences 側の各エントリ
+          for (const w of works) {
+            pushArr((w as any)?.jobTypes)
+            pushStr((w as any)?.job_type)
+            pushStr((w as any)?.jobType)
+          }
+
+          // 2) 正規化して重複排除（表示は原文を優先採用）
+          const uniq = new Map<string, string>()
+          for (const t of rawJT) {
+            const key = norm(t)
+            if (key) {
+              if (!uniq.has(key)) uniq.set(key, t)
+            }
+          }
+          const extractedJobTypes: string[] = Array.from(uniq.values())
+
+          if (extractedJobTypes.length) {
+            console.log('[DEBUG] extracted jobTypes for', row.id, extractedJobTypes)
+          } else {
+            console.log('[DEBUG] extracted jobTypes for', row.id, '(none)')
+          }
           let totalReq = 0, totalFilled = 0
           works.forEach((w) => {
             totalReq += 3
@@ -311,9 +407,9 @@ export default function ScoutPage() {
               ? `${Math.round((now - new Date(row.created_at).getTime()) / 60000)}分前`
               : "",
           }
-          // 経験職種をビューから付与
+          // 経験職種を職務経歴(work_experiences[].jobTypes)から付与
           if (normalized.job_types == null) {
-            normalized.job_types = jobTypesMap.get(normalized.id) ?? null
+            normalized.job_types = extractedJobTypes.length ? extractedJobTypes : null
           }
           // grad_year という列名で来るケースを補完
           if (
@@ -393,13 +489,41 @@ export default function ScoutPage() {
   const availableDesiredWorkLocations = PREFECTURES
   
   /** 志望業界リスト（学生から動的生成） */
-const availablePreferredIndustries = useMemo(() => {
-  return [...new Set(
-    students
-      .flatMap((s) => (Array.isArray(s.preferred_industries) ? s.preferred_industries : []))
-      .filter((v): v is string => v != null),
-  )].sort((a, b) => a.localeCompare(b, "ja"))
-}, [students])
+  const availablePreferredIndustries = useMemo(() => {
+    return [...new Set(
+      students
+        .flatMap((s) => (Array.isArray(s.preferred_industries) ? s.preferred_industries : []))
+        .filter((v): v is string => v != null),
+    )].sort((a, b) => a.localeCompare(b, "ja"))
+  }, [students])
+
+  /** 経験職種（student_resume_jobtypes から動的生成＋固定リスト優先, 正規化集計） */
+  const { availableExperienceJobTypes, expJobTypeCounts } = useMemo(() => {
+    // 固定ラベルの正規化マップ（norm -> 表示ラベル）
+    const fixed = Array.from(FIXED_EXPERIENCE_JOB_TYPES)
+    const fixedByNorm = new Map<string, string>()
+    for (const f of fixed) fixedByNorm.set(norm(f), f)
+
+    // 集計：生データは正規化し、固定ラベルにマッピングしてからカウント
+    const counts = new Map<string, number>()
+    for (const s of students) {
+      const arr = getJobTypesFromStudent(s)
+      for (const raw of arr) {
+        const rawStr = raw.toString()
+        const mapped = fixedByNorm.get(norm(rawStr)) ?? rawStr
+        counts.set(mapped, (counts.get(mapped) ?? 0) + 1)
+      }
+    }
+
+    // 2) データ由来だが固定に無いものを後ろに（五十音）
+    const dynamicExtras = Array.from(counts.keys())
+      .filter((k) => !fixedByNorm.has(norm(k)))
+      .sort((a, b) => a.localeCompare(b, "ja"))
+
+    const list = [...fixed, ...dynamicExtras]
+    console.log("[DEBUG] unique job_types (fixed+extras):", list)
+    return { availableExperienceJobTypes: list, expJobTypeCounts: counts }
+  }, [students])
 
   /** オファー済み学生の id 一覧（scouts.offer_amount または offer_position が入っている学生を対象） */
   const offeredIds = useMemo<Set<string>>(() => {
@@ -495,9 +619,15 @@ const availablePreferredIndustries = useMemo(() => {
 
     /* 6) 経験職種(jobType) */
     if (experienceJobTypes.length) {
-      list = list.filter((s) =>
-        (s.job_types ?? []).some((jt) => experienceJobTypes.includes(jt)),
-      )
+      const wants = experienceJobTypes.map(norm)
+      list = list.filter((s) => {
+        const arr = getJobTypesFromStudent(s)
+        return arr.some((jt) => {
+          const j = norm(typeof jt === 'string' ? jt : String(jt))
+          return wants.some((w) => j.includes(w) || w.includes(j))
+        })
+      })
+      console.log("[DEBUG] after experienceJobTypes filter:", list.length)
     }
 
     /* 6) スキル */
@@ -534,8 +664,12 @@ const availablePreferredIndustries = useMemo(() => {
     /* 役職・ポジション */
     if (positionFilters.length) {
       list = list.filter((s) => {
-        // Ensure resumes is an array
-        const resumesArr = Array.isArray(s.resumes) ? s.resumes : []
+        // Ensure resumes is an array or single object
+        const resumesArr = Array.isArray(s.resumes)
+          ? s.resumes
+          : s.resumes
+          ? [s.resumes]
+          : []
         // Flatten work_experiences entries from both direct and form_data
         const works: any[] = resumesArr.flatMap((r: any) => [
           ...(Array.isArray(r.work_experiences) ? r.work_experiences : []),
@@ -812,19 +946,10 @@ const availablePreferredIndustries = useMemo(() => {
               <details className="group mb-3">
                 <summary className="cursor-pointer text-sm font-semibold select-none py-2">経験職種</summary>
                 <div className="pl-1">
-                  {[
-                    "エンジニア",
-                    "営業",
-                    "コンサルタント",
-                    "経営・経営企画",
-                    "総務・人事",
-                    "経理・財務",
-                    "企画",
-                    "マーケティング",
-                    "デザイナー",
-                    "広報",
-                    "その他",
-                  ].map((jt) => (
+                  {availableExperienceJobTypes.length === 0 && (
+                    <p className="text-xs text-muted-foreground">データから経験職種が取得できませんでした</p>
+                  )}
+                  {availableExperienceJobTypes.map((jt) => (
                     <div key={jt} className="flex items-center mb-1">
                       <Checkbox
                         id={`jobType-${jt}`}
