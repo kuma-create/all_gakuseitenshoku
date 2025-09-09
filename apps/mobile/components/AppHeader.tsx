@@ -305,13 +305,13 @@ export default function AppHeader({ title }: AppHeaderProps) {
                 </TouchableOpacity>
                 {item.isJobsParent && jobsOpen && (
                   <>
-                    <TouchableOpacity onPress={() => navigateAndClose("/(student)/jobs/fulltime")} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
+                    <TouchableOpacity onPress={() => { closeMenu(); router.push({ pathname: "/(student)/jobs", params: { type: "fulltime" } } as any); }} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
                       <Text style={{ fontSize: 15, color: "#374151" }}>本選考</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => navigateAndClose("/(student)/jobs/events")} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
+                    <TouchableOpacity onPress={() => { closeMenu(); router.push({ pathname: "/(student)/jobs", params: { type: "event" } } as any); }} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
                       <Text style={{ fontSize: 15, color: "#374151" }}>イベント</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => navigateAndClose("/(student)/jobs/internships")} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
+                    <TouchableOpacity onPress={() => { closeMenu(); router.push({ pathname: "/(student)/jobs", params: { type: "internship_long" } } as any); }} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
                       <Text style={{ fontSize: 15, color: "#374151" }}>インターン</Text>
                     </TouchableOpacity>
                   </>

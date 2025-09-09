@@ -3,7 +3,7 @@
 // UI/UX 改善版: デバウンス検索 / プルトゥリフレッシュ / 空・エラー状態 / 軽量スケルトン / 可読性向上
 // 2025-08-12
 
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useLocalSearchParams, usePathname } from "expo-router";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -138,6 +138,8 @@ const canonSel = (v?: string | null) => (v === "intern_long" ? "internship_long"
  * Screen: JobsIndex (UI/UX 改善)
  * =======================================*/
 export default function JobsIndexScreen() {
+  const params = useLocalSearchParams<{ type?: string }>();
+  const pathname = usePathname();
   const router = useRouter();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
@@ -155,6 +157,38 @@ export default function JobsIndexScreen() {
   const [selectionType, setSelectionType] = useState<
     NonNullable<JobRow["selection_type"]> | "all"
   >("all");
+
+  // initialize selectionType from URL (e.g., /jobs?type=fulltime | internship_long | internship_short | event)
+  useEffect(() => {
+    const tRaw = params?.type ? String(params.type) : "";
+    const t = (tRaw || "all") as string;
+    const allowed = ["all", "fulltime", "internship_long", "internship_short", "event"] as const;
+    if (allowed.includes(t as any) && t !== selectionType) {
+      setSelectionType(t as any);
+    }
+    // run only on initial mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // sync URL query with selectionType (prefer shallow param update to avoid reload)
+  useEffect(() => {
+    const currentType = params?.type ? String(params.type) : undefined;
+    const nextType = selectionType === "all" ? undefined : selectionType;
+    const same = (currentType || undefined) === (nextType || undefined);
+    if (same) return; // already in sync
+
+    // On web, setParams updates the query string without remounting.
+    // Fall back to replace only if pathname would change (not the case here).
+    try {
+      if (Platform.OS === 'web') {
+        router.setParams(nextType ? { type: nextType } : {});
+      } else {
+        router.replace({ pathname, params: nextType ? { type: nextType } : {} } as any);
+      }
+    } catch {
+      router.replace({ pathname, params: nextType ? { type: nextType } : {} } as any);
+    }
+  }, [selectionType, pathname, router, params]);
   const [refreshing, setRefreshing] = useState(false);
 
   // --- Favorite jobs state ---
@@ -605,6 +639,7 @@ export default function JobsIndexScreen() {
           <FlatList
             data={displayed}
             keyExtractor={(item) => item.id}
+            extraData={{ selectionType, industriesSelected, jobTypesSelected, salaryMin, eventFrom, eventTo, eventFormat, sortKey, debouncedQuery }}
             contentContainerStyle={{ paddingBottom: 24, gap: 12, paddingTop: 4 }}
             renderItem={({ item }) => (
               <MemoJobCard
