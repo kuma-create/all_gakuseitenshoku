@@ -125,7 +125,9 @@ import {
   StyleSheet,
   Alert,
   Image, // add this import
+  Linking,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { Brain, RefreshCw, Clock, CheckSquare, ChevronRight } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -818,6 +820,28 @@ export default function IPOMobileDashboard() {
     setShowPostSignup(false);
   }, []);
 
+  // Robust external link opener for iOS/Android/Web
+  const openExternal = useCallback(async (url: string) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.CHOICE, "consult");
+      await AsyncStorage.setItem(STORAGE_KEYS.DISMISSED_AT, new Date().toISOString());
+      setShowPostSignup(false);
+      if (Platform.OS === "web") {
+        // open in new tab on web to avoid SPA routing issues
+        (window as any).open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        await WebBrowser.openBrowserAsync(url);
+      }
+    } catch (e: any) {
+      Alert.alert("リンクを開けませんでした", e?.message ?? "URL を開く際に問題が発生しました。");
+    }
+  }, []);
+
   // === DEV helper: force open the popup in preview ===
   const debugOpenPopup = useCallback(async () => {
     await AsyncStorage.multiRemove([STORAGE_KEYS.CHOICE, STORAGE_KEYS.DISMISSED_AT]);
@@ -1216,8 +1240,12 @@ export default function IPOMobileDashboard() {
                   AIと就活を進める
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleChooseConsult} style={{ borderColor: "#D1D5DB", borderWidth: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" }}>
+              <TouchableOpacity
+                onPress={() => openExternal("https://student.ipo-career.com/consult")} //ここ専用のリンク貼る
+                style={{ borderColor: "#D1D5DB", borderWidth: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" }}
+              >
                 <Text style={{ fontWeight: "700" }}>プロに30分無料相談</Text>
+                <Text style={{ fontWeight: "200" }}>※WEBサイトにジャンプします</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleChooseLater} style={{ alignSelf: "center", padding: 8 }}>
                 <Text style={{ color: "#6B7280" }}>あとで</Text>
