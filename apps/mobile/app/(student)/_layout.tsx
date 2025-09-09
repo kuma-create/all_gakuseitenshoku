@@ -1,4 +1,3 @@
-// app/(student)/_layout.tsx
 import { Feather } from '@expo/vector-icons';
 import { Link, Slot, usePathname } from "expo-router";
 import React from "react";
@@ -65,7 +64,7 @@ function BottomBar() {
         <Item href="/ipo/dashboard" label="ホーム" iconName="home" active={isActive("/ipo/dashboard")} />
         <Item href="/ipo/selection" label="選考•ES管理" iconName="bar-chart-2" active={isActive("/ipo/selection")} />
         <Item href="/ipo/analysis" label="自己分析" iconName="activity" active={isActive("/ipo/analysis")} />
-        <Item href="/ipo/case" label="選考対策" iconName="target" active={isActive("/ipo/case")} />
+        {/* <Item href="/ipo/case" label="選考対策" iconName="target" active={isActive("/ipo/case")} /> */}
         <Item href="/(student)/profile" label="プロフィール" iconName="book" active={isActive("/(student)/profile")} />
       </View>
     </SafeAreaView>

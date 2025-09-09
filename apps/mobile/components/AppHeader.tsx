@@ -1,5 +1,5 @@
 import { useRouter, usePathname } from "expo-router";
-import { Menu, Home, User, ClipboardList, BookOpen, Briefcase, Send, Mail } from "lucide-react-native";
+import { Menu, Home, User, ClipboardList, BookOpen, Briefcase, Send, Mail, ChevronDown, ChevronRight } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { supabase } from "../src/lib/supabase";
@@ -17,6 +17,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
   const [userName, setUserName] = useState<string>("");
 
   const [menuVisible, setMenuVisible] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(true);
   const insets = useSafeAreaInsets();
   const headerPaddingTop = Math.max(insets.top, 12);
   const baseBarHeight = 56;
@@ -89,7 +90,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
     openMenu();
   };
 
-  const menuItems: { label: React.ReactNode; onPress: () => void }[] = [
+  const menuItems: { label: React.ReactNode; onPress: () => void; isJobsParent?: boolean }[] = [
     {
       label: (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -128,12 +129,27 @@ export default function AppHeader({ title }: AppHeaderProps) {
     },
     {
       label: (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Briefcase size={18} color="#111827" style={{ marginRight: 8 }} />
-          <Text style={{ fontSize: 16, color: "#111827" }}>求人検索</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Briefcase size={18} color="#111827" style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 16, color: "#111827" }}>求人検索</Text>
+          </View>
+          <Pressable
+            onPress={() => setJobsOpen(!jobsOpen)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="求人検索のサブメニューを開閉"
+          >
+            {jobsOpen ? (
+              <ChevronDown size={18} color="#6b7280" />
+            ) : (
+              <ChevronRight size={18} color="#6b7280" />
+            )}
+          </Pressable>
         </View>
       ),
-      onPress: () => navigateAndClose("/jobs"),
+      onPress: () => navigateAndClose("/(student)/jobs"),
+      isJobsParent: true,
     },
     {
       label: (
@@ -142,7 +158,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
           <Text style={{ fontSize: 16, color: "#111827" }}>スカウト</Text>
         </View>
       ),
-      onPress: () => navigateAndClose("/scout"),
+      onPress: () => navigateAndClose("/scouts"),
     },
   ];
 
@@ -275,18 +291,32 @@ export default function AppHeader({ title }: AppHeaderProps) {
 
           <ScrollView style={{ maxHeight: 300 }}>
             {menuItems.map((item, idx) => (
-              <TouchableOpacity
-                key={idx}
-                onPress={item.onPress}
-                style={{ paddingVertical: 12, paddingHorizontal: 14 }}
-                accessibilityRole="button"
-              >
-                {typeof item.label === "string" ? (
-                  <Text style={{ fontSize: 16, color: "#111827" }}>{item.label}</Text>
-                ) : (
-                  item.label
+              <View key={idx}>
+                <TouchableOpacity
+                  onPress={item.onPress}
+                  style={{ paddingVertical: 12, paddingHorizontal: 14 }}
+                  accessibilityRole="button"
+                >
+                  {typeof item.label === "string" ? (
+                    <Text style={{ fontSize: 16, color: "#111827" }}>{item.label}</Text>
+                  ) : (
+                    item.label
+                  )}
+                </TouchableOpacity>
+                {item.isJobsParent && jobsOpen && (
+                  <>
+                    <TouchableOpacity onPress={() => navigateAndClose("/(student)/jobs/fulltime")} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
+                      <Text style={{ fontSize: 15, color: "#374151" }}>本選考</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => navigateAndClose("/(student)/jobs/events")} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
+                      <Text style={{ fontSize: 15, color: "#374151" }}>イベント</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => navigateAndClose("/(student)/jobs/internships")} style={{ paddingVertical: 12, paddingHorizontal: 34 }}>
+                      <Text style={{ fontSize: 15, color: "#374151" }}>インターン</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
-              </TouchableOpacity>
+              </View>
             ))}
             <View style={{ height: 8 }} />
             <TouchableOpacity onPress={logoutAndClose} style={{ paddingVertical: 12, paddingHorizontal: 14 }} accessibilityRole="button">
