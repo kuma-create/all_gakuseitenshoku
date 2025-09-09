@@ -1282,59 +1282,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
             )}
           </Card>
 
-          {/* Stats Cards（総応募数を除外） */}
-          <ScrollArea className="w-full">
-            <div className="flex space-x-3 pb-2 pr-1">
-              {[
-                { 
-                  label: '選考中', 
-                  value: stats.inProgress, 
-                  color: 'text-yellow-600',
-                  bgColor: 'bg-yellow-50',
-                  icon: Timer
-                },
-                { 
-                  label: '内定', 
-                  value: stats.offers, 
-                  color: 'text-green-600',
-                  bgColor: 'bg-green-50',
-                  icon: Award
-                },
-                { 
-                  label: '不合格', 
-                  value: stats.rejected, 
-                  color: 'text-red-600',
-                  bgColor: 'bg-red-50',
-                  icon: XCircle
-                },
-                { 
-                  label: '平均評価', 
-                  value: stats.averageRating, 
-                  color: 'text-purple-600',
-                  bgColor: 'bg-purple-50',
-                  icon: Star
-                }
-              ].map(({ label, value, color, bgColor, icon: Icon }, index) => (
-                <motion.div
-                  key={label}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2, delay: index * 0.05 }}
-                  className="flex-shrink-0"
-                >
-                  <Card className="p-3 text-center hover:shadow-md transition-shadow min-w-[5.5rem] sm:min-w-[6rem]">
-                    <div className={`inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-lg ${bgColor} mb-1.5`}>
-                      <Icon className={`w-3 h-3 sm:w-4 sm:h-4 ${color}`} />
-                    </div>
-                    <div className={`text-xl sm:text-2xl font-extrabold ${color} mb-0.5 leading-none`}>
-                      {label === '平均評価' ? `${value}/5` : value}
-                    </div>
-                    <div className="text-[11px] text-gray-600">{label}</div>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </ScrollArea>
+          {/* Stats Cards（総応募数を除外） - removed */}
         </motion.div>
 
         {/* Desktop Filters - Compact */}
@@ -1489,7 +1437,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-4xl h-auto max-h-[88dvh] sm:max-h-[90vh] p-0 sm:p-0 flex flex-col overflow-y-auto rounded-2xl sm:rounded-lg">
           {selectedCompany && (
             <>
-              <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0 pr-10 sm:pr-2">
+              <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0 pr-16 sm:pr-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <DialogTitle className="text-xl sm:text-2xl truncate">{selectedCompany.name}</DialogTitle>
@@ -1497,7 +1445,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                       {selectedCompany.jobDetails.title} • {selectedCompany.industry}
                     </DialogDescription>
                   </div>
-                  <div className="flex items-center space-x-2 ml-4 mr-10 sm:mr-2 flex-shrink-0">
+                  <div className="flex items-center space-x-2 ml-4 mr-14 sm:mr-4 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
