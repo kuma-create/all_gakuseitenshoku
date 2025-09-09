@@ -175,7 +175,7 @@ export default function SelectionIndex() {
   // 詳細モーダル
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<Company | null>(null);
-  const [detailTab, setDetailTab] = useState<"overview" | "stages" | "notes">("overview");
+  const [detailTab, setDetailTab] = useState<"overview" | "stages" | "notes">("stages");
 
   // 追加フォーム
   const [form, setForm] = useState({
@@ -318,24 +318,6 @@ export default function SelectionIndex() {
     return list;
   }, [companies, searchQuery, statusFilter, priorityFilter, sortBy, sortOrder]);
 
-  const stats = useMemo(() => ({
-    total: companies.length,
-    inProgress: companies.filter(
-      (c) => c.status === "in_progress" || c.status === "final_interview",
-    ).length,
-    offers: companies.filter((c) => c.status === "offer").length,
-    rejected: companies.filter((c) => c.status === "rejected").length,
-    averageRating:
-      companies.filter((c) => c.overallRating).length > 0
-        ? Math.round(
-            (companies
-              .filter((c) => c.overallRating)
-              .reduce((acc, c) => acc + (c.overallRating || 0), 0) /
-              companies.filter((c) => c.overallRating).length) *
-              10,
-          ) / 10
-        : 0,
-  }), [companies]);
 
   // 企業情報の更新（編集モーダル）
   const handleUpdateCompany = useCallback(async () => {
@@ -759,7 +741,7 @@ export default function SelectionIndex() {
             <TouchableOpacity
               onPress={() => {
                 setDetailTarget(item);
-                setDetailTab("overview");
+                setDetailTab("stages");
                 setDetailOpen(true);
               }}
               accessibilityRole="button"
@@ -768,210 +750,6 @@ export default function SelectionIndex() {
             >
               <Eye size={16} color="#374151" />
             </TouchableOpacity>
-        {/* 企業詳細（ポップアップ） */}
-        <Modal visible={detailOpen} animationType="slide" transparent>
-          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
-            <View
-              style={{
-                backgroundColor: "#fff",
-                padding: 16,
-                borderTopLeftRadius: 16,
-                borderTopRightRadius: 16,
-                maxHeight: "92%",
-              }}
-            >
-              {/* ヘッダ */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text numberOfLines={1} style={{ fontWeight: "800", fontSize: 18 }}>
-                    {detailTarget?.name ?? ""}
-                  </Text>
-                  <Text numberOfLines={1} style={{ color: "#6B7280", marginTop: 2 }}>
-                    {(detailTarget?.industry || "-") + " ・ " + (detailTarget?.jobDetails.title || "-")}
-                  </Text>
-                </View>
-                {/* 右上：編集ショートカット */}
-                <TouchableOpacity
-                  onPress={() => {
-                    if (!detailTarget) return;
-                    setEditTarget(detailTarget);
-                    setEditForm({
-                      id: detailTarget.id,
-                      name: detailTarget.name,
-                      industry: detailTarget.industry || "",
-                      size: detailTarget.size,
-                      location: detailTarget.location || "",
-                      priority: detailTarget.priority,
-                      jobTitle: detailTarget.jobDetails.title || "",
-                      salary: detailTarget.jobDetails.salary || "",
-                      description: detailTarget.jobDetails.description || "",
-                      notes: detailTarget.notes || "",
-                      tags: detailTarget.tags?.join(",") || "",
-                    });
-                    setDetailOpen(false);
-                    setEditOpen(true);
-                  }}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 10,
-                    backgroundColor: "#F3F4F6",
-                    borderWidth: 1,
-                    borderColor: "#E5E7EB",
-                  }}
-                >
-                  <Text style={{ fontWeight: "700" }}>編集</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* タブ */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  marginTop: 12,
-                  backgroundColor: "#F3F4F6",
-                  borderRadius: 8,
-                  padding: 4,
-                }}
-              >
-                {[
-                  { key: "overview", label: "概要" },
-                  { key: "stages", label: "選考段階" },
-                  { key: "notes", label: "メモ" },
-                ].map((t) => (
-                  <TouchableOpacity
-                    key={t.key}
-                    onPress={() => setDetailTab(t.key as any)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 8,
-                      alignItems: "center",
-                      borderRadius: 6,
-                      backgroundColor: detailTab === t.key ? "#FFFFFF" : "transparent",
-                      borderWidth: detailTab === t.key ? 1 : 0,
-                      borderColor: "#E5E7EB",
-                    }}
-                  >
-                    <Text style={{ fontWeight: "600", fontSize: 12 }}>{t.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* 本文 */}
-              <ScrollView style={{ marginTop: 12 }} contentContainerStyle={{ paddingBottom: 20 }}>
-                {detailTab === "overview" && detailTarget ? (
-                  <View>
-                    {/* 2カラム風カード（縦積み） */}
-                    <View style={{ flexDirection: "row", gap: 12 }}>
-                      {/* 左：企業情報 */}
-                      <View
-                        style={{
-                          flex: 1,
-                          backgroundColor: "#FFFFFF",
-                          borderWidth: 1,
-                          borderColor: "#E5E7EB",
-                          borderRadius: 12,
-                          padding: 12,
-                        }}
-                      >
-                        <Text style={{ fontWeight: "700", marginBottom: 8 }}>企業情報</Text>
-                        <View style={{ gap: 8 }}>
-                          <Row label="業界" value={detailTarget.industry || "-"} />
-                          <Row label="規模" value={sizeToLabel(detailTarget.size)} />
-                          <Row label="所在地" value={detailTarget.location || "-"} />
-                          <Row label="応募日" value={detailTarget.appliedDate || "-"} />
-                        </View>
-                      </View>
-
-                      {/* 右：職務情報 */}
-                      <View
-                        style={{
-                          flex: 1,
-                          backgroundColor: "#FFFFFF",
-                          borderWidth: 1,
-                          borderColor: "#E5E7EB",
-                          borderRadius: 12,
-                          padding: 12,
-                        }}
-                      >
-                        <Text style={{ fontWeight: "700", marginBottom: 8 }}>職務情報</Text>
-                        <View style={{ gap: 8 }}>
-                          <Row label="職種" value={detailTarget.jobDetails.title || "-"} />
-                          <Row label="職務内容" value={detailTarget.jobDetails.description || "-"} />
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                ) : null}
-
-                {detailTab === "stages" && detailTarget ? (
-                  <View>
-                    {detailTarget.stages.length === 0 ? (
-                      <Text style={{ color: "#6B7280" }}>選考段階の記録はありません</Text>
-                    ) : (
-                      detailTarget.stages.map((s) => (
-                        <View
-                          key={s.id}
-                          style={{
-                            backgroundColor: "#FFFFFF",
-                            borderWidth: 1,
-                            borderColor: "#E5E7EB",
-                            borderRadius: 12,
-                            padding: 12,
-                            marginBottom: 8,
-                          }}
-                        >
-                          <Text style={{ fontWeight: "700" }}>{s.name}</Text>
-                          <Text style={{ color: "#6B7280", marginTop: 4 }}>
-                            {s.date || "-"} {s.time || ""}
-                          </Text>
-                          {s.feedback ? (
-                            <Text style={{ marginTop: 8 }}>FB: {s.feedback}</Text>
-                          ) : null}
-                        </View>
-                      ))
-                    )}
-                  </View>
-                ) : null}
-
-                {detailTab === "notes" && detailTarget ? (
-                  <View
-                    style={{
-                      backgroundColor: "#FFFFFF",
-                      borderWidth: 1,
-                      borderColor: "#E5E7EB",
-                      borderRadius: 12,
-                      padding: 12,
-                    }}
-                  >
-                    <Text style={{ fontWeight: "700", marginBottom: 8 }}>メモ</Text>
-                    <Text style={{ color: "#374151" }}>
-                      {detailTarget.notes?.trim() ? detailTarget.notes : "メモはありません"}
-                    </Text>
-                  </View>
-                ) : null}
-              </ScrollView>
-
-              {/* フッター（閉じる） */}
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => setDetailOpen(false)}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    backgroundColor: "#FFFFFF",
-                    borderWidth: 1,
-                    borderColor: "#E5E7EB",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text>閉じる</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
           </View>
         </View>
 
@@ -1079,7 +857,7 @@ export default function SelectionIndex() {
             paddingVertical: 10,
           }}
         >
-          <TouchableOpacity onPress={() => router.push("/ipo/dashboard" as Route)}>
+          <TouchableOpacity onPress={() => router.push("/ipo/dashboard")}>
             <ArrowLeft size={22} color="#111827" />
           </TouchableOpacity>
           <View style={{ alignItems: "center", flex: 1 }}>
@@ -1126,88 +904,6 @@ export default function SelectionIndex() {
         </View>
       </View>
 
-      {/* ステータスカード（4分割グリッド／固定配置） */}
-      <View style={{ paddingHorizontal: 12, paddingTop: 6 }}>
-        {(() => {
-          const items = [
-            { key: "total",      label: "総応募数", value: stats.total,      Icon: Building,    tint: "#EFF6FF", iconColor: "#3B82F6", countColor: "#1D4ED8" },
-            { key: "inProgress", label: "選考中",   value: stats.inProgress, Icon: Timer,       tint: "#FFF7ED", iconColor: "#F59E0B", countColor: "#B45309" },
-            { key: "offer",      label: "内定",     value: stats.offers,     Icon: CheckCircle, tint: "#ECFDF5", iconColor: "#10B981", countColor: "#047857" },
-            { key: "rejected",   label: "不合格",   value: stats.rejected,   Icon: XCircle,     tint: "#FEF2F2", iconColor: "#EF4444", countColor: "#B91C1C" },
-          ] as const;
-
-          return (
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                marginHorizontal: -6,
-              }}
-            >
-              {items.map(({ key, label, value, Icon, tint, iconColor, countColor }) => (
-                <View key={key} style={{ width: "25%", paddingHorizontal: 6, marginBottom: 8 }}>
-                  <View
-                    style={{
-                      height: 90,
-                      backgroundColor: "#FFFFFF",
-                      borderWidth: 1,
-                      borderColor: "#E5E7EB",
-                      borderRadius: 12,
-                      paddingVertical: 10,
-                      paddingHorizontal: 8,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      shadowColor: "#000",
-                      shadowOpacity: 0.06,
-                      shadowRadius: 8,
-                      shadowOffset: { width: 0, height: 2 },
-                    }}
-                  >
-                    {/* top icon */}
-                    <View
-                      style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 12,
-                        backgroundColor: tint,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginBottom: 6,
-                      }}
-                    >
-                      <Icon size={14} color={iconColor} />
-                    </View>
-
-                    {/* count */}
-                    <Text
-                      style={{
-                        fontWeight: "700",
-                        fontSize: 18,
-                        lineHeight: 22,
-                        color: countColor,
-                      }}
-                    >
-                      {String(value)}
-                    </Text>
-
-                    {/* label */}
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        color: "#6B7280",
-                        marginTop: 2,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {label}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          );
-        })()}
-      </View>
 
       {/* リスト */}
       <View style={{ flex: 1, padding: 12 }}>
@@ -1241,6 +937,206 @@ export default function SelectionIndex() {
           />
         )}
       </View>
+
+      {/* 企業詳細（ポップアップ）- 共有モーダル（リスト外） */}
+      <Modal visible={detailOpen} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
+          <View
+            style={{
+              backgroundColor: "#fff",
+              padding: 16,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: "92%",
+            }}
+          >
+            {/* ヘッダ */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text numberOfLines={1} style={{ fontWeight: "800", fontSize: 18 }}>
+                  {detailTarget?.name ?? ""}
+                </Text>
+                <Text numberOfLines={1} style={{ color: "#6B7280", marginTop: 2 }}>
+                  {(detailTarget?.industry || "-") + " ・ " + (detailTarget?.jobDetails.title || "-")}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  if (!detailTarget) return;
+                  setEditTarget(detailTarget);
+                  setEditForm({
+                    id: detailTarget.id,
+                    name: detailTarget.name,
+                    industry: detailTarget.industry || "",
+                    size: detailTarget.size,
+                    location: detailTarget.location || "",
+                    priority: detailTarget.priority,
+                    jobTitle: detailTarget.jobDetails.title || "",
+                    salary: detailTarget.jobDetails.salary || "",
+                    description: detailTarget.jobDetails.description || "",
+                    notes: detailTarget.notes || "",
+                    tags: detailTarget.tags?.join(",") || "",
+                  });
+                  setDetailOpen(false);
+                  setEditOpen(true);
+                }}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  backgroundColor: "#F3F4F6",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontWeight: "700" }}>編集</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* タブ */}
+            <View
+              style={{
+                flexDirection: "row",
+                marginTop: 12,
+                backgroundColor: "#F3F4F6",
+                borderRadius: 8,
+                padding: 4,
+              }}
+            >
+              {[
+                { key: "stages", label: "選考段階" },
+                { key: "notes", label: "メモ" },
+                { key: "overview", label: "概要" },
+              ].map((t) => (
+                <TouchableOpacity
+                  key={t.key}
+                  onPress={() => setDetailTab(t.key as any)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    alignItems: "center",
+                    borderRadius: 6,
+                    backgroundColor: detailTab === t.key ? "#FFFFFF" : "transparent",
+                    borderWidth: detailTab === t.key ? 1 : 0,
+                    borderColor: "#E5E7EB",
+                  }}
+                >
+                  <Text style={{ fontWeight: "600", fontSize: 12 }}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 本文 */}
+            <ScrollView style={{ marginTop: 12 }} contentContainerStyle={{ paddingBottom: 20 }}>
+              {detailTab === "overview" && detailTarget ? (
+                <View>
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        backgroundColor: "#FFFFFF",
+                        borderWidth: 1,
+                        borderColor: "#E5E7EB",
+                        borderRadius: 12,
+                        padding: 12,
+                      }}
+                    >
+                      <Text style={{ fontWeight: "700", marginBottom: 8 }}>企業情報</Text>
+                      <View style={{ gap: 8 }}>
+                        <Row label="業界" value={detailTarget.industry || "-"} />
+                        <Row label="規模" value={sizeToLabel(detailTarget.size)} />
+                        <Row label="所在地" value={detailTarget.location || "-"} />
+                        <Row label="応募日" value={detailTarget.appliedDate || "-"} />
+                      </View>
+                    </View>
+                    <View
+                      style={{
+                        flex: 1,
+                        backgroundColor: "#FFFFFF",
+                        borderWidth: 1,
+                        borderColor: "#E5E7EB",
+                        borderRadius: 12,
+                        padding: 12,
+                      }}
+                    >
+                      <Text style={{ fontWeight: "700", marginBottom: 8 }}>職務情報</Text>
+                      <View style={{ gap: 8 }}>
+                        <Row label="職種" value={detailTarget.jobDetails.title || "-"} />
+                        <Row label="職務内容" value={detailTarget.jobDetails.description || "-"} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+
+              {detailTab === "stages" && detailTarget ? (
+                <View>
+                  {detailTarget.stages.length === 0 ? (
+                    <Text style={{ color: "#6B7280" }}>選考段階の記録はありません</Text>
+                  ) : (
+                    detailTarget.stages.map((s) => (
+                      <View
+                        key={s.id}
+                        style={{
+                          backgroundColor: "#FFFFFF",
+                          borderWidth: 1,
+                          borderColor: "#E5E7EB",
+                          borderRadius: 12,
+                          padding: 12,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Text style={{ fontWeight: "700" }}>{s.name}</Text>
+                        <Text style={{ color: "#6B7280", marginTop: 4 }}>
+                          {s.date || "-"} {s.time || ""}
+                        </Text>
+                        {s.feedback ? (
+                          <Text style={{ marginTop: 8 }}>FB: {s.feedback}</Text>
+                        ) : null}
+                      </View>
+                    ))
+                  )}
+                </View>
+              ) : null}
+
+              {detailTab === "notes" && detailTarget ? (
+                <View
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    borderRadius: 12,
+                    padding: 12,
+                  }}
+                >
+                  <Text style={{ fontWeight: "700", marginBottom: 8 }}>メモ</Text>
+                  <Text style={{ color: "#374151" }}>
+                    {detailTarget.notes?.trim() ? detailTarget.notes : "メモはありません"}
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            {/* フッター（閉じる） */}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setDetailOpen(false)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  alignItems: "center",
+                }}
+              >
+                <Text>閉じる</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* フィルター・並び替え（簡易モーダル） */}
       <Modal visible={filterSheetOpen} animationType="slide" transparent>

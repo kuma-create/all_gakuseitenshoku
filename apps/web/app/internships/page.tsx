@@ -324,7 +324,7 @@ export default async function InternshipTop() {
               size="lg"
               className="rounded-full bg-white px-8 py-3 font-semibold text-orange-600 hover:bg-white/90"
             >
-              <Link href="#how-it-works">無料登録</Link>
+              <Link href="/signup">無料登録</Link>
             </Button>
 
             {/* Orange filled pill button with arrow */}
