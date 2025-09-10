@@ -65,6 +65,7 @@ type Step4 = {
   company3: string;
   skill_text: string;
   qualification_text: string;
+  skip_work_experience: boolean;
 };
 
 type FormState = Step1 & Step2 & Step3 & Step4;
@@ -92,6 +93,7 @@ const initialState: FormState = {
   university: "", faculty: "", department: "", graduation_month: null, join_ipo: false,
   work_summary: "", company1: "", company2: "", company3: "",
   skill_text: "", qualification_text: "",
+  skip_work_experience: false,
 };
 
 /* ------------------------------------------------------------
@@ -555,6 +557,7 @@ export default function OnboardingProfileMobile() {
       const {
         company1, company2, company3,
         work_summary, skill_text, qualification_text,
+        skip_work_experience, // UI制御のみ。DBには保存しない
         ...profileRest
       } = form;
 
@@ -637,12 +640,56 @@ export default function OnboardingProfileMobile() {
           </View>
         )}
 
-        {/* Step4: 上部にスキップボタンを配置（職歴は後から入力可） */}
+        {/* Step4: 上部にスキップ設定（WEB版準拠） */}
         {step === 4 && (
-          <View style={{ alignItems: 'flex-end', marginBottom: 8 }}>
-            <TouchableOpacity style={[styles.button, styles.ghost]} onPress={handleSubmit}>
-              <Text style={[styles.buttonText, { color: '#111827' }]}>スキップ</Text>
-            </TouchableOpacity>
+          <View
+            style={{
+              marginBottom: 8,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              backgroundColor: "#F9FAFB",
+              padding: 16,
+            }}
+          >
+            <Pressable
+              onPress={() => onChange("skip_work_experience", !form.skip_work_experience)}
+              style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: !!form.skip_work_experience }}
+              hitSlop={8}
+            >
+              {/* checkbox */}
+              <View
+                style={{
+                  marginTop: 2,
+                  width: 18,
+                  height: 18,
+                  borderRadius: 4,
+                  borderWidth: 2,
+                  borderColor: form.skip_work_experience ? "#DC2626" : "#9CA3AF",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: form.skip_work_experience ? "#DC2626" : "transparent",
+                }}
+              >
+                {form.skip_work_experience ? (
+                  <Text style={{ color: "white", fontSize: 12, lineHeight: 12 }}>✓</Text>
+                ) : null}
+              </View>
+              {/* texts */}
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#1F2937" }}>
+                  今回は職歴の入力をスキップする
+                </Text>
+                <Text style={{ marginTop: 4, fontSize: 12, color: "#6B7280" }}>
+                  スキップしても登録は続行できます。職歴はマイページからいつでも追加できます.
+                </Text>
+                <Text style={{ marginTop: 4, fontSize: 12, color: "#991B1B" }}>
+                  ※重要　就活選抜コミュニティIPOに参加希望の方は必ず記入をお願いします。
+                </Text>
+              </View>
+            </Pressable>
           </View>
         )}
 
@@ -961,7 +1008,7 @@ export default function OnboardingProfileMobile() {
         {step === 4 && (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>職歴</Text>
-            {workExperiences.map((exp) => (
+            {!form.skip_work_experience && workExperiences.map((exp) => (
               <View key={exp.id} style={styles.expBox}>
                 <View style={styles.expHeader}>
                   <Text style={styles.expTitle}>
@@ -998,14 +1045,6 @@ export default function OnboardingProfileMobile() {
             <TouchableOpacity style={styles.outlineBtn} onPress={addWorkExperience}>
               <Text style={styles.outlineBtnText}>職歴を追加</Text>
             </TouchableOpacity>
-
-            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>プロフィール補足</Text>
-            <Area label="自己紹介 / サマリー" value={form.work_summary} onChangeText={(v) => onChange("work_summary", v)} />
-            <Field label="企業名1" value={form.company1} onChangeText={(v) => onChange("company1", v)} />
-            <Field label="企業名2" value={form.company2} onChangeText={(v) => onChange("company2", v)} />
-            <Field label="企業名3" value={form.company3} onChangeText={(v) => onChange("company3", v)} />
-            <Area label="スキル" value={form.skill_text} onChangeText={(v) => onChange("skill_text", v)} />
-            <Area label="資格" value={form.qualification_text} onChangeText={(v) => onChange("qualification_text", v)} />
           </View>
         )}
 

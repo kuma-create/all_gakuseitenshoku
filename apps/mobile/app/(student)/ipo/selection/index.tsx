@@ -6,11 +6,15 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  Pressable,
   TextInput,
   ScrollView,
   Modal,
   ActivityIndicator,
   SafeAreaView,
+  Linking,
+  Alert,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -26,7 +30,12 @@ import {
   CheckCircle,
   Eye,
   Pencil,
+  Copy as CopyIcon,
+  Calendar,
+  Clock,
 } from "lucide-react-native";
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Clipboard from 'expo-clipboard';
 import { supabase } from 'src/lib/supabase';
 
 /* ------------------------------------------------------------------
@@ -177,6 +186,9 @@ export default function SelectionIndex() {
     description: "",
     notes: "",
     tags: "",
+    accountId: "",
+    password: "",
+    siteUrl: "",
   });
 
   // 詳細モーダル
@@ -193,9 +205,26 @@ export default function SelectionIndex() {
     date: "",
     time: "",
     location: "",
+    interviewer: "",
+    rating: 0 as number,
     feedback: "",
     notes: "",
   });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const formatTime = (d: Date) => {
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  };
 
   // 追加フォーム
   const [form, setForm] = useState({
@@ -209,6 +238,9 @@ export default function SelectionIndex() {
     description: "",
     notes: "",
     tags: "",
+    accountId: "",
+    password: "",
+    siteUrl: "",
   });
 
   const fetchCompanies = useCallback(async () => {
@@ -308,6 +340,14 @@ export default function SelectionIndex() {
     fetchCompanies();
   }, [fetchCompanies]);
 
+  // Safety effect to reset pickers when all modals are closed
+  useEffect(() => {
+    if (!editOpen && !detailOpen && !stageEditOpen && !filterSheetOpen && !addOpen) {
+      if (showDatePicker) setShowDatePicker(false);
+      if (showTimePicker) setShowTimePicker(false);
+    }
+  }, [editOpen, detailOpen, stageEditOpen, filterSheetOpen, addOpen, showDatePicker, showTimePicker]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
     let list = companies.filter((c) => {
@@ -346,6 +386,17 @@ export default function SelectionIndex() {
 
     try {
       const nowDate = new Date().toISOString().split("T")[0];
+      // build tags with form-priority embedded values
+      const inputTags = editForm.tags ? editForm.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
+      const preservedSpecial = (editTarget?.tags || []).filter(
+        (t) => t.startsWith("__") && !t.startsWith("__id:") && !t.startsWith("__pw:") && !t.startsWith("__url:")
+      );
+      const embedTags = [
+        ...(editForm.accountId ? ["__id:" + editForm.accountId] : []),
+        ...(editForm.password ? ["__pw:" + editForm.password] : []),
+        ...(editForm.siteUrl ? ["__url:" + editForm.siteUrl] : []),
+      ];
+      const combinedTags = Array.from(new Set([...inputTags, ...preservedSpecial, ...embedTags]));
       await supabase
         .from("ipo_selection_companies")
         .update({
@@ -359,7 +410,7 @@ export default function SelectionIndex() {
           job_title: editForm.jobTitle,
           job_salary: editForm.salary || null,
           job_description: editForm.description || null,
-          tags: editForm.tags ? editForm.tags.split(",").map((t) => t.trim()) : [],
+          tags: combinedTags,
         })
         .eq("id", editTarget.id);
 
@@ -381,7 +432,7 @@ export default function SelectionIndex() {
                   salary: editForm.salary,
                   description: editForm.description,
                 },
-                tags: editForm.tags ? editForm.tags.split(",").map((t) => t.trim()) : [],
+                tags: combinedTags,
               }
             : c,
         ),
@@ -391,6 +442,17 @@ export default function SelectionIndex() {
       setEditTarget(null);
     } catch (e) {
       // 失敗してもローカル更新は反映
+      // build tags with form-priority embedded values in catch as well
+      const inputTags = editForm.tags ? editForm.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
+      const preservedSpecial = (editTarget?.tags || []).filter(
+        (t) => t.startsWith("__") && !t.startsWith("__id:") && !t.startsWith("__pw:") && !t.startsWith("__url:")
+      );
+      const embedTags = [
+        ...(editForm.accountId ? ["__id:" + editForm.accountId] : []),
+        ...(editForm.password ? ["__pw:" + editForm.password] : []),
+        ...(editForm.siteUrl ? ["__url:" + editForm.siteUrl] : []),
+      ];
+      const combinedTags = Array.from(new Set([...inputTags, ...preservedSpecial, ...embedTags]));
       setCompanies((prev) =>
         prev.map((c) =>
           c.id === editTarget.id
@@ -408,7 +470,7 @@ export default function SelectionIndex() {
                   salary: editForm.salary,
                   description: editForm.description,
                 },
-                tags: editForm.tags ? editForm.tags.split(",").map((t) => t.trim()) : [],
+                tags: combinedTags,
               }
             : c,
         ),
@@ -428,6 +490,8 @@ export default function SelectionIndex() {
       date: stageForm.date || null,
       time: stageForm.time || null,
       location: stageForm.location || null,
+      interviewer: stageForm.interviewer || null,
+      rating: typeof stageForm.rating === 'number' ? stageForm.rating : Number(stageForm.rating) || 0,
       feedback: stageForm.feedback || null,
       notes: stageForm.notes || null,
     };
@@ -502,8 +566,16 @@ export default function SelectionIndex() {
         );
       }
     } finally {
+      // Close the editor, clear transient pickers
       setStageEditOpen(false);
       setStageEditing(null);
+      setShowDatePicker(false);
+      setShowTimePicker(false);
+      // Re-open the detail modal (stages tab) after iOS fully dismisses the editor
+      setTimeout(() => {
+        setDetailTab("stages");
+        setDetailOpen(true);
+      }, 200);
     }
   }, [detailTarget, stageForm, stageEditing]);
 
@@ -529,6 +601,14 @@ export default function SelectionIndex() {
   const handleAddCompany = useCallback(async () => {
     if (!form.name.trim() || !form.jobTitle.trim()) return;
     const nowDate = new Date().toISOString().split("T")[0];
+    // Build tagsCombined before insert
+    const baseTags = form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    const embedTags = [
+      ...(form.accountId ? [`__id:${form.accountId}`] : []),
+      ...(form.password ? [`__pw:${form.password}`] : []),
+      ...(form.siteUrl ? [`__url:${form.siteUrl}`] : []),
+    ];
+    const tagsCombined = Array.from(new Set([...baseTags, ...embedTags]));
     try {
       const { data: inserted } = await supabase
         .from("ipo_selection_companies")
@@ -544,7 +624,7 @@ export default function SelectionIndex() {
           notes: form.notes || null,
           last_update: nowDate,
           overall_rating: null,
-          tags: form.tags ? form.tags.split(",").map((t) => t.trim()) : [],
+          tags: tagsCombined,
           job_title: form.jobTitle,
           job_salary: form.salary || null,
           job_description: form.description || null,
@@ -567,7 +647,7 @@ export default function SelectionIndex() {
         notes: form.notes,
         lastUpdate: nowDate,
         overallRating: undefined,
-        tags: form.tags ? form.tags.split(",").map((t) => t.trim()) : [],
+        tags: tagsCombined,
         stages: [
           {
             id: `${newId}-entry`,
@@ -600,6 +680,9 @@ export default function SelectionIndex() {
         description: "",
         notes: "",
         tags: "",
+        accountId: "",
+        password: "",
+        siteUrl: "",
       });
     } catch (e) {
       // ローカルだけでも追加
@@ -616,7 +699,7 @@ export default function SelectionIndex() {
         notes: form.notes,
         lastUpdate: nowDate,
         overallRating: undefined,
-        tags: form.tags ? form.tags.split(",").map((t) => t.trim()) : [],
+        tags: tagsCombined,
         stages: [
           {
             id: `${Date.now()}-1`,
@@ -647,8 +730,7 @@ export default function SelectionIndex() {
       : 0;
 
     return (
-      <TouchableOpacity
-        onPress={() => setFilterSheetOpen(false)}
+      <View
         style={{
           backgroundColor: "#fff",
           padding: 12,
@@ -695,6 +777,10 @@ export default function SelectionIndex() {
             <TouchableOpacity
               onPress={() => {
                 setEditTarget(item);
+                const specialId = item.tags?.find((t) => t.startsWith("__id:"))?.replace("__id:", "") || "";
+                const specialPw = item.tags?.find((t) => t.startsWith("__pw:"))?.replace("__pw:", "") || "";
+                const specialUrl = item.tags?.find((t) => t.startsWith("__url:"))?.replace("__url:", "") || "";
+                const visibleTags = (item.tags || []).filter((t) => !t.startsWith("__")).join(",");
                 setEditForm({
                   id: item.id,
                   name: item.name,
@@ -706,164 +792,20 @@ export default function SelectionIndex() {
                   salary: item.jobDetails.salary || "",
                   description: item.jobDetails.description || "",
                   notes: item.notes || "",
-                  tags: item.tags?.join(",") || "",
+                  tags: visibleTags,
+                  accountId: specialId,
+                  password: specialPw,
+                  siteUrl: specialUrl,
                 });
                 setEditOpen(true);
               }}
               accessibilityRole="button"
               accessibilityLabel="編集"
               style={{ padding: 6, marginRight: 6 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Pencil size={16} color="#374151" />
             </TouchableOpacity>
-      {/* 企業編集（ポップアップ） */}
-      <Modal visible={editOpen} animationType="slide" transparent>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.2)",
-            justifyContent: "flex-end",
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: "#fff",
-              padding: 16,
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              maxHeight: "90%",
-            }}
-          >
-            <Text style={{ fontWeight: "700", fontSize: 16 }}>企業情報を編集</Text>
-            <Text style={{ color: "#6B7280", fontSize: 12, marginTop: 2 }}>
-              企業情報と応募したポジションの詳細を編集してください。
-            </Text>
-
-            {[
-              { k: "name", ph: "企業名 *" },
-              { k: "jobTitle", ph: "職種 *" },
-              { k: "industry", ph: "業界" },
-              { k: "location", ph: "所在地" },
-              { k: "salary", ph: "想定年収（例: 600-800（万円））" },
-              { k: "tags", ph: "タグ（カンマ区切り）" },
-            ].map((f) => (
-              <View
-                key={f.k}
-                style={{
-                  backgroundColor: "#F3F4F6",
-                  borderRadius: 10,
-                  paddingHorizontal: 10,
-                  paddingVertical: 10,
-                  marginTop: 10,
-                }}
-              >
-                <TextInput
-                  placeholder={f.ph}
-                  value={(editForm as any)[f.k]}
-                  onChangeText={(t) => setEditForm((p) => ({ ...(p as any), [f.k]: t }))}
-                />
-              </View>
-            ))}
-
-            {/* 優先度（3択） */}
-            <View style={{ marginTop: 10 }}>
-              <Text style={{ fontSize: 12, color: "#6B7280" }}>優先度</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {(["high", "medium", "low"] as const).map((v) => (
-                  <TouchableOpacity
-                    key={v}
-                    onPress={() => setEditForm((p) => ({ ...p, priority: v }))}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 8,
-                      borderRadius: 9999,
-                      borderWidth: 1,
-                      borderColor: editForm.priority === v ? "#2563EB" : "#E5E7EB",
-                      backgroundColor: editForm.priority === v ? "#DBEAFE" : "#FFFFFF",
-                      marginRight: 8,
-                      marginTop: 8,
-                    }}
-                  >
-                    <Text style={{ fontSize: 12 }}>{PRIORITY_LABEL[v]}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* 職務内容 / メモ */}
-            <View
-              style={{
-                backgroundColor: "#F3F4F6",
-                borderRadius: 10,
-                paddingHorizontal: 10,
-                paddingVertical: 10,
-                marginTop: 10,
-                minHeight: 80,
-              }}
-            >
-              <TextInput
-                placeholder="職務内容"
-                value={editForm.description}
-                onChangeText={(t) => setEditForm((p) => ({ ...p, description: t }))}
-                multiline
-              />
-            </View>
-
-            <View
-              style={{
-                backgroundColor: "#F3F4F6",
-                borderRadius: 10,
-                paddingHorizontal: 10,
-                paddingVertical: 10,
-                marginTop: 10,
-                minHeight: 80,
-              }}
-            >
-              <TextInput
-                placeholder="メモ"
-                value={editForm.notes}
-                onChangeText={(t) => setEditForm((p) => ({ ...p, notes: t }))}
-                multiline
-              />
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  setEditOpen(false);
-                  setEditTarget(null);
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: "#FFFFFF",
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  alignItems: "center",
-                }}
-              >
-                <Text>キャンセル</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleUpdateCompany}
-                disabled={!editForm.name.trim() || !editForm.jobTitle.trim()}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: !editForm.name.trim() || !editForm.jobTitle.trim()
-                    ? "#93C5FD"
-                    : "#2563EB",
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700" }}>更新</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
             {/* 詳細（ポップアップ） */}
             <TouchableOpacity
               onPress={() => {
@@ -874,6 +816,7 @@ export default function SelectionIndex() {
               accessibilityRole="button"
               accessibilityLabel="詳細を見る"
               style={{ padding: 6 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Eye size={16} color="#374151" />
             </TouchableOpacity>
@@ -949,7 +892,7 @@ export default function SelectionIndex() {
         >
           <Text style={{ color: "#6B7280", fontSize: 12 }}>{item.lastUpdate}</Text>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -1065,10 +1008,291 @@ export default function SelectionIndex() {
         )}
       </View>
 
-      {/* 企業詳細（ポップアップ）- 共有モーダル（リスト外） */}
-      <Modal visible={detailOpen} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
+      {/* 企業編集（ポップアップ） - リスト外 */}
+      <Modal
+        visible={editOpen}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setEditOpen(false);
+          setEditTarget(null);
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+        onDismiss={() => {
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+      >
+        <View
+          pointerEvents="box-none"
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.2)",
+            justifyContent: "flex-end",
+          }}
+        >
           <View
+            style={{
+              backgroundColor: "#fff",
+              padding: 16,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              maxHeight: "90%",
+            }}
+          >
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
+              <Text style={{ fontWeight: "700", fontSize: 16 }}>企業情報を編集</Text>
+              <Text style={{ color: "#6B7280", fontSize: 12, marginTop: 2 }}>
+                企業情報と応募したポジションの詳細を編集してください。
+              </Text>
+
+              {[
+                { k: "name", ph: "企業名 *" },
+                { k: "jobTitle", ph: "職種 *" },
+                { k: "industry", ph: "業界" },
+                { k: "location", ph: "所在地" },
+                { k: "salary", ph: "想定年収（例: 600-800（万円））" },
+              ].map((f) => (
+                <View
+                  key={f.k}
+                  style={{
+                    backgroundColor: "#F3F4F6",
+                    borderRadius: 10,
+                    paddingHorizontal: 10,
+                    paddingVertical: 10,
+                    marginTop: 10,
+                  }}
+                >
+                  <TextInput
+                    placeholder={f.ph}
+                    value={(editForm as any)[f.k]}
+                    onChangeText={(t) => setEditForm((p) => ({ ...(p as any), [f.k]: t }))}
+                    editable={true}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                </View>
+              ))}
+
+              {/* マイページID & パスワード（編集） */}
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+                <View style={{ flex: 1, backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                  <TextInput
+                    placeholder="マイページID"
+                    value={editForm.accountId}
+                    onChangeText={(t) => setEditForm((p) => ({ ...p, accountId: t }))}
+                    editable={true}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(editForm.accountId || "");
+                      Alert.alert("コピーしました", "マイページIDをコピーしました");
+                    }}
+                    accessibilityLabel="IDをコピー"
+                    style={{ alignSelf: 'flex-start', marginTop: 6, padding: 6, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' }}
+                  >
+                    <CopyIcon size={16} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1, backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                  <TextInput
+                    placeholder="マイページパスワード"
+                    value={editForm.password}
+                    onChangeText={(t) => setEditForm((p) => ({ ...p, password: t }))}
+                    secureTextEntry
+                    editable={true}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(editForm.password || "");
+                      Alert.alert("コピーしました", "マイページパスワードをコピーしました");
+                    }}
+                    accessibilityLabel="パスワードをコピー"
+                    style={{ alignSelf: 'flex-start', marginTop: 6, padding: 6, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' }}
+                  >
+                    <CopyIcon size={16} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* サイトURL（編集） */}
+              <View style={{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10 }}>
+                <TextInput
+                  placeholder="サイトURL"
+                  value={editForm.siteUrl}
+                  onChangeText={(t) => setEditForm((p) => ({ ...p, siteUrl: t }))}
+                  editable={true}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(editForm.siteUrl || "");
+                    Alert.alert("コピーしました", "サイトURLをコピーしました");
+                  }}
+                  accessibilityLabel="サイトURLをコピー"
+                  style={{ alignSelf: 'flex-start', marginTop: 6, padding: 6, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' }}
+                >
+                  <CopyIcon size={16} color="#374151" />
+                </TouchableOpacity>
+              </View>
+
+              {/* タグ */}
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 10,
+                }}
+              >
+                <TextInput
+                  placeholder="タグ（カンマ区切り）"
+                  value={editForm.tags}
+                  onChangeText={(t) => setEditForm((p) => ({ ...p, tags: t }))}
+                  editable={true}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* 優先度（3択） */}
+              <View style={{ marginTop: 10 }}>
+                <Text style={{ fontSize: 12, color: "#6B7280" }}>優先度</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {(["high", "medium", "low"] as const).map((v) => (
+                    <TouchableOpacity
+                      key={v}
+                      onPress={() => setEditForm((p) => ({ ...p, priority: v }))}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        borderRadius: 9999,
+                        borderWidth: 1,
+                        borderColor: editForm.priority === v ? "#2563EB" : "#E5E7EB",
+                        backgroundColor: editForm.priority === v ? "#DBEAFE" : "#FFFFFF",
+                        marginRight: 8,
+                        marginTop: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12 }}>{PRIORITY_LABEL[v]}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* 職務内容 / メモ */}
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 10,
+                  minHeight: 80,
+                }}
+              >
+                <TextInput
+                  placeholder="職務内容"
+                  value={editForm.description}
+                  onChangeText={(t) => setEditForm((p) => ({ ...p, description: t }))}
+                  multiline
+                  editable={true}
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 10,
+                  minHeight: 80,
+                }}
+              >
+                <TextInput
+                  placeholder="メモ"
+                  value={editForm.notes}
+                  onChangeText={(t) => setEditForm((p) => ({ ...p, notes: t }))}
+                  multiline
+                  editable={true}
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setEditOpen(false);
+                  setEditTarget(null);
+                  setShowDatePicker(false);
+                  setShowTimePicker(false);
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  alignItems: "center",
+                }}
+              >
+                <Text>キャンセル</Text>
+              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleUpdateCompany}
+                  disabled={!editForm.name.trim() || !editForm.jobTitle.trim()}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    backgroundColor: !editForm.name.trim() || !editForm.jobTitle.trim()
+                      ? "#93C5FD"
+                      : "#2563EB",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>更新</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 企業詳細（ポップアップ）- 共有モーダル（リスト外） */}
+      <Modal
+        visible={detailOpen}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setDetailOpen(false);
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+        onDismiss={() => {
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+      >
+        <View
+          pointerEvents="box-none"
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
+          <View
+            pointerEvents="box-none"
             style={{
               backgroundColor: "#fff",
               padding: 16,
@@ -1091,6 +1315,10 @@ export default function SelectionIndex() {
                 onPress={() => {
                   if (!detailTarget) return;
                   setEditTarget(detailTarget);
+                  const specialId = detailTarget.tags?.find((t) => t.startsWith("__id:"))?.replace("__id:", "") || "";
+                  const specialPw = detailTarget.tags?.find((t) => t.startsWith("__pw:"))?.replace("__pw:", "") || "";
+                  const specialUrl = detailTarget.tags?.find((t) => t.startsWith("__url:"))?.replace("__url:", "") || "";
+                  const visibleTags = (detailTarget.tags || []).filter((t) => !t.startsWith("__")).join(",");
                   setEditForm({
                     id: detailTarget.id,
                     name: detailTarget.name,
@@ -1102,10 +1330,16 @@ export default function SelectionIndex() {
                     salary: detailTarget.jobDetails.salary || "",
                     description: detailTarget.jobDetails.description || "",
                     notes: detailTarget.notes || "",
-                    tags: detailTarget.tags?.join(",") || "",
+                    tags: visibleTags,
+                    accountId: specialId,
+                    password: specialPw,
+                    siteUrl: specialUrl,
                   });
                   setDetailOpen(false);
-                  setEditOpen(true);
+                  // wait for iOS to fully dismiss before opening next modal
+                  setTimeout(() => {
+                    setEditOpen(true);
+                  }, 250);
                 }}
                 style={{
                   paddingHorizontal: 12,
@@ -1174,6 +1408,35 @@ export default function SelectionIndex() {
                         <Row label="規模" value={sizeToLabel(detailTarget.size)} />
                         <Row label="所在地" value={detailTarget.location || "-"} />
                         <Row label="応募日" value={detailTarget.appliedDate || "-"} />
+                        {(() => {
+                          const tag = detailTarget.tags?.find((t) => t.startsWith("__url:"));
+                          const rawUrl = tag ? tag.replace("__url:", "") : "";
+                          const url = rawUrl && !/^https?:\/\//i.test(rawUrl) ? `https://${rawUrl}` : rawUrl;
+                          return (
+                            <View style={{ flexDirection: "row" }}>
+                              <Text style={{ width: 72, color: "#6B7280", fontSize: 12 }}>サイト:</Text>
+                              {url ? (
+                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                                  <TouchableOpacity onPress={() => Linking.openURL(url)} style={{ flex: 1 }}>
+                                    <Text numberOfLines={1} style={{ color: "#2563EB", fontSize: 12, textDecorationLine: "underline" }}>{rawUrl}</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    onPress={async () => {
+                                      await Clipboard.setStringAsync(rawUrl);
+                                      Alert.alert("コピーしました", "サイトURLをコピーしました");
+                                    }}
+                                    accessibilityLabel="サイトURLをコピー"
+                                    style={{ marginLeft: 8, padding: 6, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' }}
+                                  >
+                                    <CopyIcon size={16} color="#374151" />
+                                  </TouchableOpacity>
+                                </View>
+                              ) : (
+                                <Text style={{ flex: 1, color: "#111827", fontSize: 12 }}>-</Text>
+                              )}
+                            </View>
+                          );
+                        })()}
                       </View>
                     </View>
                     <View
@@ -1199,16 +1462,24 @@ export default function SelectionIndex() {
               {detailTab === "stages" && detailTarget ? (
                 <View>
                   <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 8 }}>
-                    <TouchableOpacity
+                    <Pressable
+                      pointerEvents="auto"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       onPress={() => {
+                        // Reset transient states and close the underlying detail modal first (iOS nested Modal touch fix)
+                        setShowDatePicker(false);
+                        setShowTimePicker(false);
                         setStageEditing(null);
-                        setStageForm({ name: "", status: "scheduled", date: "", time: "", location: "", feedback: "", notes: "" });
-                        setStageEditOpen(true);
+                        setStageForm({ name: "", status: "scheduled", date: "", time: "", location: "", interviewer: "", rating: 0, feedback: "", notes: "" });
+                        setDetailOpen(false);
+                        setTimeout(() => {
+                          setStageEditOpen(true);
+                        }, 250);
                       }}
                       style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#2563EB" }}
                     >
                       <Text style={{ color: "#fff", fontWeight: "700" }}>＋ 追加</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                   {detailTarget.stages.length === 0 ? (
                     <Text style={{ color: "#6B7280" }}>選考段階の記録はありません</Text>
@@ -1216,6 +1487,7 @@ export default function SelectionIndex() {
                     detailTarget.stages.map((s) => (
                       <View
                         key={s.id}
+                        pointerEvents="box-none"
                         style={{
                           backgroundColor: "#FFFFFF",
                           borderWidth: 1,
@@ -1227,8 +1499,10 @@ export default function SelectionIndex() {
                       >
                         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                           <Text style={{ fontWeight: "700" }}>{s.name}</Text>
-                          <View style={{ flexDirection: "row", gap: 8 }}>
-                            <TouchableOpacity
+                          <View style={{ flexDirection: "row", gap: 8, zIndex: 1 }} pointerEvents="box-none">
+                            <Pressable
+                              pointerEvents="auto"
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               onPress={() => {
                                 setStageEditing(s);
                                 setStageForm({
@@ -1237,6 +1511,8 @@ export default function SelectionIndex() {
                                   date: s.date || "",
                                   time: s.time || "",
                                   location: s.location || "",
+                                  interviewer: s.interviewer || "",
+                                  rating: typeof s.rating === 'number' ? s.rating : 0,
                                   feedback: s.feedback || "",
                                   notes: s.notes || "",
                                 });
@@ -1245,13 +1521,15 @@ export default function SelectionIndex() {
                               style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }}
                             >
                               <Text style={{ fontSize: 12 }}>編集</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
+                            </Pressable>
+                            <Pressable
+                              pointerEvents="auto"
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               onPress={() => handleDeleteStage(s.id)}
                               style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" }}
                             >
                               <Text style={{ fontSize: 12, color: "#B91C1C" }}>削除</Text>
-                            </TouchableOpacity>
+                            </Pressable>
                           </View>
                         </View>
                         <Text style={{ color: "#6B7280", marginTop: 4 }}>
@@ -1293,7 +1571,11 @@ export default function SelectionIndex() {
             {/* フッター（閉じる） */}
             <View style={{ flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
-                onPress={() => setDetailOpen(false)}
+                onPress={() => {
+                  setDetailOpen(false);
+                  setShowDatePicker(false);
+                  setShowTimePicker(false);
+                }}
                 style={{
                   flex: 1,
                   paddingVertical: 12,
@@ -1312,55 +1594,195 @@ export default function SelectionIndex() {
       </Modal>
 
       {/* 選考段階 編集モーダル */}
-      <Modal visible={stageEditOpen} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "88%" }}>
+      <Modal
+        visible={stageEditOpen}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setStageEditOpen(false);
+          setStageEditing(null);
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+        onDismiss={() => {
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+      >
+        <View
+          pointerEvents="box-none"
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", justifyContent: "flex-end" }}>
+          <View pointerEvents="box-none" style={{ backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: "88%" }}>
             <Text style={{ fontWeight: "700", fontSize: 16 }}>{stageEditing ? "選考段階を編集" : "選考段階を追加"}</Text>
 
-            {[
-              { k: "name", ph: "段階名（例: 一次面接）" },
-              { k: "date", ph: "日付（YYYY-MM-DD）" },
-              { k: "time", ph: "時間（例: 14:00）" },
-              { k: "location", ph: "場所（オンライン/住所など）" },
-            ].map((f) => (
-              <View key={f.k} style={{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10 }}>
+            {/* 段階名 + 状況 */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              <View style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
                 <TextInput
-                  placeholder={f.ph}
-                  value={(stageForm as any)[f.k]}
-                  onChangeText={(t) => setStageForm((p) => ({ ...(p as any), [f.k]: t }))}
+                  placeholder="段階名（例: 一次面接）"
+                  value={stageForm.name}
+                  onChangeText={(t) => setStageForm((p) => ({ ...p, name: t }))}
                 />
               </View>
-            ))}
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>状況</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {([
+                    { v: 'pending', l: '待機中' },
+                    { v: 'scheduled', l: '予定' },
+                    { v: 'passed', l: '通過' },
+                    { v: 'failed', l: '不通過' },
+                  ] as const).map(({ v, l }) => (
+                    <TouchableOpacity
+                      key={v}
+                      onPress={() => setStageForm((p) => ({ ...p, status: v }))}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        borderRadius: 9999,
+                        borderWidth: 1,
+                        borderColor: stageForm.status === v ? '#2563EB' : '#E5E7EB',
+                        backgroundColor: stageForm.status === v ? '#DBEAFE' : '#FFFFFF',
+                        marginRight: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12 }}>{l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
 
-            {/* ステータス */}
+            {/* 日付 + 時間 */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              {/* 日付 */}
+              <View style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>日付</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TextInput
+                    placeholder="YYYY-MM-DD"
+                    value={stageForm.date}
+                    onChangeText={(t) => setStageForm((p) => ({ ...p, date: t }))}
+                    style={{ flex: 1 }}
+                  />
+                  <TouchableOpacity onPress={() => setShowDatePicker(true)} accessibilityLabel="日付を選択">
+                    <Calendar size={18} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              {/* 時間 */}
+              <View style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>時間</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TextInput
+                    placeholder="HH:mm"
+                    value={stageForm.time}
+                    onChangeText={(t) => setStageForm((p) => ({ ...p, time: t }))}
+                    style={{ flex: 1 }}
+                  />
+                  <TouchableOpacity onPress={() => setShowTimePicker(true)} accessibilityLabel="時間を選択">
+                    <Clock size={18} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+            {showDatePicker && (
+              <>
+                <DateTimePicker
+                  value={stageForm.date ? new Date(stageForm.date + 'T' + (stageForm.time || '00:00')) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(e, d) => {
+                    if (Platform.OS !== 'ios') setShowDatePicker(false);
+                    if (!d) return;
+                    setStageForm((p) => ({ ...p, date: formatDate(d) }));
+                  }}
+                  style={Platform.OS === 'web' ? { position: 'absolute', opacity: 0, width: 1, height: 1 } : undefined}
+                />
+                {Platform.OS === 'ios' && showDatePicker ? (
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'flex-end', paddingVertical: 8 }}>
+                    <Text style={{ color: '#2563EB', fontWeight: '600' }}>完了</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </>
+            )}
+            {showTimePicker && (
+              <>
+                <DateTimePicker
+                  value={stageForm.time && stageForm.date ? new Date(stageForm.date + 'T' + stageForm.time) : new Date()}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(e, d) => {
+                    if (Platform.OS !== 'ios') setShowTimePicker(false);
+                    if (!d) return;
+                    setStageForm((p) => ({ ...p, time: formatTime(d) }));
+                  }}
+                  style={Platform.OS === 'web' ? { position: 'absolute', opacity: 0, width: 1, height: 1 } : undefined}
+                />
+                {Platform.OS === 'ios' && showTimePicker ? (
+                  <TouchableOpacity onPress={() => setShowTimePicker(false)} style={{ alignSelf: 'flex-end', paddingVertical: 8 }}>
+                    <Text style={{ color: '#2563EB', fontWeight: '600' }}>完了</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </>
+            )}
+
+            {/* 場所 + 面接官 */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              <View style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                <TextInput
+                  placeholder="場所（オンライン/住所など）"
+                  value={stageForm.location}
+                  onChangeText={(t) => setStageForm((p) => ({ ...p, location: t }))}
+                />
+              </View>
+              <View style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                <TextInput
+                  placeholder="面接官（例: 田中部長）"
+                  value={stageForm.interviewer}
+                  onChangeText={(t) => setStageForm((p) => ({ ...p, interviewer: t }))}
+                />
+              </View>
+            </View>
+
+            {/* 評価（0-5） */}
             <View style={{ marginTop: 10 }}>
-              <Text style={{ fontSize: 12, color: "#6B7280" }}>ステータス</Text>
+              <Text style={{ fontSize: 12, color: '#6B7280' }}>評価 (1-5)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {(["scheduled", "pending", "passed", "failed"] as const).map((v) => (
+                {([
+                  { v: 0, l: '未評価' },
+                  { v: 1, l: '1' },
+                  { v: 2, l: '2' },
+                  { v: 3, l: '3' },
+                  { v: 4, l: '4' },
+                  { v: 5, l: '5' },
+                ] as const).map(({ v, l }) => (
                   <TouchableOpacity
                     key={v}
-                    onPress={() => setStageForm((p) => ({ ...p, status: v }))}
+                    onPress={() => setStageForm((p) => ({ ...p, rating: v }))}
                     style={{
                       paddingHorizontal: 10,
                       paddingVertical: 8,
                       borderRadius: 9999,
                       borderWidth: 1,
-                      borderColor: stageForm.status === v ? "#2563EB" : "#E5E7EB",
-                      backgroundColor: stageForm.status === v ? "#DBEAFE" : "#FFFFFF",
+                      borderColor: stageForm.rating === v ? '#2563EB' : '#E5E7EB',
+                      backgroundColor: stageForm.rating === v ? '#DBEAFE' : '#FFFFFF',
                       marginRight: 8,
                       marginTop: 8,
                     }}
                   >
-                    <Text style={{ fontSize: 12 }}>{STATUS_STAGE_LABEL[v]}</Text>
+                    <Text style={{ fontSize: 12 }}>{l}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
 
             {/* フィードバック */}
-            <View style={{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10, minHeight: 80 }}>
+            <View style={{ backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10, minHeight: 80 }}>
               <TextInput
-                placeholder="フィードバック / メモ"
+                placeholder="選考結果やフィードバックを入力..."
                 value={stageForm.feedback}
                 onChangeText={(t) => setStageForm((p) => ({ ...p, feedback: t }))}
                 multiline
@@ -1368,9 +1790,9 @@ export default function SelectionIndex() {
             </View>
 
             {/* メモ */}
-            <View style={{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10, minHeight: 80 }}>
+            <View style={{ backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10, minHeight: 80 }}>
               <TextInput
-                placeholder="メモ"
+                placeholder="面接の感想、準備内容など..."
                 value={stageForm.notes}
                 onChangeText={(t) => setStageForm((p) => ({ ...p, notes: t }))}
                 multiline
@@ -1382,14 +1804,24 @@ export default function SelectionIndex() {
                 onPress={() => {
                   setStageEditOpen(false);
                   setStageEditing(null);
+                  setShowDatePicker(false);
+                  setShowTimePicker(false);
                 }}
                 style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center" }}
               >
                 <Text>キャンセル</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleSaveStage}
+                onPress={() => {
+                  // Dismiss pickers before saving to avoid overlay consuming touches on iOS
+                  if (Platform.OS === 'ios') {
+                    setShowDatePicker(false);
+                    setShowTimePicker(false);
+                  }
+                  handleSaveStage();
+                }}
                 style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "#2563EB", alignItems: "center" }}
+                activeOpacity={0.8}
               >
                 <Text style={{ color: "#fff", fontWeight: "700" }}>保存</Text>
               </TouchableOpacity>
@@ -1399,8 +1831,24 @@ export default function SelectionIndex() {
       </Modal>
 
       {/* フィルター・並び替え（簡易モーダル） */}
-      <Modal visible={filterSheetOpen} animationType="slide" transparent>
+      <Modal
+        visible={filterSheetOpen}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setFilterSheetOpen(false);
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+        onDismiss={() => {
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+      >
         <View
+          pointerEvents="box-none"
           style={{
             flex: 1,
             backgroundColor: "rgba(0,0,0,0.2)",
@@ -1521,7 +1969,11 @@ export default function SelectionIndex() {
             </View>
 
             <TouchableOpacity
-              onPress={() => setFilterSheetOpen(false)}
+              onPress={() => {
+                setFilterSheetOpen(false);
+                setShowDatePicker(false);
+                setShowTimePicker(false);
+              }}
               style={{
                 marginTop: 16,
                 backgroundColor: "#2563EB",
@@ -1536,9 +1988,25 @@ export default function SelectionIndex() {
         </View>
       </Modal>
 
-      {/* 企業追加（簡易） */}
-      <Modal visible={addOpen} animationType="slide" transparent>
+      {/* 企業追加（詳細フォーム） */}
+      <Modal
+        visible={addOpen}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => {
+          setAddOpen(false);
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+        onDismiss={() => {
+          setShowDatePicker(false);
+          setShowTimePicker(false);
+        }}
+      >
         <View
+          pointerEvents="box-none"
           style={{
             flex: 1,
             backgroundColor: "rgba(0,0,0,0.2)",
@@ -1551,68 +2019,270 @@ export default function SelectionIndex() {
               padding: 16,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
-              maxHeight: "85%",
+              maxHeight: "90%",
             }}
           >
-            <Text style={{ fontWeight: "700", fontSize: 16 }}>新しい企業を追加</Text>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
+              <Text style={{ fontWeight: "700", fontSize: 16 }}>新しい企業を追加</Text>
 
-            {[
-              { k: "name", ph: "企業名 *" },
-              { k: "jobTitle", ph: "職種 *" },
-              { k: "industry", ph: "業界" },
-              { k: "location", ph: "所在地" },
-              { k: "salary", ph: "想定年収（例: 600-800万円）" },
-              { k: "tags", ph: "タグ（カンマ区切り）" },
-            ].map((f) => (
+              {/* 1. 企業名 */}
               <View
-                key={f.k}
                 style={{
                   backgroundColor: "#F3F4F6",
                   borderRadius: 10,
                   paddingHorizontal: 10,
                   paddingVertical: 10,
-                  marginTop: 10,
+                  marginTop: 12,
                 }}
               >
+                <Text style={{ fontSize: 12, color: "#374151" }}>企業名 <Text style={{ color: "#EF4444" }}>*</Text></Text>
                 <TextInput
-                  placeholder={f.ph}
-                  value={(form as any)[f.k]}
-                  onChangeText={(t) => setForm((p) => ({ ...(p as any), [f.k]: t }))}
+                  placeholder="例: Google Japan"
+                  value={form.name}
+                  onChangeText={(t) => setForm((p) => ({ ...p, name: t }))}
+                  style={{ marginTop: 2 }}
                 />
               </View>
-            ))}
 
-            <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
-              <TouchableOpacity
-                onPress={() => setAddOpen(false)}
+              {/* 2. 業界 */}
+              <View
                 style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: "#FFFFFF",
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  alignItems: "center",
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 12,
                 }}
               >
-                <Text>キャンセル</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleAddCompany}
-                disabled={!form.name.trim() || !form.jobTitle.trim()}
+                <Text style={{ fontSize: 12, color: "#374151" }}>業界</Text>
+                <TextInput
+                  placeholder="例: IT・インターネット"
+                  value={form.industry}
+                  onChangeText={(t) => setForm((p) => ({ ...p, industry: t }))}
+                  style={{ marginTop: 2 }}
+                />
+              </View>
+
+              {/* 3. マイページID */}
+              <View
                 style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: !form.name.trim() || !form.jobTitle.trim()
-                    ? "#93C5FD"
-                    : "#2563EB",
-                  alignItems: "center",
+                  flexDirection: "row",
+                  gap: 10,
+                  marginTop: 12,
                 }}
               >
-                <Text style={{ color: "#fff", fontWeight: "700" }}>追加</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={{ flex: 1, backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                  <Text style={{ fontSize: 12, color: "#374151" }}>マイページID</Text>
+                  <TextInput
+                    placeholder="ID"
+                    value={form.accountId || ""}
+                    onChangeText={(t) => setForm((p) => ({ ...p, accountId: t }))}
+                    style={{ marginTop: 2 }}
+                  />
+                </View>
+                {/* 4. マイページパスワード */}
+                <View style={{ flex: 1, backgroundColor: "#F3F4F6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
+                  <Text style={{ fontSize: 12, color: "#374151" }}>マイページパスワード</Text>
+                  <TextInput
+                    placeholder="パスワード"
+                    value={form.password || ""}
+                    onChangeText={(t) => setForm((p) => ({ ...p, password: t }))}
+                    style={{ marginTop: 2 }}
+                    secureTextEntry
+                  />
+                </View>
+              </View>
+
+              {/* 5. サイトURL */}
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 12,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: "#374151" }}>サイトURL</Text>
+                <TextInput
+                  placeholder="https://example.co.jp"
+                  value={form.siteUrl || ""}
+                  onChangeText={(t) => setForm((p) => ({ ...p, siteUrl: t }))}
+                  style={{ marginTop: 2 }}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* 6. 企業規模 */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ fontSize: 12, color: "#374151" }}>企業規模</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2 }}>
+                  {([
+                    { v: "startup", l: "スタートアップ" },
+                    { v: "sme", l: "中小" },
+                    { v: "large", l: "大企業" },
+                    { v: "megacorp", l: "メガベンチャー" },
+                  ] as const).map(({ v, l }) => (
+                    <TouchableOpacity
+                      key={v}
+                      onPress={() => setForm((p) => ({ ...p, size: v }))}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 9999,
+                        borderWidth: 1,
+                        borderColor: form.size === v ? "#2563EB" : "#E5E7EB",
+                        backgroundColor: form.size === v ? "#DBEAFE" : "#FFFFFF",
+                        marginRight: 8,
+                        marginTop: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12 }}>{l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* 7. 職種 */}
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 12,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: "#374151" }}>職種 <Text style={{ color: "#EF4444" }}>*</Text></Text>
+                <TextInput
+                  placeholder="例: ソフトウェアエンジニア"
+                  value={form.jobTitle}
+                  onChangeText={(t) => setForm((p) => ({ ...p, jobTitle: t }))}
+                  style={{ marginTop: 2 }}
+                />
+              </View>
+
+              {/* 8. 優先度 */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ fontSize: 12, color: "#374151" }}>優先度</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2 }}>
+                  {(["high", "medium", "low"] as const).map((v) => (
+                    <TouchableOpacity
+                      key={v}
+                      onPress={() => setForm((p) => ({ ...p, priority: v }))}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 9999,
+                        borderWidth: 1,
+                        borderColor: form.priority === v ? "#2563EB" : "#E5E7EB",
+                        backgroundColor: form.priority === v ? "#DBEAFE" : "#FFFFFF",
+                        marginRight: 8,
+                        marginTop: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12 }}>{PRIORITY_LABEL[v]}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* 9. タグ */}
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 12,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: "#374151" }}>タグ</Text>
+                <TextInput
+                  placeholder="カンマ区切りで入力（例: IT, グローバル, 大手）"
+                  value={form.tags}
+                  onChangeText={(t) => setForm((p) => ({ ...p, tags: t }))}
+                  style={{ marginTop: 2 }}
+                />
+              </View>
+
+              {/* 10. 職務内容 */}
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 12,
+                  minHeight: 80,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: "#374151" }}>職務内容</Text>
+                <TextInput
+                  placeholder="職務内容"
+                  value={form.description}
+                  onChangeText={(t) => setForm((p) => ({ ...p, description: t }))}
+                  multiline
+                  style={{ marginTop: 2, minHeight: 60, textAlignVertical: "top" }}
+                />
+              </View>
+
+              {/* 11. メモ */}
+              <View
+                style={{
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 10,
+                  marginTop: 12,
+                  minHeight: 80,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: "#374151" }}>メモ</Text>
+                <TextInput
+                  placeholder="メモ"
+                  value={form.notes}
+                  onChangeText={(t) => setForm((p) => ({ ...p, notes: t }))}
+                  multiline
+                  style={{ marginTop: 2, minHeight: 60, textAlignVertical: "top" }}
+                />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 18 }}>
+                <TouchableOpacity
+                  onPress={() => setAddOpen(false)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text>キャンセル</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleAddCompany}
+                  disabled={!form.name.trim() || !form.jobTitle.trim()}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    backgroundColor: !form.name.trim() || !form.jobTitle.trim()
+                      ? "#93C5FD"
+                      : "#2563EB",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>追加</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
