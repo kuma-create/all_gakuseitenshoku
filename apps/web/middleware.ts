@@ -83,6 +83,7 @@ const PUBLIC_PREFIXES = [
   "/chat",
   "/resume",
   "/companies",
+  "/s-ipo-signup",
   "/(auth)/password-reset-callback",
   "/ipo-signup",
 ];

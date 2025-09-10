@@ -389,10 +389,9 @@ export default function NewJobPage() {
       }
     }
 
-    // event 必須
+    // event: 開催日・定員ともに任意
     if (selectionType === "event") {
-      if (!formData.eventDate.trim()) newErrors.eventDate = "開催日時を入力してください"
-      if (!formData.capacity.trim())  newErrors.capacity  = "定員を入力してください"
+      // no required fields
     }
 
     setErrors(newErrors)
@@ -1343,9 +1342,7 @@ export default function NewJobPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="eventDate" className="flex items-center gap-1">
-                        開催日<span className="text-red-500">*</span>
-                      </Label>
+                      <Label htmlFor="eventDate" className="flex items-center gap-1">開催日</Label>
                       <Input
                         id="eventDate"
                         name="eventDate"
@@ -1356,9 +1353,7 @@ export default function NewJobPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="capacity" className="flex items-center gap-1">
-                        定員<span className="text-red-500">*</span>
-                      </Label>
+                      <Label htmlFor="capacity" className="flex items-center gap-1">定員</Label>
                       <Input
                         id="capacity"
                         name="capacity"

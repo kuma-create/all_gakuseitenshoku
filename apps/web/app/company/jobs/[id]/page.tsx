@@ -534,6 +534,11 @@ export default function JobEditPage() {
       }
     }
 
+    // event: 開催日・定員は任意
+    if (job.selectionType === "event") {
+      // 開催日・定員は任意
+    }
+
     const hasErrors = Object.keys(newErrors).length > 0;
 
     // 画面への反映
@@ -1529,9 +1534,7 @@ export default function JobEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* 開催日 */}
                 <div>
-                  <Label htmlFor="eventDate" className="flex items-center gap-1">
-                    開催日<span className="text-red-500">*</span>
-                  </Label>
+                  <Label htmlFor="eventDate" className="flex items-center gap-1">開催日</Label>
                   <Input
                     id="eventDate"
                     name="eventDate"
@@ -1543,9 +1546,7 @@ export default function JobEditPage() {
                 </div>
                 {/* 定員 */}
                 <div>
-                  <Label htmlFor="capacity" className="flex items-center gap-1">
-                    定員<span className="text-red-500">*</span>
-                  </Label>
+                  <Label htmlFor="capacity" className="flex items-center gap-1">定員</Label>
                   <Input
                     id="capacity"
                     name="capacity"

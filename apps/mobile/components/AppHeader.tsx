@@ -134,21 +134,15 @@ export default function AppHeader({ title }: AppHeaderProps) {
             <Briefcase size={18} color="#111827" style={{ marginRight: 8 }} />
             <Text style={{ fontSize: 16, color: "#111827" }}>求人検索</Text>
           </View>
-          <Pressable
-            onPress={() => setJobsOpen(!jobsOpen)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="求人検索のサブメニューを開閉"
-          >
-            {jobsOpen ? (
-              <ChevronDown size={18} color="#6b7280" />
-            ) : (
-              <ChevronRight size={18} color="#6b7280" />
-            )}
-          </Pressable>
+          {jobsOpen ? (
+            <ChevronDown size={18} color="#6b7280" />
+          ) : (
+            <ChevronRight size={18} color="#6b7280" />
+          )}
         </View>
       ),
-      onPress: () => navigateAndClose("/(student)/jobs"),
+      // Text row now acts as the toggle; no navigation
+      onPress: () => setJobsOpen((prev) => !prev),
       isJobsParent: true,
     },
     {
