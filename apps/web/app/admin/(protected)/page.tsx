@@ -142,6 +142,7 @@ type Student = {
   phone?: string | null;
   role?: string | null;
   admin_memo?: string | null;
+  referral_source?: string | null;
 };
 
 type Company = {
@@ -1052,7 +1053,7 @@ export default function AdminDashboard() {
     else if (type === "view-student") {
       const { data } = await supabase
         .from("student_profiles")
-        .select("id,full_name,university,graduation_month,created_at")
+        .select("id,full_name,university,graduation_month,created_at,referral_source")
         .eq("id", id)
         .single();
       if (data) {
@@ -1065,7 +1066,8 @@ export default function AdminDashboard() {
             : "—",
           created_at: data.created_at ?? null,
           admin_memo: null,
-        });
+          referral_source: data.referral_source ?? "-",
+          });
         try {
           const { data: memoData } = await supabase.rpc('admin_get_student_memo', { p_student_id: id });
           setSelectedStudent(prev => prev ? { ...prev, admin_memo: (memoData as string | null) ?? null } : prev);
@@ -2288,6 +2290,7 @@ export default function AdminDashboard() {
               <p><b>名前:</b> {selectedStudent.full_name}</p>
               <p><b>大学:</b> {selectedStudent.university}</p>
               <p><b>卒業年度:</b> {selectedStudent.graduation_year}</p>
+              <p><b>流入経路:</b> {selectedStudent.referral_source ?? "-"}</p>              
               <p>
                 <b>登録日:</b>{" "}
                 {selectedStudent.created_at

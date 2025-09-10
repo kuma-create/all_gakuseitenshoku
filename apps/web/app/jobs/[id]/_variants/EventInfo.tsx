@@ -16,6 +16,8 @@ import {
   ListFilter,
   Users,
   ExternalLink,
+  ChevronRight,
+  ImageIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -55,13 +57,40 @@ function getPrimaryImage(job: any, company: Company): string | null {
   return candidates.length ? candidates[0] : null;
 }
 
+// Prefer a job/event image for related items (fallbacks included)
+function getRelatedImage(r: any): string | null {
+  const candidates = [
+    r.cover_image_url,
+    r.cover_image,
+    r.thumbnail_url,
+    r.image_url,
+    Array.isArray(r.photos) && r.photos.length ? r.photos[0] : null,
+    (r.event && (r.event.cover_image_url || r.event.image_url)) || null,
+    (r.event_details && (r.event_details.cover_image_url || r.event_details.image_url)) || null,
+    r.company?.cover_image_url,
+    r.company?.logo,
+  ].filter(Boolean) as string[];
+  return candidates.length ? candidates[0] : null;
+}
+
 // Format a time string from the DB and a range label
 function formatTimeHHmm(t: any): string | null {
   if (!t) return null;
-  // Postgres time comes as a string like "11:00:00"; also accept Date or object-like
-  const s = typeof t === "string" ? t : String(t);
+  // Accept: "11:00:00", "11:00", Date, or ISO string
+  if (t instanceof Date) {
+    const hh = String(t.getHours()).padStart(2, "0");
+    const mm = String(t.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+  const s = String(t).trim();
+  // If ISO-like, parse
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return formatTimeHHmm(d);
+  }
   // keep only HH:MM
-  return s.slice(0, 5);
+  if (/^\d{2}:\d{2}/.test(s)) return s.slice(0, 5);
+  return null;
 }
 
 function buildEventTimeLabel(ev: any): string {
@@ -71,6 +100,82 @@ function buildEventTimeLabel(ev: any): string {
   if (start) return `${start}〜`;
   if (end) return `〜${end}`;
   return "-";
+}
+
+function formatDateJP(d: any): string {
+  if (!d) return "調整中";
+  try {
+    return new Date(d).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+  } catch {
+    return String(d);
+  }
+}
+
+function dateFromAny(d: any): string | null {
+  if (!d) return null;
+  if (d instanceof Date) return d.toISOString();
+  const s = String(d).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10); // ISO -> date part
+  return null;
+}
+
+// ---------- utility functions ----------
+function pick<T = any>(...vals: any[]): T | null {
+  for (const v of vals) if (v !== undefined && v !== null && v !== "") return v as T;
+  return null;
+}
+
+function readEventMeta(src: any) {
+  const e = src?.event ?? src?.event_details ?? src ?? {};
+  // date candidates
+  let date = pick(
+    e.event_date, e.date, e.start_date,
+    src?.event_date, src?.date, src?.start_date,
+  );
+  // start/end candidates (accept ISO datetime keys as well)
+  let start = pick(
+    e.event_time, e.start_time, e.starts_at, e.start_at, e.begin_time,
+    src?.event_time, src?.start_time, src?.starts_at, src?.start_at, src?.begin_time,
+  );
+  let end = pick(
+    e.event_end_time, e.end_time, e.ends_at, e.end_at, e.finish_time,
+    src?.event_end_time, src?.end_time, src?.ends_at, src?.end_at, src?.finish_time,
+  );
+  // venue/location
+  const venue = pick(
+    e.venue, e.place, e.address, e.location,
+    src?.venue, src?.place, src?.address, src?.location,
+    src?.company?.location,
+  );
+  // online flag + format
+  const rawMode = pick(e.format, src?.format, e.mode, src?.mode);
+  const isOnline = (pick(e.is_online, e.online, src?.is_online, src?.online) === true)
+    || (typeof rawMode === 'string' && /online|webinar|zoom|teams/i.test(String(rawMode)));
+
+  // description candidates
+  const description = pick(
+    e.description, e.detail, e.details, e.summary, e.note, e.notes,
+    src?.description, src?.schedule, src?.summary, src?.note, src?.notes,
+  );
+
+  // capacity
+  const capacity = pick(
+    e.capacity, e.limit, e.quota, e.max_participants,
+    src?.capacity, src?.limit, src?.quota, src?.max_participants,
+  );
+
+  // derive date from ISO datetime if missing
+  if (!date) date = dateFromAny(start) || dateFromAny(end);
+
+  return { date, start, end, venue, isOnline, description, capacity };
+}
+
+function excerpt(text: string | null, len = 60): string | null {
+  if (!text) return null;
+  const s = String(text).replace(/\n+/g, " ").trim();
+  if (s.length <= len) return s;
+  return s.slice(0, len) + "…";
 }
 
 // Normalize event mode/format display
@@ -129,6 +234,7 @@ export default function EventInfo({
 
   // Normalize event detail (joined as `event` or legacy `event_details`)
   const ev = (job?.event ?? job?.event_details) || {};
+  const mainMeta = readEventMeta(job);
   const primaryImage = getPrimaryImage(job, company);
 
   const handleApplyClick = async () => {
@@ -253,38 +359,36 @@ export default function EventInfo({
                 </div>
               </div>
 
-              {/* summary */}
+            {/* summary */}
               <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700 sm:grid-cols-2">
                 <SummaryItem
                   icon={<MapPin size={16} />}
                   label="開催地"
                   value={
-                    ev.is_online ? "オンライン開催" : (ev.venue ?? job.location ?? "-")
+                    mainMeta.isOnline ? "オンライン開催" : (mainMeta.venue ?? job.location ?? "-")
                   }
                 />
                 <SummaryItem
                   icon={<Calendar size={16} />}
                   label="開催日"
                   value={
-                    ev.event_date
-                      ? new Date(ev.event_date).toLocaleDateString("ja-JP")
-                      : "調整中"
+                    mainMeta.date ? new Date(mainMeta.date).toLocaleDateString("ja-JP") : "調整中"
                   }
                 />
                 <SummaryItem
                   icon={<Clock size={16} />}
                   label="イベント時間"
-                  value={buildEventTimeLabel(ev)}
+                  value={buildEventTimeLabel({ event_time: mainMeta.start, event_end_time: mainMeta.end })}
                 />
                 <SummaryItem
                   icon={<Building size={16} />}
                   label="形式"
-                  value={formatEventMode(ev)}
+                  value={formatEventMode({ is_online: mainMeta.isOnline })}
                 />
                 <SummaryItem
                   icon={<Users size={16} />}
                   label="定員"
-                  value={typeof ev.capacity === "number" ? `${ev.capacity}名` : "-"}
+                  value={typeof mainMeta.capacity === "number" ? `${mainMeta.capacity}名` : "-"}
                 />
               </div>
             </CardContent>
@@ -455,27 +559,72 @@ export default function EventInfo({
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <ListFilter className="h-5 w-5 text-red-600" />
                 関連イベント
+                {Array.isArray(related) && related.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">{related.length}</Badge>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              {related.length ? (
-                <ul className="space-y-2 text-sm">
-                  {related.map((r: any) => (
-                    <li key={r.id} className="flex items-center gap-2">
-                      <Calendar size={14} className="text-gray-500" />
-                      <Link
-                        href={`/jobs/${r.id}`}
-                        className="hover:text-red-600 hover:underline"
-                      >
-                        {r.title}
-                      </Link>
-                    </li>
-                  ))}
+            <CardContent className="p-0">
+              {Array.isArray(related) && related.length ? (
+                <ul className="divide-y divide-gray-100">
+                  {related.map((r: any) => {
+                    const meta = readEventMeta(r);
+                    return (
+                      <li key={r.id} className="hover:bg-gray-50 transition-colors">
+                        {/* local computed meta */}
+                        <Link href={`/jobs/${r.id}`} className="flex items-stretch gap-3 p-4">
+                          {/* thumbnail */}
+                          <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100">
+                            {getRelatedImage(r) ? (
+                              <Image
+                                src={getRelatedImage(r)!}
+                                alt={r.title ?? "related image"}
+                                fill
+                                sizes="160px"
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-gray-400">
+                                <ImageIcon className="h-6 w-6" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* body */}
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 font-medium text-gray-900">{r.title ?? "タイトル未設定"}</p>
+                            {excerpt(meta.description) && (
+                              <p className="mt-1 line-clamp-2 text-xs text-gray-500">{excerpt(meta.description, 70)}</p>
+                            )}
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {typeof meta.capacity === "number" && (
+                                <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                                  定員 {meta.capacity}名
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          {/* affordance */}
+                          <div className="flex items-center pl-2">
+                            <ChevronRight className="h-5 w-5 text-gray-400" />
+                          </div>
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
-                <p className="text-center text-sm text-gray-500">
+                <div className="p-6 text-center text-sm text-gray-500">
                   関連するイベントはありません
-                </p>
+                  <div className="mt-3">
+                    <Button asChild variant="outline" size="sm" className="gap-1">
+                      <Link href="/jobs">
+                        <ExternalLink className="h-4 w-4" />
+                        イベント一覧へ
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

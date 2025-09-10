@@ -452,8 +452,99 @@ function RightColumn({
   handleApplyClick,
 }: any) {
   const router = useRouter();
-  // フィルタ：公開中（status === "open"）の求人のみ
-  const openRelated = related.filter((rel: any) => rel.status === "open");
+
+  // 表示用の関連求人（props -> Fallback fetch）
+  const [displayRelated, setDisplayRelated] = React.useState<any[]>([]);
+  const [loadingRelated, setLoadingRelated] = React.useState<boolean>(true);
+
+  // props からの初期化（status === "open" か published === true を許可）
+  React.useEffect(() => {
+    const sanitized = Array.isArray(related)
+      ? related.filter((rel: any) => rel && (rel.status === "open" || rel.published === true || rel.status == null))
+      : [];
+    setDisplayRelated(sanitized);
+    setLoadingRelated(false);
+  }, [JSON.stringify(related)]);
+
+  // Fallback: props が空なら Supabase から取得
+  React.useEffect(() => {
+    const needFetch = !displayRelated || displayRelated.length === 0;
+    if (!needFetch) { setLoadingRelated(false); return; }
+
+    let isCancelled = false;
+    (async () => {
+      try {
+        setLoadingRelated(true);
+
+        // 1st attempt: prefer same department or same company
+        const baseSelect = `*`;
+        let q1 = supabase.from("jobs").select(baseSelect);
+        if (job?.id) q1 = q1.neq("id", job.id);
+        q1 = q1.eq("published", true);
+        if (job?.department) {
+          q1 = q1.eq("department", job.department);
+        } else if (job?.company_id) {
+          q1 = q1.eq("company_id", job.company_id);
+        }
+        q1 = q1.order("created_at", { ascending: false }).limit(6);
+
+        const { data: data1, error: error1 } = await q1;
+        if (error1) {
+          console.error("fetch related jobs error (primary)", error1);
+        }
+
+        if (!isCancelled && Array.isArray(data1) && data1.length > 0) {
+          setDisplayRelated(data1);
+          return;
+        }
+
+        // 2nd attempt: recent public jobs only (no dept/company constraints)
+        let q2 = supabase
+          .from("jobs")
+          .select(baseSelect)
+          .eq("published", true)
+          .order("created_at", { ascending: false })
+          .limit(6);
+        if (job?.id) q2 = q2.neq("id", job.id);
+
+        const { data: data2, error: error2 } = await q2;
+        if (error2) {
+          console.error("fetch related jobs error (fallback)", error2);
+        }
+
+        if (!isCancelled && Array.isArray(data2)) {
+          setDisplayRelated(data2);
+        }
+      } catch (e: any) {
+        // Avoid throwing unknown/serialized objects; log error directly
+        console.error("fetch related jobs error (catch)", e);
+      } finally {
+        setLoadingRelated(false);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [displayRelated?.length, job?.id, job?.department, job?.company_id]);
+
+  const salaryText = (rel: any) => {
+    if (typeof rel?.salary_min === "number") return `年収${rel.salary_min}万円〜`;
+    if (rel?.salary_range && String(rel.salary_range).trim() !== "") return String(rel.salary_range);
+    return "給与: 非公開";
+  };
+
+  const imageUrl = (rel: any) => {
+    return (
+      rel?.cover_image_url ||
+      rel?.cover_image ||
+      rel?.thumbnail_url ||
+      rel?.image_url ||
+      (Array.isArray(rel?.images) && rel.images.length ? rel.images[0] : null) ||
+      rel?.company?.logo ||
+      "/placeholder.svg?height=48&width=48&query=job image"
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -508,9 +599,7 @@ function RightColumn({
                 className="w-full bg-green-600 hover:bg-green-700"
                 onClick={async () => {
                   try {
-                    // 1) 応募処理
                     await apply();
-                    // 2) ログイン中ユーザーの student_profiles.id を取得
                     const {
                       data: { session },
                     } = await supabase.auth.getSession();
@@ -522,7 +611,6 @@ function RightColumn({
                     if (profileErr || !profileData) {
                       throw profileErr || new Error("プロフィール取得エラー");
                     }
-                    // 3) chat_rooms テーブルに upsert して単一レコードを取得
                     const { data: room, error: roomErr } = await supabase
                       .from("chat_rooms")
                       .upsert(
@@ -531,23 +619,21 @@ function RightColumn({
                           student_id: profileData.id,
                           job_id: job.id,
                         },
-                        { onConflict: "company_id,student_id" } // company_id × student_id で一意
+                        { onConflict: "company_id,student_id" }
                       )
                       .select()
                       .single();
                     if (roomErr) throw roomErr;
 
-                    // 4) 応募メッセージを自動送信
                     const { error: msgErr } = await supabase
                       .from("messages")
                       .insert({
                         chat_room_id: room.id,
-                        sender_id:    profileData.id,      // 学生を送信者として記録
-                        content:      "選考に応募しました！！",
+                        sender_id: profileData.id,
+                        content: "選考に応募しました！！",
                       });
                     if (msgErr) console.error("auto-message error", msgErr);
 
-                    // 5) チャット画面へ遷移
                     router.push(`/chat/${room.id}`);
                     setShowForm(false);
                   } catch (err) {
@@ -630,24 +716,18 @@ function RightColumn({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          {openRelated.length ? (
+          {loadingRelated ? (
+            <p className="text-center text-sm text-gray-500">読み込み中…</p>
+          ) : displayRelated && displayRelated.length ? (
             <div className="space-y-4">
-              {openRelated.map((rel: any) => (
+              {displayRelated.map((rel: any) => (
                 <div
                   key={rel.id}
                   className="flex gap-3 border-b border-gray-100 pb-4 last:border-0 last:pb-0"
                 >
                   <div className="relative h-12 w-12 overflow-hidden rounded-md border border-gray-200">
                     <Image
-                      src={
-                        rel.cover_image_url ||
-                        rel.cover_image ||
-                        rel.thumbnail_url ||
-                        rel.image_url ||
-                        (Array.isArray(rel.images) && rel.images.length ? rel.images[0] : null) ||
-                        rel.company?.logo ||
-                        "/placeholder.svg?height=48&width=48&query=job image"
-                      }
+                      src={imageUrl(rel)}
                       alt={`${rel.title ?? "求人"} の画像`}
                       width={48}
                       height={48}
@@ -663,12 +743,16 @@ function RightColumn({
                         {rel.title}
                       </Link>
                     </h4>
-                    <p className="text-xs text-gray-500">{rel.company?.name}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                      <MapPin size={12} />
-                      <span>{rel.location}</span>
-                      <span>•</span>
-                      <span>年収{rel.salary_min}万円〜</span>
+                    <p className="text-xs text-gray-500">{rel.company_name || rel.company?.name || ""}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                      {rel.location && (
+                        <>
+                          <MapPin size={12} />
+                          <span>{rel.location}</span>
+                          <span>•</span>
+                        </>
+                      )}
+                      <span>{salaryText(rel)}</span>
                     </div>
                   </div>
                 </div>

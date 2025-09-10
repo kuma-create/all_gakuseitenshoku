@@ -118,6 +118,12 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       icon: Library,
       description: '業界・職種情報'
     },
+    { 
+      label: 'ログアウト', 
+      route: '/ipo' as Route, // dummy route, will trigger logout
+      icon: LogOut,
+      description: 'ログアウトする'
+    },
   ];
 
   const routeMeta: Record<Route, { title: string; subtitle?: string } | undefined> = {
@@ -212,7 +218,9 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                   <SidebarMenuItem key={item.route}>
                     <SidebarMenuButton
                       onClick={() => {
-                        if (currentRoute !== item.route) {
+                        if (item.label === 'ログアウト') {
+                          handleLogout();
+                        } else if (currentRoute !== item.route) {
                           handleNavigate(item.route);
                         } else {
                           // If tapping the same route, only close on mobile
@@ -223,7 +231,11 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                       }}
                       isActive={currentRoute === item.route}
                       tooltip={item.description}
-                      className={`${currentRoute === item.route ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'} justify-start`}
+                      className={`${item.label === 'ログアウト' 
+                        ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30' 
+                        : currentRoute === item.route 
+                          ? 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300' 
+                          : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'} justify-start`}
                     >
                       <item.icon className="w-4 h-4" />
                       <span className="truncate">{item.label}</span>
@@ -284,6 +296,19 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                     </>
                   )}
                 </div>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          )}
+          {user && (
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={handleLogout}
+                  className="w-full justify-start hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>ログアウト</span>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           )}

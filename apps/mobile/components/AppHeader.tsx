@@ -1,11 +1,12 @@
 import { useRouter, usePathname } from "expo-router";
-import { Menu, Home, User, ClipboardList, BookOpen, Briefcase, Send, Mail, ChevronDown, ChevronRight } from "lucide-react-native";
+import { Menu, Mail, ChevronDown, ChevronRight, Home, User, ClipboardList, BookOpen, Briefcase, Send, LogOut } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { supabase } from "../src/lib/supabase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "./notifications/NotificationBell";
 import { LinearGradient } from "expo-linear-gradient";
+
 
 interface AppHeaderProps {
   title: string;
@@ -314,7 +315,10 @@ export default function AppHeader({ title }: AppHeaderProps) {
             ))}
             <View style={{ height: 8 }} />
             <TouchableOpacity onPress={logoutAndClose} style={{ paddingVertical: 12, paddingHorizontal: 14 }} accessibilityRole="button">
-              <Text style={{ fontSize: 16, color: "#ef4444", fontWeight: "600" }}>ログアウト</Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <LogOut size={18} color="#ef4444" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 16, color: "#ef4444", fontWeight: "600" }}>ログアウト</Text>
+              </View>
             </TouchableOpacity>
           </ScrollView>
         </View>

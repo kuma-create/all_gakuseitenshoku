@@ -64,6 +64,8 @@ type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   } | null
   // flattened for convenience
   il_hourly_wage?: number | null
+  il_hourly_wage_min?: number | null
+  il_hourly_wage_max?: number | null
   il_remuneration_type?: string | null
   il_commission_rate?: string | null
   il_work_days_per_week?: number | null
@@ -125,10 +127,41 @@ const getSelectionLabel = (type?: string | null) => {
   return SELECTION_LABELS[key] ?? SELECTION_LABELS.fulltime
 }
 
+
 /* 判定: 長期インターンか */
 const isInternLong = (type?: string | null) => {
   const key = (type ?? "").trim();
   return key === "intern_long" || key === "internship_long";
+};
+
+/* 判定: 説明会/イベント or 短期インターン */
+const isEventLikeSelection = (type?: string | null) => {
+  const key = (type ?? "").trim();
+  return key === "event" || key === "internship_short";
+};
+
+/* 日付の表示整形（イベント/短期インターン用） */
+const formatEventDate = (j: JobRow) => {
+  // event: 単一日時、short: 開始〜終了（いずれか欠ける場合はある方のみ）
+  if ((j.selection_type ?? "") === "event") {
+    return j.event_date || "-";
+  }
+  if ((j.selection_type ?? "") === "internship_short") {
+    const s = (j as any).start_date as string | null | undefined;
+    const e = (j as any).end_date as string | null | undefined;
+    if (s && e) return `${s} 〜 ${e}`;
+    return s || e || "-";
+  }
+  return null;
+};
+
+/* 開催形式のラベル */
+const formatEventFormat = (v?: string | null) => {
+  if (!v) return null;
+  if (v === "online") return "オンライン";
+  if (v === "onsite") return "対面";
+  if (v === "hybrid") return "ハイブリッド";
+  return v;
 };
 
 /* 年収フィルターの選択肢 */
@@ -323,6 +356,8 @@ job_tags!job_tags_job_id_fkey (
 ),
 intern_long_details:intern_long_details!intern_long_details_job_id_fkey (
   hourly_wage,
+  hourly_wage_min,
+  hourly_wage_max,
   remuneration_type,
   commission_rate,
   work_days_per_week
@@ -364,12 +399,16 @@ intern_long_details:intern_long_details!intern_long_details_job_id_fkey (
             ...(row as any).intern_long_details
               ? {
                   il_hourly_wage: (row as any).intern_long_details.hourly_wage ?? null,
+                  il_hourly_wage_min: (row as any).intern_long_details.hourly_wage_min ?? null,
+                  il_hourly_wage_max: (row as any).intern_long_details.hourly_wage_max ?? null,
                   il_remuneration_type: (row as any).intern_long_details.remuneration_type ?? null,
                   il_commission_rate: (row as any).intern_long_details.commission_rate ?? null,
                   il_work_days_per_week: (row as any).intern_long_details.work_days_per_week ?? null,
                 }
               : {
                   il_hourly_wage: null,
+                  il_hourly_wage_min: null,
+                  il_hourly_wage_max: null,
                   il_remuneration_type: null,
                   il_commission_rate: null,
                   il_work_days_per_week: null,
@@ -1072,7 +1111,12 @@ function JobGrid({
         {jobs.map((j) => (
           <Card key={j.id} className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex">
-              <Link href={`/jobs/${j.id}`} className="flex flex-1 hover:bg-gray-50 transition-colors">
+              <Link
+                href={`/jobs/${j.id}`}
+                className="group flex flex-1 hover:bg-gray-50 transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {j.cover_image_url && (
                   <div className="w-64 h-40 flex-shrink-0">
                     <Image
@@ -1085,43 +1129,84 @@ function JobGrid({
                   </div>
                 )}
                 <div className="flex-1 p-6">
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       {renderSelectionBadge(j.selection_type)}
-                      <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{j.title}</h3>
-                      <p className="text-sm text-gray-600 mb-3">{j.companies?.name ?? "-"}</p>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-1 leading-snug line-clamp-2 group-hover:text-red-600">
+                        {j.title}
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-3 leading-tight">{j.companies?.name ?? "-"}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                    <div className="flex items-center gap-1">
-                      <MapPin size={14} />
-                      <span>{j.location}</span>
-                    </div>
-                    { isInternLong(j.selection_type) ? (
+                  <div className="flex flex-wrap items-center gap-y-1 text-sm text-gray-600 mb-3">
+                    {isInternLong(j.selection_type) ? (
                       <>
-                        <div className="flex items-center gap-1">
-                          <Briefcase size={14} />
-                          <span>
-                            {j.il_remuneration_type === "hourly"
-                              ? (j.il_hourly_wage != null ? `${j.il_hourly_wage}円／時` : "時給")
-                              : (j.il_commission_rate ? `歩合 ${j.il_commission_rate}` : "歩合")}
-                          </span>
-                        </div>
-                        {j.il_work_days_per_week != null && (
-                          <div className="flex items-center gap-1">
-                            <Clock size={14} />
-                            <span>{`週${j.il_work_days_per_week}日`}</span>
-                          </div>
+                        {j.job_type && (
+                          <span className="inline-flex items-center gap-1 mr-4"><Briefcase size={14} /><span>{j.job_type}</span></span>
                         )}
+                        {(() => {
+                          const txt = formatRemuneration(j);
+                          return txt ? (
+                            <span className="inline-flex items-center gap-1 mr-4">
+                              <Clock size={14} />
+                              <span>{txt}</span>
+                            </span>
+                          ) : null;
+                        })()}
+                        {j.il_work_days_per_week != null && (
+                          <span className="inline-flex items-center gap-1 mr-4"><Clock size={14} /><span>{`週${j.il_work_days_per_week}日`}</span></span>
+                        )}
+                        <span className="inline-flex items-center gap-1 mr-4"><MapPin size={14} /><span>{j.location || "-"}</span></span>
                       </>
                     ) : (
-                      <div className="flex items-center gap-1">
-                        <MapPin size={14} />
-                        <span>{j.location || "-"}</span>
-                      </div>
+                      <>
+                    {isEventLikeSelection(j.selection_type) ? (
+                      <>
+                        {/* 日時 */}
+                        {(() => {
+                          const d = formatEventDate(j);
+                          return d ? (
+                            <span className="inline-flex items-center gap-1 mr-4">
+                              <Calendar size={14} />
+                              <span className="text-gray-500">開催日</span>
+                              <span className="ml-1">{d}</span>
+                            </span>
+                          ) : null;
+                        })()}
+                        {/* 開催形式 */}
+                        {(() => {
+                          const f = formatEventFormat(j.ev_format);
+                          return f ? (
+                            <span className="inline-flex items-center gap-1 mr-4">
+                              <Mic size={14} />
+                              <span className="text-gray-500">形式</span>
+                              <span className="ml-1">{f}</span>
+                            </span>
+                          ) : null;
+                        })()}
+                        {/* 会場 */}
+                        <span className="inline-flex items-center gap-1 mr-4">
+                          <MapPin size={14} />
+                          <span className="text-gray-500">会場</span>
+                          <span className="ml-1">{j.ev_venue || j.location || '-'}</span>
+                        </span>
+                      </>
+                    ) : (
+                          <>
+                            {j.job_type && (
+                              <span className="inline-flex items-center gap-1 mr-4"><Briefcase size={14} />{j.job_type}</span>
+                            )}
+                            <span className="inline-flex items-center gap-1 mr-4"><MapPin size={14} />{j.location || '-'}</span>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
+
+                  {j.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">{j.description}</p>
+                  )}
 
                   <div className="flex flex-wrap gap-2">
                     {(j.tags ?? []).slice(0, 4).map((t) => (
@@ -1160,7 +1245,12 @@ function JobGrid({
           key={j.id}
           className="relative overflow-hidden border-0 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl"
         >
-          <Link href={`/jobs/${j.id}`} className="flex">
+          <Link
+            href={`/jobs/${j.id}`}
+            className="group flex"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             {/* Cover Image (left) */}
             {j.cover_image_url && (
               <div className="relative w-64 sm:w-80 h-40 sm:h-48 flex-shrink-0 overflow-hidden">
@@ -1177,7 +1267,7 @@ function JobGrid({
             <div className="flex flex-col justify-between p-5 flex-1">
               <div>
                 {renderSelectionBadge(j.selection_type)}
-                <h3 className="mt-1 mb-2 line-clamp-2 font-bold text-gray-900 leading-snug">
+                <h3 className="mt-1 mb-2 line-clamp-2 font-bold text-gray-900 leading-snug group-hover:text-red-600">
                   {j.title}
                 </h3>
                 <p className="line-clamp-1 text-sm text-gray-600 mb-3">
@@ -1191,23 +1281,69 @@ function JobGrid({
                     </Badge>
                   ))}
                 </div>
+                {j.description && (
+                  <p className="text-xs text-gray-600 line-clamp-2 mb-2">{j.description}</p>
+                )}
               </div>
 
-              <div className="text-xs text-gray-500 flex gap-3 items-center">
+              <div className="text-xs text-gray-600 flex flex-wrap items-center gap-y-1">
                 { isInternLong(j.selection_type) ? (
                   <>
-                    <span>
-                      {j.il_remuneration_type === "hourly"
-                        ? (j.il_hourly_wage != null ? `${j.il_hourly_wage}円／時` : "時給")
-                        : (j.il_commission_rate ? `歩合 ${j.il_commission_rate}` : "歩合")}
-                    </span>
-                    {j.il_work_days_per_week != null && (
-                      <span>{`週${j.il_work_days_per_week}日`}</span>
+                    {j.job_type && (
+                      <span className="inline-flex items-center gap-1 mr-3"><Briefcase size={12} />{j.job_type}</span>
                     )}
-                    <span className="inline-flex items-center gap-1"><MapPin size={12} />{j.location}</span>
+                    {(() => {
+                      const txt = formatRemuneration(j);
+                      return txt ? (
+                        <span className="inline-flex items-center gap-1 mr-3">
+                          <Clock size={12} />{txt}
+                        </span>
+                      ) : null;
+                    })()}
+                    {j.il_work_days_per_week != null && (
+                      <span className="inline-flex items-center gap-1 mr-3"><Clock size={12} />{`週${j.il_work_days_per_week}日`}</span>
+                    )}
+                    <span className="inline-flex items-center gap-1 mr-3"><MapPin size={12} />{j.location || "-"}</span>
                   </>
                 ) : (
-                  <span className="inline-flex items-center gap-1"><MapPin size={12} />{j.location || "-"}</span>
+                  <>
+                    {isEventLikeSelection(j.selection_type) ? (
+                      <>
+                        {(() => {
+                          const d = formatEventDate(j);
+                          return d ? (
+                            <span className="inline-flex items-center gap-1 mr-3">
+                              <Calendar size={12} />
+                              <span className="text-gray-500">開催日</span>
+                              <span className="ml-1">{d}</span>
+                            </span>
+                          ) : null;
+                        })()}
+                        {(() => {
+                          const f = formatEventFormat(j.ev_format);
+                          return f ? (
+                            <span className="inline-flex items-center gap-1 mr-3">
+                              <Mic size={12} />
+                              <span className="text-gray-500">形式</span>
+                              <span className="ml-1">{f}</span>
+                            </span>
+                          ) : null;
+                        })()}
+                        <span className="inline-flex items-center gap-1 mr-3">
+                          <MapPin size={12} />
+                          <span className="text-gray-500">会場</span>
+                          <span className="ml-1">{j.ev_venue || j.location || '-'}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {j.job_type && (
+                          <span className="inline-flex items-center gap-1 mr-3"><Briefcase size={12} />{j.job_type}</span>
+                        )}
+                        <span className="inline-flex items-center gap-1 mr-3"><MapPin size={12} />{j.location || '-'}</span>
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1229,4 +1365,25 @@ function JobGrid({
       ))}
     </div>
   )
+}
+
+// 報酬テキストのフォーマット関数（モジュールスコープ）
+function formatRemuneration(j: JobRow): string | null {
+  const type = (j.il_remuneration_type || '').toLowerCase();
+  if (!type) return null;
+  if (type === 'hourly') {
+    const min = j.il_hourly_wage_min ?? j.il_hourly_wage ?? null;
+    const max = j.il_hourly_wage_max ?? null;
+    if (min != null && max != null && max > min) return `${min}〜${max}円／時`;
+    if (min != null) return `${min}円／時`;
+    if (max != null) return `${max}円／時`;
+    return '時給';
+  }
+  if (type === 'monthly') {
+    return '月給';
+  }
+  if (type === 'commission' || type === 'commision') {
+    return j.il_commission_rate ? `歩合 ${j.il_commission_rate}` : '歩合';
+  }
+  return null;
 }

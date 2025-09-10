@@ -376,12 +376,16 @@ export default async function InternshipTop() {
 
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {jobs.map((job) => (
-            <Link
+            <div
               key={job.id}
-              href={`/jobs/${job.id}`}
               className="group block overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="relative aspect-[16/9] w-full overflow-hidden">
+              {/* Clickable image area */}
+              <Link
+                href={`/jobs/${job.id}`}
+                aria-label={`${job.title}の詳細ページへ`}
+                className="relative block aspect-[16/9] w-full overflow-hidden"
+              >
                 {job.cover_image_url ? (
                   <Image
                     src={job.cover_image_url}
@@ -422,13 +426,14 @@ export default async function InternshipTop() {
                     />
                   </div>
                 )}
-              </div>
+              </Link>
 
               {/* Text area */}
               <div className="flex flex-col gap-2 px-4 pb-4 pt-3">
-                <h3 className="line-clamp-2 text-base font-semibold leading-snug text-gray-900">
+                {/* Clickable title (separate link, not nested) */}
+                <Link href={`/jobs/${job.id}`} className="line-clamp-2 text-base font-semibold leading-snug text-gray-900">
                   {job.title}
-                </h3>
+                </Link>
                 <p className="text-sm text-muted-foreground">{job.company.name}</p>
 
                 {/* CTA row */}
@@ -437,7 +442,13 @@ export default async function InternshipTop() {
                     className="h-10 w-full rounded-full bg-orange-600 font-semibold text-white hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
                     asChild
                   >
-                    <Link href={`/jobs/${job.id}`} aria-label={`${job.title}の詳細を見る`} className="flex items-center justify-center gap-2">
+                    <Link
+                      href={`/jobs/${job.id}`}
+                      aria-label={`${job.title}の詳細を見る`}
+                      className="flex items-center justify-center gap-2"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Eye className="h-4 w-4" />
                       <span>詳細を見る</span>
                     </Link>
@@ -454,7 +465,7 @@ export default async function InternshipTop() {
                   </Button>
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
 
