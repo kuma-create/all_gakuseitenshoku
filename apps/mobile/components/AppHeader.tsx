@@ -1,5 +1,5 @@
 import { useRouter, usePathname } from "expo-router";
-import { Menu, Mail, ChevronDown, ChevronRight, Home, User, ClipboardList, BookOpen, Briefcase, Send, LogOut } from "lucide-react-native";
+import { Menu, Mail, ChevronDown, ChevronRight, Home, User, ClipboardList, BookOpen, Briefcase, Send, LogOut, Pen } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { supabase } from "../src/lib/supabase";
@@ -119,6 +119,15 @@ export default function AppHeader({ title }: AppHeaderProps) {
       ),
       onPress: () => navigateAndClose("/ipo/selection"),
     },
+    {
+      label: (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Pen size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>ES管理</Text>
+        </View>
+      ),
+      onPress: () => navigateAndClose("/ipo/ES"),
+    },    
     {
       label: (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
