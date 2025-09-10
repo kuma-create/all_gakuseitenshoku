@@ -1282,7 +1282,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                 {upcomingStages.map(({ company, stage }) => {
                   const isUrl = stage.location && /^https?:\/\//.test(stage.location);
                   return (
-                    <Card key={stage.id} className="p-2.5 hover:shadow-sm">
+                    <Card key={stage.id} className="p-2.5 hover:shadow-sm max-w-sm">
                       <div className="flex items-start gap-2">
                         <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                           <Calendar className="w-3.5 h-3.5 text-blue-700" />
@@ -1869,7 +1869,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
               {/* ID/パスワード入力行 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">ID</Label>
+                  <Label className="text-sm font-medium text-gray-700 mb-1 block">マイページID</Label>
                   <Input
                     value={companyForm.accountId}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, accountId: e.target.value }))}
@@ -1878,7 +1878,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-1 block">パスワード</Label>
+                  <Label className="text-sm font-medium text-gray-700 mb-1 block">マイページパスワード</Label>
                   <Input
                     type="password"
                     value={companyForm.password}
@@ -2009,7 +2009,9 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-2xl h-auto max-h-[88dvh] sm:max-h-[85vh] p-0 sm:p-0 flex flex-col overflow-hidden rounded-2xl sm:rounded-lg">
     <DialogHeader className="px-3 sm:px-4 py-3 border-b flex-shrink-0">
       <DialogTitle>企業情報を編集</DialogTitle>
-      <DialogDescription>企業情報と応募したポジションの詳細を更新してください。</DialogDescription>
+      <DialogDescription>
+        企業情報と応募したポジションの詳細を更新してください。
+      </DialogDescription>
     </DialogHeader>
 
     <ScrollArea className="flex-1 h-[70vh] sm:h-[65vh] py-4 px-3 sm:px-4 overflow-y-auto">
@@ -2020,17 +2022,24 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
             <Label className="text-sm font-medium text-gray-700 mb-1 block">企業名 *</Label>
             <Input
               value={companyForm.name}
-              onChange={(e) => setCompanyForm(p => ({ ...p, name: e.target.value }))}
+              onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))}
               placeholder="例: Google Japan"
               className="h-9"
             />
           </div>
           <div>
             <Label className="text-sm font-medium text-gray-700 mb-1 block">業界</Label>
-            <Select value={companyForm.industry} onValueChange={(v) => setCompanyForm(p => ({ ...p, industry: v }))}>
-              <SelectTrigger className="h-9"><SelectValue placeholder="業界を選択" /></SelectTrigger>
+            <Select
+              value={companyForm.industry}
+              onValueChange={(value) => setCompanyForm(prev => ({ ...prev, industry: value }))}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="業界を選択" />
+              </SelectTrigger>
               <SelectContent>
-                {INDUSTRIES.map((i) => (<SelectItem key={i} value={i}>{i}</SelectItem>))}
+                {INDUSTRIES.map((industry) => (
+                  <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -2039,20 +2048,20 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         {/* ID / パスワード */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-1 block">ID</Label>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">マイページID</Label>
             <Input
               value={companyForm.accountId}
-              onChange={(e) => setCompanyForm(p => ({ ...p, accountId: e.target.value }))}
+              onChange={(e) => setCompanyForm(prev => ({ ...prev, accountId: e.target.value }))}
               placeholder="例: corp-account"
               className="h-9"
             />
           </div>
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-1 block">パスワード</Label>
+            <Label className="text-sm font-medium text-gray-700 mb-1 block">マイページパスワード</Label>
             <Input
               type="password"
               value={companyForm.password}
-              onChange={(e) => setCompanyForm(p => ({ ...p, password: e.target.value }))}
+              onChange={(e) => setCompanyForm(prev => ({ ...prev, password: e.target.value }))}
               placeholder="••••••••"
               className="h-9"
             />
@@ -2065,24 +2074,29 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
           <Input
             type="url"
             value={companyForm.siteUrl}
-            onChange={(e) => setCompanyForm(p => ({ ...p, siteUrl: e.target.value }))}
+            onChange={(e) => setCompanyForm(prev => ({ ...prev, siteUrl: e.target.value }))}
             placeholder="https://example.co.jp"
             className="h-9"
           />
         </div>
 
-        {/* 企業規模 / 職種 */}
+        {/* 規模 / 職種 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label className="text-sm font-medium text-gray-700 mb-1 block">企業規模</Label>
-            <Select value={companyForm.size} onValueChange={(v:any) => setCompanyForm(p => ({ ...p, size: v }))}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+            <Select
+              value={companyForm.size}
+              onValueChange={(value: any) => setCompanyForm(prev => ({ ...prev, size: value }))}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {Object.entries(COMPANY_SIZES).map(([k, cfg]) => (
-                  <SelectItem key={k} value={k}>
+                {Object.entries(COMPANY_SIZES).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>
                     <div className="flex items-center space-x-2">
-                      <cfg.icon className="w-4 h-4" />
-                      <span>{cfg.label}</span>
+                      <config.icon className="w-4 h-4" />
+                      <span>{config.label}</span>
                     </div>
                   </SelectItem>
                 ))}
@@ -2093,7 +2107,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
             <Label className="text-sm font-medium text-gray-700 mb-1 block">職種 *</Label>
             <Input
               value={companyForm.jobTitle}
-              onChange={(e) => setCompanyForm(p => ({ ...p, jobTitle: e.target.value }))}
+              onChange={(e) => setCompanyForm(prev => ({ ...prev, jobTitle: e.target.value }))}
               placeholder="例: ソフトウェアエンジニア"
               className="h-9"
             />
@@ -2103,14 +2117,19 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
         {/* 優先度 */}
         <div>
           <Label className="text-sm font-medium text-gray-700 mb-1 block">優先度</Label>
-          <Select value={companyForm.priority} onValueChange={(v:any) => setCompanyForm(p => ({ ...p, priority: v }))}>
-            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+          <Select
+            value={companyForm.priority}
+            onValueChange={(value: any) => setCompanyForm(prev => ({ ...prev, priority: value }))}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {Object.entries(PRIORITY_CONFIG).map(([k, cfg]) => (
-                <SelectItem key={k} value={k}>
+              {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                <SelectItem key={key} value={key}>
                   <div className="flex items-center space-x-2">
-                    <cfg.icon className="w-4 h-4" />
-                    <span>{cfg.label}</span>
+                    <config.icon className="w-4 h-4" />
+                    <span>{config.label}</span>
                   </div>
                 </SelectItem>
               ))}
@@ -2118,40 +2137,46 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
           </Select>
         </div>
 
-        {/* タグ / 職務内容 / メモ */}
+        {/* タグ */}
         <div>
           <Label className="text-sm font-medium text-gray-700 mb-1 block">タグ</Label>
           <Input
             value={companyForm.tags}
-            onChange={(e) => setCompanyForm(p => ({ ...p, tags: e.target.value }))}
+            onChange={(e) => setCompanyForm(prev => ({ ...prev, tags: e.target.value }))}
             placeholder="カンマ区切りで入力（例: IT, グローバル, 大手）"
             className="h-9"
           />
         </div>
+
+        {/* 職務内容 */}
         <div>
           <Label className="text-sm font-medium text-gray-700 mb-1 block">職務内容</Label>
           <Textarea
             value={companyForm.description}
-            onChange={(e) => setCompanyForm(p => ({ ...p, description: e.target.value }))}
+            onChange={(e) => setCompanyForm(prev => ({ ...prev, description: e.target.value }))}
             placeholder="職務内容の詳細を入力..."
-            rows={2}
+            className="min-h-[100px]"
           />
         </div>
+
+        {/* メモ */}
         <div>
           <Label className="text-sm font-medium text-gray-700 mb-1 block">メモ</Label>
           <Textarea
             value={companyForm.notes}
-            onChange={(e) => setCompanyForm(p => ({ ...p, notes: e.target.value }))}
-            placeholder="志望動機、特記事項など..."
-            rows={2}
+            onChange={(e) => setCompanyForm(prev => ({ ...prev, notes: e.target.value }))}
+            placeholder="自由記述"
+            className="min-h-[100px]"
           />
         </div>
       </div>
     </ScrollArea>
 
-    <div className="px-3 sm:px-4 py-3 border-t flex justify-end gap-2">
+    <div className="px-3 sm:px-4 py-3 border-t flex items-center justify-end gap-2">
       <Button variant="outline" onClick={() => setShowEditCompanyDialog(false)}>キャンセル</Button>
-      <Button onClick={handleEditCompany}>更新</Button>
+      <Button onClick={handleEditCompany} className="bg-blue-600 hover:bg-blue-700 text-white">
+        保存
+      </Button>
     </div>
   </DialogContent>
 </Dialog>
