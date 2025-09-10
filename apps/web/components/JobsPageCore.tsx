@@ -95,7 +95,8 @@ const getSelectionLabelClass = (type?: string | null) => {
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   companies: { name: string; logo: string | null; industry?: string | null } | null
   industry?: string | null
-  job_type?: string | null
+  department?: string | null // Added for department-based filtering
+  job_type?: string | null // Kept for backward compatibility
   selection_type?: string | null
   is_featured?: boolean | null
   salary_range?: string | null
@@ -448,6 +449,7 @@ export default function JobsPage({
 id,
 title,
 description,
+department,
 created_at,
 work_type,
 selection_type,
@@ -542,9 +544,10 @@ job_tags!job_tags_job_id_fkey (
         industriesSelected.length === 0 ||
         industriesSelected.some((opt) => (j.industry ?? "").toLowerCase().includes(opt.toLowerCase()));
 
+      // Filtering uses jobs.department now (職種フィルター)
       const matchesJob =
         jobTypesSelected.length === 0 ||
-        jobTypesSelected.some((opt) => (j.job_type ?? "").toLowerCase().includes(opt.toLowerCase()));
+        jobTypesSelected.some((opt) => (j.department ?? "").toLowerCase().includes(opt.toLowerCase()));
 
       // 開催形式・開催日（説明会／イベント・インターン（短期）のときのみ適用）
       const eventLike = ["event", "internship_short"].includes(selectionType);

@@ -40,6 +40,7 @@ import Footer from "@/components/footer"
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"] & {
   companies: { name: string; logo: string | null; industry?: string | null } | null
   industry?: string | null
+  department?: string | null
   job_type?: string | null
   selection_type?: string | null
   is_featured?: boolean | null
@@ -338,6 +339,7 @@ export default function JobSearchPage() {
 id,
 title,
 description,
+department,
 created_at,
 work_type,
 is_recommended,
@@ -438,9 +440,10 @@ intern_long_details:intern_long_details!intern_long_details_job_id_fkey (
       const matchesInd =
         industriesSelected.length === 0 ||
         industriesSelected.some((opt) => (j.industry ?? "").toLowerCase().includes(opt.toLowerCase()));
+      // 職種フィルターは jobs.department を使用
       const matchesJob =
         jobTypesSelected.length === 0 ||
-        jobTypesSelected.some((opt) => (j.job_type ?? "").toLowerCase().includes(opt.toLowerCase()));
+        jobTypesSelected.some((opt) => (j.department ?? "").toLowerCase().includes(opt.toLowerCase()));
 
       // イベント系
       const eventLike = ["event", "internship_short"].includes(selectionType);
