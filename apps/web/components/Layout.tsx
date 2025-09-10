@@ -12,7 +12,8 @@ import {
   FileText,
   Search,
   Send,
-  MessageCircle
+  MessageCircle,
+  Pen
 } from 'lucide-react';
 
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -45,6 +46,7 @@ type Route =
   | '/ipo/library'
   | '/ipo/diagnosis'
   | '/ipo/settings'
+  | '/ipo/ES'
   | '/student/scouts'
   | '/chat'
   | '/jobs';
@@ -87,6 +89,12 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       route: '/ipo/selection' as Route, 
       icon: FileText,
       description: '企業選考の進捗管理'
+    },
+    {
+      label: 'ES管理',
+      route: '/ipo/ES' as Route,
+      icon: Pen,
+      description: 'エントリーシートを管理'
     },
     { 
       label: '自己分析', 
@@ -136,6 +144,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     '/ipo/library': { title: 'ライブラリ', subtitle: '業界・職種情報' },
     '/ipo/diagnosis': { title: '診断', subtitle: '性格・適職診断' },
     '/ipo/settings': { title: '設定' },
+    '/ipo/ES': { title: 'ES管理', subtitle: 'エントリーシートを管理' },
     '/jobs': { title: '求人検索', subtitle: "求人の検索" },
     '/ipo/login': undefined,
     '/student/scouts': { title: 'ヘッドハンティング', subtitle: 'スカウト情報の確認' },
