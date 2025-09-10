@@ -16,6 +16,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
+    Pressable,
     View,
     ScrollView,
     Modal,
@@ -670,10 +671,9 @@ function Chip({ text }: { text: string }) {
 
 function JobCard({ item, onPress, saved, onToggle }: { item: JobRow; onPress: (id: string) => void; saved: boolean; onToggle: () => void }) {
   return (
-    <TouchableOpacity
+    <Pressable
       style={styles.card}
       onPress={() => onPress(item.id)}
-      accessibilityRole="button"
       accessibilityLabel={`${item.companies?.name ?? "企業名不明"}の求人：${item.title ?? "タイトル不明"}`}
     >
       {/* cover image (optional) */}
@@ -693,8 +693,8 @@ function JobCard({ item, onPress, saved, onToggle }: { item: JobRow; onPress: (i
           )}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.company} numberOfLines={1}>{item.companies?.name ?? "企業名未登録"}</Text>
-          <Text style={styles.title} numberOfLines={2}>{item.title ?? "募集タイトル未登録"}</Text>
+          <Text style={styles.company} numberOfLines={1} ellipsizeMode="tail">{item.companies?.name ?? "企業名未登録"}</Text>
+          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{item.title ?? "募集タイトル未登録"}</Text>
           <View style={styles.chipsRow}>
             <Chip text={selectionLabel(item.selection_type ?? undefined)} />
             {!!item.location && <Chip text={item.location} />}
@@ -714,7 +714,7 @@ function JobCard({ item, onPress, saved, onToggle }: { item: JobRow; onPress: (i
 
       {/* footer meta & actions */}
       <View style={styles.footerRowBetween}>
-        <Text style={styles.meta} numberOfLines={1}>
+        <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
           {item.application_deadline ? `締切 ${formatDeadline(item.application_deadline)}` : /* (item.created_at ? new Date(item.created_at).toLocaleDateString() : "") */ ""}
         </Text>
         <View style={{ flexDirection: "row", gap: 14 }}>
@@ -723,7 +723,7 @@ function JobCard({ item, onPress, saved, onToggle }: { item: JobRow; onPress: (i
           </TouchableOpacity>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -974,6 +974,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
     gap: 8,
+    overflow: "hidden",
   },
   cardHeader: { flexDirection: "row", gap: 12, alignItems: "center" },
   logoWrap: {
@@ -990,17 +991,20 @@ const styles = StyleSheet.create({
   logoFallbackText: { color: "#6b7280", fontWeight: "700" },
   company: { fontSize: 13, color: "#6b7280" },
   title: { fontSize: 18, fontWeight: "800", color: "#111827", marginTop: 2 },
-  chipsRow: { flexDirection: "row", gap: 6, marginTop: 8, flexWrap: "wrap" },
+  chipsRow: { flexDirection: "row", gap: 6, marginTop: 8, flexWrap: "wrap", minWidth: 0 },
   chip: {
     backgroundColor: "#f3f4f6",
     borderRadius: 9999,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "100%",
   },
   chipText: { fontSize: 12, color: "#374151" },
-  tagsRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  tagsRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", minWidth: 0 },
   footerRow: { flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" },
-  meta: { color: "#6b7280", fontSize: 12 },
+  meta: { color: "#6b7280", fontSize: 12, flexShrink: 1, minWidth: 0 },
   retryBtn: {
     marginTop: 8,
     backgroundColor: "#fff",

@@ -285,6 +285,47 @@ export default function StudentProfileMobile() {
     dirtyRef.current = true;
   }, []);
 
+  // --- 郵便番号→住所 自動入力 ---
+  const zipLookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastZipLookedUpRef = useRef<string>("");
+  const [zipLookingUp, setZipLookingUp] = useState(false);
+
+  const lookupAddressByZip = useCallback(async (rawZip: string) => {
+    const zipcode = (rawZip || "").replace(/[^0-9]/g, "");
+    if (zipcode.length !== 7) return; // 7桁のみ実行
+    if (zipcode === lastZipLookedUpRef.current) return; // 重複呼び出し防止
+    try {
+      setZipLookingUp(true);
+      const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zipcode}`);
+      const json = await res.json();
+      if (json && json.results && json.results.length > 0) {
+        const r = json.results[0];
+        // 既に入力済みの値は尊重（空のときのみ上書き）
+        const next: Record<string, any> = {};
+        if (!profile.prefecture) next.prefecture = r.address1 || "";
+        const mergedCity = `${r.address2 ?? ""}${r.address3 ?? ""}`;
+        if (!profile.city) next.city = mergedCity;
+        if (Object.keys(next).length) update(next);
+      }
+      lastZipLookedUpRef.current = zipcode;
+    } catch (e) {
+      // ネットワークエラー等は握りつぶし（UX重視）
+      console.warn("zip lookup failed", e);
+    } finally {
+      setZipLookingUp(false);
+    }
+  }, [profile.prefecture, profile.city, update]);
+
+  // 郵便番号の変更を監視して、300msデバウンス後に検索
+  useEffect(() => {
+    if (!profile?.postal_code) return;
+    if (zipLookupTimerRef.current) clearTimeout(zipLookupTimerRef.current);
+    zipLookupTimerRef.current = setTimeout(() => {
+      lookupAddressByZip(profile.postal_code);
+    }, 300);
+    return () => { if (zipLookupTimerRef.current) clearTimeout(zipLookupTimerRef.current); };
+  }, [profile?.postal_code, lookupAddressByZip]);
+
   // completion
   const sectionPct = useMemo(() => {
     const basicList = [
@@ -352,79 +393,153 @@ export default function StudentProfileMobile() {
       {/* content */}
       <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:96 }}>
         {tab === "basic" && (
-          <View style={{ gap:12 }}>
-            <Field name="last_name" label="姓" value={profile.last_name ?? ""} onChangeText={(v)=>update({ last_name:v })} required
-              onFocus={() => setActiveField("last_name")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("last_name")} onSubmitEditing={() => { handleBlur(); focusNext("last_name"); }}
-            />
-            <Field name="first_name" label="名" value={profile.first_name ?? ""} onChangeText={(v)=>update({ first_name:v })} required
-              onFocus={() => setActiveField("first_name")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("first_name")} onSubmitEditing={() => { handleBlur(); focusNext("first_name"); }}
-            />
-            <Field name="last_name_kana" label="セイ" value={profile.last_name_kana ?? ""} onChangeText={(v)=>update({ last_name_kana:v })} 
-              onFocus={() => setActiveField("last_name_kana")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("last_name_kana")} onSubmitEditing={() => { handleBlur(); focusNext("last_name_kana"); }}
-            />
-            <Field name="first_name_kana" label="メイ" value={profile.first_name_kana ?? ""} onChangeText={(v)=>update({ first_name_kana:v })} 
-              onFocus={() => setActiveField("first_name_kana")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("first_name_kana")} onSubmitEditing={() => { handleBlur(); focusNext("first_name_kana"); }}
-            />
-            <Field name="phone" label="電話番号" value={profile.phone ?? ""} onChangeText={(v)=>update({ phone: v.replace(/[^0-9+\-]/g, "") })} keyboardType="phone-pad"
-              onFocus={() => setActiveField("phone")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("phone")} onSubmitEditing={() => { handleBlur(); focusNext("phone"); }}
-            />
-            <Field name="birth_date" label="生年月日" value={profile.birth_date ?? ""} onChangeText={(v)=>update({ birth_date:v })} placeholder="YYYY-MM-DD"
-              onFocus={() => setActiveField("birth_date")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("birth_date")} onSubmitEditing={() => { handleBlur(); focusNext("birth_date"); }}
-            />
-            <Field name="postal_code" label="郵便番号" value={profile.postal_code ?? ""} onChangeText={(v)=>update({ postal_code: v.replace(/[^0-9-]/g, "") })} 
-              onFocus={() => setActiveField("postal_code")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("postal_code")} onSubmitEditing={() => { handleBlur(); focusNext("postal_code"); }}
-            />
-            <Field name="prefecture" label="都道府県" value={profile.prefecture ?? ""} onChangeText={(v)=>update({ prefecture:v })} 
-              onFocus={() => setActiveField("prefecture")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("prefecture")} onSubmitEditing={() => { handleBlur(); focusNext("prefecture"); }}
-            />
-            <Field name="city" label="市区町村" value={profile.city ?? ""} onChangeText={(v)=>update({ city:v })} 
+          <View style={{ gap:12, backgroundColor:'#ffffff', borderWidth:1, borderColor:'#e5e7eb', borderRadius:12, padding:12 }}>
+            {/* 氏名 */}
+            <View style={{ flexDirection:"row", gap:12 }}>
+              <View style={{ flex:1 }}>
+                <Field name="last_name" label="姓" value={profile.last_name ?? ""} onChangeText={(v)=>update({ last_name:v })} required
+                  onFocus={() => setActiveField("last_name")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("last_name")} onSubmitEditing={() => { handleBlur(); focusNext("last_name"); }}
+                />
+              </View>
+              <View style={{ flex:1 }}>
+                <Field name="first_name" label="名" value={profile.first_name ?? ""} onChangeText={(v)=>update({ first_name:v })} required
+                  onFocus={() => setActiveField("first_name")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("first_name")} onSubmitEditing={() => { handleBlur(); focusNext("first_name"); }}
+                />
+              </View>
+            </View>
+
+            {/* フリガナ */}
+            <View style={{ flexDirection:"row", gap:12 }}>
+              <View style={{ flex:1 }}>
+                <Field name="last_name_kana" label="セイ" value={profile.last_name_kana ?? ""} onChangeText={(v)=>update({ last_name_kana:v })}
+                  onFocus={() => setActiveField("last_name_kana")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("last_name_kana")} onSubmitEditing={() => { handleBlur(); focusNext("last_name_kana"); }}
+                />
+              </View>
+              <View style={{ flex:1 }}>
+                <Field name="first_name_kana" label="メイ" value={profile.first_name_kana ?? ""} onChangeText={(v)=>update({ first_name_kana:v })}
+                  onFocus={() => setActiveField("first_name_kana")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("first_name_kana")} onSubmitEditing={() => { handleBlur(); focusNext("first_name_kana"); }}
+                />
+              </View>
+            </View>
+
+            {/* 連絡先・生年月日 */}
+            <View style={{ flexDirection:"row", gap:12 }}>
+              <View style={{ flex:1 }}>
+                <Field name="phone" label="電話番号" value={profile.phone ?? ""} onChangeText={(v)=>update({ phone: v.replace(/[^0-9+\-]/g, "") })} keyboardType="phone-pad"
+                  onFocus={() => setActiveField("phone")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("phone")} onSubmitEditing={() => { handleBlur(); focusNext("phone"); }}
+                />
+              </View>
+              <View style={{ flex:1 }}>
+                <Field name="birth_date" label="生年月日" value={profile.birth_date ?? ""} onChangeText={(v)=>update({ birth_date:v })} placeholder="YYYY-MM-DD"
+                  onFocus={() => setActiveField("birth_date")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("birth_date")} onSubmitEditing={() => { handleBlur(); focusNext("birth_date"); }}
+                />
+              </View>
+            </View>
+
+            {/* 性別・出身地 */}
+            <View style={{ flexDirection:"row", gap:12 }}>
+              <View style={{ flex:1 }}>
+                <SingleSelectGroup
+                  title="性別"
+                  options={["男性","女性"]}
+                  value={profile.gender ?? ""}
+                  onChange={(v)=>update({ gender:v })}
+                />
+              </View>
+              <View style={{ flex:1 }}>
+                <Field name="hometown" label="出身地" value={profile.hometown ?? ""} onChangeText={(v)=>update({ hometown:v })}
+                  onFocus={() => setActiveField("hometown")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("hometown")} onSubmitEditing={() => { handleBlur(); focusNext("hometown"); }}
+                />
+              </View>
+            </View>
+
+            {/* 住所 */}
+            <View style={{ flexDirection:"row", gap:12 }}>
+              <View style={{ flex:1 }}>
+                <Field
+                  name="postal_code"
+                  label="郵便番号"
+                  value={profile.postal_code ?? ""}
+                  onChangeText={(v)=>{
+                    const digits = v.replace(/[^0-9]/g, "").slice(0,7);
+                    const formatted = digits.length > 3 ? `${digits.slice(0,3)}-${digits.slice(3)}` : digits;
+                    update({ postal_code: formatted });
+                  }}
+                  onFocus={() => setActiveField("postal_code")}
+                  onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("postal_code")}
+                  onSubmitEditing={() => { handleBlur(); focusNext("postal_code"); }}
+                />
+              </View>
+              <View style={{ flex:1 }}>
+                <Field name="prefecture" label="都道府県" value={profile.prefecture ?? ""} onChangeText={(v)=>update({ prefecture:v })}
+                  onFocus={() => setActiveField("prefecture")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("prefecture")} onSubmitEditing={() => { handleBlur(); focusNext("prefecture"); }}
+                />
+              </View>
+            </View>
+            {zipLookingUp && (
+              <Text style={{ fontSize:12, color:'#64748b' }}>住所を検索中…</Text>
+            )}
+
+            <Field name="city" label="市区町村" value={profile.city ?? ""} onChangeText={(v)=>update({ city:v })}
               onFocus={() => setActiveField("city")} onBlur={() => { setActiveField(null); handleBlur(); }}
               innerRef={register("city")} onSubmitEditing={() => { handleBlur(); focusNext("city"); }}
             />
-            <Field name="address_line" label="番地・建物名など" value={profile.address_line ?? ""} onChangeText={(v)=>update({ address_line:v })} 
+
+            <Field name="address_line" label="番地・建物名など" value={profile.address_line ?? ""} onChangeText={(v)=>update({ address_line:v })}
               onFocus={() => setActiveField("address_line")} onBlur={() => { setActiveField(null); handleBlur(); }}
               innerRef={register("address_line")} onSubmitEditing={() => { handleBlur(); focusNext("address_line"); }}
-            />
-            <Field name="hometown" label="出身地" value={profile.hometown ?? ""} onChangeText={(v)=>update({ hometown:v })} 
-              onFocus={() => setActiveField("hometown")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("hometown")} onSubmitEditing={() => { handleBlur(); focusNext("hometown"); }}
             />
 
             {/* 学歴 */}
             <Section title="学歴" />
-            <Field name="university" label="大学名" value={profile.university ?? ""} onChangeText={(v)=>update({ university:v })} 
+            <Field name="university" label="大学名" value={profile.university ?? ""} onChangeText={(v)=>update({ university:v })}
               onFocus={() => setActiveField("university")} onBlur={() => { setActiveField(null); handleBlur(); }}
               innerRef={register("university")} onSubmitEditing={() => { handleBlur(); focusNext("university"); }}
             />
-            <Field name="faculty" label="学部/研究科" value={profile.faculty ?? ""} onChangeText={(v)=>update({ faculty:v })} 
-              onFocus={() => setActiveField("faculty")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("faculty")} onSubmitEditing={() => { handleBlur(); focusNext("faculty"); }}
-            />
-            <Field name="department" label="学科/専攻" value={profile.department ?? ""} onChangeText={(v)=>update({ department:v })} 
-              onFocus={() => setActiveField("department")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("department")} onSubmitEditing={() => { handleBlur(); focusNext("department"); }}
-            />
-            <Field name="graduation_month" label="卒業予定月 (YYYY-MM)" value={profile.graduation_month?.slice(0,7) ?? ""} onChangeText={(v)=>update({ graduation_month:v })} 
-              onFocus={() => setActiveField("graduation_month")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("graduation_month")} onSubmitEditing={() => { handleBlur(); focusNext("graduation_month"); }}
-            />
-            <Multiline name="research_theme" label="研究テーマ" value={profile.research_theme ?? ""} onChangeText={(v)=>update({ research_theme:v })} 
-              onFocus={() => setActiveField("research_theme")} onBlur={() => { setActiveField(null); handleBlur(); }}
-              innerRef={register("research_theme")} onSubmitEditing={() => { handleBlur(); focusNext("research_theme"); }}
-            />
+
+            <View style={{ flexDirection:"row", gap:12 }}>
+              <View style={{ flex:1 }}>
+                <Field name="faculty" label="学部/研究科" value={profile.faculty ?? ""} onChangeText={(v)=>update({ faculty:v })}
+                  onFocus={() => setActiveField("faculty")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("faculty")} onSubmitEditing={() => { handleBlur(); focusNext("faculty"); }}
+                />
+              </View>
+              <View style={{ flex:1 }}>
+                <Field name="department" label="学科/専攻" value={profile.department ?? ""} onChangeText={(v)=>update({ department:v })}
+                  onFocus={() => setActiveField("department")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("department")} onSubmitEditing={() => { handleBlur(); focusNext("department"); }}
+                />
+              </View>
+            </View>
+
+            <View style={{ flexDirection:"row", gap:12 }}>
+              <View style={{ flex:1 }}>
+                <Field name="graduation_month" label="卒業予定月 (YYYY-MM)" value={profile.graduation_month?.slice(0,7) ?? ""} onChangeText={(v)=>update({ graduation_month:v })}
+                  onFocus={() => setActiveField("graduation_month")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("graduation_month")} onSubmitEditing={() => { handleBlur(); focusNext("graduation_month"); }}
+                />
+              </View>
+              <View style={{ flex:1 }}>
+                <Multiline name="research_theme" label="研究/卒論テーマ" value={profile.research_theme ?? ""} onChangeText={(v)=>update({ research_theme:v })}
+                  onFocus={() => setActiveField("research_theme")} onBlur={() => { setActiveField(null); handleBlur(); }}
+                  innerRef={register("research_theme")} onSubmitEditing={() => { handleBlur(); focusNext("research_theme"); }} rows={3}
+                />
+              </View>
+            </View>
           </View>
         )}
 
         {tab === "pr" && (
-          <View style={{ gap:12 }}>
+          <View style={{ gap:12, backgroundColor:'#ffffff', borderWidth:1, borderColor:'#e5e7eb', borderRadius:12, padding:12 }}>
             <Field name="pr_title" label="PRタイトル" value={profile.pr_title ?? ""} onChangeText={(v)=>update({ pr_title:v })} placeholder="あなたを一言で"
               onFocus={() => setActiveField("pr_title")} onBlur={() => { setActiveField(null); handleBlur(); }}
               innerRef={register("pr_title")} onSubmitEditing={() => { handleBlur(); focusNext("pr_title"); }}
@@ -451,7 +566,7 @@ export default function StudentProfileMobile() {
         )}
 
         {tab === "pref" && (
-          <View style={{ gap:12 }}>
+          <View style={{ gap:12, backgroundColor:'#ffffff', borderWidth:1, borderColor:'#e5e7eb', borderRadius:12, padding:12 }}>
             <Section title="希望条件" />
             <Field name="work_style" label="希望勤務形態" value={profile.work_style ?? ""} onChangeText={(v)=>update({ work_style:v })} placeholder="例: 正社員 / インターン"
               onFocus={() => setActiveField("work_style")} onBlur={() => { setActiveField(null); handleBlur(); }}
@@ -530,7 +645,7 @@ function Field({ name, label, value, onChangeText, placeholder, keyboardType, re
         autoCorrect={false}
         returnKeyType="next"
         blurOnSubmit={false}
-        style={{ borderWidth:1, borderColor:"#e5e7eb", borderRadius:8, paddingHorizontal:12, paddingVertical:10, fontSize:14, backgroundColor:"#fff" }}
+        style={{ borderWidth:1, borderColor:"#e5e7eb", borderRadius:10, paddingHorizontal:12, paddingVertical:8, fontSize:14, backgroundColor:"#fff" }}
       />
     </View>
   );
@@ -558,7 +673,7 @@ function Multiline({ name, label, value, onChangeText, placeholder, maxLength, r
         autoCorrect={false}
         returnKeyType="done"
         blurOnSubmit={true}
-        style={{ borderWidth:1, borderColor:"#e5e7eb", borderRadius:8, paddingHorizontal:12, paddingVertical:10, fontSize:14, backgroundColor:"#fff", textAlignVertical:"top" }}
+        style={{ borderWidth:1, borderColor:"#e5e7eb", borderRadius:10, paddingHorizontal:12, paddingVertical:8, fontSize:14, backgroundColor:"#fff", textAlignVertical:"top" }}
       />
       {typeof maxLength === "number" && (
         <Text style={{ alignSelf:"flex-end", marginTop:4, fontSize:12, color:"#64748b" }}>{value.length}/{maxLength}文字</Text>
@@ -575,6 +690,7 @@ function Tag({ label, selected, onPress }:{ label:string; selected:boolean; onPr
   );
 }
 
+
 function TagGroup({ title, options, values, onToggle }:{
   title: string; options: readonly string[]; values: string[]; onToggle: (v:string)=>void;
 }) {
@@ -584,6 +700,21 @@ function TagGroup({ title, options, values, onToggle }:{
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
         {options.map(opt => (
           <Tag key={opt} label={opt} selected={values?.includes(opt)} onPress={() => onToggle(opt)} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function SingleSelectGroup({ title, options, value, onChange }:{
+  title: string; options: readonly string[] | string[]; value: string; onChange: (v:string)=>void;
+}) {
+  return (
+    <View>
+      <Text style={{ fontSize:12, marginBottom:8 }}>{title}</Text>
+      <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
+        {options.map((opt) => (
+          <Tag key={String(opt)} label={String(opt)} selected={value === opt} onPress={() => onChange(String(opt))} />
         ))}
       </View>
     </View>

@@ -1,4 +1,3 @@
-// app/(student)/ipo/_layout.tsx
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
@@ -58,8 +57,8 @@ export default function IPOLayout() {
         name="selection/index"
         options={{
           href: '/ipo/selection',
-          title: '選考•ES管理',
-          tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={24} color={color} />,
+          title: '選考管理',
+          tabBarIcon: ({ color }) => <Feather name="clipboard" size={24} color={color} />,
           tabBarItemStyle: { display: 'none' },
         }}
       />
@@ -95,6 +94,17 @@ export default function IPOLayout() {
           href: '/ipo/diagnosis',
           title: '診断',
           tabBarIcon: ({ color }) => <Feather name="activity" size={24} color={color} />,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+
+      {/* ES管理 */}
+      <Tabs.Screen
+        name="ES/index"
+        options={{
+          href: '/ipo/ES',
+          title: 'ES管理',
+          tabBarIcon: ({ color }) => <Feather name="edit-3" size={24} color={color} />,
           tabBarItemStyle: { display: 'none' },
         }}
       />
