@@ -350,18 +350,95 @@ export default function ClientPage({ id }: { id: string }) {
           .eq("job_id", id)
         const tagList = tagRows?.map(t => t.tag) ?? []
 
-        /* related */
-        let rel: SelectionRow[] = []
-        if (sel.company_id) {
-          const { data: r } = await supabase
-            .from("selections_view")
-            .select(`id,title,location,salary_min,salary_max,selection_type,
-                     company:companies(name,logo)`)
-            .eq("company_id", sel.company_id)
-            .neq("id", id)
-            .limit(3)
-          rel = (r ?? []) as unknown as SelectionRow[]
+        /* related (logic change: prioritize same job type, then fill freely within same selection_type) */
+        const RELATED_LIMIT = 6; // 表示上限（必要に応じて変更可）
+        let rel: SelectionRow[] = [];
+
+        // ベース条件: 同じ selection_type（本選考/イベント/短期/長期）
+        const baseSelect = `id,title,description,cover_image_url,location,work_type,salary_min,salary_max,salary_range,selection_type,created_at,
+                            company:companies(name,logo)`;
+
+        // 1) 職種（work_type）が同じものを優先して取得
+        const { data: sameType } = await supabase
+          .from("selections_view")
+          .select(baseSelect)
+          .eq("selection_type", (sel as any).selection_type)
+          .eq("work_type", (sel as any).work_type)
+          .neq("id", id)
+          .order("created_at", { ascending: false })
+          .limit(RELATED_LIMIT);
+
+        if (Array.isArray(sameType)) {
+          rel = sameType as unknown as SelectionRow[];
         }
+
+        // 2) まだ足りない場合、同じ selection_type から自由に補充（職種は問わない）
+        if (rel.length < RELATED_LIMIT) {
+          const excludeIds = [id, ...rel.map(r => (r as any).id)].filter(Boolean);
+          // Postgrest の `in` 用にカンマ区切り文字列を生成
+          const inList = `(${excludeIds.map(v => `'${String(v)}'`).join(',')})`;
+
+          const { data: fillers } = await supabase
+            .from("selections_view")
+            .select(baseSelect)
+            .eq("selection_type", (sel as any).selection_type)
+            .not("id", "in", inList)
+            .order("created_at", { ascending: false })
+            .limit(RELATED_LIMIT - rel.length);
+
+          if (Array.isArray(fillers) && fillers.length > 0) {
+            rel = [...rel, ...(fillers as unknown as SelectionRow[])];
+          }
+        }
+
+        // --- post-filter by publication state (selections_view doesn't have `published`) ---
+        if (Array.isArray(rel) && rel.length > 0) {
+          const relIds = rel.map((r: any) => r.id).filter(Boolean);
+          const { data: pubRows } = await supabase
+            .from("jobs")
+            .select("id,published,department")
+            .in("id", relIds);
+          const pubSet  = new Set((pubRows ?? []).filter((p: any) => p.published === true).map((p: any) => p.id));
+          const deptMap = new Map((pubRows ?? []).map((p: any) => [p.id, p.department ?? null]));
+          // 公開のみ残す
+          rel = rel.filter((r: any) => pubSet.has(r.id));
+          // 下流で使えるように department / published をスタンプ
+          rel = rel.map((r: any) => ({
+            ...r,
+            department: (r as any).department ?? deptMap.get((r as any).id) ?? null,
+            published: true,
+            jobs: {
+              ...((r as any).jobs ?? {}),
+              published: true,
+              department: ((r as any).jobs?.department ?? deptMap.get((r as any).id) ?? null),
+            },
+          }));
+        }
+
+        // --- normalize selection_type for downstream components (some variants expect `internship_long`) ---
+        rel = rel.map((r: any) => ({
+          ...r,
+          selection_type: r.selection_type === 'intern_long' ? 'internship_long' : r.selection_type,
+        }));
+
+        // --- defensive fallback: if everything got filtered out but we had candidates, use the pre-filter list ---
+        if (rel.length === 0) {
+          // Try without publication filter as a last resort (still same selection_type)
+          const { data: fallback } = await supabase
+            .from('selections_view')
+            .select(baseSelect)
+            .eq('selection_type', (sel as any).selection_type)
+            .neq('id', id)
+            .order('created_at', { ascending: false })
+            .limit(RELATED_LIMIT);
+          if (Array.isArray(fallback) && fallback.length > 0) {
+            rel = (fallback as any[]).map((r: any) => ({
+              ...r,
+              selection_type: r.selection_type === 'intern_long' ? 'internship_long' : r.selection_type,
+            }));
+          }
+        }
+        setRelated(rel);
 
         /* applied? – look up student_profile first */
         const { data:{ user } } = await supabase.auth.getUser()

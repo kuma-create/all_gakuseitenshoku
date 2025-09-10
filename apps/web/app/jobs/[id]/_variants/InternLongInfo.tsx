@@ -86,10 +86,11 @@ export default function InternInfo({
   const router = useRouter()
 
   // ----- Derived values -----
-  // Show only published related jobs
-  const publishedRelated = related.filter(
-    (r: any) => r?.published === true || r?.jobs?.published === true
-  )
+  // Show only published related jobs (fallback to all if flags are absent; upstream already filters to published)
+  const hasPubFlag = Array.isArray(related) && related.some((r: any) => r?.published !== undefined || r?.jobs?.published !== undefined);
+  const publishedRelated = hasPubFlag
+    ? related.filter((r: any) => r?.published === true || r?.jobs?.published === true)
+    : (related ?? []);
 
   const handleApplyClick = async () => {
     // 1) Check login state
@@ -568,18 +569,58 @@ export default function InternInfo({
             </CardHeader>
             <CardContent className="p-6">
               {publishedRelated.length ? (
-                <ul className="space-y-2 text-sm">
-                  {publishedRelated.map((r: any) => (
-                    <li key={r.id} className="flex items-center gap-2">
-                      <Link
-                        href={`/jobs/${r.id}`}
-                        className="hover:text-orange-600 hover:underline"
-                      >
-                        {r.title}
+                <div className="space-y-4">
+                  {publishedRelated.map((r: any) => {
+                    const rawImg =
+                      r.cover_image_url ||
+                      r.jobs?.cover_image_url ||
+                      r.company?.cover_image_url ||
+                      r.company?.logo ||
+                      null;
+                    const img = normalizeImageUrl(rawImg) ?? "/ogp/internships.png";
+                    const companyName = r.company?.name ?? company?.name ?? "";
+                    return (
+                      <Link href={`/jobs/${r.id}`} key={r.id} className="block group">
+                        <div className="rounded-lg overflow-hidden border bg-white shadow hover:shadow-md transition-shadow">
+                          <div className="relative w-full h-32">
+                            <Image
+                              src={img}
+                              alt={r.title}
+                              fill
+                              className="object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                              sizes="(min-width: 640px) 50vw, 100vw"
+                            />
+                          </div>
+                          <div className="p-3">
+                            {companyName && (
+                              <p className="text-xs text-gray-500">{companyName}</p>
+                            )}
+                            <h3 className="mt-1 text-sm font-semibold text-gray-900">
+                              {r.title}
+                            </h3>
+                            {r.salary_range && (
+                              <p className="text-xs text-orange-600 mt-1">{r.salary_range}</p>
+                            )}
+                            <div className="mt-2 space-y-1 text-xs text-gray-500">
+                              {(r.department || r.jobs?.department) && (
+                                <div className="flex items-center gap-2">
+                                  <Briefcase size={14} />
+                                  <span className="leading-tight">{r.department || r.jobs?.department}</span>
+                                </div>
+                              )}
+                              {r.location && (
+                                <div className="flex items-start gap-2">
+                                  <MapPin size={14} className="mt-[2px] flex-shrink-0" />
+                                  <span className="leading-snug">{r.location}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </Link>
-                    </li>
-                  ))}
-                </ul>
+                    );
+                  })}
+                </div>
               ) : (
                 <p className="text-center text-sm text-gray-500">
                   公開中の関連インターンはありません
