@@ -196,6 +196,10 @@ export default function SelectionIndex() {
   const [detailTarget, setDetailTarget] = useState<Company | null>(null);
   const [detailTab, setDetailTab] = useState<"overview" | "stages" | "notes">("stages");
 
+  // 認証情報ポップアップ
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [credentialsTarget, setCredentialsTarget] = useState<Company | null>(null);
+
   // 選考段階 編集モーダル
   const [stageEditOpen, setStageEditOpen] = useState(false);
   const [stageEditing, setStageEditing] = useState<SelectionStage | null>(null);
@@ -483,7 +487,11 @@ export default function SelectionIndex() {
   // 選考段階の保存（新規/更新）
   const handleSaveStage = useCallback(async () => {
     if (!detailTarget) return;
+    // 追加: 認証ユーザーID（RLS対策）
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id ?? null;
     const payload: any = {
+      user_id: uid,
       company_id: detailTarget.id,
       name: stageForm.name.trim() || "無題の段階",
       status: stageForm.status,
@@ -544,6 +552,8 @@ export default function SelectionIndex() {
         );
       }
     } catch (e) {
+      console.error('save stage failed', e);
+      try { Alert.alert('保存に失敗しました', (e as any)?.message ?? '権限設定(RLS)の可能性があります。後で再読み込みすると消える場合があります。'); } catch {}
       // 楽観的更新（失敗してもローカル反映）)
       if (stageEditing && stageEditing.id) {
         setCompanies((prev) =>
@@ -730,7 +740,15 @@ export default function SelectionIndex() {
       : 0;
 
     return (
-      <View
+      <TouchableOpacity
+        onPress={() => {
+          setDetailTarget(item);
+          setDetailTab("stages");
+          setDetailOpen(true);
+        }}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="企業の概要を表示"
         style={{
           backgroundColor: "#fff",
           padding: 12,
@@ -809,9 +827,8 @@ export default function SelectionIndex() {
             {/* 詳細（ポップアップ） */}
             <TouchableOpacity
               onPress={() => {
-                setDetailTarget(item);
-                setDetailTab("stages");
-                setDetailOpen(true);
+                setCredentialsTarget(item);
+                setCredentialsOpen(true);
               }}
               accessibilityRole="button"
               accessibilityLabel="詳細を見る"
@@ -820,6 +837,124 @@ export default function SelectionIndex() {
             >
               <Eye size={16} color="#374151" />
             </TouchableOpacity>
+      {/* 認証情報（別ポップアップ） */}
+      <Modal
+        visible={credentialsOpen}
+        animationType="fade"
+        transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => setCredentialsOpen(false)}
+      >
+        <View
+          pointerEvents="box-none"
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.25)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              padding: 16,
+            }}
+          >
+            <Text style={{ fontWeight: "800", fontSize: 18, marginBottom: 12 }}>
+              {credentialsTarget?.name ?? ""}
+            </Text>
+            <View style={{ gap: 12 }}>
+              {(() => {
+                const idTag = credentialsTarget?.tags?.find((t) => t.startsWith("__id:"));
+                const idVal = idTag ? idTag.replace("__id:", "") : "";
+                return (
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={{ width: 110, fontSize: 12, color: "#6B7280" }}>マイページID:</Text>
+                    <Text style={{ flex: 1, fontSize: 12 }}>{idVal || "-"}</Text>
+                    {idVal ? (
+                      <TouchableOpacity
+                        onPress={async () => {
+                          await Clipboard.setStringAsync(idVal);
+                          Alert.alert("コピーしました", "マイページIDをコピーしました");
+                        }}
+                        style={{ marginLeft: 8, padding: 6, borderRadius: 8, backgroundColor: "#F3F4F6" }}
+                      >
+                        <CopyIcon size={14} color="#374151" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })()}
+              {(() => {
+                const pwTag = credentialsTarget?.tags?.find((t) => t.startsWith("__pw:"));
+                const pwVal = pwTag ? pwTag.replace("__pw:", "") : "";
+                return (
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={{ width: 110, fontSize: 12, color: "#6B7280" }}>マイページPW:</Text>
+                    <Text style={{ flex: 1, fontSize: 12 }}>{pwVal || "-"}</Text>
+                    {pwVal ? (
+                      <TouchableOpacity
+                        onPress={async () => {
+                          await Clipboard.setStringAsync(pwVal);
+                          Alert.alert("コピーしました", "マイページパスワードをコピーしました");
+                        }}
+                        style={{ marginLeft: 8, padding: 6, borderRadius: 8, backgroundColor: "#F3F4F6" }}
+                      >
+                        <CopyIcon size={14} color="#374151" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })()}
+              {(() => {
+                const urlTag = credentialsTarget?.tags?.find((t) => t.startsWith("__url:"));
+                const rawUrl = urlTag ? urlTag.replace("__url:", "") : "";
+                const url = rawUrl && !/^https?:\/\//i.test(rawUrl) ? `https://${rawUrl}` : rawUrl;
+                return (
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={{ width: 110, fontSize: 12, color: "#6B7280" }}>URL:</Text>
+                    <Text style={{ flex: 1, fontSize: 12 }} numberOfLines={1}>{rawUrl || "-"}</Text>
+                    {rawUrl ? (
+                      <>
+                        <TouchableOpacity
+                          onPress={() => Linking.openURL(url)}
+                          style={{ marginLeft: 8, padding: 6, borderRadius: 8, backgroundColor: "#F3F4F6" }}
+                        >
+                          <Text style={{ fontSize: 12, color: "#2563EB" }}>開く</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            await Clipboard.setStringAsync(rawUrl);
+                            Alert.alert("コピーしました", "サイトURLをコピーしました");
+                          }}
+                          style={{ marginLeft: 4, padding: 6, borderRadius: 8, backgroundColor: "#F3F4F6" }}
+                        >
+                          <CopyIcon size={14} color="#374151" />
+                        </TouchableOpacity>
+                      </>
+                    ) : null}
+                  </View>
+                );
+              })()}
+            </View>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={() => setCredentialsOpen(false)}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "#2563EB", alignItems: "center" }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>閉じる</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
           </View>
         </View>
 
@@ -892,7 +1027,7 @@ export default function SelectionIndex() {
         >
           <Text style={{ color: "#6B7280", fontSize: 12 }}>{item.lastUpdate}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -1043,7 +1178,7 @@ export default function SelectionIndex() {
               maxHeight: "90%",
             }}
           >
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 120 }}>
               <Text style={{ fontWeight: "700", fontSize: 16 }}>企業情報を編集</Text>
               <Text style={{ color: "#6B7280", fontSize: 12, marginTop: 2 }}>
                 企業情報と応募したポジションの詳細を編集してください。
@@ -1229,8 +1364,19 @@ export default function SelectionIndex() {
                   autoCorrect={false}
                 />
               </View>
-
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+            </ScrollView>
+            {/* Sticky footer: always visible buttons */}
+            <View
+              style={{
+                position: "absolute",
+                left: 16,
+                right: 16,
+                bottom: 16 + (Platform.OS === 'ios' ? 8 : 0),
+                flexDirection: "row",
+                gap: 8,
+              }}
+              pointerEvents="box-none"
+            >
               <TouchableOpacity
                 onPress={() => {
                   setEditOpen(false);
@@ -1250,23 +1396,24 @@ export default function SelectionIndex() {
               >
                 <Text>キャンセル</Text>
               </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleUpdateCompany}
-                  disabled={!editForm.name.trim() || !editForm.jobTitle.trim()}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    backgroundColor: !editForm.name.trim() || !editForm.jobTitle.trim()
+              <TouchableOpacity
+                onPress={handleUpdateCompany}
+                disabled={!editForm.name.trim() || !editForm.jobTitle.trim()}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor:
+                    !editForm.name.trim() || !editForm.jobTitle.trim()
                       ? "#93C5FD"
                       : "#2563EB",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>更新</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+                  alignItems: "center",
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>更新</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1504,6 +1651,9 @@ export default function SelectionIndex() {
                               pointerEvents="auto"
                               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               onPress={() => {
+                                // iOS nested Modal touch fix: close the underlying detail modal before opening the editor
+                                setShowDatePicker(false);
+                                setShowTimePicker(false);
                                 setStageEditing(s);
                                 setStageForm({
                                   name: s.name || "",
@@ -1516,7 +1666,11 @@ export default function SelectionIndex() {
                                   feedback: s.feedback || "",
                                   notes: s.notes || "",
                                 });
-                                setStageEditOpen(true);
+                                // Close the detail modal first so touches are not eaten by the underlay on iOS
+                                setDetailOpen(false);
+                                setTimeout(() => {
+                                  setStageEditOpen(true);
+                                }, 250);
                               }}
                               style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }}
                             >
@@ -1733,14 +1887,14 @@ export default function SelectionIndex() {
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
               <View style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
                 <TextInput
-                  placeholder="場所（オンライン/住所など）"
+                  placeholder="場所"
                   value={stageForm.location}
                   onChangeText={(t) => setStageForm((p) => ({ ...p, location: t }))}
                 />
               </View>
               <View style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 }}>
                 <TextInput
-                  placeholder="面接官（例: 田中部長）"
+                  placeholder="面接官"
                   value={stageForm.interviewer}
                   onChangeText={(t) => setStageForm((p) => ({ ...p, interviewer: t }))}
                 />
@@ -2040,7 +2194,7 @@ export default function SelectionIndex() {
               >
                 <Text style={{ fontSize: 12, color: "#374151" }}>企業名 <Text style={{ color: "#EF4444" }}>*</Text></Text>
                 <TextInput
-                  placeholder="例: Google Japan"
+                  placeholder=""
                   value={form.name}
                   onChangeText={(t) => setForm((p) => ({ ...p, name: t }))}
                   style={{ marginTop: 2 }}
@@ -2059,7 +2213,7 @@ export default function SelectionIndex() {
               >
                 <Text style={{ fontSize: 12, color: "#374151" }}>業界</Text>
                 <TextInput
-                  placeholder="例: IT・インターネット"
+                  placeholder="例: IT"
                   value={form.industry}
                   onChangeText={(t) => setForm((p) => ({ ...p, industry: t }))}
                   style={{ marginTop: 2 }}
@@ -2222,7 +2376,7 @@ export default function SelectionIndex() {
               >
                 <Text style={{ fontSize: 12, color: "#374151" }}>職務内容</Text>
                 <TextInput
-                  placeholder="職務内容"
+                  placeholder=""
                   value={form.description}
                   onChangeText={(t) => setForm((p) => ({ ...p, description: t }))}
                   multiline
@@ -2243,7 +2397,7 @@ export default function SelectionIndex() {
               >
                 <Text style={{ fontSize: 12, color: "#374151" }}>メモ</Text>
                 <TextInput
-                  placeholder="メモ"
+                  placeholder=""
                   value={form.notes}
                   onChangeText={(t) => setForm((p) => ({ ...p, notes: t }))}
                   multiline
