@@ -33,6 +33,7 @@ import {
   Copy as CopyIcon,
   Calendar,
   Clock,
+  ExternalLink,
 } from "lucide-react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Clipboard from 'expo-clipboard';
@@ -134,6 +135,27 @@ const STAT_COLORS = {
   rejected: { dot: "#F87171", text: "#B91C1C" },   // red
 } as const;
 
+const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土'] as const;
+
+const isoToday = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const addDaysIso = (iso: string, days: number) => {
+  const d = new Date(iso + 'T00:00');
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const isTodayIso = (iso: string) => iso === isoToday();
+
 
 /* ------------------------------------------------------------------
    モバイル版 選考管理ページ
@@ -216,6 +238,8 @@ export default function SelectionIndex() {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  // 選択中の日付（直近1週間 ribbon 選択）
+  const [selectedDateIso, setSelectedDateIso] = useState<string | null>(null);
 
 
   const formatDate = (d: Date) => {
@@ -382,6 +406,55 @@ export default function SelectionIndex() {
     return list;
   }, [companies, searchQuery, statusFilter, priorityFilter, sortBy, sortOrder]);
 
+
+  // 直近の予定（1週間）: next7Days, upcomingStages
+  const { next7Days, upcomingStages } = useMemo(() => {
+    // Build next 7 days buckets
+    const startIso = isoToday();
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const iso = addDaysIso(startIso, i);
+      const dt = new Date(iso + 'T00:00');
+      const label = `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`;
+      return { iso, label, count: 0 } as { iso: string; label: string; count: number };
+    });
+
+    // Map for quick lookup
+    const idxByIso = new Map<string, number>();
+    days.forEach((d, i) => idxByIso.set(d.iso, i));
+
+    const inRangeStages: { company: Company; stage: SelectionStage }[] = [];
+
+    for (const company of companies) {
+      for (const stage of company.stages) {
+        if (!stage?.date) continue;
+        // Only consider upcoming within the next 7 days (today inclusive)
+        const iso = stage.date;
+        if (iso >= days[0].iso && iso <= days[days.length - 1].iso) {
+          const i = idxByIso.get(iso);
+          if (i !== undefined) days[i].count += 1;
+          // Select stages that are likely actionable
+          if (['scheduled', 'pending'].includes(stage.status)) {
+            inRangeStages.push({ company, stage });
+          }
+        }
+      }
+    }
+
+    // sort upcoming stages by date/time
+    inRangeStages.sort((a, b) => {
+      const at = `${a.stage.date ?? ''} ${a.stage.time ?? ''}`.trim();
+      const bt = `${b.stage.date ?? ''} ${b.stage.time ?? ''}`.trim();
+      return at.localeCompare(bt);
+    });
+
+    return { next7Days: days, upcomingStages: inRangeStages };
+  }, [companies]);
+
+  // 選択中の日付の予定リスト
+  const selectedDayStages = useMemo(() => {
+    if (!selectedDateIso) return [] as { company: Company; stage: SelectionStage }[];
+    return upcomingStages.filter(({ stage }) => stage.date === selectedDateIso);
+  }, [selectedDateIso, upcomingStages]);
 
   // 企業情報の更新（編集モーダル）
   const handleUpdateCompany = useCallback(async () => {
@@ -772,71 +845,61 @@ export default function SelectionIndex() {
               {item.jobDetails.title}
             </Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 9999,
-                backgroundColor: "#EEF2FF",
-                borderWidth: 1,
-                borderColor: "#E0E7FF",
-                marginRight: 8,
-              }}
-            >
-              <Icon size={14} color="#1F2937" />
-              <Text style={{ marginLeft: 4, fontSize: 12 }}>
-                {STATUS_LABEL[item.status]}
-              </Text>
-            </View>
-            {/* 編集ボタン -> /ipo/selection/[id]/edit */}
-            <TouchableOpacity
-              onPress={() => {
-                setEditTarget(item);
-                const specialId = item.tags?.find((t) => t.startsWith("__id:"))?.replace("__id:", "") || "";
-                const specialPw = item.tags?.find((t) => t.startsWith("__pw:"))?.replace("__pw:", "") || "";
-                const specialUrl = item.tags?.find((t) => t.startsWith("__url:"))?.replace("__url:", "") || "";
-                const visibleTags = (item.tags || []).filter((t) => !t.startsWith("__")).join(",");
-                setEditForm({
-                  id: item.id,
-                  name: item.name,
-                  industry: item.industry || "",
-                  size: item.size,
-                  location: item.location || "",
-                  priority: item.priority,
-                  jobTitle: item.jobDetails.title || "",
-                  salary: item.jobDetails.salary || "",
-                  description: item.jobDetails.description || "",
-                  notes: item.notes || "",
-                  tags: visibleTags,
-                  accountId: specialId,
-                  password: specialPw,
-                  siteUrl: specialUrl,
-                });
-                setEditOpen(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="編集"
-              style={{ padding: 6, marginRight: 6 }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Pencil size={16} color="#374151" />
-            </TouchableOpacity>
-            {/* 詳細（ポップアップ） */}
-            <TouchableOpacity
-              onPress={() => {
-                setCredentialsTarget(item);
-                setCredentialsOpen(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="詳細を見る"
-              style={{ padding: 6 }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Eye size={16} color="#374151" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity
+                onPress={() => { setCredentialsTarget(item); setCredentialsOpen(true); }}
+                accessibilityRole="button"
+                accessibilityLabel="アイパス"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 9999,
+                  backgroundColor: "#EEF2FF",
+                  borderWidth: 1,
+                  borderColor: "#E0E7FF",
+                  marginRight: 8,
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ fontSize: 12 }}>
+                  アイパス
+                </Text>
+              </TouchableOpacity>
+              {/* 編集ボタン -> /ipo/selection/[id]/edit */}
+              <TouchableOpacity
+                onPress={() => {
+                  setEditTarget(item);
+                  const specialId = item.tags?.find((t) => t.startsWith("__id:"))?.replace("__id:", "") || "";
+                  const specialPw = item.tags?.find((t) => t.startsWith("__pw:"))?.replace("__pw:", "") || "";
+                  const specialUrl = item.tags?.find((t) => t.startsWith("__url:"))?.replace("__url:", "") || "";
+                  const visibleTags = (item.tags || []).filter((t) => !t.startsWith("__")).join(",");
+                  setEditForm({
+                    id: item.id,
+                    name: item.name,
+                    industry: item.industry || "",
+                    size: item.size,
+                    location: item.location || "",
+                    priority: item.priority,
+                    jobTitle: item.jobDetails.title || "",
+                    salary: item.jobDetails.salary || "",
+                    description: item.jobDetails.description || "",
+                    notes: item.notes || "",
+                    tags: visibleTags,
+                    accountId: specialId,
+                    password: specialPw,
+                    siteUrl: specialUrl,
+                  });
+                  setEditOpen(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="編集"
+                style={{ padding: 6, marginRight: 6 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Pencil size={16} color="#374151" />
+              </TouchableOpacity>
       {/* 認証情報（別ポップアップ） */}
       <Modal
         visible={credentialsOpen}
@@ -966,13 +1029,17 @@ export default function SelectionIndex() {
             justifyContent: "space-between",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Building size={14} color="#6B7280" />
-            <Text style={{ color: "#6B7280", marginLeft: 6, fontSize: 12 }}>
-              {item.industry || "-"}
-            </Text>
-            <Text style={{ color: "#9CA3AF", marginHorizontal: 6, fontSize: 12 }}>・</Text>
-            <Text style={{ color: "#6B7280", fontSize: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <View style={{ flexDirection: "column" }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Building size={14} color="#6B7280" />
+                <Text style={{ color: "#6B7280", marginLeft: 6, fontSize: 12 }}>
+                  {item.industry || "-"}
+                </Text>
+              </View>
+            </View>
+            <Text style={{ color: "#9CA3AF", marginHorizontal: 6, fontSize: 12, alignSelf: "center" }}>・</Text>
+            <Text style={{ color: "#6B7280", fontSize: 12, alignSelf: "center" }}>
               {item.stages[item.currentStage]?.name || "新しい段階"}
             </Text>
           </View>
@@ -1109,6 +1176,107 @@ export default function SelectionIndex() {
         </View>
       </View>
 
+      {/* 直近の予定（1週間） */}
+      <View style={{ paddingHorizontal: 12, paddingTop: 10 }}>
+        <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Calendar size={16} color="#2563EB" />
+              <Text style={{ fontSize: 13, fontWeight: '700' }}>直近の予定（1週間）</Text>
+            </View>
+            {next7Days.every(d => d.count === 0) ? (
+              <Text style={{ fontSize: 11, color: '#6B7280' }}>予定はありません</Text>
+            ) : null}
+          </View>
+
+          {/* Days ribbon */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 2 }}>
+              {next7Days.map((d) => {
+                const wd = WEEKDAYS_JA[new Date(d.iso + 'T00:00').getDay()];
+                const today = isTodayIso(d.iso);
+                const isWeekend = wd === '土' || wd === '日';
+                return (
+                  <Pressable
+                    onPress={() => setSelectedDateIso((prev) => (prev === d.iso ? null : d.iso))}
+                    key={d.iso}
+                    aria-current={today ? 'date' : undefined}
+                    style={{
+                      minWidth: 74,
+                      borderWidth: 1,
+                      borderColor: (selectedDateIso === d.iso || today) ? '#93C5FD' : '#E5E7EB',
+                      backgroundColor: selectedDateIso === d.iso ? '#DBEAFE' : (today ? '#DBEAFE66' : '#FFFFFF'),
+                      borderRadius: 10,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 10, color: '#6B7280' }}>{d.iso}</Text>
+                    <Text style={{ marginTop: 2, fontSize: 16, fontWeight: '800' }}>
+                      {d.label} <Text style={{ fontSize: 10, color: wd === '土' ? '#2563EB' : wd === '日' ? '#EF4444' : '#6B7280' }}>（{wd}）</Text>
+                    </Text>
+                    <View
+                      style={{
+                        marginTop: 4,
+                        alignSelf: 'flex-start',
+                        paddingHorizontal: 8,
+                        height: 20,
+                        borderRadius: 9999,
+                        justifyContent: 'center',
+                        backgroundColor: d.count > 0 ? 'rgba(37,99,235,0.10)' : '#F3F4F6',
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, color: d.count > 0 ? '#1D4ED8' : '#6B7280' }}>{d.count} 件</Text>
+                    </View>
+                    {today ? <View style={{ position: 'absolute', right: -4, top: -4, width: 8, height: 8, borderRadius: 9999, backgroundColor: '#3B82F6' }} /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          {/* Upcoming cards */}
+          {selectedDateIso && selectedDayStages.length > 0 ? (
+            <View style={{ marginTop: 10, gap: 8 }}>
+              {selectedDayStages.map(({ company, stage }) => {
+                const isUrl = !!(stage.location && /^https?:\/\//.test(stage.location));
+                return (
+                  <View key={stage.id} style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 10, maxWidth: 520 }}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={{ width: 24, height: 24, borderRadius: 9999, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' }}>
+                        <Calendar size={14} color="#1D4ED8" />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={{ fontSize: 11, color: '#6B7280' }}>{stage.date}{stage.time ? ` ${stage.time}` : ''}</Text>
+                        <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>{company.name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text numberOfLines={1} style={{ fontSize: 12, color: '#374151', flexShrink: 1 }}>{stage.name}</Text>
+                          {isUrl ? (
+                            <Pressable onPress={() => stage.location && Linking.openURL(stage.location!)} style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityLabel="面接URLを開く">
+                              <Text style={{ fontSize: 12, color: '#2563EB', textDecorationLine: 'underline' }}>面接URL</Text>
+                              <ExternalLink size={12} color="#2563EB" />
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+          {selectedDateIso && selectedDayStages.length === 0 ? (
+            <View style={{ marginTop: 10 }}>
+              <Text style={{ fontSize: 12, color: '#6B7280' }}>この日の予定はありません</Text>
+            </View>
+          ) : null}
+          {!selectedDateIso ? (
+            <View style={{ marginTop: 6 }}>
+              <Text style={{ fontSize: 12, color: '#6B7280' }}>見たい日付をタップすると予定が表示されます</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
 
       {/* リスト */}
       <View style={{ flex: 1, padding: 12 }}>
