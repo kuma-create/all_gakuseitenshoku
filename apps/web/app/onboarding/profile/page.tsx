@@ -771,10 +771,10 @@ function Step1Inputs({
         <div className="flex flex-col gap-1">
           <label className="flex items-center gap-2 text-sm">
             <input id="join_ipo" type="checkbox" checked={form.join_ipo} onChange={onChange} className="accent-red-600" />
-            <span>就活大学 <strong>IPO</strong> への参加を希望する</span>
+            <span> <strong>就活選抜コミュニティIPO</strong> への参加を希望する</span>
           </label>
           <p className="ml-6 text-xs text-gray-500">
-            就活大学IPOは、学生限定の<span className="font-semibold">キャリア形成コミュニティ</span>です。
+            就活選抜コミュニティIPOは、学生限定の<span className="font-semibold">キャリア形成コミュニティ</span>です。
           </p>
         </div>
       </div>
@@ -902,7 +902,9 @@ function Step4Inputs({
           />
           <div>
             <p className="text-sm font-medium text-gray-800">今回は職歴の入力をスキップする</p>
-            <p className="mt-1 text-xs text-gray-500">スキップしても登録は続行できます。職歴はマイページからいつでも追加できます。</p>
+            <p className="mt-1 text-xs text-gray-500">スキップしても登録は続行できます。職歴はマイページからいつでも追加できます.</p>
+            <p className="mt-1 text-xs text-red-800">※重要　就活選抜コミュニティIPOに参加希望の方は必ず記入をお願いします。</p>
+
           </div>
         </label>
       </div>
