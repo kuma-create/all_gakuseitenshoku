@@ -1,5 +1,5 @@
 import { useRouter, usePathname } from "expo-router";
-import { Menu, Mail, ChevronDown, ChevronRight, Home, User, ClipboardList, BookOpen, Briefcase, Send, LogOut, Pen } from "lucide-react-native";
+import { Menu, Mail, ChevronDown, ChevronRight, Home, User, ClipboardList, BookOpen, Briefcase, Send, LogOut, Pen, BarChart3, Search, Brain } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { supabase } from "../src/lib/supabase";
@@ -104,7 +104,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
     {
       label: (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <User size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Brain size={18} color="#111827" style={{ marginRight: 8 }} />
           <Text style={{ fontSize: 16, color: "#111827" }}>自己分析</Text>
         </View>
       ),
@@ -141,7 +141,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
       label: (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Briefcase size={18} color="#111827" style={{ marginRight: 8 }} />
+            <Search size={18} color="#111827" style={{ marginRight: 8 }} />
             <Text style={{ fontSize: 16, color: "#111827" }}>求人検索</Text>
           </View>
           {jobsOpen ? (
@@ -164,7 +164,16 @@ export default function AppHeader({ title }: AppHeaderProps) {
       ),
       onPress: () => navigateAndClose("/scouts"),
     },
-  ];
+    {
+      label: (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <User size={18} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, color: "#111827" }}>プロフィール</Text>
+        </View>
+      ),
+      onPress: () => navigateAndClose("/profile"),
+    },
+   ];
 
   // --- Secondary nav (AppHeader2) setup ---
   const header2NavItems: Array<{ label: string; path: string }> = [
@@ -236,21 +245,41 @@ export default function AppHeader({ title }: AppHeaderProps) {
             />
           </Pressable>
         </View>
-        <View style={{ position: "absolute", right: 16, top: headerPaddingTop, height: baseBarHeight, justifyContent: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            right: 16,
+            top: headerPaddingTop,
+            height: baseBarHeight,
+            justifyContent: "center",
+          }}
+        >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {/* Mail */}
             <Pressable
               onPress={() => router.push("/chat" as any)}
-              style={{ padding: 8, marginRight: 4 }}
+              style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               accessibilityRole="button"
               accessibilityLabel="メッセージへ移動"
             >
               <Mail size={22} color="#000" />
             </Pressable>
-            <View style={{ marginRight: 8 }}>
+
+            {/* Bell */}
+            <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
               <NotificationBell />
             </View>
-            <Pressable onPress={handleMenuPress} style={{ padding: 8 }} accessibilityRole="button" accessibilityLabel="メニューを開く">
-              <Menu size={24} color="#000" />
+
+            {/* Menu */}
+            <Pressable
+              onPress={handleMenuPress}
+              style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: 4 }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel="メニューを開く"
+            >
+              <Menu size={22} color="#000" />
             </Pressable>
           </View>
         </View>

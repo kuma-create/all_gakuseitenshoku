@@ -62,10 +62,10 @@ function BottomBar() {
     <SafeAreaView style={{ backgroundColor: "#fff" }} edges={["bottom"]}>
       <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: "#e5e7eb", backgroundColor: "#fff", height: BOTTOM_BAR_HEIGHT }}>
         <Item href="/ipo/dashboard" label="ホーム" iconName="home" active={isActive("/ipo/dashboard")} />
-        <Item href="/ipo/selection" label="選考•ES管理" iconName="bar-chart-2" active={isActive("/ipo/selection")} />
         <Item href="/ipo/analysis" label="自己分析" iconName="activity" active={isActive("/ipo/analysis")} />
-        {/* <Item href="/ipo/case" label="選考対策" iconName="target" active={isActive("/ipo/case")} /> */}
-        <Item href="/(student)/profile" label="プロフィール" iconName="book" active={isActive("/(student)/profile")} />
+        <Item href="/(student)/profile" label="プロフィール" iconName="user" active={isActive("/(student)/profile")} />
+        <Item href="/ipo/ES" label="ES管理" iconName="edit-3" active={isActive("/ipo/ES")} />
+        <Item href="/ipo/selection" label="選考管理" iconName="clipboard" active={isActive("/ipo/selection")} />
       </View>
     </SafeAreaView>
   );

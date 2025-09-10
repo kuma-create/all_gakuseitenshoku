@@ -813,14 +813,12 @@ export default function SelectionIndex() {
       : 0;
 
     return (
-      <TouchableOpacity
+      <Pressable
         onPress={() => {
           setDetailTarget(item);
           setDetailTab("stages");
           setDetailOpen(true);
         }}
-        activeOpacity={0.85}
-        accessibilityRole="button"
         accessibilityLabel="企業の概要を表示"
         style={{
           backgroundColor: "#fff",
@@ -1094,7 +1092,7 @@ export default function SelectionIndex() {
         >
           <Text style={{ color: "#6B7280", fontSize: 12 }}>{item.lastUpdate}</Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 

@@ -340,7 +340,7 @@ export default function Home() {
   // Feature flag for floating advisor button/modal
   const SHOW_FLOATING_ADVISOR = false;
 return (
-    <div className="w-[100vw] max-w-none min-h-screen bg-white overflow-x-hidden">
+    <div className="w-full min-h-screen bg-white overflow-x-clip">
 
       {/* Desktop and Mobile Headers removed */}
 
@@ -473,6 +473,19 @@ return (
         .animate-hero-bg {
           background-size: 300% 300%;
           animation: heroBg 12s ease-in-out infinite;
+        }
+        /* ---- Scrollbar hardening: avoid accidental second vertical scrollbar ---- */
+        :root, html, body, #__next {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: clip; /* prevent tiny horizontal overflow causing a secondary scroller */
+        }
+        html, body {
+          overscroll-behavior: none; /* avoid nested scroll chaining on touchpads */
+        }
+        /* Make the document be the only vertical scroller; avoid child full-height autos */
+        #__next {
+          overflow-y: visible;
         }
       `}</style>
       
