@@ -21,7 +21,8 @@ import {
   Phone, Mail, ExternalLink, Download, Share2, ArrowRight, Save,
   X, ChevronDown, ChevronRight, ArrowLeft, Settings, Briefcase,
   Grid, List, SortAsc, SortDesc, MoreHorizontal, Users, Award,
-  RefreshCw, BookOpen, Heart, Zap, Crown, Menu, Home, ChevronUp
+  RefreshCw, BookOpen, Heart, Zap, Crown, Menu, Home, ChevronUp,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -98,8 +99,8 @@ interface Company {
 
 const STATUS_CONFIG = {
   applied: { 
-    label: 'エントリー済み', 
-    shortLabel: 'エントリー',
+    label: 'アイパス', 
+    shortLabel: 'アイパス',
     color: 'bg-blue-50 text-blue-700 border-blue-200', 
     icon: FileText, 
     gradient: 'from-blue-400 to-blue-600',
@@ -223,6 +224,13 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
   const [showStageDialog, setShowStageDialog] = useState(false);
   const [showAddCompanyDialog, setShowAddCompanyDialog] = useState(false);
   const [showEditCompanyDialog, setShowEditCompanyDialog] = useState(false);
+  const [showCredDialog, setShowCredDialog] = useState(false);
+  const [credInfo, setCredInfo] = useState<{ accountId: string; password: string; siteUrl: string; companyName: string }>({
+    accountId: '',
+    password: '',
+    siteUrl: '',
+    companyName: ''
+  });
   const [selectedStage, setSelectedStage] = useState<SelectionStage | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -916,6 +924,27 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
     setShowEditCompanyDialog(true);
   }, []);
 
+  const extractCredFromTags = (tags: string[] = []) => {
+    const info = { accountId: '', password: '', siteUrl: '' };
+    tags.forEach((t) => {
+      if (t.startsWith('__id:')) info.accountId = t.slice(5);
+      if (t.startsWith('__pw:')) info.password = t.slice(5);
+      if (t.startsWith('__url:')) info.siteUrl = t.slice(6);
+    });
+    return info;
+  };
+
+  const openCredDialog = useCallback((company: Company) => {
+    const info = extractCredFromTags(company.tags || []);
+    setCredInfo({
+      accountId: info.accountId || '',
+      password: info.password || '',
+      siteUrl: info.siteUrl || '',
+      companyName: company.name
+    });
+    setShowCredDialog(true);
+  }, []);
+
   const openStageEditDialog = useCallback((stage: SelectionStage) => {
     setSelectedStage(stage);
     setStageForm({
@@ -965,13 +994,21 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                     <p className="text-xs text-gray-600 truncate">{company.jobDetails.title}</p>
                   </div>
 
-                  {/* status badge */}
+                  {/* status badge (now clickable) */}
                   <div className="flex items-center shrink-0">
-                    <Badge className={`${statusConfig.color} border text-xs px-1.5 py-0.5`}>
-                      <StatusIcon className="w-2.5 h-2.5 mr-0.5" />
-                      <span className="sm:hidden">{statusConfig.shortLabel}</span>
-                      <span className="hidden sm:inline">{statusConfig.label}</span>
-                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-0 h-auto"
+                      onClick={(e) => { e.stopPropagation(); openCredDialog(company); }}
+                      tabIndex={0}
+                    >
+                      <Badge className={`${statusConfig.color} border text-xs px-1.5 py-0.5`}>
+                        <StatusIcon className="w-2.5 h-2.5 mr-0.5" />
+                        <span className="sm:hidden">{statusConfig.shortLabel}</span>
+                        <span className="hidden sm:inline">{statusConfig.label}</span>
+                      </Badge>
+                    </Button>
                   </div>
                 </div>
 
@@ -1001,14 +1038,7 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
                     >
                       <Edit3 className="w-3 h-3" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => { e.stopPropagation(); openCompanyDialog(company); }}
-                    >
-                      <Eye className="w-3 h-3" />
-                    </Button>
+                    {/* Eye icon button removed */}
                   </div>
                 </div>
 
@@ -1467,6 +1497,77 @@ export function SelectionPage({ navigate }: SelectionPageProps) {
 
       {/* Company Detail Dialog */}
       <Dialog open={showCompanyDialog} onOpenChange={setShowCompanyDialog}>
+      {/* Credentials Dialog (Eye icon) */}
+      <Dialog open={showCredDialog} onOpenChange={setShowCredDialog}>
+        <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-md p-0 sm:p-0 rounded-2xl sm:rounded-lg">
+          <DialogHeader className="px-4 py-3 border-b">
+            <DialogTitle className="truncate">{credInfo.companyName}</DialogTitle>
+            <DialogDescription>マイページ情報</DialogDescription>
+          </DialogHeader>
+          <div className="px-4 py-3 space-y-3">
+            {/* マイページID */}
+            <div className="flex items-center gap-2">
+              <div className="w-24 text-xs text-gray-600 shrink-0">マイページID:</div>
+              <div className="text-sm text-gray-900 break-all flex-1">{credInfo.accountId || '-'}</div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => navigator.clipboard?.writeText(credInfo.accountId || '')}
+                disabled={!credInfo.accountId}
+                title="コピー"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+            {/* パスワード */}
+            <div className="flex items-center gap-2">
+              <div className="w-24 text-xs text-gray-600 shrink-0">マイページPW:</div>
+              <div className="text-sm text-gray-900 break-all flex-1">{credInfo.password || '-'}</div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => navigator.clipboard?.writeText(credInfo.password || '')}
+                disabled={!credInfo.password}
+                title="コピー"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+            {/* URL */}
+            <div className="flex items-center gap-2">
+              <div className="w-24 text-xs text-gray-600 shrink-0">URL:</div>
+              <div className="text-sm text-gray-900 break-all flex-1">{credInfo.siteUrl || '-'}</div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={() => window.open(credInfo.siteUrl, '_blank', 'noopener,noreferrer')}
+                  disabled={!/^https?:\/\//.test(credInfo.siteUrl || '')}
+                >
+                  開く
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => navigator.clipboard?.writeText(credInfo.siteUrl || '')}
+                  disabled={!credInfo.siteUrl}
+                  title="コピー"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="px-4 pb-4">
+            <Button className="w-full h-10" onClick={() => setShowCredDialog(false)}>閉じる</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
         <DialogContent className="w-[100dvw] max-w-[100dvw] mx-0 my-3 sm:my-8 sm:max-w-4xl h-auto max-h-[88dvh] sm:max-h-[90vh] p-0 sm:p-0 flex flex-col overflow-hidden rounded-2xl sm:rounded-lg">
           {selectedCompany && (
             <>
