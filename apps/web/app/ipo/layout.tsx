@@ -47,8 +47,16 @@ export default function IPOLayout({ children }: { children: React.ReactNode }) {
   // TODO: 後で本物のユーザーを接続
   const user = null;
 
+  // Force-initialize sidebar collapsed at first load by clearing any legacy state key
+  useEffect(() => {
+    try {
+      // shadcn/ui sidebar default key used previously
+      localStorage.removeItem('sidebar:state');
+    } catch {}
+  }, []);
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false} storageKey="ipo:sidebar:state">
       <Layout currentRoute={currentRoute as any} navigate={navigate} user={user}>
         <div className="w-full max-w-full overflow-x-hidden">
           {children}
