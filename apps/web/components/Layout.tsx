@@ -67,6 +67,15 @@ interface LayoutProps {
 export function Layout({ children, currentRoute, navigate, user }: LayoutProps) {
   const { setOpen, setOpenMobile, isMobile } = useSidebar();
 
+  // Collapse sidebar to icon-only on first mount (desktop only)
+  useEffect(() => {
+    if (!isMobile) {
+      setOpen(false);
+    }
+    // We intentionally run this only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleNavigate = (route: Route) => {
     navigate(route);
     // Auto close the sidebar only on mobile after navigating
@@ -190,23 +199,24 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     <>
       <Sidebar
         variant="inset"
-        className="!bg-white dark:!bg-neutral-900 supports-[backdrop-filter]:!bg-white backdrop-blur-0 border-r border-neutral-200 dark:border-neutral-800 shadow-sm"
+        collapsible="icon"
+        className="group !bg-white dark:!bg-neutral-900 supports-[backdrop-filter]:!bg-white backdrop-blur-0 border-r border-neutral-200 dark:border-neutral-800 shadow-sm"
       >
         <SidebarHeader className="bg-white dark:bg-neutral-900">
           <div 
-            className="flex items-center space-x-2 cursor-pointer p-2 hover:bg-sidebar-accent rounded-lg transition-colors"
+            className="flex items-center space-x-2 cursor-pointer p-2 hover:bg-sidebar-accent rounded-lg transition-colors group-data-[collapsible=icon]:justify-center"
             onClick={() => handleNavigate('/ipo' as Route)}
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-orange-500 rounded-xl flex items-center justify-center">
+            <div className="w-8 h-8 min-w-[32px] min-h-[32px] aspect-square shrink-0 bg-gradient-to-br from-sky-500 to-orange-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-sm">IPO</span>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
               <span className="font-bold text-sidebar-foreground">IPO University</span>
               <span className="text-xs text-sidebar-foreground/70">キャリア開発プラットフォーム</span>
             </div>
             {user && (
-              <div className="flex items-center mt-2 space-x-2">
-                <Avatar className="h-5 w-5">
+              <div className="flex items-center mt-2 space-x-2 group-data-[collapsible=icon]:hidden">
+                <Avatar className="h-5 w-5 shrink-0">
                   <AvatarImage src={(user as any)?.avatarUrl ?? undefined} alt={user.name} />
                   <AvatarFallback className="text-[10px]">
                     {(user.name || '').slice(0, 2).toUpperCase()}
@@ -220,7 +230,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
         
         <SidebarContent className="bg-white dark:bg-neutral-900">
           <SidebarGroup>
-            <SidebarGroupLabel>メインメニュー</SidebarGroupLabel>
+            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">メインメニュー</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {navItems.map((item) => (
@@ -247,7 +257,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                           : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'} justify-start`}
                     >
                       <item.icon className="w-4 h-4" />
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -271,7 +281,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                         {(user.name || '').slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col items-start">
+                    <div className="flex flex-col items-start group-data-[collapsible=icon]:hidden">
                       <span className="text-sm font-medium">{user.name}</span>
                       <span className="text-xs text-sidebar-foreground/70 capitalize">
                         {user.role}アカウント
@@ -316,7 +326,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
                   className="w-full justify-start hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>ログアウト</span>
+                  <span className="group-data-[collapsible=icon]:hidden">ログアウト</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

@@ -177,7 +177,7 @@ export default function MyCompanyPage() {
         ...prev,
         tagline: company.tagline ?? '',
         representative: company.representative ?? '',
-        founded_on: company.founded_year ? `${company.founded_year}-01-01` : '',
+        founded_on: company.founded_year ? `${company.founded_year}-01` : '',
         capital_jpy: company.capital_jpy !== null ? String(company.capital_jpy) : '',
         revenue_jpy: company.revenue_jpy !== null ? String(company.revenue_jpy) : '',
         headquarters: company.location ?? '',
@@ -614,8 +614,8 @@ export default function MyCompanyPage() {
             <Label htmlFor="founded_on">設立日</Label>
             <Input
               id="founded_on"
-              type="date"
-              placeholder="例: 2018-04-01"
+              type="month"
+              placeholder="例: 2018-04"
               value={form.founded_on}
               onChange={(e) =>
                 setForm((prev) => ({
