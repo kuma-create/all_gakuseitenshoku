@@ -124,7 +124,6 @@ export async function GET(req: Request) {
     .filter(a => a.url && a.title)
     .map(a => ({
       url: a.url,
-      url_hash: crypto.createHash('md5').update(String(a.url).toLowerCase()).digest('hex'),
       title: a.title,
       source: a.source ?? 'News',
       image_url: a.image_url ?? null,
