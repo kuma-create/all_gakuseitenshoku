@@ -91,55 +91,55 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       label: 'ホーム', 
       route: '/ipo/dashboard' as Route, 
       icon: Home,
-      description: 'キャリア進捗の確認'
+      description: 'ホーム'
     },
     { 
       label: '選考管理', 
       route: '/ipo/selection' as Route, 
       icon: FileText,
-      description: '企業選考の進捗管理'
+      description: '選考管理'
     },
     {
       label: 'ES管理',
       route: '/ipo/ES' as Route,
       icon: Pen,
-      description: 'エントリーシートを管理'
+      description: 'ES管理'
     },
     { 
       label: '自己分析', 
       route: '/ipo/analysis' as Route, 
       icon: Brain,
-      description: 'AIとの対話で自己理解'
+      description: '自己分析'
     },    
     { 
       label: '求人検索', 
       route: '/jobs' as Route, 
       icon: Search,
-      description: '求人を検索する'
+      description: '求人検索'
     },
     { 
-      label: 'スカウト', 
+      label: 'ヘッドハンティング', 
       route: '/student/scouts' as Route, 
       icon: Send,
-      description: 'スカウト・ヘッドハンティング情報'
+      description: 'ヘッドハンティング'
     },
     { 
       label: 'チャット', 
       route: '/chat' as Route, 
       icon: MessageCircle,
-      description: '企業・学生とのチャット'
+      description: 'チャット'
     },
     { 
       label: 'ライブラリ', 
       route: '/ipo/library' as Route, 
       icon: Library,
-      description: '業界・職種情報'
+      description: 'ライブラリ'
     },
     { 
       label: 'ログアウト', 
       route: '/ipo' as Route, // dummy route, will trigger logout
       icon: LogOut,
-      description: 'ログアウトする'
+      description: 'ログアウト'
     },
   ];
 

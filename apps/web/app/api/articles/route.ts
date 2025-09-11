@@ -2,13 +2,45 @@
 import { NextResponse } from 'next/server'
 import { getArticles } from '@/lib/getArticles'           // 既存のロジックを再利用
 
-const CACHE_SECONDS = 21600; // 6 hour edge‑cache
+// 日本時間 0, 6, 12, 18時にキャッシュ更新
+const CACHE_TIMES = [0, 6, 12, 18];
 
-export const revalidate = 21600  // ISR：6時間キャッシュ（任意）
-// 動的処理を含むため静的プリレンダを無効化
+function getNextRevalidateSeconds(): number {
+  const now = new Date();
+  // 現在時刻を日本時間に変換
+  const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const currentHour = jst.getHours();
+
+  // 次の更新時刻を決定
+  let nextHour = CACHE_TIMES.find(h => h > currentHour);
+  if (nextHour === undefined) {
+    nextHour = CACHE_TIMES[0];
+    jst.setDate(jst.getDate() + 1);
+  }
+  const next = new Date(jst);
+  next.setHours(nextHour, 0, 0, 0);
+
+  return Math.floor((next.getTime() - jst.getTime()) / 1000);
+}
+
 export const dynamic = 'force-dynamic';
 
+// CORS helpers (allow mobile app / other origins during fetch)
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+} as const;
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: CORS_HEADERS as any,
+  });
+}
+
 export async function GET(req: Request) {
+  const revalidateSec = getNextRevalidateSeconds();
   try {
     // ── 1) 取得 & フィルタリング ───────────────────────────────
     const { searchParams } = new URL(req.url)
@@ -43,7 +75,8 @@ export async function GET(req: Request) {
       { articles: filtered },
       {
         headers: {
-          'Cache-Control': `s-maxage=${CACHE_SECONDS}, stale-while-revalidate`
+          'Cache-Control': `s-maxage=${revalidateSec}, stale-while-revalidate`,
+          ...CORS_HEADERS,
         }
       }
     )
@@ -54,7 +87,8 @@ export async function GET(req: Request) {
       {
         status: 500,
         headers: {
-          'Cache-Control': `s-maxage=${CACHE_SECONDS}, stale-while-revalidate`
+          'Cache-Control': `s-maxage=${revalidateSec}, stale-while-revalidate`,
+          ...CORS_HEADERS,
         }
       }
     )
