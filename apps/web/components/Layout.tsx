@@ -13,7 +13,9 @@ import {
   Search,
   Send,
   MessageCircle,
-  Pen
+  Pen,
+  Sparkles,
+  Briefcase
 } from 'lucide-react';
 
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -34,6 +36,8 @@ import {
   useSidebar,
 } from './ui/sidebar';
 
+export { Sidebar } from './ui/sidebar';
+
 // Local type definitions to remove dependency on ../App
 type Route =
   | '/ipo'
@@ -49,7 +53,10 @@ type Route =
   | '/ipo/ES'
   | '/student/scouts'
   | '/chat'
-  | '/jobs';
+  | '/jobs'
+  | '/madia'
+  | '/features'
+  | '/student/applications';
 
 type UserType = {
   name: string;
@@ -124,6 +131,12 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       description: 'ヘッドハンティング'
     },
     { 
+      label: '応募履歴', 
+      route: '/student/applications' as Route, 
+      icon: Briefcase,
+      description: '応募履歴'
+    },
+    { 
       label: 'チャット', 
       route: '/chat' as Route, 
       icon: MessageCircle,
@@ -134,6 +147,18 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
       route: '/ipo/library' as Route, 
       icon: Library,
       description: 'ライブラリ'
+    },
+    { 
+      label: '学転メディア', 
+      route: '/madia' as Route, 
+      icon: FileText,
+      description: '学転メディア'
+    },
+    { 
+      label: '特集', 
+      route: '/features' as Route, 
+      icon: Sparkles,
+      description: '特集'
     },
     { 
       label: 'ログアウト', 
@@ -155,8 +180,11 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     '/ipo/settings': { title: '設定' },
     '/ipo/ES': { title: 'ES管理', subtitle: 'エントリーシートを管理' },
     '/jobs': { title: '求人検索', subtitle: "求人の検索" },
+    '/madia': { title: '学転メディア', subtitle: 'ニュース・コラム' },
+    '/features': { title: '特集', subtitle: '編集部おすすめ' },
     '/ipo/login': undefined,
     '/student/scouts': { title: 'ヘッドハンティング', subtitle: 'スカウト情報の確認' },
+    '/student/applications': { title: '応募履歴', subtitle: '応募の履歴' },
     '/chat': { title: 'チャット', subtitle: '企業や学生とコミュニケーション' },
   };
 
@@ -352,6 +380,24 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
               </div>
             );
           })()}
+          <div className="ml-auto flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => handleNavigate('/madia' as Route)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">学転メディア</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleNavigate('/features' as Route)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">特集</span>
+            </button>
+          </div>
         </header>
         
         {/* Main Content */}
