@@ -38,8 +38,7 @@ export default function IPOLayout({ children }: { children: React.ReactNode }) {
     });
   }, [router]);
 
-  // /ipo はランディング専用、レイアウトなし
-  if (pathname === "/ipo") return <>{children}</>;
+  const isLanding = pathname === "/ipo";
 
   // Layout が期待する currentRoute は path をそのまま渡すでOK
   const currentRoute = pathname;
@@ -54,6 +53,14 @@ export default function IPOLayout({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('sidebar:state');
     } catch {}
   }, []);
+
+  if (isLanding) {
+    return (
+      <div className="w-full max-w-full overflow-x-hidden">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider defaultOpen={false} storageKey="ipo:sidebar:state">

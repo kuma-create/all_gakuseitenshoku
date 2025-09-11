@@ -2,9 +2,9 @@
 import { NextResponse } from 'next/server'
 import { getArticles } from '@/lib/getArticles'           // 既存のロジックを再利用
 
-const CACHE_SECONDS = 3600; // 1 hour edge‑cache
+const CACHE_SECONDS = 21600; // 6 hour edge‑cache
 
-export const revalidate = 3600  // ISR：1時間キャッシュ（任意）
+export const revalidate = 21600  // ISR：6時間キャッシュ（任意）
 // 動的処理を含むため静的プリレンダを無効化
 export const dynamic = 'force-dynamic';
 

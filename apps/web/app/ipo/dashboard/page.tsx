@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, Users, Target, Calendar, Star, Plus, ArrowUp, ArrowDown, Minus, HelpCircle, BookOpen, Rocket, Gift } from 'lucide-react';
+import { TrendingUp, Users, User, Target, Calendar, Star, Plus, ArrowUp, ArrowDown, Minus, HelpCircle, BookOpen, Rocket, Gift, CheckCircle, ArrowRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -303,6 +303,97 @@ async function fetchResumeTextFromMultipleSources(supabase: any, userId: string)
   } catch {}
 
   return chunks.filter(Boolean).join(' \n\n');
+
+}
+
+// ===== Helpers for Profile Completion (70:30 weighted) =====
+const isFilled = (v: any) => {
+  if (v == null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.values(v).filter(Boolean).length > 0;
+  return String(v).trim().length > 0;
+};
+
+async function computeWeightedProfileCompletion(
+  supabase: any,
+  userId: string
+): Promise<{ completion: number; profilePct: number; workPct: number }> {
+  // --- 1) student_profiles: 基本 / PR / 志向 ---
+  let basicFilled = 0, basicTotal = 10;
+  let prFilled = 0, prTotal = 3;
+  let prefFilled = 0, prefTotal = 4;
+
+  try {
+    const { data: sp } = await supabase
+      .from('student_profiles')
+      .select('last_name, first_name, last_name_kana, first_name_kana, birth_date, gender, postal_code, prefecture, city, address_line, pr_title, pr_text, about, desired_positions, work_style_options, preferred_industries, desired_locations')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (sp) {
+      const basicKeys = ['last_name','first_name','last_name_kana','first_name_kana','birth_date','gender','postal_code','prefecture','city','address_line'] as const;
+      const prKeys = ['pr_title','pr_text','about'] as const;
+      const prefKeys = ['desired_positions','work_style_options','preferred_industries','desired_locations'] as const;
+
+      basicFilled = basicKeys.reduce((n, k) => n + (isFilled((sp as any)[k]) ? 1 : 0), 0);
+      prFilled    = prKeys.reduce((n, k) => n + (isFilled((sp as any)[k]) ? 1 : 0), 0);
+      prefFilled  = prefKeys.reduce((n, k) => n + (isFilled((sp as any)[k]) ? 1 : 0), 0);
+    }
+  } catch {}
+
+  const pctBasic = Math.round((basicFilled / basicTotal) * 100) || 0;
+  const pctPr    = Math.round((prFilled / prTotal) * 100) || 0;
+  const pctPref  = Math.round((prefFilled / prefTotal) * 100) || 0;
+  const profilePct = Math.round((pctBasic + pctPr + pctPref) / 3);
+
+  // --- 2) 職歴: resumes.work_experiences 優先 / 無ければ student_experiences ---
+  let workPct = 0;
+  try {
+    const { data: r2 } = await supabase
+      .from('resumes')
+      .select('work_experiences')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    let works: any[] = Array.isArray(r2?.work_experiences) ? r2!.work_experiences : [];
+
+    if (!works || works.length === 0) {
+      const { data: se } = await supabase
+        .from('student_experiences')
+        .select('company, role, description, achievements, results, start_date, end_date, is_current')
+        .eq('user_id', userId);
+      if (Array.isArray(se)) {
+        works = se.map((w: any) => ({
+          company: w.company,
+          position: w.role,
+          description: w.description,
+          achievements: w.achievements ?? w.results,
+          startDate: w.start_date,
+          endDate: w.end_date,
+          isCurrent: w.is_current,
+        }));
+      }
+    }
+
+    if (Array.isArray(works) && works.length > 0) {
+      const keys = ['company','position','startDate','description','achievements'] as const;
+      let f = 0;
+      let t = works.length * 6; // 5フィールド + (isCurrent or endDate)
+      for (const w of works) {
+        for (const k of keys) f += isFilled(w?.[k]) ? 1 : 0;
+        f += (isFilled(w?.isCurrent) || isFilled(w?.endDate)) ? 1 : 0;
+      }
+      workPct = Math.round((f / t) * 100);
+    } else {
+      workPct = 0;
+    }
+  } catch {
+    workPct = 0;
+  }
+
+  // --- 3) 重み付け合成 ---
+  const completion = Math.round(profilePct * 0.7 + workPct * 0.3);
+  return { completion, profilePct, workPct };
 }
 
 
@@ -319,6 +410,9 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [university, setUniversity] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [profileCompletion, setProfileCompletion] = useState<number>(0);
+  const [overallProfileCompletion, setOverallProfileCompletion] = useState<number>(0);
+  const [profilePctDetail, setProfilePctDetail] = useState<number>(0);
+  const [workPctDetail, setWorkPctDetail] = useState<number>(0);
   const [missingFields, setMissingFields] = useState<number>(0);
 
   // AI対話UI
@@ -341,7 +435,14 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [isDiagnosing, setIsDiagnosing] = useState(false);
 
   // ===== Jobs rail (締切間近 / おすすめ) =====
-  type JobCard = { id: string; title: string; company: string; image_url?: string | null; deadline?: string | null; tag?: '締切間近' | 'おすすめ' | 'NEW' };
+  type JobCard = {
+    id: string;
+    title: string;
+    company: string;
+    image_url?: string | null;
+    deadline?: string | null;
+    tag?: '締切間近' | 'おすすめ' | 'NEW';
+  };
   const [jobsRail, setJobsRail] = useState<JobCard[]>([]);
   const formatDate = (iso?: string | null) => (iso ? (iso.slice(0,10)) : '');
 
@@ -367,6 +468,80 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
       setBannerIndex((i) => (i + 1) % bannerItems.length);
     }, 5000);
     return () => clearInterval(timer);
+  }, []);
+
+  // ===== Trending News (横スクロール・バナー) =====
+  type NewsItem = {
+    id: string;
+    title: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    source?: string | null;
+    publishedAt?: string | null;
+    url?: string | null;
+  };
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [newsIndex, setNewsIndex] = useState(0);
+  const newsRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = newsRef.current;
+    if (!el) return;
+    const children = Array.from(el.querySelectorAll('[data-news]')) as HTMLElement[];
+    if (children.length === 0) return;
+    const idx = Math.max(0, Math.min(newsIndex, children.length - 1));
+    const child = children[idx];
+    el.scrollTo({ left: child.offsetLeft - 16, behavior: 'smooth' });
+  }, [newsIndex]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNewsIndex((i) => {
+        const n = newsItems.length || 1;
+        return (i + 1) % n;
+      });
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [newsItems.length]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const fallbackImg = '/logo3.png';
+        const res = await fetch('/api/articles');
+        let arr: any[] = [];
+        if (res.ok) {
+          const data = await res.json().catch(() => ({} as any));
+          arr = Array.isArray(data) ? data : (data?.articles ?? []);
+        }
+        // Fallback: try /api/media/trending
+        if (!Array.isArray(arr) || arr.length === 0) {
+          try {
+            const r2 = await fetch('/api/media/trending');
+            if (r2.ok) {
+              const d2 = await r2.json().catch(() => ({} as any));
+              arr = Array.isArray(d2) ? d2 : (d2?.articles ?? []);
+            }
+          } catch {}
+        }
+        const mapped: NewsItem[] = (arr || []).slice(0, 12).map((a: any, i: number) => {
+          const rawImg = a.imageUrl ?? a.image_url ?? a.image ?? a.img ?? a.thumbnail ?? a.cover_image_url ?? '';
+          const imageUrl = typeof rawImg === 'string' && rawImg.trim() !== '' ? rawImg : fallbackImg;
+          return {
+            id: String(a.id ?? a.guid ?? a.url ?? i),
+            title: a.title ?? 'No title',
+            description: a.description ?? a.excerpt ?? null,
+            imageUrl,
+            source: a.source ?? a.provider ?? a.site ?? 'News',
+            publishedAt: a.publishedAt ?? a.published_at ?? a.date ?? null,
+            url: a.url ?? a.link ?? null,
+          };
+        });
+        if (mapped.length > 0) setNewsItems(mapped);
+      } catch {
+        // no-op
+      }
+    })();
   }, []);
 
   const computeNextDiagnosis = useCallback((iso?: string | null) => {
@@ -578,6 +753,16 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             setProfileCompletion(Math.round((filled / totalFields) * 100));
             setMissingFields(Math.max(0, totalFields - filled));
           }
+          // 8.5) プロフィール完成度（70:30）の再計算
+          try {
+            const { data: { user: userForComp } } = await supabase.auth.getUser();
+            if (userForComp) {
+              const comp = await computeWeightedProfileCompletion(supabase, userForComp.id);
+              setOverallProfileCompletion(comp.completion);
+              setProfilePctDetail(comp.profilePct);
+              setWorkPctDetail(comp.workPct);
+            }
+          } catch {}
         } catch {}
 
         // 9) ネクストでやるべきこと（簡易生成）
@@ -588,77 +773,143 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         }
         const insightRecs = (latestScoreRow?.insights?.recommendations ?? []) as string[];
         setNextActions([...(recs || []), ...((insightRecs || []).slice(0,3))]);
-        // 10) 締切間近 / おすすめの求人
+        // 10) 締切間近 / おすすめの求人（ホームの取得方法に合わせて実装）
         try {
           const soonLimitDays = 10;
           const nowISO = new Date().toISOString();
           const soonISO = new Date(Date.now() + soonLimitDays * 24 * 60 * 60 * 1000).toISOString();
+          const isLoggedIn = !!user;
           let combined: JobCard[] = [];
 
-          // a) jobs テーブルがあれば
+          // a) 締切間近（application_deadline が今日以降・10日以内）を締切昇順
           try {
-            const { data: soon } = await supabase
+            const { data: soon, error: soonErr } = await supabase
               .from('jobs')
-              .select('id, title, company_name, thumbnail_url, image_url, application_deadline, recommended_score, created_at')
+              .select(`
+                id, title, created_at, application_deadline,
+                is_recommended, member_only,
+                cover_image_url, thumbnail_url, image_url,
+                company_name,
+                companies ( name, logo )
+              `)
+              .eq('published', true)
+              .not('application_deadline', 'is', null)
               .gte('application_deadline', nowISO)
               .lte('application_deadline', soonISO)
               .order('application_deadline', { ascending: true })
-              .limit(8);
-            if (Array.isArray(soon)) {
+              .limit(12);
+
+            if (!soonErr && Array.isArray(soon)) {
               combined.push(
-                ...soon.map((r: any) => ({
-                  id: String(r.id),
-                  title: r.title || '募集職種',
-                  company: r.company_name || '企業名',
-                  image_url: r.thumbnail_url || r.image_url || null,
-                  deadline: r.application_deadline || null,
-                  tag: '締切間近',
-                }))
-              );
-            }
-            const { data: recs } = await supabase
-              .from('jobs')
-              .select('id, title, company_name, thumbnail_url, image_url, application_deadline, recommended_score, created_at')
-              .gte('recommended_score', 70)
-              .order('recommended_score', { ascending: false })
-              .limit(8);
-            if (Array.isArray(recs)) {
-              combined.push(
-                ...recs.map((r: any) => ({
-                  id: String(r.id),
-                  title: r.title || '募集職種',
-                  company: r.company_name || '企業名',
-                  image_url: r.thumbnail_url || r.image_url || null,
-                  deadline: r.application_deadline || null,
-                  tag: 'おすすめ',
-                }))
+                ...soon.map((r: any): JobCard => {
+                  const shouldMask = !!r.member_only && !isLoggedIn;
+                  const company =
+                    shouldMask
+                      ? '（ログイン後に表示）'
+                      : (r?.companies?.name ?? r?.company_name ?? '企業名');
+                  const img =
+                    shouldMask
+                      ? null
+                      : (r?.cover_image_url ?? r?.thumbnail_url ?? r?.image_url ?? null);
+                  return {
+                    id: String(r.id),
+                    title: (r.title as string) || '募集職種',
+                    company,
+                    image_url: img,
+                    deadline: (r.application_deadline as string) || null,
+                    tag: '締切間近',
+                  };
+                })
               );
             }
           } catch {}
 
-          // b) fallback: intern_long_details があれば
-          if (combined.length === 0) {
-            try {
-              const { data: soon2 } = await supabase
-                .from('intern_long_details')
-                .select('id, title, company, image_url, deadline, created_at')
-                .not('deadline', 'is', null)
-                .order('deadline', { ascending: true })
-                .limit(12);
-              if (Array.isArray(soon2)) {
-                combined = soon2.map((r: any) => ({
-                  id: String(r.id),
-                  title: r.title || 'インターン募集',
-                  company: r.company || '企業名',
-                  image_url: r.image_url || null,
-                  deadline: r.deadline || null,
-                  tag: '締切間近',
-                }));
-              }
-            } catch {}
-          }
+          // b) おすすめ（is_recommended または recommended_score>=70 を降順で）
+          try {
+            const { data: recs } = await supabase
+              .from('jobs')
+              .select(`
+                id, title, created_at, application_deadline,
+                is_recommended, recommended_score, member_only,
+                cover_image_url, thumbnail_url, image_url,
+                company_name,
+                companies ( name, logo )
+              `)
+              .eq('published', true)
+              .or('is_recommended.eq.true,recommended_score.gte.70')
+              .order('is_recommended', { ascending: false })
+              .order('recommended_score', { ascending: false })
+              .order('created_at', { ascending: false })
+              .limit(12);
 
-          // c) 最後のフォールバック（ダミー）
+            if (Array.isArray(recs)) {
+              combined.push(
+                ...recs.map((r: any): JobCard => {
+                  const shouldMask = !!r.member_only && !isLoggedIn;
+                  const company =
+                    shouldMask
+                      ? '（ログイン後に表示）'
+                      : (r?.companies?.name ?? r?.company_name ?? '企業名');
+                  const img =
+                    shouldMask
+                      ? null
+                      : (r?.cover_image_url ?? r?.thumbnail_url ?? r?.image_url ?? null);
+                  return {
+                    id: String(r.id),
+                    title: (r.title as string) || '募集職種',
+                    company,
+                    image_url: img,
+                    deadline: (r.application_deadline as string) || null,
+                    tag: 'おすすめ',
+                  };
+                })
+              );
+            }
+          } catch {}
+
+          // c) NEW（作成7日以内）
+          try {
+            const weekAgoISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: news } = await supabase
+              .from('jobs')
+              .select(`
+                id, title, created_at, application_deadline,
+                member_only,
+                cover_image_url, thumbnail_url, image_url,
+                company_name,
+                companies ( name, logo )
+              `)
+              .eq('published', true)
+              .gte('created_at', weekAgoISO)
+              .order('created_at', { ascending: false })
+              .limit(12);
+
+            if (Array.isArray(news)) {
+              combined.push(
+                ...news.map((r: any): JobCard => {
+                  const shouldMask = !!r.member_only && !isLoggedIn;
+                  const company =
+                    shouldMask
+                      ? '（ログイン後に表示）'
+                      : (r?.companies?.name ?? r?.company_name ?? '企業名');
+                  const img =
+                    shouldMask
+                      ? null
+                      : (r?.cover_image_url ?? r?.thumbnail_url ?? r?.image_url ?? null);
+                  return {
+                    id: String(r.id),
+                    title: (r.title as string) || '募集職種',
+                    company,
+                    image_url: img,
+                    deadline: (r.application_deadline as string) || null,
+                    tag: 'NEW',
+                  };
+                })
+              );
+            }
+          } catch {}
+
+          // d) フォールバック（ダミー）
           if (combined.length === 0) {
             combined = [
               { id: 'demo1', title: 'JINS 1day Summer Internship', company: '株式会社ジンズ', image_url: '/demo/jins.jpg', deadline: soonISO.slice(0,10), tag: '締切間近' },
@@ -667,10 +918,16 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             ];
           }
 
-          // ユニーク化して格納
-          const uniq = new Map<string, JobCard>();
-          combined.forEach((j) => uniq.set(j.id, j));
-          setJobsRail(Array.from(uniq.values()));
+          // ユニーク化（締切間近 → おすすめ → NEW の優先度で並ぶよう先着順）
+          const seen = new Set<string>();
+          const uniqOrdered: JobCard[] = [];
+          for (const j of combined) {
+            if (!seen.has(j.id)) {
+              seen.add(j.id);
+              uniqOrdered.push(j);
+            }
+          }
+          setJobsRail(uniqOrdered.slice(0, 12));
         } catch {
           // ignore
         }
@@ -679,6 +936,90 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         setAnalysisCompletion(0);
       }
     })();
+  }, []);
+
+  // --- Keep profile (name/university/avatar) & completion reactive ---
+  useEffect(() => {
+    const supabase = createSbClient();
+    let channel: any | null = null;
+    let isMounted = true;
+
+    const recalc = (prof: { full_name?: string | null; university?: string | null; avatar_url?: string | null } | null) => {
+      const total = 3;
+      const filled = [prof?.full_name, prof?.university, prof?.avatar_url]
+        .filter((v) => !!(v && String(v).trim())).length;
+      if (!isMounted) return;
+      setProfileCompletion(Math.round((filled / total) * 100));
+      setMissingFields(Math.max(0, total - filled));
+      // --- recompute weighted completion reactively ---
+      (async () => {
+        try {
+          const { data: { user: userForComp } } = await supabase.auth.getUser();
+          if (userForComp) {
+            const comp = await computeWeightedProfileCompletion(supabase, userForComp.id);
+            setOverallProfileCompletion(comp.completion);
+            setProfilePctDetail(comp.profilePct);
+            setWorkPctDetail(comp.workPct);
+          }
+        } catch {}
+      })();
+    };
+
+    const fetchProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: prof } = await supabase
+          .from('student_profiles')
+          .select('full_name, university, avatar_url')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!isMounted) return;
+        if (prof) {
+          setProfileName(prof.full_name || '');
+          setUniversity(prof.university || '');
+          setAvatarUrl(prof.avatar_url || '');
+          recalc(prof);
+        }
+      } catch {}
+    };
+
+    // initial fetch on mount & on tab focus
+    fetchProfile();
+    const onFocus = () => fetchProfile();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') fetchProfile();
+      });
+    }
+
+    // subscribe realtime updates for this user's row
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        channel = supabase
+          .channel('student_profiles:me')
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'student_profiles',
+            filter: `user_id=eq.${user.id}`,
+          }, () => {
+            fetchProfile();
+          })
+          .subscribe();
+      } catch {}
+    })();
+
+    return () => {
+      isMounted = false;
+      if (channel) supabase.removeChannel(channel);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+      }
+    };
   }, []);
 
   // AIチャット送信ハンドラ（useEffectの外に配置）
@@ -987,11 +1328,29 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 {/* Avatar + Progress */}
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100">
-                    <img src={avatarUrl || '/placeholder.svg'} alt="avatar" className="w-full h-full object-cover" />
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-slate-400" aria-label="no avatar">
+                        <User className="w-10 h-10" />
+                      </div>
+                    )}
                   </div>
-                  {/* Gradient progress ring */}
-                  <svg className="absolute -inset-1 w-24 h-24 -rotate-90" viewBox="0 0 36 36" aria-hidden>
-                    <circle cx="18" cy="18" r="16" className="stroke-slate-200" strokeWidth="3" fill="none" />
+                  {/* Gradient progress ring (aligned to avatar) */}
+                  <svg
+                    className="absolute inset-0 w-20 h-20 -rotate-90 pointer-events-none"
+                    viewBox="0 0 36 36"
+                    aria-hidden
+                  >
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      className="stroke-slate-200"
+                      strokeWidth="3.5"
+                      fill="none"
+                      pathLength={100}
+                    />
                     <defs>
                       <linearGradient id="avatar-progress-gradient" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
                         <stop stopColor="#6366f1" />
@@ -1003,9 +1362,12 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                       cy="18"
                       r="16"
                       stroke="url(#avatar-progress-gradient)"
-                      strokeWidth="3"
+                      strokeWidth="3.5"
                       fill="none"
-                      strokeDasharray={`${Math.max(0, Math.min(100, profileCompletion))}, 100`}
+                      strokeLinecap="round"
+                      pathLength={100}
+                      strokeDasharray={`${Math.max(0, Math.min(100, overallProfileCompletion || profileCompletion))} 100`}
+                      strokeDashoffset="0"
                     />
                   </svg>
                 </div>
@@ -1014,9 +1376,13 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 <div className="flex-1 min-w-0">
                   <div className="text-lg font-bold text-slate-900 truncate">{profileName || 'ユーザー'}</div>
                   <div className="text-sm text-slate-600 truncate">{university || '大学未設定'}</div>
-                  <div className="text-xs text-slate-500 mt-1">あと{missingFields}項目で検索上位に表示されやすくなります</div>
+                  <div className="mt-2 text-sm text-slate-700 font-medium">
+                    プロフィール完成度：<span className="font-bold text-slate-900">{overallProfileCompletion || profileCompletion}%</span>
+                  </div>
                 </div>
               </div>
+
+              
 
               {/* Buttons */}
               <div className="mt-5 flex gap-3">
@@ -1065,7 +1431,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                     <ProgressBar progress={analysisCompletion} className="mt-2" />
                   </div>
 
-                  {/* Weekly AI Diagnosis */}
+                  {/* Weekly AI Diagnosis 
                   <div className="p-3 rounded-xl border border-slate-200">
                     <p className="text-xs font-medium text-gray-600 mb-1.5">週次AI診断</p>
                     <div className="text-xs text-gray-700 flex items-center gap-2">
@@ -1086,7 +1452,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                         {isDiagnosing ? '診断中…' : (shouldRunWeekly(lastDiagnosisAt) ? '今すぐ診断' : '実行済み')}
                       </Button>
                     </div>
-                  </div>
+                  </div>*/}
                 </div>
               </div>
             </CardContent>
@@ -1113,7 +1479,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                   ))}
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="pt-0 pb-6 px-6">
                 {/* 履歴表示 */}
                 <div className="mb-4 max-h-64 overflow-y-auto space-y-3 pr-1" aria-live="polite">
                   {aiHistory.length === 0 ? (
@@ -1162,18 +1528,26 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             </Card>
 
             <Card className="rounded-2xl shadow-[0_6px_24px_rgba(17,24,39,0.06)] bg-white border border-slate-200">
-              <CardHeader className="p-4 sm:p-6">
+              <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
                 <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">
                   次にやるべきこと
                 </h2>
                 <p className="text-sm text-muted-foreground">プロフィール/診断結果から、今日やるべき具体アクションを提案します</p>
               </CardHeader>
-              <CardContent className="p-6 space-y-3">
+              <CardContent className="pt-3 pb-6 px-6 space-y-3">
                 {nextActions && nextActions.length > 0 ? (
-                  nextActions.map((a, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 transition">
-                      <span className="mt-1 inline-block size-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"></span>
-                      <div className="text-sm text-slate-700 break-words flex-1">{a}</div>
+                  nextActions.slice(0, 3).map((a, i) => (
+                    <div
+                      key={i}
+                      className="group flex items-center justify-between gap-3 p-3 rounded-xl border bg-indigo-50/60 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-sm transition"
+                    >
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <CheckCircle className="w-4 h-4 mt-0.5 text-indigo-600 flex-shrink-0" />
+                          <div className="text-sm text-slate-800 break-words flex-1">{a}</div>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition flex-shrink-0" />
                     </div>
                   ))
                 ) : (
@@ -1183,43 +1557,6 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             </Card>
           </div>
         </div>
-
-        {/* Banner Section (Baseme-like) */}
-        <Card className="rounded-2xl bg-white border border-slate-200 mb-6">
-          <CardContent className="p-4 sm:p-5">
-            <div
-              ref={bannerRef}
-              className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar"
-            >
-              {bannerItems.map((b, i) => (
-                <button
-                  key={b.id}
-                  data-banner
-                  onClick={() => navigateFn(b.href)}
-                  className="snap-start shrink-0 w-[260px] sm:w-[340px] h-28 rounded-xl p-4 text-left border border-slate-200 bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 active:scale-[0.99] transition"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/70 border border-indigo-200 text-indigo-700">{b.badge}</span>
-                    <span className="text-xs text-slate-500">▶</span>
-                  </div>
-                  <div className="mt-2 font-semibold text-slate-900">{b.title}</div>
-                  <div className="text-sm text-slate-600">{b.subtitle}</div>
-                </button>
-              ))}
-            </div>
-            {/* dots */}
-            <div className="mt-3 flex items-center justify-center gap-2">
-              {bannerItems.map((_, i) => (
-                <button
-                  key={i}
-                  aria-label={`banner ${i + 1}`}
-                  onClick={() => setBannerIndex(i)}
-                  className={`h-1.5 rounded-full transition-all ${i === bannerIndex ? 'w-6 bg-indigo-500' : 'w-2.5 bg-slate-300'}`}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Jobs Rail: 締切間近 / おすすめ */}
         {jobsRail.length > 0 && (
@@ -1261,6 +1598,110 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Banner Section (Baseme-like) */}
+        <div className="mb-6">
+          <div
+            ref={bannerRef}
+            className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar p-4 sm:p-5"
+          >
+            {bannerItems.map((b, i) => (
+              <button
+                key={b.id}
+                data-banner
+                onClick={() => navigateFn(b.href)}
+                className="snap-start shrink-0 w-[260px] sm:w-[340px] h-28 rounded-xl p-4 text-left border border-slate-200 bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 active:scale-[0.99] transition"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/70 border border-indigo-200 text-indigo-700">{b.badge}</span>
+                  <span className="text-xs text-slate-500">▶</span>
+                </div>
+                <div className="mt-2 font-semibold text-slate-900">{b.title}</div>
+                <div className="text-sm text-slate-600">{b.subtitle}</div>
+              </button>
+            ))}
+          </div>
+          {/* dots */}
+          <div className="mt-3 flex items-center justify-center gap-2">
+            {bannerItems.map((_, i) => (
+              <button
+                key={i}
+                aria-label={`banner ${i + 1}`}
+                onClick={() => setBannerIndex(i)}
+                className={`h-1.5 rounded-full transition-all ${i === bannerIndex ? 'w-6 bg-indigo-500' : 'w-2.5 bg-slate-300'}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Trending News Banner (時事ニュース) */}
+        {newsItems.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between px-4 sm:px-5 mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">時事ニュース</h3>
+              <button
+                onClick={() => navigateFn('/media')}
+                className="text-sm text-indigo-700 hover:underline"
+              >
+                学転メディアへ
+              </button>
+            </div>
+            <div
+              ref={newsRef}
+              className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar px-4 sm:px-5"
+            >
+              {newsItems.map((a) => (
+                <a
+                  key={a.id}
+                  href={a.url || '#'}
+                  target={a.url ? '_blank' : undefined}
+                  rel={a.url ? 'noreferrer' : undefined}
+                  data-news
+                  className="snap-start shrink-0 w-[260px] sm:w-[300px] rounded-xl border border-slate-200 bg-white hover:shadow-sm transition"
+                >
+                  <div className="relative h-36 rounded-t-xl overflow-hidden bg-slate-100">
+                    {a.imageUrl ? (
+                      <Image src={a.imageUrl} alt={a.title} fill sizes="(max-width: 768px) 260px, 300px" className="object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 grid place-items-center text-slate-400 text-sm">No image</div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        {a.source || 'News'}
+                      </span>
+                      {a.publishedAt && (
+                        <span className="text-[11px] text-slate-500">
+                          {(a.publishedAt || '').slice(0,10)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-semibold text-slate-900 line-clamp-2 min-h-[2.5rem]">
+                      {a.title}
+                    </div>
+                    {a.description && (
+                      <div className="mt-1 text-xs text-slate-600 line-clamp-2">
+                        {a.description}
+                      </div>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+            {/* dots */}
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {newsItems.map((_, i) => (
+                <button
+                  key={i}
+                  aria-label={`news ${i + 1}`}
+                  onClick={() => setNewsIndex(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === newsIndex ? 'w-6 bg-indigo-500' : 'w-2.5 bg-slate-300'}`}
+                />
+              ))}
+            </div>
+          </div>
         )}
 
         {/* First Time User Welcome */}

@@ -2,9 +2,11 @@
 // Mobile Student Profile – minimal RN version with autosave & tabs
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Image } from "react-native";
 import { AppState } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "../../src/lib/supabase"; // <- keep relative to avoid alias issues
 // import type { Database } from "../../src/lib/supabase/types"; // (optional) if types exist
 
@@ -47,6 +49,7 @@ export default function StudentProfileMobile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [tab, setTab] = useState<"basic" | "pr" | "pref">("basic");
   const [profile, setProfile] = useState<any>({});
 
@@ -69,7 +72,7 @@ export default function StudentProfileMobile() {
     'university','faculty','department','admission_month','graduation_month','research_theme',
     'pr_title','about','pr_text','strength1','strength2','strength3',
     'work_style','salary_range','desired_positions','work_style_options','preferred_industries','desired_locations',
-    'preference_note','gender'
+    'preference_note','gender','avatar_url'
   ] as const;
 
   // Stable stringify (sorted keys) to dedupe saves reliably
@@ -285,6 +288,57 @@ export default function StudentProfileMobile() {
     dirtyRef.current = true;
   }, []);
 
+  // --- プロフィール画像の選択＆アップロード ---
+  const pickAndUploadAvatar = useCallback(async () => {
+    try {
+      setUploadingAvatar(true);
+      // 1) 権限確認
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== "granted") {
+        alert("写真ライブラリへのアクセスを許可してください");
+        return;
+      }
+      // 2) 画像を選択
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // 正方形トリミング
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+
+      // 3) Supabase Storage へアップロード
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const userId = session.user.id;
+      const fileUri = asset.uri;
+      const ext = fileUri.split(".").pop() || "jpg";
+      const fileName = `avatar_${userId}_${Date.now()}.${ext}`;
+      const path = `${userId}/${fileName}`;
+
+      // React Native/Expo では fetch→blob→upload
+      const resp = await fetch(fileUri);
+      const blob = await resp.blob();
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, blob, {
+        upsert: true,
+        contentType: blob.type || `image/${ext}`,
+      });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = pub.publicUrl;
+
+      // 4) プロフィールに反映（自動保存対象）
+      update({ avatar_url: publicUrl });
+    } catch (e: any) {
+      console.warn("avatar upload failed", e?.message || e);
+      alert("画像のアップロードに失敗しました");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, [update]);
+
   // --- 郵便番号→住所 自動入力 ---
   const zipLookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastZipLookedUpRef = useRef<string>("");
@@ -329,6 +383,7 @@ export default function StudentProfileMobile() {
   // completion
   const sectionPct = useMemo(() => {
     const basicList = [
+      profile?.avatar_url,
       profile?.last_name, profile?.first_name, profile?.postal_code,
       profile?.prefecture, profile?.city, profile?.address_line,
       profile?.birth_date, profile?.gender,
@@ -394,6 +449,21 @@ export default function StudentProfileMobile() {
       <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:96 }}>
         {tab === "basic" && (
           <View style={{ gap:12, backgroundColor:'#ffffff', borderWidth:1, borderColor:'#e5e7eb', borderRadius:12, padding:12 }}>
+            {/* プロフィール画像 */}
+            <View style={{ alignItems: "center", marginBottom: 8 }}>
+              <Pressable onPress={pickAndUploadAvatar} style={{ alignItems: "center" }}>
+                <View style={{ width: 96, height: 96, borderRadius: 9999, overflow: "hidden", borderWidth: 2, borderColor: "#e5e7eb", backgroundColor: "#f1f5f9", alignItems: "center", justifyContent: "center" }}>
+                  {profile?.avatar_url ? (
+                    <Image source={{ uri: profile.avatar_url }} style={{ width: 96, height: 96, borderRadius: 9999 }} />
+                  ) : (
+                    <MaterialIcons accessibilityLabel="人物アイコン" name="person-outline" size={40} color="#070708ff" />
+                  )}
+                </View>
+                <Text style={{ marginTop: 6, fontSize: 12, color: "#2563eb" }}>
+                  {uploadingAvatar ? "アップロード中…" : (profile?.avatar_url ? "画像を変更" : "画像を追加")}
+                </Text>
+              </Pressable>
+            </View>
             {/* 氏名 */}
             <View style={{ flexDirection:"row", gap:12 }}>
               <View style={{ flex:1 }}>
