@@ -33,13 +33,14 @@ export async function GET(req: Request) {
   const { createClient } = await import('@supabase/supabase-js');
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // 読み取りだけなら anon でも良いが、サーバ側で完結させるなら service でOK
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! // 読み取りは anon で十分（RLSがSELECT許可の場合）
   );
 
   const { data, error } = await supabase
     .from('news_articles')
-    .select('id, title, source, image_url, url, published_at')
-    .order('published_at', { ascending: false })
+    .select('id, title, source, image_url, url, published_at, created_at')
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
     .limit(limit);
 
   if (error) {

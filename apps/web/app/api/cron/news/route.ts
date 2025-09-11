@@ -1,6 +1,5 @@
 // apps/web/app/api/cron/news/route.ts
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
 
 // --- Utilities: timeout & limited concurrency --------------------------------
 const DEFAULT_FETCH_TIMEOUT_MS = Number(process.env.CRON_FETCH_TIMEOUT_MS ?? 8000); // 8s per source
