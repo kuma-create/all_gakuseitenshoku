@@ -420,6 +420,14 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [aiIsSending, setAiIsSending] = useState<boolean>(false);
   const [nextActions, setNextActions] = useState<string[]>([]);
 
+  // --- Tab Visibility (pause timers when hidden) ---
+  const [isTabVisible, setIsTabVisible] = useState(true);
+  useEffect(() => {
+    const onVis = () => setIsTabVisible(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
   // シンプルなチャット履歴
   type ChatTurn = { role: 'user' | 'assistant'; content: string };
   const [aiHistory, setAiHistory] = useState<ChatTurn[]>([]);
@@ -454,6 +462,8 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   ];
   const [bannerIndex, setBannerIndex] = useState(0);
   const bannerRef = React.useRef<HTMLDivElement | null>(null);
+  const [isBannerInView, setIsBannerInView] = useState(true);
+  const bannerVisRef = React.useRef<IntersectionObserver | null>(null);
   useEffect(() => {
     const el = bannerRef.current;
     if (!el) return;
@@ -464,13 +474,38 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     el.scrollTo({ left: child.offsetLeft - 16, behavior: 'smooth' });
   }, [bannerIndex]);
   useEffect(() => {
-    const timer = setInterval(() => {
-      setBannerIndex((i) => (i + 1) % bannerItems.length);
-    }, 5000);
-    return () => clearInterval(timer);
+    const el = bannerRef.current;
+    if (!el) return;
+    if (bannerVisRef.current) bannerVisRef.current.disconnect();
+    bannerVisRef.current = new IntersectionObserver((entries) => {
+      const e = entries[0];
+      setIsBannerInView(!!e?.isIntersecting);
+    }, { root: null, threshold: 0.1 });
+    bannerVisRef.current.observe(el);
+    return () => bannerVisRef.current?.disconnect();
   }, []);
 
+  useEffect(() => {
+    let timer: number | null = null;
+    const start = () => {
+      if (timer != null) return;
+      timer = window.setInterval(() => {
+        setBannerIndex((i) => (i + 1) % bannerItems.length);
+      }, 5000);
+    };
+    const stop = () => {
+      if (timer != null) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+    };
+    if (isTabVisible && isBannerInView) start(); else stop();
+    return () => stop();
+  }, [isTabVisible, isBannerInView, bannerItems.length]);
+
   // ===== Trending News (横スクロール・バナー) =====
+  // キャリアスコア詳細セクションへのスクロール用
+  const scoreDetailRef = React.useRef<HTMLDivElement | null>(null);
   type NewsItem = {
     id: string;
     title: string;
@@ -483,6 +518,20 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [newsIndex, setNewsIndex] = useState(0);
   const newsRef = React.useRef<HTMLDivElement | null>(null);
+  const [isNewsInView, setIsNewsInView] = useState(true);
+  const newsVisRef = React.useRef<IntersectionObserver | null>(null);
+  // Pause auto-scroll while user is interacting with the scroll container
+  const [isNewsScrolling, setIsNewsScrolling] = useState(false);
+  // --- News auto-scroll interaction pause ---
+  const interactTimeoutRef = React.useRef<number | null>(null);
+  const pauseAutoNews = (ms = 1500) => {
+    setIsNewsScrolling(true);
+    if (interactTimeoutRef.current) window.clearTimeout(interactTimeoutRef.current);
+    interactTimeoutRef.current = window.setTimeout(() => {
+      setIsNewsScrolling(false);
+      interactTimeoutRef.current = null;
+    }, ms);
+  };
 
   useEffect(() => {
     const el = newsRef.current;
@@ -494,15 +543,57 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     el.scrollTo({ left: child.offsetLeft - 16, behavior: 'smooth' });
   }, [newsIndex]);
 
+  // Pause auto-scroll when user interacts with the news container (scroll, wheel, touch)
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNewsIndex((i) => {
-        const n = newsItems.length || 1;
-        return (i + 1) % n;
-      });
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [newsItems.length]);
+    const el = newsRef.current;
+    if (!el) return;
+
+    const onScroll = () => pauseAutoNews(1500);
+    const onWheel = () => pauseAutoNews(1500);
+    const onTouchStart = () => pauseAutoNews(2000);
+
+    el.addEventListener('scroll', onScroll, { passive: true } as any);
+    el.addEventListener('wheel', onWheel, { passive: true } as any);
+    el.addEventListener('touchstart', onTouchStart, { passive: true } as any);
+
+    return () => {
+      el.removeEventListener('scroll', onScroll as any);
+      el.removeEventListener('wheel', onWheel as any);
+      el.removeEventListener('touchstart', onTouchStart as any);
+      if (interactTimeoutRef.current) window.clearTimeout(interactTimeoutRef.current);
+    };
+  }, []);
+  // Observe news container visibility
+  useEffect(() => {
+    const el = newsRef.current;
+    if (!el) return;
+    if (newsVisRef.current) newsVisRef.current.disconnect();
+    newsVisRef.current = new IntersectionObserver((entries) => {
+      const e = entries[0];
+      setIsNewsInView(!!e?.isIntersecting);
+    }, { root: null, threshold: 0.1 });
+    newsVisRef.current.observe(el);
+    return () => newsVisRef.current?.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (isNewsScrolling || !isTabVisible || !isNewsInView || newsItems.length === 0) return;
+    let timer: number | null = null;
+    const start = () => {
+      if (timer != null) return;
+      timer = window.setInterval(() => {
+        setNewsIndex((i) => ((i + 1) % (newsItems.length || 1)));
+      }, 6000);
+    };
+    const stop = () => {
+      if (timer != null) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+    };
+    start();
+    return () => stop();
+  }, [newsItems.length, isNewsScrolling, isTabVisible, isNewsInView]);
 
   useEffect(() => {
     (async () => {
@@ -636,14 +727,8 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     // （ダミー用のasync即時関数で囲む）
     (async () => {
       try {
-        // 1) supabase client取得
-        // @ts-ignore
-        const { createClient } = await import('@supabase/supabase-js');
-        // 必要に応じてenvなどからURL/KEY取得
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!supabaseUrl || !supabaseKey) return;
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        // 1) supabase client取得（共通クライアント）
+        const supabase = createSbClient();
         // 2) 認証ユーザー取得
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -773,163 +858,120 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         }
         const insightRecs = (latestScoreRow?.insights?.recommendations ?? []) as string[];
         setNextActions([...(recs || []), ...((insightRecs || []).slice(0,3))]);
-        // 10) 締切間近 / おすすめの求人（ホームの取得方法に合わせて実装）
+        // 10) 締切間近 / おすすめの求人（JobsPageCoreと同等の取得・正規化）
         try {
-          const soonLimitDays = 10;
-          const nowISO = new Date().toISOString();
-          const soonISO = new Date(Date.now() + soonLimitDays * 24 * 60 * 60 * 1000).toISOString();
+          // a) 現在のログイン状態（member_only のマスク用）
           const isLoggedIn = !!user;
-          let combined: JobCard[] = [];
+          // b) JobsPageCore と同じカラム＆リレーションで取得
+          let q = supabase
+            .from('jobs')
+            .select(`
+id,
+title,
+description,
+department,
+created_at,
+work_type,
+selection_type,
+is_recommended,
+salary_range,
+application_deadline,
+location,
+cover_image_url,
+member_only,
+companies!jobs_company_id_fkey (
+  name,
+  industry,
+  logo
+),
+job_tags!job_tags_job_id_fkey (
+  tag
+)
+            `)
+            .eq('published', true);
 
-          // a) 締切間近（application_deadline が今日以降・10日以内）を締切昇順
-          try {
-            const { data: soon, error: soonErr } = await supabase
-              .from('jobs')
-              .select(`
-                id, title, created_at, application_deadline,
-                is_recommended, member_only,
-                cover_image_url, thumbnail_url, image_url,
-                company_name,
-                companies ( name, logo )
-              `)
-              .eq('published', true)
-              .not('application_deadline', 'is', null)
-              .gte('application_deadline', nowISO)
-              .lte('application_deadline', soonISO)
-              .order('application_deadline', { ascending: true })
-              .limit(12);
-
-            if (!soonErr && Array.isArray(soon)) {
-              combined.push(
-                ...soon.map((r: any): JobCard => {
-                  const shouldMask = !!r.member_only && !isLoggedIn;
-                  const company =
-                    shouldMask
-                      ? '（ログイン後に表示）'
-                      : (r?.companies?.name ?? r?.company_name ?? '企業名');
-                  const img =
-                    shouldMask
-                      ? null
-                      : (r?.cover_image_url ?? r?.thumbnail_url ?? r?.image_url ?? null);
-                  return {
-                    id: String(r.id),
-                    title: (r.title as string) || '募集職種',
-                    company,
-                    image_url: img,
-                    deadline: (r.application_deadline as string) || null,
-                    tag: '締切間近',
-                  };
-                })
-              );
-            }
-          } catch {}
-
-          // b) おすすめ（is_recommended または recommended_score>=70 を降順で）
-          try {
-            const { data: recs } = await supabase
-              .from('jobs')
-              .select(`
-                id, title, created_at, application_deadline,
-                is_recommended, recommended_score, member_only,
-                cover_image_url, thumbnail_url, image_url,
-                company_name,
-                companies ( name, logo )
-              `)
-              .eq('published', true)
-              .or('is_recommended.eq.true,recommended_score.gte.70')
-              .order('is_recommended', { ascending: false })
-              .order('recommended_score', { ascending: false })
-              .order('created_at', { ascending: false })
-              .limit(12);
-
-            if (Array.isArray(recs)) {
-              combined.push(
-                ...recs.map((r: any): JobCard => {
-                  const shouldMask = !!r.member_only && !isLoggedIn;
-                  const company =
-                    shouldMask
-                      ? '（ログイン後に表示）'
-                      : (r?.companies?.name ?? r?.company_name ?? '企業名');
-                  const img =
-                    shouldMask
-                      ? null
-                      : (r?.cover_image_url ?? r?.thumbnail_url ?? r?.image_url ?? null);
-                  return {
-                    id: String(r.id),
-                    title: (r.title as string) || '募集職種',
-                    company,
-                    image_url: img,
-                    deadline: (r.application_deadline as string) || null,
-                    tag: 'おすすめ',
-                  };
-                })
-              );
-            }
-          } catch {}
-
-          // c) NEW（作成7日以内）
-          try {
-            const weekAgoISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-            const { data: news } = await supabase
-              .from('jobs')
-              .select(`
-                id, title, created_at, application_deadline,
-                member_only,
-                cover_image_url, thumbnail_url, image_url,
-                company_name,
-                companies ( name, logo )
-              `)
-              .eq('published', true)
-              .gte('created_at', weekAgoISO)
-              .order('created_at', { ascending: false })
-              .limit(12);
-
-            if (Array.isArray(news)) {
-              combined.push(
-                ...news.map((r: any): JobCard => {
-                  const shouldMask = !!r.member_only && !isLoggedIn;
-                  const company =
-                    shouldMask
-                      ? '（ログイン後に表示）'
-                      : (r?.companies?.name ?? r?.company_name ?? '企業名');
-                  const img =
-                    shouldMask
-                      ? null
-                      : (r?.cover_image_url ?? r?.thumbnail_url ?? r?.image_url ?? null);
-                  return {
-                    id: String(r.id),
-                    title: (r.title as string) || '募集職種',
-                    company,
-                    image_url: img,
-                    deadline: (r.application_deadline as string) || null,
-                    tag: 'NEW',
-                  };
-                })
-              );
-            }
-          } catch {}
-
-          // d) フォールバック（ダミー）
-          if (combined.length === 0) {
-            combined = [
-              { id: 'demo1', title: 'JINS 1day Summer Internship', company: '株式会社ジンズ', image_url: '/demo/jins.jpg', deadline: soonISO.slice(0,10), tag: '締切間近' },
-              { id: 'demo2', title: 'データアナリスト', company: 'PayPay株式会社', image_url: '/demo/paypay.jpg', deadline: soonISO.slice(0,10), tag: 'おすすめ' },
-              { id: 'demo3', title: '新卒向け業務職', company: '東京ガス株式会社', image_url: '/demo/tokyogas.jpg', deadline: soonISO.slice(0,10), tag: 'NEW' },
-            ];
+          // 未ログイン時は会員限定を除外（JobsPageCoreの挙動に合わせる）
+          if (!isLoggedIn) {
+            // @ts-ignore
+            q = q.eq('member_only', false);
           }
 
-          // ユニーク化（締切間近 → おすすめ → NEW の優先度で並ぶよう先着順）
+          const { data: rows, error: jobsErr } = await q;
+          if (jobsErr) throw jobsErr;
+
+          // JobsPageCore と同様の正規化
+          const normalized = (rows ?? []).map((row: any) => {
+            const sel = row.selection_type ?? 'fulltime';
+            const shouldMask = !!row.member_only && !isLoggedIn;
+            const companyName = shouldMask ? '（ログイン後に表示）' : (row?.companies?.name ?? '企業名');
+            const imageUrl = shouldMask ? null : (row?.cover_image_url ?? null);
+            const tags = Array.isArray(row?.job_tags) ? row.job_tags.map((t: any) => t.tag) : [];
+            // 年収の簡易分解（JobsPageCoreと同趣旨）
+            const rgx = /^(\d+)[^\d]+(\d+)?/;
+            const m = (row.salary_range ?? '').match(rgx);
+            const min = m ? Number(m[1]) : null;
+            const max = m && m[2] ? Number(m[2]) : null;
+
+            return {
+              id: String(row.id),
+              title: row.title as string,
+              company: companyName as string,
+              image_url: imageUrl as (string | null),
+              selection_type: sel as string,
+              application_deadline: row.application_deadline as (string | null),
+              is_recommended: !!row.is_recommended,
+              created_at: row.created_at as string,
+              salary_min: min,
+              salary_max: max,
+              tags,
+            };
+          });
+
+          // レール用データ（締切間近 → おすすめ → NEW の順で結合し重複除去）
+          const today = new Date();
+          const withinDays = (iso?: string | null, days = 10) => {
+            if (!iso) return false;
+            const d = new Date(iso);
+            const diff = (d.getTime() - today.getTime()) / 86400000;
+            return diff >= 0 && diff <= days;
+          };
+
+          const closingSoon = normalized
+            .filter((j) => withinDays(j.application_deadline, 10))
+            .sort((a, b) => {
+              const da = a.application_deadline ? new Date(a.application_deadline).getTime() : Infinity;
+              const db = b.application_deadline ? new Date(b.application_deadline).getTime() : Infinity;
+              return da - db;
+            })
+            .map((j) => ({ id: j.id, title: j.title, company: j.company, image_url: j.image_url, deadline: j.application_deadline, tag: '締切間近' as const }));
+
+          const recommended = normalized
+            .filter((j) => j.is_recommended)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .map((j) => ({ id: j.id, title: j.title, company: j.company, image_url: j.image_url, deadline: j.application_deadline, tag: 'おすすめ' as const }));
+
+          const weekAgo = new Date(Date.now() - 7 * 86400000);
+          const news = normalized
+            .filter((j) => new Date(j.created_at).getTime() >= weekAgo.getTime())
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .map((j) => ({ id: j.id, title: j.title, company: j.company, image_url: j.image_url, deadline: j.application_deadline, tag: 'NEW' as const }));
+
+          const combined: JobCard[] = [...closingSoon, ...recommended, ...news];
+
+          // ユニーク化（先着優先）
           const seen = new Set<string>();
-          const uniqOrdered: JobCard[] = [];
+          const uniq: JobCard[] = [];
           for (const j of combined) {
             if (!seen.has(j.id)) {
               seen.add(j.id);
-              uniqOrdered.push(j);
+              uniq.push(j);
             }
           }
-          setJobsRail(uniqOrdered.slice(0, 12));
+
+          // 最終的に最大12件
+          setJobsRail(uniq.slice(0, 12));
         } catch {
-          // ignore
+          // ignore（ダミーは用意しない：UIはそのまま、空なら何も出さない）
         }
       } catch (e) {
         // fallback: 0%
@@ -943,6 +985,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     const supabase = createSbClient();
     let channel: any | null = null;
     let isMounted = true;
+    let fetching = false; // throttle duplicate fetches
 
     const recalc = (prof: { full_name?: string | null; university?: string | null; avatar_url?: string | null } | null) => {
       const total = 3;
@@ -986,38 +1029,73 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
 
     // initial fetch on mount & on tab focus
     fetchProfile();
-    const onFocus = () => fetchProfile();
+    const onFocus = () => {
+      if (fetching) return;
+      fetching = true;
+      fetchProfile().finally(() => {
+        setTimeout(() => { fetching = false; }, 300);
+      });
+    };
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus);
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') fetchProfile();
-      });
+    }
+    const onVisChange = () => {
+      if (document.visibilityState === 'visible') {
+        // refetch and ensure subscription exists
+        if (!fetching) {
+          fetching = true;
+          fetchProfile().finally(() => {
+            setTimeout(() => { fetching = false; }, 300);
+          });
+        }
+        if (!channel) subscribe();
+      } else {
+        // tear down subscription when hidden
+        if (channel) {
+          supabase.removeChannel(channel);
+          channel = null;
+        }
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisChange);
     }
 
-    // subscribe realtime updates for this user's row
-    (async () => {
+    // subscribe realtime updates for this user's row (visible-only, UPDATE only)
+    const subscribe = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         channel = supabase
           .channel('student_profiles:me')
           .on('postgres_changes', {
-            event: '*',
+            event: 'UPDATE',
             schema: 'public',
             table: 'student_profiles',
             filter: `user_id=eq.${user.id}`,
           }, () => {
-            fetchProfile();
+            if (fetching) return;
+            fetching = true;
+            fetchProfile().finally(() => {
+              setTimeout(() => { fetching = false; }, 500);
+            });
           })
           .subscribe();
       } catch {}
-    })();
+    };
+
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      subscribe();
+    }
 
     return () => {
       isMounted = false;
       if (channel) supabase.removeChannel(channel);
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', onFocus);
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisChange);
       }
     };
   }, []);
@@ -1329,7 +1407,15 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100">
                     {avatarUrl ? (
-                      <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                      <Image
+                        src={avatarUrl}
+                        alt="avatar"
+                        fill
+                        sizes="80px"
+                        quality={70}
+                        priority={false}
+                        className="object-cover"
+                      />
                     ) : (
                       <div className="w-full h-full grid place-items-center text-slate-400" aria-label="no avatar">
                         <User className="w-10 h-10" />
@@ -1455,6 +1541,16 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                   </div>*/}
                 </div>
               </div>
+              {/* Scroll indicator to score detail */}
+              <button
+                type="button"
+                onClick={() => scoreDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                aria-label="キャリアスコア詳細へスクロール"
+                className="mt-4 w-full flex flex-col items-center justify-center py-2 select-none group"
+              >
+                <ArrowDown className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-transform duration-200" />
+                <span className="mt-1 text-[11px] tracking-[0.25em] text-slate-400 group-hover:text-indigo-600">SCROLL</span>
+              </button>
             </CardContent>
           </Card>
 
@@ -1504,7 +1600,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 {/* 入力行 */}
                 <div className="flex gap-2 items-start">
                   <textarea
-                    className="flex-1 border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 resize-y min-h-[44px]"
+                    className="flex-1 border border-slate-300 rounded-xl px-3 py-0 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 resize-y min-h-[32px]"
                     placeholder="何でも聞いてください（Enterで送信 / Shift+Enterで改行）"
                     value={aiMessage}
                     onChange={(e) => setAiMessage(e.target.value)}
@@ -1565,7 +1661,6 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               <div className="flex items-end justify-between mb-3">
                 <div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900">締切間近の求人</h3>
-                  <p className="text-xs text-slate-500">おすすめ求人も含まれます</p>
                 </div>
                 <Button variant="outline" className="h-8 px-3 border-indigo-300 text-indigo-700 hover:bg-indigo-50" onClick={() => navigateFn('/jobs?sort=deadline')}>
                   すべて見る
@@ -1576,21 +1671,44 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                   <div key={j.id} className="shrink-0 w-[260px] sm:w-[300px] rounded-xl border border-slate-200 bg-white hover:shadow-sm transition">
                     <div className="relative h-36 rounded-t-xl overflow-hidden bg-slate-100">
                       {j.image_url ? (
-                        <Image src={j.image_url} alt={j.title} fill sizes="(max-width: 768px) 260px, 300px" className="object-cover" />
+                        <Image
+                          src={j.image_url}
+                          alt={j.title}
+                          fill
+                          sizes="(max-width: 640px) 260px, (max-width: 1024px) 300px, 300px"
+                          quality={70}
+                          priority={false}
+                          className="object-cover"
+                        />
                       ) : (
                         <div className="absolute inset-0 grid place-items-center text-slate-400 text-sm">No image</div>
                       )}
                     </div>
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">{j.tag || 'NEW'}</span>
+                        <span
+                          className={
+                            `text-[11px] px-2 py-0.5 rounded-full border ` +
+                            (j.tag === '締切間近'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : j.tag === 'NEW'
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200')
+                          }
+                        >
+                          {j.tag || 'NEW'}
+                        </span>
                         {j.deadline && (<span className="text-[11px] text-slate-500">締切: {formatDate(j.deadline)}</span>)}
                       </div>
                       <div className="text-xs text-slate-600 truncate">{j.company}</div>
                       <div className="text-sm font-semibold text-slate-900 line-clamp-2 min-h-[2.5rem]">{j.title}</div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <Button variant="outline" className="h-8 px-3 border-slate-300" onClick={() => navigateFn(`/jobs/${j.id}`)}>詳細</Button>
-                        <Button className="h-8 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700">気になる</Button>
+                      <div className="mt-2 flex justify-center">
+                        <Button
+                          onClick={() => navigateFn(`/jobs/${j.id}`)}
+                          className="h-11 px-5 w-full text-base font-semibold border border-blue-600 text-blue-600 bg-white hover:bg-blue-600 hover:text-white"
+                        >
+                          詳細を見る
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -1649,6 +1767,9 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             </div>
             <div
               ref={newsRef}
+              onMouseEnter={() => setIsNewsScrolling(true)}
+              onMouseLeave={() => pauseAutoNews(600)}
+              onPointerDown={() => pauseAutoNews(2000)}
               className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar px-4 sm:px-5"
             >
               {newsItems.map((a) => (
@@ -1662,7 +1783,15 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 >
                   <div className="relative h-36 rounded-t-xl overflow-hidden bg-slate-100">
                     {a.imageUrl ? (
-                      <Image src={a.imageUrl} alt={a.title} fill sizes="(max-width: 768px) 260px, 300px" className="object-cover" />
+                      <Image
+                        src={a.imageUrl}
+                        alt={a.title}
+                        fill
+                        sizes="(max-width: 640px) 260px, (max-width: 1024px) 300px, 300px"
+                        quality={70}
+                        priority={false}
+                        className="object-cover"
+                      />
                     ) : (
                       <div className="absolute inset-0 grid place-items-center text-slate-400 text-sm">No image</div>
                     )}
@@ -1754,6 +1883,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Career Score Radar */}
+            <div ref={scoreDetailRef}>
             <Card className="bg-white border border-slate-200">
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
@@ -1844,6 +1974,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                 )}
               </CardContent>
             </Card>
+            </div>
 
           </div>
 

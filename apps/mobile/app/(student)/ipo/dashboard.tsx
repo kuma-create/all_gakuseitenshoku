@@ -124,8 +124,9 @@ import {
   Pressable,
   StyleSheet,
   Alert,
-  Image, // add this import
+  Image,
   Linking,
+  Dimensions,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { Brain, RefreshCw, Clock, CheckSquare, ChevronRight } from "lucide-react-native";
@@ -241,6 +242,17 @@ const styles = StyleSheet.create({
   },
 });
 
+// ===== Trending News (時事ニュース) for Mobile =====
+type NewsItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  source?: string | null;
+  publishedAt?: string | null;
+  url?: string | null;
+};
+
 
 // === Post-signup choice popup (local only on this page) ===
 const LATER_COOLDOWN_DAYS = 30;
@@ -330,6 +342,16 @@ export default function IPOMobileDashboard() {
   const [loading, setLoading] = useState(true);
   const scrollRef = React.useRef<ScrollView | null>(null);
   const [detailY, setDetailY] = useState<number>(0);
+
+  // === News (時事ニュース) ===
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [newsIndex, setNewsIndex] = useState(0);
+  const [isNewsInteracting, setIsNewsInteracting] = useState(false);
+  const newsRef = React.useRef<ScrollView | null>(null);
+  const screenWidth = Dimensions.get("window").width;
+  const NEWS_CARD_H_PADDING = 16; // outer container padding
+  const NEWS_CARD_GAP = 10;
+  const NEWS_CARD_WIDTH = Math.min(340, screenWidth - NEWS_CARD_H_PADDING * 2);
 
   const navigateFn = useCallback(
     (route: string) => {
@@ -474,6 +496,129 @@ export default function IPOMobileDashboard() {
       }
     })();
   }, []);
+
+  // Fetch news articles from the web API shared with WEB app
+  useEffect(() => {
+    (async () => {
+      try {
+        // Base URL candidates (priority order)
+        let baseCandidates = [
+          process.env.EXPO_PUBLIC_API_BASE_URL,
+          process.env.NEXT_PUBLIC_API_BASE_URL,
+          process.env.EXPO_PUBLIC_WEB_ORIGIN,
+          process.env.NEXT_PUBLIC_WEB_ORIGIN,
+          // for physical devices on LAN
+          process.env.EXPO_PUBLIC_API_LAN,
+          // Dev fallback (Next.js)
+          "http://localhost:3000",
+        ].filter(Boolean) as string[];
+
+        // Normalize
+        baseCandidates = baseCandidates.map((b) => (b || "").replace(/\/$/, ""));
+
+        // Android emulator: localhost -> 10.0.2.2
+        if (Platform?.OS === "android") {
+          baseCandidates = baseCandidates.map((b) =>
+            b.includes("localhost") ? b.replace("localhost", "10.0.2.2") : b
+          );
+        }
+
+        const base = baseCandidates[0] || "";
+
+        // Try plural -> singular -> trending
+        const endpoints = [
+          `${base}/api/articles`,
+          `${base}/api/article`,
+          `${base}/api/media/trending`,
+        ];
+
+        let arr: any[] = [];
+        let hit: string | null = null;
+
+        for (const url of endpoints) {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) {
+              console.warn("[news] fetch not ok:", url, res.status);
+              continue;
+            }
+            const data = await res.json().catch(() => ({} as any));
+            const list = Array.isArray(data) ? data : (data?.articles ?? []);
+            if (Array.isArray(list) && list.length > 0) {
+              arr = list;
+              hit = url;
+              break;
+            } else {
+              console.warn("[news] empty list at:", url);
+            }
+          } catch (e) {
+            console.warn("[news] fetch failed:", url, e);
+          }
+        }
+
+        if (!Array.isArray(arr) || arr.length === 0) {
+          console.warn("[news] no articles from:", endpoints);
+          setNewsItems([]);
+          return;
+        }
+        if (hit) console.log("[news] using:", hit);
+
+        const fallbackImg = "/logo3.png";
+        const mapped: NewsItem[] = arr.slice(0, 12).map((a: any, i: number) => {
+          const rawImg = a.imageUrl ?? a.image_url ?? a.image ?? a.img ?? a.thumbnail ?? a.cover_image_url ?? "";
+          const imageUrl = typeof rawImg === "string" && rawImg.trim() !== "" ? rawImg : fallbackImg;
+          return {
+            id: String(a.id ?? a.guid ?? a.url ?? i),
+            title: a.title ?? "No title",
+            description: a.description ?? a.excerpt ?? null,
+            imageUrl,
+            source: a.source ?? a.provider ?? a.site ?? "News",
+            publishedAt: a.publishedAt ?? a.published_at ?? a.date ?? null,
+            url: a.url ?? a.link ?? null,
+          };
+        });
+        setNewsItems(mapped);
+      } catch {
+        setNewsItems([]);
+      }
+    })();
+  }, []);
+
+  // Auto-scroll for news (pause while user interacts)
+  useEffect(() => {
+    if (!newsItems || newsItems.length === 0) return;
+    if (isNewsInteracting) return; // pause when user is interacting (scrolling, touching, dragging)
+    const id = setInterval(() => {
+      setNewsIndex((i) => {
+        const next = (i + 1) % newsItems.length;
+        const x = next * (NEWS_CARD_WIDTH + NEWS_CARD_GAP);
+        newsRef.current?.scrollTo({ x, y: 0, animated: true });
+        return next;
+      });
+    }, 6000);
+    return () => clearInterval(id);
+  }, [newsItems.length, isNewsInteracting]);
+
+  const onNewsScrollBegin = () => {
+    setIsNewsInteracting(true);
+  };
+  const onNewsMomentumEnd = (e?: any) => {
+    // Snap index based on current offset
+    try {
+      const x = e?.nativeEvent?.contentOffset?.x ?? 0;
+      const idx = Math.round(x / (NEWS_CARD_WIDTH + NEWS_CARD_GAP));
+      setNewsIndex(Math.max(0, Math.min(idx, Math.max(0, newsItems.length - 1))));
+    } catch {}
+    // Resume after short delay
+    setTimeout(() => setIsNewsInteracting(false), 1200);
+  };
+  const onNewsTouchStart = () => {
+    setIsNewsInteracting(true);
+  };
+  const openNews = (url?: string | null) => {
+    if (!url) return;
+    openExternal(url);
+  };
 
   // Decide whether to show the post-signup popup (scoped to this page only)
   useEffect(() => {
@@ -1068,6 +1213,85 @@ export default function IPOMobileDashboard() {
           height={96}
           interval={3200}
         />
+
+
+        {/* 時事ニュース（WEBと同等のデータ源） */}
+        {newsItems.length > 0 && (
+          <View style={{ marginTop: 16 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingHorizontal: 2 }}>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: "#111827" }}>時事ニュース</Text>
+              <TouchableOpacity onPress={() => openExternal((process.env.EXPO_PUBLIC_SITE_BASE_URL || process.env.NEXT_PUBLIC_SITE_BASE_URL || "").replace(/\/$/, "") + "/media")}>
+                <Text style={{ fontSize: 12, color: "#3B82F6" }}>学転メディアへ</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              ref={newsRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={NEWS_CARD_WIDTH + NEWS_CARD_GAP}
+              decelerationRate="fast"
+              onScrollBeginDrag={onNewsScrollBegin}
+              onMomentumScrollEnd={onNewsMomentumEnd}
+              onTouchStart={onNewsTouchStart}
+              contentContainerStyle={{ paddingHorizontal: NEWS_CARD_H_PADDING, columnGap: NEWS_CARD_GAP }}
+            >
+              {newsItems.map((a) => (
+                <TouchableOpacity
+                  key={a.id}
+                  activeOpacity={0.9}
+                  onPress={() => openNews(a.url)}
+                  style={{
+                    width: NEWS_CARD_WIDTH,
+                    borderRadius: 12,
+                    borderColor: "#E5E7EB",
+                    borderWidth: 1,
+                    backgroundColor: "#FFFFFF",
+                    overflow: "hidden",
+                  }}
+                >
+                  <View style={{ height: 140, backgroundColor: "#F3F4F6" }}>
+                    {a.imageUrl ? (
+                      <Image
+                        source={{ uri: a.imageUrl }}
+                        style={{ width: "100%", height: "100%" }}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+                  </View>
+                  <View style={{ padding: 10 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <View style={{ backgroundColor: "#EEF2FF", borderColor: "#C7D2FE", borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 }}>
+                        <Text style={{ fontSize: 10, color: "#3730A3", fontWeight: "700" }}>{a.source || "News"}</Text>
+                      </View>
+                    </View>
+                    <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: "800", color: "#111827", lineHeight: 18 }}>
+                      {a.title}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {/* dots */}
+            <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              {newsItems.map((_, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => {
+                    setNewsIndex(i);
+                    const x = i * (NEWS_CARD_WIDTH + NEWS_CARD_GAP);
+                    newsRef.current?.scrollTo({ x, y: 0, animated: true });
+                  }}
+                  style={{
+                    width: i === newsIndex ? 24 : 10,
+                    height: 6,
+                    borderRadius: 999,
+                    backgroundColor: i === newsIndex ? "#3B82F6" : "#D1D5DB",
+                  }}
+                />
+              ))}
+            </View>
+          </View>
+        )}
 
 
 
