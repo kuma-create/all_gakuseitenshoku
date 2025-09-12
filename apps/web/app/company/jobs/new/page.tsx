@@ -395,7 +395,20 @@ export default function NewJobPage() {
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    const hasErrors = Object.keys(newErrors).length > 0;
+
+    if (hasErrors) {
+      // 最初のエラー項目へスクロール＆フォーカス
+      const firstKey = Object.keys(newErrors)[0];
+      const firstEl = typeof document !== "undefined" ? document.getElementById(firstKey) : null;
+      if (firstEl) {
+        firstEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        // @ts-ignore
+        if (firstEl.focus) firstEl.focus();
+      }
+    }
+
+    return !hasErrors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -844,6 +857,7 @@ export default function NewJobPage() {
                   </Label>
                   <div className="flex items-center gap-4 mt-1">
                     <input
+                      id="coverImageUrl"
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
@@ -881,6 +895,7 @@ export default function NewJobPage() {
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
+                              id="departments"
                               variant="outline"
                               className={`mt-3.5 w-full flex justify-between ${errors.departments ? "border-red-500" : ""}`}
                             >
