@@ -768,7 +768,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
 
   if (loading) {
     return (
-      <div className="w-full max-w-full md:max-w-5xl md:mx-auto px-0 sm:px-0 h-dvh min-h-[100dvh] pt-0 pb-0 overflow-hidden flex flex-col">
+      <div className="w-full max-w-none mx-0 px-0 h-[100vh] min-h-[100vh] pt-0 pb-0 overflow-hidden flex flex-col">
         <Card className="p-12 text-center">
           <div className="w-8 h-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-muted-foreground">AIチャットを準備しています...</p>
@@ -782,10 +782,10 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
     : '何でも気軽に話してください…';
 
   return (
-    <div className="w-full max-w-full md:max-w-5xl md:mx-auto px-0 h-[100dvh] max-h-[100dvh] pt-0 pb-0 overflow-hidden flex flex-col">
+    <div className="w-full max-w-none mx-0 px-0 h-[100vh] max-h-[100vh] pt-0 pb-0 overflow-hidden flex flex-col">
 
       {/* Top Bar: 空欄補充率 + モード切替 */}
-      <div ref={headerRef} className="sticky top-0 z-30 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 border rounded-xl p-2 mb-1">
+      <div ref={headerRef} className="sticky top-0 z-30 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 mb-1">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex-1">
             <div className="flex items-center justify-between text-xs sm:text-sm leading-relaxed mb-1">
@@ -825,7 +825,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
       </div>
       <div
         ref={scrollRef}
-        className="px-3 py-2 space-y-3 min-h-0 overflow-y-auto overscroll-contain flex-1"
+        className="py-2 space-y-3 min-h-0 overflow-y-auto overscroll-contain flex-1"
         style={{ maxHeight: listMaxHeight }}
       >
           <AnimatePresence>
@@ -838,7 +838,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.3, delay: index * 0.05 }}
               >
-                <div className={`flex ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'} items-start space-x-3 max-w-[90vw] sm:max-w-[70%] md:max-w-[60%] lg:max-w-[50%] group`}>
+                <div className={`flex ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'} items-start space-x-3 w-full group`}>
                   <div className="flex-shrink-0">
                     {message.type === 'ai' ? (
                       <div className={`w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br ${currentMode.color} rounded-full flex items-center justify-center`}>
@@ -850,7 +850,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
                       </div>
                     )}
                   </div>
-                <div className={`rounded-2xl p-3 sm:p-4 relative break-words ${
+                <div className={`rounded-2xl p-3 sm:p-4 relative break-words max-w-[100%] md:max-w-[92%] lg:max-w-[90%] xl:max-w-[88%] ${
                   message.type === 'user'
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground'
@@ -966,7 +966,7 @@ export function AIChat({ userId, onProgressUpdate, onApplyToManual, sectionProgr
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              <div className="flex items-start space-x-3 max-w-[90vw] sm:max-w-3xl">
+              <div className="flex items-start space-x-3 w-full">
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br ${currentMode.color} rounded-full flex items-center justify-center`}>
                   <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
