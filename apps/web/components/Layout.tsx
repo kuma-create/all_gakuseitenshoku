@@ -1,21 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Home, 
-  Target, 
-  Calendar, 
-  Library, 
-  Brain, 
-  Settings, 
-  LogOut, 
-  User,
   BarChart3,
+  Bell,
+  Brain, 
+  Calendar, 
   FileText,
-  Search,
-  Send,
+  Home, 
+  Library, 
+  LogOut, 
   MessageCircle,
   Pen,
+  Search,
+  Send,
+  Settings, 
   Sparkles,
-  Briefcase
+  Target, 
+  User,
+  Briefcase,
+  Key,
 } from 'lucide-react';
 
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -35,6 +37,12 @@ import {
   SidebarTrigger,
   useSidebar,
 } from './ui/sidebar';
+
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import Image from 'next/image';
+import Link from 'next/link';
+
 
 export { Sidebar } from './ui/sidebar';
 
@@ -59,6 +67,7 @@ type Route =
   | '/student/applications';
 
 type UserType = {
+  id?: string;
   name: string;
   role: string; // e.g. 'student' | 'admin'
   avatarUrl?: string | null;
@@ -73,6 +82,12 @@ interface LayoutProps {
 
 export function Layout({ children, currentRoute, navigate, user }: LayoutProps) {
   const { setOpen, setOpenMobile, isMobile } = useSidebar();
+
+  // Header helpers to align with app-wide session UI
+  const ready = true;
+  const isLoggedIn = !!user;
+  const avatar = user?.avatarUrl ?? null;
+  const session = isLoggedIn ? { user: { id: (user as any)?.id ?? '' } } : null;
 
   // Collapse sidebar to icon-only on first mount (desktop only)
   useEffect(() => {
@@ -380,23 +395,47 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
               </div>
             );
           })()}
-          <div className="ml-auto flex items-center gap-6">
-            <button
-              type="button"
-              onClick={() => handleNavigate('/madia' as Route)}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">学転メディア</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNavigate('/features' as Route)}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">特集</span>
-            </button>
+          {/* ===== Right actions: Notifications + Avatar ===== */}
+          <div className="ml-auto flex items-center gap-4">
+            {ready && isLoggedIn && session?.user && (
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="h-5 w-5" />
+                {/* 通知数のバッジを表示する場合はここに追加 */}
+              </Button>
+            )}
+
+            {ready && isLoggedIn ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    {avatar ? (
+                      <Image
+                        src={avatar}
+                        alt="avatar"
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <User size={20} />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/forgot-password" className="flex items-center">
+                      <Key size={16} className="mr-2" /> パスワード変更
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 focus:bg-red-50"
+                  >
+                    <LogOut size={16} className="mr-2" /> ログアウト
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         </header>
         

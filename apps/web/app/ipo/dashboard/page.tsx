@@ -1370,7 +1370,7 @@ job_tags!job_tags_job_id_fkey (
   }, [computeNextDiagnosis, toast]);
   return (
     <div className="bg-white overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8">
         {/* Header (moved to top) */}
         <div className="mb-2 sm:mb-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1398,10 +1398,10 @@ job_tags!job_tags_job_id_fkey (
           </div>
         </div>
         {/* Top Section: Left Profile / Right AI & Next Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-5 sm:mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 mb-5 sm:mb-6">
           {/* Left: Profile Summary */}
-          <Card className="lg:col-span-1 rounded-2xl shadow-sm bg-white border border-slate-200">
-            <CardContent className="p-6">
+          <Card className="lg:col-span-1 min-w-0 rounded-2xl shadow-sm bg-white border border-slate-200">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-4">
                 {/* Avatar + Progress */}
                 <div className="relative">
@@ -1471,7 +1471,7 @@ job_tags!job_tags_job_id_fkey (
               
 
               {/* Buttons */}
-              <div className="mt-5 flex gap-3">
+              <div className="mt-5 flex flex-col sm:flex-row gap-3">
                 <Button
                   onClick={runWeeklyDiagnosis}
                   disabled={isDiagnosing}
@@ -1555,9 +1555,9 @@ job_tags!job_tags_job_id_fkey (
           </Card>
 
           {/* Right: AI Chat and Next Actions */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="md:col-span-1 lg:col-span-2 min-w-0 space-y-4">
             <Card className="rounded-2xl shadow-[0_6px_24px_rgba(17,24,39,0.06)] bg-white border border-slate-200">
-              <CardHeader className="p-6">
+              <CardHeader className="p-4 sm:p-6 min-w-0">
                 <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">
                   AIに何でも聞いてください
                 </h2>
@@ -1575,9 +1575,9 @@ job_tags!job_tags_job_id_fkey (
                   ))}
                 </div>
               </CardHeader>
-              <CardContent className="pt-0 pb-6 px-6">
+              <CardContent className="pt-0 pb-4 sm:pb-6 px-4 sm:px-6 min-w-0 overflow-hidden">
                 {/* 履歴表示 */}
-                <div className="mb-4 max-h-64 overflow-y-auto space-y-3 pr-1" aria-live="polite">
+                <div className="mb-4 max-h-56 sm:max-h-64 md:max-h-72 overflow-y-auto space-y-3 pr-1 break-words" aria-live="polite">
                   {aiHistory.length === 0 ? (
                     <div className="text-sm text-slate-500">まずは質問を入力してみましょう。例：「今週の優先タスク教えて」</div>
                   ) : (
@@ -1598,9 +1598,9 @@ job_tags!job_tags_job_id_fkey (
                 </div>
 
                 {/* 入力行 */}
-                <div className="flex gap-2 items-start">
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                   <textarea
-                    className="flex-1 border border-slate-300 rounded-xl px-3 py-0 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 resize-y min-h-[32px]"
+                    className="flex-1 max-w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 resize-y min-h-[60px] sm:min-h-[32px]"
                     placeholder="何でも聞いてください（Enterで送信 / Shift+Enterで改行）"
                     value={aiMessage}
                     onChange={(e) => setAiMessage(e.target.value)}
@@ -1615,7 +1615,7 @@ job_tags!job_tags_job_id_fkey (
                   <Button
                     onClick={handleSendAi}
                     disabled={aiIsSending || !aiMessage.trim()}
-                    className="min-w-20 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700"
+                    className="min-w-20 w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700"
                   >
                     {aiIsSending ? '送信中…' : '送信'}
                   </Button>
@@ -1624,13 +1624,13 @@ job_tags!job_tags_job_id_fkey (
             </Card>
 
             <Card className="rounded-2xl shadow-[0_6px_24px_rgba(17,24,39,0.06)] bg-white border border-slate-200">
-              <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
+              <CardHeader className="px-4 sm:px-6 pt-3 sm:pt-6 pb-2 min-w-0">
                 <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">
                   次にやるべきこと
                 </h2>
                 <p className="text-sm text-muted-foreground">プロフィール/診断結果から、今日やるべき具体アクションを提案します</p>
               </CardHeader>
-              <CardContent className="pt-3 pb-6 px-6 space-y-3">
+              <CardContent className="pt-2 pb-4 sm:pb-6 px-4 sm:px-6 space-y-3 min-w-0 overflow-hidden">
                 {nextActions && nextActions.length > 0 ? (
                   nextActions.slice(0, 3).map((a, i) => (
                     <div
@@ -1657,7 +1657,7 @@ job_tags!job_tags_job_id_fkey (
         {/* Jobs Rail: 締切間近 / おすすめ */}
         {jobsRail.length > 0 && (
           <Card className="rounded-2xl bg-white border border-slate-200 mb-6">
-            <CardContent className="p-4 sm:p-5">
+            <CardContent className="p-3 sm:p-5">
               <div className="flex items-end justify-between mb-3">
                 <div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900">締切間近の求人</h3>
@@ -1668,14 +1668,14 @@ job_tags!job_tags_job_id_fkey (
               </div>
               <div className="flex gap-4 overflow-x-auto no-scrollbar">
                 {jobsRail.map((j) => (
-                  <div key={j.id} className="shrink-0 w-[260px] sm:w-[300px] rounded-xl border border-slate-200 bg-white hover:shadow-sm transition">
-                    <div className="relative h-36 rounded-t-xl overflow-hidden bg-slate-100">
+                  <div key={j.id} className="shrink-0 w-[220px] sm:w-[260px] md:w-[300px] rounded-xl border border-slate-200 bg-white hover:shadow-sm transition">
+                    <div className="relative h-28 sm:h-36 rounded-t-xl overflow-hidden bg-slate-100">
                       {j.image_url ? (
                         <Image
                           src={j.image_url}
                           alt={j.title}
                           fill
-                          sizes="(max-width: 640px) 260px, (max-width: 1024px) 300px, 300px"
+                          sizes="(max-width: 640px) 220px, (max-width: 768px) 260px, (max-width: 1024px) 300px, 300px"
                           quality={70}
                           priority={false}
                           className="object-cover"
@@ -1722,14 +1722,14 @@ job_tags!job_tags_job_id_fkey (
         <div className="mb-6">
           <div
             ref={bannerRef}
-            className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar p-4 sm:p-5"
+            className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar p-3 sm:p-5"
           >
             {bannerItems.map((b, i) => (
               <button
                 key={b.id}
                 data-banner
                 onClick={() => navigateFn(b.href)}
-                className="snap-start shrink-0 w-[260px] sm:w-[340px] h-28 rounded-xl p-4 text-left border border-slate-200 bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 active:scale-[0.99] transition"
+                className="snap-start shrink-0 w-[240px] sm:w-[320px] md:w-[360px] h-28 rounded-xl p-4 text-left border border-slate-200 bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 active:scale-[0.99] transition"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/70 border border-indigo-200 text-indigo-700">{b.badge}</span>
@@ -1756,7 +1756,7 @@ job_tags!job_tags_job_id_fkey (
         {/* Trending News Banner (時事ニュース) */}
         {newsItems.length > 0 && (
           <div className="mb-6">
-            <div className="flex items-center justify-between px-4 sm:px-5 mb-2">
+            <div className="flex items-center justify-between px-3 sm:px-5 mb-2">
               <h3 className="text-base sm:text-lg font-bold text-slate-900">時事ニュース</h3>
               <button
                 onClick={() => navigateFn('/media')}
@@ -1770,7 +1770,7 @@ job_tags!job_tags_job_id_fkey (
               onMouseEnter={() => setIsNewsScrolling(true)}
               onMouseLeave={() => pauseAutoNews(600)}
               onPointerDown={() => pauseAutoNews(2000)}
-              className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar px-4 sm:px-5"
+              className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar px-3 sm:px-5"
             >
               {newsItems.map((a) => (
                 <a
@@ -1779,15 +1779,15 @@ job_tags!job_tags_job_id_fkey (
                   target={a.url ? '_blank' : undefined}
                   rel={a.url ? 'noreferrer' : undefined}
                   data-news
-                  className="snap-start shrink-0 w-[260px] sm:w-[300px] rounded-xl border border-slate-200 bg-white hover:shadow-sm transition"
+                  className="snap-start shrink-0 w-[220px] sm:w-[260px] md:w-[300px] rounded-xl border border-slate-200 bg-white hover:shadow-sm transition"
                 >
-                  <div className="relative h-36 rounded-t-xl overflow-hidden bg-slate-100">
+                  <div className="relative h-28 sm:h-36 rounded-t-xl overflow-hidden bg-slate-100">
                     {a.imageUrl ? (
                       <Image
                         src={a.imageUrl}
                         alt={a.title}
                         fill
-                        sizes="(max-width: 640px) 260px, (max-width: 1024px) 300px, 300px"
+                        sizes="(max-width: 640px) 220px, (max-width: 768px) 260px, (max-width: 1024px) 300px, 300px"
                         quality={70}
                         priority={false}
                         className="object-cover"
@@ -1881,11 +1881,11 @@ job_tags!job_tags_job_id_fkey (
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 min-w-0 space-y-8">
             {/* Career Score Radar */}
             <div ref={scoreDetailRef}>
             <Card className="bg-white border border-slate-200">
-              <CardHeader className="p-4 sm:p-6">
+              <CardHeader className="p-4 sm:p-6 min-w-0">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-700 to-blue-600 bg-clip-text text-transparent">キャリアスコア詳細</h2>
@@ -1908,7 +1908,7 @@ job_tags!job_tags_job_id_fkey (
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 sm:p-6">
+              <CardContent className="p-4 sm:p-6 min-w-0 overflow-hidden">
                 <div className="-mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto">
                   <div className="min-w-[320px] sm:min-w-0">
                     <CareerRadarChart data={careerScoreDataJa} />
