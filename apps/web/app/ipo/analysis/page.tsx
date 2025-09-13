@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useRef, useState, useEffect } from "react"
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAIChatCore } from "@/components/analysis/useAIChatCore";
-import { BookOpen, Briefcase, TrendingUp, SquareStack, Target, Brain, FileText, Info } from "lucide-react";
+import { BookOpen, Briefcase, TrendingUp, SquareStack, Target, Brain, FileText, Info, PlusCircle, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
 import { LifeChart } from "@/components/analysis/LifeChart";
@@ -15,36 +15,36 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 
 // --- Supabase tables (想定スキーマ) ---
-// テーブル例: ipo_ai_sessions(id uuid PK, user_id uuid, title text, created_at timestamptz, updated_at timestamptz)
-//            ipo_ai_messages(id uuid PK, session_id uuid, role text, content text, created_at timestamptz)
+// テーブル例: ipo_ai_threads(id uuid PK, user_id uuid, title text, created_at timestamptz)
+//            ipo_ai_messages(id uuid PK, thread_id uuid, role text, content text, created_at timestamptz)
 // 生成型の列名推論を有効にするため、テーブル名はリテラル型に固定
-const TABLE_SESSION = "ipo_ai_sessions" as const;
+const TABLE_THREAD = "ipo_ai_threads" as const;
 const TABLE_MESSAGE = "ipo_ai_messages" as const;
 
 // ---- Inline helpers (no external ai/chatBridge.ts) ----
 type ChatRole = "user" | "assistant" | "system";
 type BasicMsg = { role: ChatRole; content: string };
 
-async function ensureChatSession(titleHint?: string): Promise<string | null> {
+async function ensureThread(titleHint?: string): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
   const uid = session?.user?.id ?? null;
   if (!uid) return null;
   const newId = crypto.randomUUID();
-  await supabase.from(TABLE_SESSION).insert({ id: newId, user_id: uid, title: titleHint || "自己分析チャット" });
+  await supabase.from(TABLE_THREAD).insert({ id: newId, user_id: uid, title: titleHint || "自己分析チャット" });
   return newId;
 }
 
-async function saveMessage(sessionId: string, role: ChatRole, content: string, id?: string) {
+async function saveMessage(threadId: string, role: ChatRole, content: string, id?: string) {
   try {
     await supabase.from(TABLE_MESSAGE).insert({
       id: id || crypto.randomUUID(),
-      session_id: sessionId,
+      thread_id: threadId,
       role,
       content,
     });
-    await supabase.from(TABLE_SESSION).update({ updated_at: new Date().toISOString() }).eq("id", sessionId);
   } catch (e) {
     console.warn("saveMessage skipped:", e);
   }
@@ -97,13 +97,13 @@ async function sendAndReceiveInline(opts: {
   userText: string;
   history?: BasicMsg[];
   titleHint?: string;
-  sessionId?: string | null;
-}): Promise<{ assistantText: string; sessionId: string | null }>
+  threadId?: string | null;
+}): Promise<{ assistantText: string; threadId: string | null }>
 {
   const { data: { session } } = await supabase.auth.getSession();
   const uid = session?.user?.id ?? undefined;
-  const sessionId = opts.sessionId ?? (await ensureChatSession(opts.titleHint));
-  if (sessionId) await saveMessage(sessionId, "user", opts.userText);
+  const threadId = opts.threadId ?? (await ensureThread(opts.titleHint));
+  if (threadId) await saveMessage(threadId, "user", opts.userText);
   let assistantText = "";
   try {
     assistantText = await callLLM({
@@ -111,15 +111,15 @@ async function sendAndReceiveInline(opts: {
       input: opts.userText,
       history: opts.history,
       userId: uid,
-      sessionId: sessionId || undefined,
+      sessionId: threadId || undefined,
       mode: "analytical",
     });
   } catch (e) {
     console.error("LLM error:", e);
     assistantText = "うまく処理できませんでした。別の聞き方で教えてください。";
   }
-  if (sessionId) await saveMessage(sessionId, "assistant", assistantText);
-  return { assistantText, sessionId };
+  if (threadId) await saveMessage(threadId, "assistant", assistantText);
+  return { assistantText, threadId };
 }
 
 // --- おすすめ質問タグ ---
@@ -162,6 +162,13 @@ const contents = [
     color: "from-sky-500 to-indigo-600",
   },
   {
+    title: "職務経歴書",
+    description: "アルバイト・インターン等の職歴を入力・管理",
+    href: "/ipo/analysis/resume",
+    icon: Briefcase,
+    color: "from-indigo-500 to-indigo-600",
+  },
+  {
     title: "適職診断",
     description: "性格や価値観、希望条件からあなたの適職を診断しよう",
     href: "/ipo/analysis/job-fit",
@@ -176,7 +183,7 @@ export default function AnalysisDemoPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
   // ---- Self PR (manual) state persisted in Supabase ----
   type ManualPR = { prTitle: string; about: string; prText: string; strengths: [string, string, string] };
   const [manual, setManual] = useState<ManualPR>({ prTitle: "", about: "", prText: "", strengths: ["", "", ""] });
@@ -190,55 +197,190 @@ export default function AnalysisDemoPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [chatOpened, setChatOpened] = useState(false);
 
+  // ---- Resume (職務経歴書) state ----
+  type WorkExperience = {
+    id: number;
+    company: string;
+    position: string;
+    jobTypes: string[]; // 複数職種
+    startDate: string; // YYYY-MM
+    endDate: string;   // YYYY-MM
+    isCurrent: boolean;
+    description: string;
+    technologies: string;
+    achievements: string;
+    isOpen?: boolean; // UI-only
+  };
+  const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([
+    { id: 1, company: "", position: "", jobTypes: [], startDate: "", endDate: "", isCurrent: false, description: "", technologies: "", achievements: "", isOpen: true },
+  ]);
+  const [resumeSaving, setResumeSaving] = useState(false);
+
+  const addWorkExperience = useCallback(() => {
+    setWorkExperiences((prev) => {
+      const nextId = prev.length ? Math.max(...prev.map(r => r.id)) + 1 : 1;
+      return [...prev, { id: nextId, company: "", position: "", jobTypes: [], startDate: "", endDate: "", isCurrent: false, description: "", technologies: "", achievements: "", isOpen: true }];
+    });
+  }, []);
+  const removeWorkExperience = useCallback((id: number) => {
+    setWorkExperiences((prev) => (prev.length > 1 ? prev.filter(r => r.id !== id) : prev));
+  }, []);
+  const patchWorkExperience = useCallback((id: number, patch: Partial<WorkExperience>) => {
+    setWorkExperiences((prev) => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  }, []);
+
   // Sidebar visibility (collapsible)
   const [showSidebar, setShowSidebar] = useState(true);
+  // Load Resume from `resumes` table
+  useEffect(() => {
+    if (!userId) return;
+    let aborted = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('work_experiences')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (error && error.code !== 'PGRST116') console.warn('resumes load warn:', error.message);
+        const arr = (data?.work_experiences ?? []) as any[];
+        if (!aborted && Array.isArray(arr) && arr.length) {
+          const rows: WorkExperience[] = arr.map((r: any, i: number) => ({
+            id: typeof r.id === 'number' ? r.id : (i + 1),
+            company: String(r.company ?? ''),
+            position: String(r.position ?? ''),
+            jobTypes: Array.isArray(r.jobTypes) ? r.jobTypes.map(String) : (Array.isArray(r.job_types) ? r.job_types.map(String) : []),
+            startDate: String(r.startDate ?? ''),
+            endDate: String(r.endDate ?? ''),
+            isCurrent: Boolean(r.isCurrent ?? false),
+            description: String(r.description ?? ''),
+            technologies: String(r.technologies ?? ''),
+            achievements: String(r.achievements ?? ''),
+            isOpen: true,
+          }));
+          setWorkExperiences(rows);
+        }
+      } catch (e) {
+        console.warn('load resume failed:', e);
+      }
+    })();
+    return () => { aborted = true; };
+  }, [userId]);
+  const toggleRowOpen = useCallback((id: number) => {
+    setWorkExperiences((prev) => prev.map(r => (r.id === id ? { ...r, isOpen: !r.isOpen } : r)));
+  }, []);
+  const toggleJobType = useCallback((id: number, opt: string, checked: boolean) => {
+    setWorkExperiences((prev) => prev.map(r => {
+      if (r.id !== id) return r;
+      const set = new Set(r.jobTypes || []);
+      if (checked) set.add(opt); else set.delete(opt);
+      return { ...r, jobTypes: Array.from(set) };
+    }));
+  }, []);
 
-  // ---- Sessions sidebar (ChatGPT-like) ----
-  type AiSession = { id: string; title: string | null; created_at: string; updated_at: string };
-  const [sessions, setSessions] = useState<AiSession[]>([]);
+  const saveResume = useCallback(async () => {
+    if (!userId) return;
+    setResumeSaving(true);
+    try {
+      const { data: existing } = await supabase
+        .from('resumes')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const payload: any = { user_id: userId, work_experiences: workExperiences, updated_at: new Date().toISOString() };
+      if (existing?.id) {
+        const { error: updErr } = await supabase.from('resumes').update(payload).eq('id', existing.id);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await supabase.from('resumes').insert(payload);
+        if (insErr) throw insErr;
+      }
+    } catch (e) {
+      console.error('saveResume error:', e);
+      alert('職務経歴書の保存に失敗しました');
+    } finally {
+      setResumeSaving(false);
+    }
+  }, [userId, workExperiences]);
+
+  const aiFillResumeRow = useCallback(async (rowId: number) => {
+    const row = workExperiences.find(r => r.id === rowId);
+    if (!row) return;
+    try {
+      const prompt = [
+        'あなたは就活用の職務経歴書アシスタントです。',
+        '以下のJSONの未入力フィールド（description, achievements, technologies）を日本語で簡潔に補完してください。',
+        '必ず次のキーのみでJSON出力: { "description": string, "achievements": string, "technologies": string }',
+        '入力:',
+        '```json',
+        JSON.stringify(row),
+        '```',
+      ].join('\n');
+      const reply = await callLLM({ input: prompt, instruction: 'resume autofill', history: [], sessionId: threadId ?? undefined, mode: 'analytical' });
+      const parseJSON = (t: string) => {
+        try { return JSON.parse(t); } catch {}
+        const m = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i); if (m) { try { return JSON.parse(m[1]); } catch {} }
+        return null;
+      };
+      const j = parseJSON(reply);
+      if (!j) return alert('AIの戻り値を解析できませんでした');
+      patchWorkExperience(rowId, {
+        description: typeof j.description === 'string' ? j.description.slice(0, 500) : row.description,
+        achievements: typeof j.achievements === 'string' ? j.achievements.slice(0, 600) : row.achievements,
+        technologies: typeof j.technologies === 'string' ? j.technologies.slice(0, 200) : row.technologies,
+      });
+    } catch (e) {
+      console.error('aiFillResumeRow error:', e);
+      alert('AI自動入力に失敗しました');
+    }
+  }, [workExperiences, patchWorkExperience, threadId]);
+
+  // ---- Threads sidebar (ChatGPT-like) ----
+  type AiThread = { id: string; title: string | null; created_at: string };
+  const [sessions, setSessions] = useState<AiThread[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [historyMessages, setHistoryMessages] = useState<{ role: ChatRole; content: string; created_at?: string }[]>([]);
 
-  const loadSessions = useCallback(async (uid: string) => {
+  const loadThreads = useCallback(async (uid: string) => {
     try {
       setSessionsLoading(true);
       const { data } = await supabase
-        .from(TABLE_SESSION)
-        .select("id, title, created_at, updated_at")
+        .from(TABLE_THREAD)
+        .select("id, title, created_at")
         .eq("user_id", uid)
-        .order("updated_at", { ascending: false });
+        .order("created_at", { ascending: false });
       setSessions((data as any[])?.map((r) => ({
-        id: r.id, title: r.title ?? null, created_at: r.created_at, updated_at: r.updated_at
+        id: r.id, title: r.title ?? null, created_at: r.created_at,
       })) ?? []);
     } finally {
       setSessionsLoading(false);
     }
   }, []);
-  const loadSessionMessages = useCallback(async (sid: string) => {
+  const loadThreadMessages = useCallback(async (tid: string) => {
     const { data } = await supabase
       .from(TABLE_MESSAGE)
       .select("role, content, created_at")
-      .eq("session_id", sid)
+      .eq("thread_id", tid)
       .order("created_at", { ascending: true });
     setHistoryMessages((data as any[])?.map((m) => ({ role: m.role as ChatRole, content: m.content, created_at: m.created_at })) ?? []);
   }, []);
 
-  const openSession = useCallback(async (sid: string) => {
-    setSessionId(sid);
-    await loadSessionMessages(sid);
+  const openThread = useCallback(async (tid: string) => {
+    setThreadId(tid);
+    await loadThreadMessages(tid);
     setChatOpened(true);
-  }, [loadSessionMessages]);
-  const newSession = useCallback(async () => {
-    const sid = await ensureChatSession("新しい会話");
-    if (sid) {
-      setSessionId(sid);
+  }, [loadThreadMessages]);
+  const newThread = useCallback(async () => {
+    const tid = await ensureThread("新しい会話");
+    if (tid) {
+      setThreadId(tid);
       setHistoryMessages([]);
-      if (userId) { loadSessions(userId); }
+      if (userId) { loadThreads(userId); }
     }
-  }, [userId, loadSessions]);
+  }, [userId, loadThreads]);
 
   // ---- Tab routing (activeTab) ----
-  type TabId = 'aiChat' | 'manual' | 'lifeChart' | 'experienceReflection' | 'futureVision' | 'overview';
+  type TabId = 'aiChat' | 'manual' | 'lifeChart' | 'experienceReflection' | 'futureVision' | 'resume' | 'overview';
   const [activeTab, setActiveTab] = useState<TabId>('aiChat');
   const pathname = usePathname();
   const router = useRouter();
@@ -250,6 +392,7 @@ export default function AnalysisDemoPage() {
     lifeChart: '/ipo/analysis/lifeChart',
     experienceReflection: '/ipo/analysis/experienceReflection',
     futureVision: '/ipo/analysis/futureVision',
+    resume: '/ipo/analysis/resume',
     overview: '/ipo/analysis/overview',
   };
 
@@ -265,6 +408,7 @@ export default function AnalysisDemoPage() {
       lifeChart: 'lifeChart',
       experienceReflection: 'experienceReflection',
       futureVision: 'futureVision',
+      resume: 'resume',
       overview: 'overview',
       'life-chart': 'lifeChart',               // 互換: 旧スラッグ
       'future-vision': 'futureVision',        // 互換
@@ -282,7 +426,7 @@ export default function AnalysisDemoPage() {
     const route = tabRouteMap[activeTab] || '/ipo/analysis/aiChat';
     try { router.push(route); } catch {}
     // feature tabs show inline content above chat; aiChat/overview hide feature
-    if (activeTab === 'manual' || activeTab === 'lifeChart' || activeTab === 'experienceReflection' || activeTab === 'futureVision') {
+    if (activeTab === 'manual' || activeTab === 'lifeChart' || activeTab === 'experienceReflection' || activeTab === 'futureVision' || activeTab === 'resume') {
       setActiveFeature(activeTab);
     } else {
       setActiveFeature(null);
@@ -291,7 +435,7 @@ export default function AnalysisDemoPage() {
 
   const handleTabChange = useCallback((tab: TabId) => {
     setActiveTab((prev) => {
-      const isFeature = tab === 'manual' || tab === 'lifeChart' || tab === 'experienceReflection' || tab === 'futureVision';
+      const isFeature = tab === 'manual' || tab === 'lifeChart' || tab === 'experienceReflection' || tab === 'futureVision' || tab === 'resume';
       // Toggle off if the same feature tab is clicked again
       if (isFeature && prev === tab) {
         try { router.push('/ipo/analysis/aiChat'); } catch {}
@@ -305,7 +449,7 @@ export default function AnalysisDemoPage() {
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
     }
   }, [router]);
-  type FeatureId = 'manual' | 'lifeChart' | 'experienceReflection' | 'futureVision' | null;
+  type FeatureId = 'manual' | 'lifeChart' | 'experienceReflection' | 'futureVision' | 'resume' | null;
   const [activeFeature, setActiveFeature] = useState<FeatureId>(null);
 
   const canSend = useMemo(() => input.trim().length > 0, [input]);
@@ -321,16 +465,16 @@ export default function AnalysisDemoPage() {
         setUserId(uid);
         if (!uid) { setLoading(false); return; }
 
-        // ログインごとに新規セッションを作成
+        // ログインごとに新規スレッドを作成
         const newId = crypto.randomUUID();
         const { error: insErr } = await supabase
-          .from(TABLE_SESSION)
+          .from(TABLE_THREAD)
           .insert({ id: newId, user_id: uid, title: "自己分析チャット" });
-        const sid = insErr ? null : newId;
+        const tid = insErr ? null : newId;
         if (!mounted) return;
-        setSessionId(sid);
-        // Load sessions after login/session established
-        await loadSessions(uid);
+        setThreadId(tid);
+        // Load threads after login established
+        await loadThreads(uid);
         // 既存メッセージのロード
         // (Removed per instructions)
       } finally {
@@ -339,7 +483,7 @@ export default function AnalysisDemoPage() {
     };
     run();
     return () => { mounted = false; };
-  }, [loadSessions]);
+  }, [loadThreads]);
 
   useEffect(() => {
     if (!userId) return;
@@ -351,29 +495,26 @@ export default function AnalysisDemoPage() {
   const { messages, isTyping, send } = useAIChatCore({
     userId,
     onSend: async (userText, history) => {
-      const { assistantText, sessionId: usedSid } = await sendAndReceiveInline({
+      const { assistantText, threadId: usedTid } = await sendAndReceiveInline({
         userText,
         history,
         titleHint: messages.length ? messages[0].content.slice(0, 32) : "自己分析チャット",
-        sessionId, // reuse selected session if any
+        threadId, // reuse selected thread if any
       });
-      // If we are in a selected session, reflect new messages locally for the sidebar view
-      if (sessionId) {
+      if (threadId) {
         setHistoryMessages((prev) => [...prev, { role: "user", content: userText }, { role: "assistant", content: assistantText }]);
-        // refresh sessions ordering
-        if (userId) { loadSessions(userId); }
+        if (userId) { loadThreads(userId); }
       } else {
-        // if a new session was created internally, adopt it
-        if (usedSid) {
-          setSessionId(usedSid);
-          if (userId) { loadSessions(userId); }
+        if (usedTid) {
+          setThreadId(usedTid);
+          if (userId) { loadThreads(userId); }
         }
       }
       return assistantText;
     },
   });
-  // Compute messages to display (sidebar session vs. default)
-  const displayMessages = sessionId ? historyMessages : messages;
+  // Compute messages to display (sidebar thread vs. default)
+  const displayMessages = threadId ? historyMessages : messages;
 
   useEffect(() => {
     if (!chatOpened) {
@@ -396,6 +537,13 @@ export default function AnalysisDemoPage() {
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // IME変換中はEnterで送信しない（日本語入力など）
+      const ne: any = e.nativeEvent as any;
+      const isComposing = Boolean((e as any).isComposing) || Boolean(ne?.isComposing) || (ne?.keyCode === 229);
+      if (isComposing) {
+        return; // 変換確定のEnterは無視
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -470,7 +618,7 @@ export default function AnalysisDemoPage() {
         input: prompt,
         history: [],
         userId: userId ?? undefined,
-        sessionId: sessionId ?? undefined,
+        sessionId: threadId ?? undefined,
         mode: "analytical",
       });
       const json = safeJsonFromText(reply);
@@ -772,6 +920,116 @@ export default function AnalysisDemoPage() {
             </div>
           </div>
         );
+      case "resume":
+        return (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-indigo-700" />
+                  <h3 className="text-[15px] font-semibold text-indigo-700">職務経歴書</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={saveResume} disabled={resumeSaving}>{resumeSaving ? '保存中…' : '保存'}</Button>
+                  <Button variant="outline" size="sm" onClick={addWorkExperience}><PlusCircle className="h-4 w-4 mr-1"/>職歴を追加</Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {workExperiences.map((r) => (
+                <div key={r.id} className="rounded-xl border bg-white p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <button type="button" onClick={() => toggleRowOpen(r.id)} className="flex items-center gap-2 text-left">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border bg-white">
+                        {r.isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </span>
+                      <span className="font-medium text-sm">{r.company || `職歴 #${r.id}`}</span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => aiFillResumeRow(r.id)}>AIで自動入力</Button>
+                      {workExperiences.length > 1 && (
+                        <Button variant="ghost" size="sm" className="text-red-500" onClick={() => removeWorkExperience(r.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {r.isOpen && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm">企業・組織名</Label>
+                        <Input value={r.company} onChange={(e) => patchWorkExperience(r.id, { company: e.target.value })} className="text-sm" />
+                      </div>
+                      <div>
+                        <Label className="text-sm">職種（複数選択可）</Label>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 md:grid-cols-3 md:gap-2">
+                          {['エンジニア','営業','コンサルタント','経営・経営企画','総務・人事','経理・財務','企画','マーケティング','デザイナー','広報','その他'].map(opt => (
+                            <label key={opt} className="flex items-center gap-2 text-xs">
+                              <input
+                                type="checkbox"
+                                className="h-3.5 w-3.5"
+                                checked={(r.jobTypes || []).includes(opt)}
+                                onChange={(e) => toggleJobType(r.id, opt, e.currentTarget.checked)}
+                              />
+                              {opt}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">役職・ポジション</Label>
+                        <Select value={r.position} onValueChange={(v) => patchWorkExperience(r.id, { position: v })}>
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue placeholder="役職を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="メンバー">メンバー</SelectItem>
+                            <SelectItem value="リーダー">リーダー</SelectItem>
+                            <SelectItem value="マネージャー">マネージャー</SelectItem>
+                            <SelectItem value="責任者">責任者</SelectItem>
+                            <SelectItem value="役員">役員</SelectItem>
+                            <SelectItem value="代表">代表</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-sm">開始年月</Label>
+                        <Input type="month" value={r.startDate} onChange={(e) => patchWorkExperience(r.id, { startDate: e.target.value })} className="text-sm" />
+                      </div>
+                      <div>
+                        <Label className="text-sm">終了年月</Label>
+                        <Input type="month" disabled={r.isCurrent} value={r.endDate} onChange={(e) => patchWorkExperience(r.id, { endDate: e.target.value })} className="text-sm" />
+                        <div className="mt-1 text-xs">
+                          <label className="inline-flex items-center gap-2">
+                            <input type="checkbox" checked={r.isCurrent} onChange={(e) => patchWorkExperience(r.id, { isCurrent: e.target.checked })} />
+                            現在も在籍中
+                          </label>
+                        </div>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm">業務内容</Label>
+                          <span className="text-xs text-gray-500">{r.description.length}/500</span>
+                        </div>
+                        <Textarea rows={4} value={r.description} onChange={(e) => patchWorkExperience(r.id, { description: e.target.value.slice(0, 500) })} className="text-sm" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-sm">使用技術・ツール</Label>
+                        <Input value={r.technologies} onChange={(e) => patchWorkExperience(r.id, { technologies: e.target.value })} className="text-sm" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label className="text-sm">成果・実績</Label>
+                        <Textarea rows={3} value={r.achievements} onChange={(e) => patchWorkExperience(r.id, { achievements: e.target.value })} className="text-sm" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -796,7 +1054,7 @@ export default function AnalysisDemoPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold">過去のログ</div>
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={newSession}>新規</Button>
+                <Button size="sm" variant="outline" onClick={newThread}>新規</Button>
                 <Button size="sm" variant="ghost" onClick={() => setShowSidebar(false)}>非表示</Button>
               </div>
             </div>
@@ -805,11 +1063,11 @@ export default function AnalysisDemoPage() {
               {sessions.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => openSession(s.id)}
-                  className={`w-full text-left rounded-lg px-3 py-2 hover:bg-muted ${sessionId === s.id ? "bg-muted" : ""}`}
+                  onClick={() => openThread(s.id)}
+                  className={`w-full text-left rounded-lg px-3 py-2 hover:bg-muted ${threadId === s.id ? "bg-muted" : ""}`}
                 >
                   <div className="text-sm font-medium truncate">{s.title || "新しい会話"}</div>
-                  <div className="text-[11px] text-muted-foreground">{new Date(s.updated_at).toLocaleString()}</div>
+                  <div className="text-[11px] text-muted-foreground">{new Date(s.created_at).toLocaleString()}</div>
                 </button>
               ))}
               {sessions.length === 0 && !sessionsLoading && (
@@ -823,7 +1081,7 @@ export default function AnalysisDemoPage() {
           {/* Brand + Search-like Input */}
           <div className="mb-6 flex flex-col items-center gap-4">
             <h1 className="text-3xl font-bold tracking-tight">
-              <span className="align-middle">AI自己分析</span>
+              <span className="align-middle">自己分析プラットフォーム</span>
               <span className="ml-2 rounded bg-indigo-600/10 px-2 py-1 text-sm font-semibold text-indigo-600">AI</span>
             </h1>
           </div>
@@ -891,10 +1149,10 @@ export default function AnalysisDemoPage() {
                 {/* chips */}
                 <div className="mb-3 flex flex-wrap gap-2">
                   {[
-                    "履歴書を要約して",
-                    "今週の優先タスク教えて",
-                    "志望動機の添削",
-                    "ケース面接の練習",
+                    "自己PRを埋めたい",
+                    "職務経歴書を要約したい",
+                    "経験の整理をサポートして",
+                    "将来のことについて言語化したい",
                   ].map((t) => (
                     <button
                       key={t}
@@ -995,6 +1253,26 @@ export default function AnalysisDemoPage() {
                 </Link>
               );
             }
+            if (c.title === "職務経歴書") {
+              return (
+                <Link
+                  key={c.href}
+                  href="/ipo/analysis/resume"
+                  onClick={(e) => { e.preventDefault(); handleTabChange('resume'); }}
+                  className="group rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:shadow-md"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={`inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${c.color}`}>
+                      <c.icon className="h-5 w-5 text-white" />
+                    </span>
+                    <div>
+                      <div className="mb-1 text-base font-semibold group-hover:underline">{c.title}</div>
+                      <p className="text-sm text-zinc-600">{c.description}</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            }
             if (c.title === "将来ビジョン") {
               return (
                 <Link
@@ -1033,7 +1311,7 @@ export default function AnalysisDemoPage() {
         </div>
       </section>
         <div className="px-4 text-[11px] text-zinc-500">{savingPR ? "保存中…" : ""}</div>
-        <div className="sr-only">session: {sessionId || "-"}</div>
+        <div className="sr-only">thread: {threadId || "-"}</div>
       </div>{/* end main panel */}
     </div>{/* end grid */}
   </div>
