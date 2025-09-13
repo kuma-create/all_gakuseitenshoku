@@ -5,6 +5,18 @@ import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AppHeader from "src/components/AppHeader";
 
+// ----- Global error hook (student stack) -----
+if ((global as any)?.ErrorUtils?.setGlobalHandler) {
+  const prev = (global as any).ErrorUtils.getGlobalHandler?.();
+  (global as any).ErrorUtils.setGlobalHandler((e: any, isFatal?: boolean) => {
+    try {
+      console.log('[FATAL]', e?.message);
+      console.log('[STACK]', e?.stack);
+    } catch {}
+    if (typeof prev === 'function') prev(e, isFatal);
+  });
+}
+
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
 const BOTTOM_BAR_HEIGHT = 58;

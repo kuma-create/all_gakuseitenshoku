@@ -1,11 +1,11 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking, Platform, KeyboardAvoidingView, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Dimensions, Easing, TextInput, Pressable, ActivityIndicator, Linking, Platform } from "react-native";
 import * as LinkingExpo from "expo-linking";
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Circle } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useEffect, useState, useRef } from "react";
 import type { Session } from "@supabase/supabase-js";
 
-import { supabase } from "../src/lib/supabase";
+import { supabase } from "src/lib/supabase";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE || "https://gakuten.co.jp";
 

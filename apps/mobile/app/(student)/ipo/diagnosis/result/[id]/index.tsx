@@ -8,7 +8,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { ArrowLeft, Clock, Brain, Heart, Target, Award, Star, TrendingUp, CheckCircle, Lightbulb, Download, RotateCcw, BookOpen } from "lucide-react-native";
 
 // Radar chart component
-import * as _CareerRadarChart from "src/components/ipo/charts/CareerRadarChart";
+import * as _CareerRadarChart from "@/components/ipo/charts/CareerRadarChart";
 
 
 // ---- Types ----
@@ -63,9 +63,7 @@ const TYPE_META: Record<
 };
 
 // ---- Charts resolver (accept named or default export) ----
-const CareerRadarChart: any =
-  (_CareerRadarChart as any).CareerRadarChart ??
-  (_CareerRadarChart as any).default;
+const CareerRadarChart: any = (ChartNamed as any) ?? (ChartDefault as any) ?? ((props: any) => null);
 
 function jpLabel(key: string) {
   const map: Record<string, string> = {
