@@ -1,6 +1,6 @@
 import { Link } from "expo-router";
 import { View, Text, Pressable } from "react-native";
-import AppHeader from "../components/AppHeader";
+import AppHeader from "src/components/AppHeader";
 
 type Item = { label: string; href: string };
 

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, Suspense } from "react";
-import FloatingActionButton from "../../../components/FloatingActionButton";
-import { BannerCarousel } from "../../../components/BannerCarousel";
+import FloatingActionButton from "src/components/FloatingActionButton";
+import { BannerCarousel } from "src/components/BannerCarousel";
 // Props expected by the radar chart
 // Chart component expects a simple label->value map
 
@@ -108,7 +108,7 @@ const calculateCareerScoreFromResume = (text: string) => {
 };
 
 const CareerRadarChartLazy = React.lazy(() =>
-  import("../../../components/ipo/charts/CareerRadarChart").then((m: any) => ({
+  import("src/components/ipo/charts/CareerRadarChart").then((m: any) => ({
     default: (m.default ?? m.CareerRadarChart) as React.ComponentType<RadarChartProps>,
   }))
 );

@@ -2,7 +2,7 @@ import { useRouter, usePathname } from "expo-router";
 import { Menu, Mail, ChevronDown, ChevronRight, Home, User, ClipboardList, BookOpen, Briefcase, Send, LogOut, Pen, BarChart3, Search, Brain } from "lucide-react-native";
 import { useEffect, useState, useRef } from "react";
 import { Image, Pressable, Text, View, Animated, Easing, Modal, TouchableOpacity, ScrollView } from "react-native";
-import { supabase } from "../src/lib/supabase";
+import { supabase } from "src/lib/supabase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NotificationBell } from "./notifications/NotificationBell";
 import { LinearGradient } from "expo-linear-gradient";
@@ -222,7 +222,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
         <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
           <Pressable onPress={handleHomeLogoPress}>
             <Animated.Image
-              source={require("../assets/images/logo2.png")}
+              source={require("../../assets/images/logo2.png")}
               style={{
                 width: 32,
                 height: 32,
@@ -234,7 +234,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
           </Pressable>
           <Pressable onPress={handleIpoLogoPress}>
             <Animated.Image
-              source={require("../assets/images/IPO_logo.png")}
+              source={require("../../assets/images/IPO_logo.png")}
               style={{
                 width: 32,
                 height: 32,

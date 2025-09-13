@@ -1,9 +1,9 @@
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
-import { useColorScheme } from 'hooks/useColorScheme';
-import { Colors } from 'constants/Colors';
-import { HapticTab } from 'components/HapticTab';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/Colors';
+import { HapticTab } from 'src/components/HapticTab';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 

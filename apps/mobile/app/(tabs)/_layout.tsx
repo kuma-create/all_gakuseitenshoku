@@ -4,7 +4,7 @@ import { Link, Slot, usePathname, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AppHeader from "../../components/AppHeader";
+import AppHeader from "src/components/AppHeader";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 

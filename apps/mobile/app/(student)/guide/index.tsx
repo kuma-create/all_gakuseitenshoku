@@ -2,8 +2,8 @@ import { Stack, useRouter } from "expo-router";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { useState } from "react";
 import { useGuideSteps } from "@/features/guide/useGuideSteps";
-import { ProgressBar } from "components/guide/ProgressBar";
-import { GuideBanner } from "components/guide/GuideBanner";
+import { ProgressBar } from "src/components/guide/ProgressBar";
+import { GuideBanner } from "src/components/guide/GuideBanner";
 
 // ガイド内アクション定義（タイトルに応じて表示）
 type StepAction = { label: string; to: string };
