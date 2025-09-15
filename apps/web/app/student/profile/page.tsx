@@ -252,6 +252,53 @@ export default function StudentProfilePage() {
   // hydrate once guard for legacy -> gender
   const hydratedGender = useRef(false);
 
+  /**
+   * Guarded save: 確実にセッションが確立され、student_profiles 行が存在してから save() を実行。
+   * 初回だけ 401/403 を踏むケースに備えてリトライも行う。
+   */
+  const ensureProfileRow = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) return { ok: false as const, reason: "no-session" };
+
+      // row がまだ取れていない(初回)場合は upsert で確保
+      if (!profile?.id) {
+        const { data, error } = await supabase
+          .from("student_profiles")
+          .upsert({ user_id: uid }, { onConflict: "user_id" })
+          .select("id,user_id")
+          .maybeSingle();
+        if (error) return { ok: false as const, reason: "upsert-error", error };
+        if (data && !profile.id) {
+          // ローカルにも反映
+          updateLocal({ id: data.id, user_id: data.user_id } as Partial<StudentProfileRow>);
+        }
+      }
+      return { ok: true as const };
+    } catch (e) {
+      return { ok: false as const, reason: "unknown", error: e };
+    }
+  };
+
+  const guardedSave = async () => {
+    const prep = await ensureProfileRow();
+    if (!prep.ok) return; // セッション未確立などは黙って無視（次回で保存）
+
+    try {
+      await save();
+    } catch (e: any) {
+      // 初回のセッション遅延や RLS による 401/403 対策でワンショット再試行
+      const msg = String(e?.message ?? "");
+      if (/\b(401|403)\b/.test(msg)) {
+        await new Promise((r) => setTimeout(r, 600));
+        await save();
+        return;
+      }
+      throw e;
+    }
+  };
+
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
@@ -264,7 +311,7 @@ export default function StudentProfilePage() {
     saveTimer.current = setTimeout(async () => {
       dirtyRef.current = false;
       try {
-        await save();
+        await guardedSave();
       } catch (e: any) {
         toast({
           title: "保存に失敗しました",
@@ -290,7 +337,7 @@ export default function StudentProfilePage() {
     if (!dirtyRef.current) return
     dirtyRef.current = false
     try {
-      await save()
+      await guardedSave()
     } catch (e: any) {
       toast({
         title: "保存に失敗しました",
@@ -304,7 +351,7 @@ export default function StudentProfilePage() {
     const fn = () => {
       if (dirtyRef.current) {
         // fire and forget; cannot await in beforeunload
-        save()
+        guardedSave()
       }
     }
     window.addEventListener("beforeunload", fn)
