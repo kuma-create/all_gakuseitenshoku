@@ -1482,7 +1482,7 @@ job_tags!job_tags_job_id_fkey (
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => navigateFn('/settings/profile')}
+                  onClick={() => navigateFn('/student/profile')}
                   className="flex-1 border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
                 >
                   プロフィールを編集

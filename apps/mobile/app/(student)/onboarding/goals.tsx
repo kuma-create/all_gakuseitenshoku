@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import type { Href } from 'expo-router';
 import { useState, useMemo } from 'react';
 import { View, Text, FlatList, Pressable, SafeAreaView, Platform, Image } from 'react-native';
-import { GOALS, GoalKey } from './constants/goals';
+import { GOALS, GoalKey } from 'src/constants/goals';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from 'src/lib/supabase';
 

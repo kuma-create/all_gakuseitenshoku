@@ -1,15 +1,15 @@
 // Use require() so TS doesn't need a *.png module declaration
 // (React Native bundler resolves these at runtime)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const goals1 = require('../../../../assets/images/goals1.png');
+const goals1 = require('../../assets/images/goals1.png');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const goals2 = require('../../../../assets/images/goals2.png');
+const goals2 = require('../../assets/images/goals2.png');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const goals3 = require('../../../../assets/images/goals3.png');
+const goals3 = require('../../assets/images/goals3.png');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const goals4 = require('../../../../assets/images/goals4.png');
+const goals4 = require('../../assets/images/goals4.png');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const goals5 = require('../../../../assets/images/goals5.png');
+const goals5 = require('../../assets/images/goals5.png');
 // app/onboarding/constants/goals.ts
 export type GoalKey =
   | 'self_analysis'
