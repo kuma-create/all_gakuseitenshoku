@@ -62,7 +62,7 @@ type Route =
   | '/student/scouts'
   | '/chat'
   | '/jobs'
-  | '/media'
+  | '/madia'
   | '/features'
   | '/student/applications';
 
@@ -165,7 +165,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     },
     { 
       label: '学転メディア', 
-      route: '/media' as Route, 
+      route: '/madia' as Route, 
       icon: FileText,
       description: '学転メディア'
     },
@@ -195,7 +195,7 @@ export function Layout({ children, currentRoute, navigate, user }: LayoutProps) 
     '/ipo/settings': { title: '設定' },
     '/ipo/ES': { title: 'ES管理', subtitle: 'エントリーシートを管理' },
     '/jobs': { title: '求人検索', subtitle: "求人の検索" },
-    '/media': { title: '学転メディア', subtitle: 'ニュース・コラム' },
+    '/madia': { title: '学転メディア', subtitle: 'ニュース・コラム' },
     '/features': { title: '特集', subtitle: '編集部おすすめ' },
     '/ipo/login': undefined,
     '/student/scouts': { title: 'ヘッドハンティング', subtitle: 'スカウト情報の確認' },

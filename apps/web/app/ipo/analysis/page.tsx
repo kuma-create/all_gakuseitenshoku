@@ -168,13 +168,13 @@ const contents = [
     icon: Briefcase,
     color: "from-indigo-500 to-indigo-600",
   },
-  // {
-  //   title: "適職診断",
-  //   description: "性格や価値観、希望条件からあなたの適職を診断しよう",
-  //   href: "/ipo/analysis/job-fit",
-  //   icon: Brain,
-  //   color: "from-violet-500 to-indigo-600",
-  // },
+  {
+    title: "適職診断",
+    description: "性格や価値観、希望条件からあなたの適職を診断しよう",
+    href: "/ipo/analysis/job-fit",
+    icon: Brain,
+    color: "from-violet-500 to-indigo-600",
+  },
 ] as const;
 
 // --- ページ本体 ---
